@@ -100,7 +100,8 @@ pub(crate) fn eval_module(path: &Path) {
 
 	unsafe {
 		if ModuleInstantiate(rt.cx(), module.handle().into()) {
-			if !ModuleEvaluate(rt.cx(), module.handle().into()) {
+			rooted!(in(rt.cx()) let mut rval = UndefinedValue());
+			if !ModuleEvaluate(rt.cx(), module.handle().into(), rval.handle_mut().into()) {
 				report_and_clear_exception(rt.cx());
 			}
 		} else {
