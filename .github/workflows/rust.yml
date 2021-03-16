@@ -1,4 +1,4 @@
-name: Build
+name: Rust
 
 on: [push, pull_request]
 
@@ -7,86 +7,53 @@ env:
   SHELL: /bin/bash
 
 jobs:
-  Build-POSIX:
+  Build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         rust: [stable]
-
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install dependencies on Linux
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          sudo apt -y install autoconf2.13 gcc-7 g++-7 llvm
-      - name: Install dependencies on OS X
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          brew install python autoconf@2.13 llvm yasm
-
-      - name: Install Minimal Rustup Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
+    - uses: actions/checkout@v2
+    - name: Install deps on osx
+      if: startsWith(matrix.os, 'macOS')
+      run: |
+        brew install python autoconf@2.13 ccache llvm yasm
+    - name: Install deps on linux
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt install autoconf2.13 gcc-7 g++-7 ccache llvm -y
+    - name: Install deps on windows
+      if: startsWith(matrix.os, 'windows')
+      run: |
+        Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
+        .\MozillaBuildSetup.exe /S | Out-Null
+        iwr -useb get.scoop.sh | iex
+        scoop install llvm --global
+        echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    - uses: actions-rs/toolchain@v1
+      with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
-          default: true
-
-      - name: Cache files
-        uses: actions/cache@v1.1.0
-        with:
-          path: |
-            .ccache
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: Build POSIX
-        run: |
-          cargo build --verbose
-
-
-  Build-Windows:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-        rust: [stable]
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install dependencies on Windows
-        run: |
-          Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
-          .\MozillaBuildSetup.exe /S | Out-Null
-          iwr -useb get.scoop.sh | iex
-          scoop install llvm --global
-          echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install Minimal Rustup Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-          default: true
-
-      - name: Build Windows
-        shell: cmd
-        env:
-          MOZTOOLS_PATH: 'C:\mozilla-build\msys\bin;C:\mozilla-build\bin'
-          AUTOCONF: "C:/mozilla-build/msys/local/bin/autoconf-2.13"
-          LINKER: "lld-link.exe"
-          CC: "clang-cl.exe"
-          CXX: "clang-cl.exe"
-          NATIVE_WIN32_PYTHON: "C:\\mozilla-build\\python\\python.exe"
-          PYTHON3: "C:\\mozilla-build\\python3\\python3.exe"
-          LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
-          CARGO_HOME: ${{ github.workspace }}\..\.cargo
-        run: |
-          cargo build --verbose
+          override: true,
+          default: true,
+    - name: Build POSIX
+      if: startsWith(matrix.os, 'windows') != true
+      run: |
+        cargo build --verbose
+    - name: Build Windows
+      if: startsWith(matrix.os, 'windows')
+      shell: cmd
+      env:
+        MOZTOOLS_PATH: 'C:\mozilla-build\msys\bin;C:\mozilla-build\bin'
+        AUTOCONF: "C:/mozilla-build/msys/local/bin/autoconf-2.13"
+        LINKER: "lld-link.exe"
+        CC: "clang-cl.exe"
+        CXX: "clang-cl.exe"
+        NATIVE_WIN32_PYTHON: "C:\\mozilla-build\\python\\python.exe"
+        PYTHON3: "C:\\mozilla-build\\python3\\python3.exe"
+        LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
+        CARGO_HOME: ${{ github.workspace }}\..\.cargo
+      run: |
+        cargo build --verbose --verbose
