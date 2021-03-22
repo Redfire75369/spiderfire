@@ -1,3 +1,12 @@
-import js from "./module.js";
+import fs from "fs";
 
-console.log(js.testing, js.mozjs(64));
+function x() {
+	function y() {
+		console.trace();
+		console.log(fs.readBinary("testing/module.js"));
+	}
+
+	y();
+}
+
+x();

@@ -28,6 +28,23 @@ pub(crate) fn compile_module(cx: *mut JSContext, filename: &String, script: &Str
 	}
 }
 
+pub(crate) fn register_module(cx: *mut JSContext, name: &String, object: *mut JSObject) -> bool {
+	let mut ret = false;
+	MODULE_REGISTRY.with(|registry| {
+		let mut registry = registry.borrow_mut();
+		rooted!(in(cx) let mut module = object);
+		match (*registry).entry(name.clone()) {
+			Entry::Vacant(v) => {
+				v.insert(module.handle().get());
+				ret = true;
+			},
+			Entry::Occupied(_) => (),
+		}
+	});
+
+	ret
+}
+
 pub(crate) unsafe extern "C" fn resolve_module(cx: *mut JSContext, _mod_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
 	let name = jsstr_to_string(cx, name.get());
 	let mut ret: *mut JSObject = ptr::null_mut();
@@ -51,14 +68,7 @@ pub(crate) unsafe extern "C" fn resolve_module(cx: *mut JSContext, _mod_private:
 		let script = fs::read_to_string(path);
 
 		if let Ok(script) = script {
-			module.handle_mut().set(compile_module(cx, &name, &script));
-			match (*registry).entry(name) {
-				Entry::Vacant(v) => {
-					v.insert(module.handle().get());
-					ret = module.handle().get();
-				}
-				Entry::Occupied(_) => (),
-			}
+			register_module(cx, &name, compile_module(cx, &name, &script));
 		}
 	});
 

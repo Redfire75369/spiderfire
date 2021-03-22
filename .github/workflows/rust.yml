@@ -12,19 +12,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         rust: [stable]
+
+
     steps:
     - uses: actions/checkout@v2
-    - name: Install deps on osx
+
+
+    - name: Install dependencies on OS X
       if: startsWith(matrix.os, 'macOS')
       run: |
         brew install python autoconf@2.13 ccache llvm yasm
-    - name: Install deps on linux
+    - name: Install dependencies on Linux
       if: startsWith(matrix.os, 'ubuntu')
       run: |
         sudo apt install autoconf2.13 gcc-7 g++-7 ccache llvm -y
-    - name: Install deps on windows
+    - name: Install dependencies on windows
       if: startsWith(matrix.os, 'windows')
       run: |
         Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
@@ -32,12 +36,16 @@ jobs:
         iwr -useb get.scoop.sh | iex
         scoop install llvm --global
         echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+
     - uses: actions-rs/toolchain@v1
       with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true,
           default: true,
+
+
     - name: Build POSIX
       if: startsWith(matrix.os, 'windows') != true
       run: |
@@ -56,4 +64,4 @@ jobs:
         LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
         CARGO_HOME: ${{ github.workspace }}\..\.cargo
       run: |
-        cargo build --verbose --verbose
+        cargo build --verbose

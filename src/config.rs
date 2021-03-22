@@ -8,7 +8,7 @@ use std::{io, result::Result};
 
 use once_cell::sync::OnceCell;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct Config {
 	pub(crate) debug: bool,
 	pub(crate) script: bool,

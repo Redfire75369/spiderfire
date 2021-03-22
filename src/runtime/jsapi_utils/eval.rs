@@ -28,7 +28,7 @@ pub(crate) fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &String) 
 	let res = rt.evaluate_script(rooted_global.handle(), source, filename, line_number, rval.handle_mut());
 
 	if res.is_ok() {
-		println_value(rt.cx(), rval, false);
+		println_value(rt.cx(), rval.get(), 0, false);
 	} else {
 		println!("Script Execution Failed :(");
 		report_and_clear_exception(rt.cx());
@@ -47,7 +47,7 @@ pub(crate) fn eval_script(path: &Path) {
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 
 	let _ac = JSAutoRealm::new(rt.cx(), global);
-	init::initialise(rt.cx(), global);
+	init::init(rt.cx(), global);
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
@@ -83,11 +83,12 @@ pub(crate) fn eval_module(path: &Path) {
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 
 	let _ac = JSAutoRealm::new(rt.cx(), global);
-	init::initialise(rt.cx(), global);
 
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(rt.cx()), Some(modules::resolve_module));
 	}
+	init::init(rt.cx(), global);
+	init::init_modules(rt.cx(), global);
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());

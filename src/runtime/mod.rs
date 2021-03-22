@@ -7,4 +7,4 @@
 mod globals;
 pub(crate) mod init;
 pub(crate) mod jsapi_utils;
-mod modules;
+pub(crate) mod modules;

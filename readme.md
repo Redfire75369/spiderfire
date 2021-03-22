@@ -6,33 +6,8 @@ Spiderfire is a javascript runtime built with Mozilla's SpiderMonkey engine and 
 
 Spiderfire aims to disrupt the server-side javascript runtime environment.
 
+## Licensing
+This project is licensed under the Mozilla Public License 2.0. The full text of the license can be found [here](license.md).
 
-### Build Instructions
-1. Follow Instructions [here](https://github.com/servo/mozjs/blob/master/README.md)
-2. Run `cargo build`
-
-#### Debian-based Linux
-1. Install Build Prerequisites:
-```shell
-sudo apt-get install clang-6.0 autoconf2.13
-```
-2. Build with Cargo
-```shell
-cargo build
-```
-
-#### Windows
-1. Follow the directions at [Windows Prerequisites](https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Windows_Prerequisites)
-2. Start Visual Studio Developer Command Prompt
-```batch
-"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-```
-3. Download and install Clang for Windows (64 bit) from [LLVM Releases](https://releases.llvm.org/download.html)
-4. Set Environment Variables
-```batch
-build.bat
-```
-5. Build with Cargo
-```batch
-cargo build
-```
+## Build
+For instructions on building Spiderfire, refer [here](contribution/build.md).

@@ -25,7 +25,7 @@ pub(crate) fn start_repl() {
 
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
-	init::initialise(rt.cx(), global);
+	init::init(rt.cx(), global);
 
 	loop {
 		print!("> ");
@@ -56,6 +56,8 @@ pub(crate) fn start_repl() {
 			}
 		}
 
-		eval_inline(&rt, global, &input);
+		if input.len() != 1 {
+			eval_inline(&rt, global, &input);
+		}
 	}
 }

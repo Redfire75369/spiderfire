@@ -14,7 +14,9 @@ use crate::config::{Config, CONFIG};
 
 mod cli;
 mod config;
+mod modules;
 pub(crate) mod runtime;
+pub(crate) mod utils;
 
 fn main() {
 	let matches = App::new("Spiderfire")

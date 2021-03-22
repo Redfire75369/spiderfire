@@ -6,13 +6,13 @@
 
 use ::std::io::Write;
 
-use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::*;
-use mozjs::rust::RootedGuard;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-pub(crate) fn print_value(cx: *mut JSContext, rval: RootedGuard<'_, Value>, is_error: bool) {
-	let val = rval.get();
+use crate::runtime::jsapi_utils::string::to_string;
+use crate::utils::indents::indent;
+
+pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
 	let mut out;
 	if !is_error {
 		out = StandardStream::stdout(ColorChoice::Auto);
@@ -22,34 +22,23 @@ pub(crate) fn print_value(cx: *mut JSContext, rval: RootedGuard<'_, Value>, is_e
 
 	if val.is_number() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).unwrap();
-		write!(out, "{}", val.to_number()).unwrap();
 	} else if val.is_boolean() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Cyan))).unwrap();
-		write!(out, "{}", val.to_boolean()).unwrap();
 	} else if val.is_string() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
-		unsafe {
-			write!(out, "\"{}\"", jsstr_to_string(cx, val.to_string())).unwrap();
-		}
+	} else if val.is_object() {
+		out.set_color(ColorSpec::new().set_fg(Some(Color::White))).unwrap();
 	} else if val.is_null() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(118, 118, 118)))).unwrap();
-		write!(out, "null").unwrap();
-	} else if val.is_object() {
-		rooted!(in(cx) let rval = val);
-
-		out.set_color(ColorSpec::new().set_fg(Some(Color::White))).unwrap();
-		unsafe {
-			write!(out, "{}", jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))).unwrap();
-		}
 	} else {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(118, 118, 118)))).unwrap();
-		write!(out, "undefined").unwrap();
 	}
 
+	write!(out, "{}", indent(&to_string(cx, val), indents, false)).unwrap();
 	out.reset().unwrap();
 }
 
-pub(crate) fn println_value(cx: *mut JSContext, rval: RootedGuard<'_, Value>, is_error: bool) {
-	print_value(cx, rval, is_error);
+pub(crate) fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
+	print_value(cx, val, indents, is_error);
 	println!();
 }
