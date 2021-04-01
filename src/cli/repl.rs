@@ -5,6 +5,7 @@
  */
 
 use ::std::io::{stdin, stdout, Write};
+use ::std::process;
 use ::std::ptr;
 
 use mozjs::jsapi::*;
@@ -58,6 +59,8 @@ pub(crate) fn start_repl() {
 
 		if input.len() != 1 {
 			eval_inline(&rt, global, &input);
+		} else if input == "exit\n" {
+			process::exit(0);
 		}
 	}
 }

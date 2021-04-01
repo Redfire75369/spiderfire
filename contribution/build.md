@@ -4,6 +4,8 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 
 ## Contents
 - [Windows](#windows)
+	- [MSVC](#msvc)
+	- [GNU](#gnu)
 - [MacOS](#macos)
 - [Linux](#linux)
 	- [Debian/Ubuntu](#debian-ubuntu-and-derivatives)
@@ -17,6 +19,7 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 
 
 ## Windows
+### MSVC
 1. Follow the instructions at [Windows Prerequisites](https://firefox-source-docs.mozilla.org/setup/windows_build.html) (Steps 1.1 and 1.2)
 2. Start Visual Studio Developer Command Prompt
 ```batch
@@ -32,6 +35,8 @@ build.bat
 cargo build
 ```
 
+### GNU
+-- TODO --
 
 ## MacOS
 -- TODO --

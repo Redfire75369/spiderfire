@@ -37,7 +37,7 @@ pub(crate) fn register_module(cx: *mut JSContext, name: &String, object: *mut JS
 			Entry::Vacant(v) => {
 				v.insert(module.handle().get());
 				ret = true;
-			},
+			}
 			Entry::Occupied(_) => (),
 		}
 	});

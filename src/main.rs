@@ -32,7 +32,12 @@ fn main() {
 						.required(false),
 				)
 				.arg(Arg::with_name("debug").long("debug").help("Enables Debug Features").required(false))
-				.arg(Arg::with_name("script").long("script").help("Disables ES Modules Features").required(false)),
+				.arg(
+					Arg::with_name("script")
+						.long("script")
+						.help("Disables ES Modules Features")
+						.required(false),
+				),
 		)
 		.get_matches();
 

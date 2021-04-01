@@ -1,6 +1,6 @@
 const js = {
-	"testing": 144,
-	 mozjs(i) {
+	"testing": 288,
+	mozjs(i) {
 		return i == 64;
 	}
 };

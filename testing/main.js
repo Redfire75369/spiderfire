@@ -1,12 +1,6 @@
 import fs from "fs";
 
-function x() {
-	function y() {
-		console.trace();
-		console.log(fs.readBinary("testing/module.js"));
-	}
+console.log(fs);
 
-	y();
-}
-
-x();
+console.log(fs.readDir("."));
+console.log(fs.readString("testing/mod.js"));

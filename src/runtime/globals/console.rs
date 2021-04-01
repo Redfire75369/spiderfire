@@ -9,19 +9,24 @@ use ::std::collections::hash_map::{Entry, HashMap};
 use ::std::ptr;
 
 use chrono::{DateTime, offset::Utc};
-use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::*;
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 
 use crate::config::Config;
-use crate::runtime::jsapi_utils::{
-	print::print_value,
-	string,
-};
+use crate::runtime::jsapi_utils::{functions::arguments::Arguments, print::print_value, string::to_string};
 use crate::utils::indents::{indent, INDENT};
 
 const ANSI_CLEAR: &'static str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &'static str = "\x1b[0J";
+
+const DEFAULT_LABEL: &'static str = "default";
+
+thread_local! {
+	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
+	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
+
+	static INDENTS: RefCell<usize> = RefCell::new(0);
+}
 
 fn get_indents() -> usize {
 	let mut ret: usize = 0;
@@ -42,95 +47,94 @@ fn print_indent(is_error: bool) {
 	});
 }
 
-fn print_args(cx: *mut JSContext, args: &CallArgs, start: u32, is_error: bool) {
-	for i in start..args.argc_ {
-		print_value(cx, args.get(i).get(), get_indents(), is_error);
-		print!(" ");
+fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
+	for val in args.iter() {
+		print_value(cx, val.clone(), get_indents(), is_error);
+		if !is_error {
+			print!(" ");
+		} else {
+			eprint!(" ");
+		}
 	}
 }
 
-thread_local! {
-	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
-	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
-
-	static INDENTS: RefCell<usize> = RefCell::new(0);
-}
-
-unsafe extern "C" fn log(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn log(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	print_indent(false);
-	print_args(cx, &args, 0, false);
+	print_args(cx, args.range_full(), false);
 	println!();
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn debug(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
-
+unsafe extern "C" fn debug(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
 	args.rval().set(UndefinedValue());
+
 	if Config::global().debug {
-		log(cx, args.argc_, val)
+		log(cx, argc, vp)
 	} else {
 		true
 	}
 }
 
-unsafe extern "C" fn error(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn error(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	print_indent(true);
-	print_args(cx, &args, 0, true);
+	print_args(cx, args.range_full(), true);
 	println!();
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn assert(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn assert(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
 
-	if args.argc_ > 0 {
-		let rooted_condition = args.get(0);
-
-		print_indent(true);
-
-		if rooted_condition.get().is_boolean() {
-			if rooted_condition.get().to_boolean() {
+	args.rval().set(UndefinedValue());
+	if args.len() > 0 {
+		if args.value(0).unwrap().is_boolean() {
+			if args.value(0).unwrap().to_boolean() {
 				return true;
 			}
 		} else {
+			print_indent(true);
 			eprintln!("Assertion Failed");
 			return true;
 		}
 
-		if args.argc_ == 1 {
+		if args.len() == 1 {
+			print_indent(true);
 			eprintln!("Assertion Failed");
 			return true;
 		}
 
-		if args.get(1).get().is_string() {
-			eprint!("Assertion Failed: {} ", jsstr_to_string(cx, args.get(1).get().to_string()));
-			print_args(cx, &args, 2, true);
+		if args.value(1).unwrap().is_string() {
+			print_indent(true);
+			eprint!("Assertion Failed: {} ", to_string(cx, args.value(1).unwrap()));
+			print_args(cx, args.range(2..), true);
 			eprintln!();
 			return true;
 		}
 
+		print_indent(true);
 		eprint!("Assertion Failed: ");
-		print_args(cx, &args, 1, true);
+		print_args(cx, args.range(1..), true);
 		println!();
 	} else {
+		print_indent(true);
 		eprintln!("Assertion Failed: ");
 	}
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn clear(_: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn clear(_cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
@@ -139,61 +143,67 @@ unsafe extern "C" fn clear(_: *mut JSContext, argc: u32, val: *mut Value) -> boo
 	println!("{}", ANSI_CLEAR);
 	println!("{}", ANSI_CLEAR_SCREEN_DOWN);
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn trace(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn trace(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	print_indent(false);
 	print!("Trace: ");
-	print_args(cx, &args, 0, false);
+	print_args(cx, args.range_full(), false);
 	println!();
 
 	capture_stack!(in(cx) let stack);
-	let str_stack = indent(&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(), get_indents() + 1, true);
-	println!("{}", str_stack);
+	println!(
+		"{}",
+		indent(
+			&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(),
+			get_indents() + 1,
+			true
+		)
+	);
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn group(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn group(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		print!("{}", "  ".repeat(*indents));
-		print_args(cx, &args, 0, false);
+		print_args(cx, args.range_full(), false);
 		println!();
 
 		*indents = (*indents).min(usize::MAX - 1) + 1;
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn group_end(_cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn group_end(_cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn count(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn count(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
-	let label = if args.argc_ > 0 {
-		string::to_string(cx, args.get(0).get())
+	let label = if args.len() > 0 {
+		to_string(cx, args.values[0].get())
 	} else {
-		String::from("default")
+		String::from(DEFAULT_LABEL)
 	};
 
 	print_indent(false);
@@ -209,18 +219,17 @@ unsafe extern "C" fn count(cx: *mut JSContext, argc: u32, val: *mut Value) -> bo
 		}
 	});
 
-
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn count_reset(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn count_reset(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
-	let label = if args.argc_ > 0 {
-		string::to_string(cx, args.get(0).get())
+	let label = if args.len() > 0 {
+		to_string(cx, args.values[0].get())
 	} else {
-		String::from("default")
+		String::from(DEFAULT_LABEL)
 	};
 
 	COUNT_MAP.with(|map| {
@@ -236,17 +245,17 @@ unsafe extern "C" fn count_reset(cx: *mut JSContext, argc: u32, val: *mut Value)
 		}
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn time(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn time(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
-	let label = if args.argc_ > 0 {
-		string::to_string(cx, args.get(0).get())
+	let label = if args.len() > 0 {
+		to_string(cx, args.values[0].get())
 	} else {
-		String::from("default")
+		String::from(DEFAULT_LABEL)
 	};
 
 	TIMER_MAP.with(|map| {
@@ -262,17 +271,17 @@ unsafe extern "C" fn time(cx: *mut JSContext, argc: u32, val: *mut Value) -> boo
 		}
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn time_log(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn time_log(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
-	let label = if args.argc_ > 0 {
-		string::to_string(cx, args.get(0).get())
+	let label = if args.len() > 0 {
+		to_string(cx, args.values[0].get())
 	} else {
-		String::from("default")
+		String::from(DEFAULT_LABEL)
 	};
 
 	TIMER_MAP.with(|map| {
@@ -287,23 +296,23 @@ unsafe extern "C" fn time_log(cx: *mut JSContext, argc: u32, val: *mut Value) ->
 				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 				print_indent(false);
 				print!("{}: {}ms", label, duration);
-				print_args(cx, &args, 1, false);
+				print_args(cx, args.range(1..), false);
 				println!();
 			}
 		}
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, val: *mut Value) -> bool {
-	let args = CallArgs::from_vp(val, argc);
+unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+	let args = Arguments::new(argc, vp);
+	args.rval().set(UndefinedValue());
 
-	let label = if args.argc_ > 0 {
-		string::to_string(cx, args.get(0).get())
+	let label = if args.len() > 0 {
+		to_string(cx, args.values[0].get())
 	} else {
-		String::from("default")
+		String::from(DEFAULT_LABEL)
 	};
 
 	TIMER_MAP.with(|map| {
@@ -318,17 +327,16 @@ unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, val: *mut Value) ->
 				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 				print_indent(false);
 				print!("{}: {}ms", label, duration);
-				print_args(cx, &args, 1, false);
+				print_args(cx, args.range(1..), false);
 				println!();
 			}
 		}
 	});
 
-	args.rval().set(UndefinedValue());
 	true
 }
 
-// TODO: console.trace
+// TODO: console.table
 const METHODS: &'static [JSFunctionSpecWithHelp] = &[
 	JSFunctionSpecWithHelp {
 		name: "log\0".as_ptr() as *const i8,
@@ -509,12 +517,6 @@ pub(crate) fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
 		rooted!(in(cx) let obj_val = ObjectValue(obj.get()));
 		rooted!(in(cx) let rglobal = global);
 		return JS_DefineFunctionsWithHelp(cx, obj.handle().into(), METHODS.as_ptr())
-			&& JS_DefineProperty(
-			cx,
-			rglobal.handle().into(),
-			"console\0".as_ptr() as *const i8,
-			obj_val.handle().into(),
-			0,
-		);
+			&& JS_DefineProperty(cx, rglobal.handle().into(), "console\0".as_ptr() as *const i8, obj_val.handle().into(), 0);
 	}
 }

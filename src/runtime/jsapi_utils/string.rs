@@ -15,13 +15,9 @@ pub(crate) fn to_string(cx: *mut JSContext, val: Value) -> String {
 	} else if val.is_boolean() {
 		val.to_boolean().to_string()
 	} else if val.is_string() {
-		unsafe {
-			jsstr_to_string(cx, val.to_string())
-		}
+		unsafe { jsstr_to_string(cx, val.to_string()) }
 	} else if val.is_object() {
-		unsafe {
-			jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))
-		}
+		unsafe { jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into())) }
 	} else if val.is_null() {
 		String::from("null")
 	} else {

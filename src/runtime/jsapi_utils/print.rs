@@ -9,7 +9,7 @@ use ::std::io::Write;
 use mozjs::jsapi::*;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::runtime::jsapi_utils::string::to_string;
+use crate::runtime::jsapi_utils::{array::is_array, string::to_string};
 use crate::utils::indents::indent;
 
 pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
@@ -26,8 +26,10 @@ pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_err
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Cyan))).unwrap();
 	} else if val.is_string() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
+	} else if is_array(cx, val) {
+		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 127, 63)))).unwrap();
 	} else if val.is_object() {
-		out.set_color(ColorSpec::new().set_fg(Some(Color::White))).unwrap();
+		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(240, 240, 240)))).unwrap();
 	} else if val.is_null() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(118, 118, 118)))).unwrap();
 	} else {
