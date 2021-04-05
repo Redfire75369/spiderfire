@@ -417,7 +417,7 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 	},
 ];
 
-pub(crate) fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
 	unsafe {
 		rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
 		rooted!(in(cx) let undefined = UndefinedValue());

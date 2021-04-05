@@ -511,7 +511,7 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 	},
 ];
 
-pub(crate) fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
 	unsafe {
 		rooted!(in(cx) let obj = JS_NewPlainObject(cx));
 		rooted!(in(cx) let obj_val = ObjectValue(obj.get()));

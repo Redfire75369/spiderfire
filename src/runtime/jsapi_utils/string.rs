@@ -7,7 +7,7 @@
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::*;
 
-pub(crate) fn to_string(cx: *mut JSContext, val: Value) -> String {
+pub fn to_string(cx: *mut JSContext, val: Value) -> String {
 	rooted!(in(cx) let rval = val);
 
 	if val.is_number() {

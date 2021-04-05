@@ -18,7 +18,7 @@ thread_local! {
 	static MODULE_REGISTRY: RefCell<HashMap<String, *mut JSObject>> = RefCell::new(HashMap::new());
 }
 
-pub(crate) fn compile_module(cx: *mut JSContext, filename: &str, script: &str) -> *mut JSObject {
+pub fn compile_module(cx: *mut JSContext, filename: &str, script: &str) -> *mut JSObject {
 	let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
 	let script_text: Vec<u16> = script.encode_utf16().collect();
 	let mut source = transform_u16_to_source_text(script_text.as_slice());
@@ -26,7 +26,7 @@ pub(crate) fn compile_module(cx: *mut JSContext, filename: &str, script: &str) -
 	unsafe { CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) }
 }
 
-pub(crate) fn register_module(cx: *mut JSContext, name: &str, object: *mut JSObject) -> bool {
+pub fn register_module(cx: *mut JSContext, name: &str, object: *mut JSObject) -> bool {
 	let mut ret = false;
 	MODULE_REGISTRY.with(|registry| {
 		let mut registry = registry.borrow_mut();
@@ -43,7 +43,7 @@ pub(crate) fn register_module(cx: *mut JSContext, name: &str, object: *mut JSObj
 	ret
 }
 
-pub(crate) unsafe extern "C" fn resolve_module(cx: *mut JSContext, _mod_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
+pub unsafe extern "C" fn resolve_module(cx: *mut JSContext, _mod_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
 	let name = jsstr_to_string(cx, name.get());
 	let mut ret: *mut JSObject = ptr::null_mut();
 

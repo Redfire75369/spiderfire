@@ -4,19 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[macro_use]
-extern crate mozjs;
 
 use clap::{App, Arg, SubCommand};
-
-use crate::cli::{repl, run};
-use crate::config::{Config, CONFIG};
-
-mod cli;
-mod config;
-mod modules;
-pub(crate) mod runtime;
-pub(crate) mod utils;
+use spiderfire::Config;
+use spiderfire::CONFIG;
+use spiderfire::repl;
+use spiderfire::run;
 
 fn main() {
 	let matches = App::new("Spiderfire")

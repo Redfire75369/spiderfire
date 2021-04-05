@@ -18,7 +18,7 @@ use crate::runtime::{
 	modules,
 };
 
-pub(crate) fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
+pub fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
 	let filename: &'static str = "inline.js";
 	let line_number: u32 = 1;
 
@@ -35,7 +35,7 @@ pub(crate) fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
 	}
 }
 
-pub(crate) fn eval_script(path: &Path) {
+pub fn eval_script(path: &Path) {
 	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
 	let rt = Runtime::new(engine.handle());
 
@@ -71,7 +71,7 @@ pub(crate) fn eval_script(path: &Path) {
 	}
 }
 
-pub(crate) fn eval_module(path: &Path) {
+pub fn eval_module(path: &Path) {
 	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
 	let rt = Runtime::new(engine.handle());
 

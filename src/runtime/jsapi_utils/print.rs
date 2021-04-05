@@ -13,7 +13,7 @@ use crate::runtime::jsapi_utils::{array::is_array, string::to_string};
 use crate::utils::indents::indent;
 
 #[allow(clippy::if_same_then_else)]
-pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
+pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
 	let mut out;
 	if !is_error {
 		out = StandardStream::stdout(ColorChoice::Auto);
@@ -41,7 +41,7 @@ pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_err
 	out.reset().unwrap();
 }
 
-pub(crate) fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
+pub fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
 	print_value(cx, val, indents, is_error);
 	println!();
 }

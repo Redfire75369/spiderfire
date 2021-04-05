@@ -1,7 +1,7 @@
-pub(crate) const INDENT: &str = "  ";
+pub const INDENT: &str = "  ";
 const NEWLINE: &str = "\n";
 
-pub(crate) fn indent(string: &str, indents: usize, initial: bool) -> String {
+pub fn indent(string: &str, indents: usize, initial: bool) -> String {
 	if string.contains(NEWLINE) {
 		let indent = INDENT.repeat(indents);
 		if initial {

@@ -9,7 +9,7 @@ use std::path::Path;
 use crate::config::Config;
 use crate::runtime::jsapi_utils::eval::{eval_module, eval_script};
 
-pub(crate) fn run(path: &str) {
+pub fn run(path: &str) {
 	if Config::global().script {
 		eval_script(Path::new(path));
 	} else {
