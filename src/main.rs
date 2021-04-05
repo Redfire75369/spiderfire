@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-
 use clap::{App, Arg, SubCommand};
 use spiderfire::Config;
 use spiderfire::CONFIG;
