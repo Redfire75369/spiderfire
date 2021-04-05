@@ -3,7 +3,7 @@
 target/**
 
 ## Cargo ##
-Cargo.lock
+# Cargo.lock
 
 ### Editors/IDEs ###
 ## VS Code ##
