@@ -14,10 +14,11 @@ pub(crate) struct Config {
 	pub(crate) script: bool,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 impl Config {
 	pub(crate) fn initialise(debug: bool, script: bool) -> Result<Config, io::Error> {
 		let config = Config { debug, script };
-		return Ok(config);
+		Ok(config)
 	}
 
 	pub(crate) fn global() -> &'static Config {

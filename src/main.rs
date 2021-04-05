@@ -41,7 +41,7 @@ fn main() {
 		)
 		.get_matches();
 
-	if let Some(_) = matches.subcommand_matches("repl") {
+	if matches.subcommand_matches("repl").is_some() {
 		let config = Config::initialise(true, true).unwrap();
 		CONFIG.set(config).unwrap();
 		repl::start_repl();

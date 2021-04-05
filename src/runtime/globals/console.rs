@@ -16,10 +16,10 @@ use crate::config::Config;
 use crate::runtime::jsapi_utils::{functions::arguments::Arguments, print::print_value, string::to_string};
 use crate::utils::indents::{indent, INDENT};
 
-const ANSI_CLEAR: &'static str = "\x1b[1;1H";
-const ANSI_CLEAR_SCREEN_DOWN: &'static str = "\x1b[0J";
+const ANSI_CLEAR: &str = "\x1b[1;1H";
+const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";
 
-const DEFAULT_LABEL: &'static str = "default";
+const DEFAULT_LABEL: &str = "default";
 
 thread_local! {
 	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
@@ -34,7 +34,7 @@ fn get_indents() -> usize {
 		ret = *indents.borrow();
 	});
 
-	return ret;
+	ret
 }
 
 fn print_indent(is_error: bool) {
@@ -49,7 +49,7 @@ fn print_indent(is_error: bool) {
 
 fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
 	for val in args.iter() {
-		print_value(cx, val.clone(), get_indents(), is_error);
+		print_value(cx, *val, get_indents(), is_error);
 		if !is_error {
 			print!(" ");
 		} else {
@@ -337,7 +337,7 @@ unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, vp: *mut Value) -> 
 }
 
 // TODO: console.table
-const METHODS: &'static [JSFunctionSpecWithHelp] = &[
+const METHODS: &[JSFunctionSpecWithHelp] = &[
 	JSFunctionSpecWithHelp {
 		name: "log\0".as_ptr() as *const i8,
 		call: Some(log),

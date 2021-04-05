@@ -10,9 +10,9 @@ use crate::runtime::globals::console;
 use crate::modules::fs;
 
 pub(crate) fn init(cx: *mut JSContext, global: *mut JSObject) -> bool {
-	return console::define(cx, global);
+	console::define(cx, global)
 }
 
 pub(crate) fn init_modules(cx: *mut JSContext, global: *mut JSObject) -> bool {
-	return fs::init_fs(cx, global);
+	fs::init_fs(cx, global)
 }

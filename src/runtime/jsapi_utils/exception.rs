@@ -16,6 +16,7 @@ pub(crate) struct ErrorInfo {
 	filename: String,
 	lineno: c_uint,
 	column: c_uint,
+	#[allow(dead_code)]
 	stack: Option<String>,
 }
 
@@ -82,5 +83,5 @@ unsafe fn error_info_from_exception(report: *mut JSErrorReport) -> Option<ErrorI
 		stack: None,
 	};
 
-	return Some(error);
+	Some(error)
 }

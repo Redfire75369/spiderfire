@@ -12,6 +12,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::runtime::jsapi_utils::{array::is_array, string::to_string};
 use crate::utils::indents::indent;
 
+#[allow(clippy::if_same_then_else)]
 pub(crate) fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
 	let mut out;
 	if !is_error {

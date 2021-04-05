@@ -175,9 +175,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.91"
+version = "0.2.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8916b1f6ca17130ec6568feccee27c156ad12037880833a3b842a823236502e7"
+checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
 
 [[package]]
 name = "libloading"
@@ -219,7 +219,7 @@ checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 [[package]]
 name = "mozjs"
 version = "0.14.1"
-source = "git+https://github.com/servo/rust-mozjs#fe104a26147a42f6267286cd856361a126ab733b"
+source = "git+https://github.com/servo/rust-mozjs#ef63e568c6aaa1c0f0d1c11f49a99acff1306709"
 dependencies = [
  "cc",
  "lazy_static",
@@ -232,7 +232,7 @@ dependencies = [
 [[package]]
 name = "mozjs_sys"
 version = "0.68.2"
-source = "git+https://github.com/servo/mozjs?rev=82da136c53d7ca7b0b7fe1c5622627036ef31899#82da136c53d7ca7b0b7fe1c5622627036ef31899"
+source = "git+https://github.com/servo/mozjs?rev=95387f7235ae9ba950a8dbebb850f41709ff5b1d#95387f7235ae9ba950a8dbebb850f41709ff5b1d"
 dependencies = [
  "bindgen",
  "cc",
@@ -292,9 +292,9 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.24"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
+checksum = "a152013215dca273577e18d2bf00fa862b89b24169fb78c4c95aeb07992c9cec"
 dependencies = [
  "unicode-xid",
 ]

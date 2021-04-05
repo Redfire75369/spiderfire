@@ -1,8 +1,8 @@
-pub(crate) const INDENT: &'static str = "  ";
-const NEWLINE: &'static str = "\n";
+pub(crate) const INDENT: &str = "  ";
+const NEWLINE: &str = "\n";
 
-pub(crate) fn indent(string: &String, indents: usize, initial: bool) -> String {
-	if let Some(_) = string.find(NEWLINE) {
+pub(crate) fn indent(string: &str, indents: usize, initial: bool) -> String {
+	if string.contains(NEWLINE) {
 		let indent = INDENT.repeat(indents);
 		if initial {
 			str::replace(&(indent.clone() + string), NEWLINE, &("\n".to_owned() + &indent))
@@ -10,6 +10,6 @@ pub(crate) fn indent(string: &String, indents: usize, initial: bool) -> String {
 			str::replace(&string, NEWLINE, &("\n".to_owned() + &indent))
 		}
 	} else {
-		string.clone()
+		string.to_string()
 	}
 }

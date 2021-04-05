@@ -18,7 +18,7 @@ use crate::runtime::{
 	modules,
 };
 
-pub(crate) fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &String) {
+pub(crate) fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
 	let filename: &'static str = "inline.js";
 	let line_number: u32 = 1;
 
@@ -52,7 +52,7 @@ pub(crate) fn eval_script(path: &Path) {
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
 	}
-	let script = fs::read_to_string(path).unwrap_or(String::from(""));
+	let script = fs::read_to_string(path).unwrap_or_else(|_| String::from(""));
 	let line_number = 1;
 
 	rooted!(in(rt.cx()) let rooted_global = global);
@@ -93,7 +93,7 @@ pub(crate) fn eval_module(path: &Path) {
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
 	}
-	let script = fs::read_to_string(path).unwrap_or(String::from(""));
+	let script = fs::read_to_string(path).unwrap_or_else(|_| String::from(""));
 
 	rooted!(in(rt.cx()) let rooted_global = global);
 

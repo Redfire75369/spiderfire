@@ -12,13 +12,14 @@ impl Arguments {
 
 		let values: Vec<_> = (0..argc).map(|i| call_args.get(i)).collect();
 
-		return Arguments { values, call_args };
+		Arguments { values, call_args }
 	}
 
 	pub(crate) fn len(&self) -> usize {
 		self.values.len()
 	}
 
+	#[allow(dead_code)]
 	pub(crate) fn handle(&self, index: usize) -> Option<Handle<Value>> {
 		if self.len() > index + 1 {
 			return Some(self.values[index]);
