@@ -4,5 +4,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub(crate) mod repl;
-pub(crate) mod run;
+pub mod repl;
+pub mod run;

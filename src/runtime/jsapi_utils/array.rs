@@ -6,7 +6,7 @@
 
 use mozjs::jsapi::*;
 
-pub(crate) fn is_array(cx: *mut JSContext, val: Value) -> bool {
+pub fn is_array(cx: *mut JSContext, val: Value) -> bool {
 	let mut bool = false;
 	if val.is_object() {
 		unsafe {

@@ -46,11 +46,12 @@ jobs:
           default: true,
 
 
-    - name: Build POSIX
+    - name: POSIX
       if: startsWith(matrix.os, 'windows') != true
       run: |
         cargo build --verbose
-    - name: Build Windows
+        cargo test
+    - name: Windows
       if: startsWith(matrix.os, 'windows')
       shell: cmd
       env:
@@ -65,3 +66,4 @@ jobs:
         CARGO_HOME: ${{ github.workspace }}\..\.cargo
       run: |
         cargo build --verbose
+        cargo test

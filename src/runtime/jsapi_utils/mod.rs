@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub(crate) mod array;
-pub(crate) mod eval;
+pub mod array;
+pub mod eval;
 mod exception;
-pub(crate) mod functions;
-pub(crate) mod print;
-pub(crate) mod string;
+pub mod functions;
+pub mod print;
+pub mod string;

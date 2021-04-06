@@ -17,7 +17,7 @@ use mozjs::typedarray::{CreateWith, Uint8Array};
 use crate::runtime::jsapi_utils::{functions::arguments::Arguments, string::to_string};
 use crate::runtime::modules::{compile_module, register_module};
 
-const FS_SOURCE: &'static str = include_str!("js/fs.js");
+const FS_SOURCE: &str = include_str!("js/fs.js");
 
 unsafe extern "C" fn read_binary(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
 	let args = Arguments::new(argc, vp);
@@ -31,7 +31,7 @@ unsafe extern "C" fn read_binary(cx: *mut JSContext, argc: u32, vp: *mut Value) 
 			if let Ok(bytes) = fs::read(&path) {
 				rooted!(in(cx) let mut obj = JS_NewPlainObject(cx));
 				let array = Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), obj.handle_mut());
-				if let Ok(_) = array {
+				if array.is_ok() {
 					args.rval().set(ObjectValue(obj.get()));
 					return true;
 				}
@@ -53,7 +53,7 @@ unsafe extern "C" fn read_string(cx: *mut JSContext, argc: u32, vp: *mut Value) 
 		if path.is_file() {
 			if let Ok(str) = fs::read_to_string(&path) {
 				rooted!(in(cx) let mut rval = UndefinedValue());
-				str.to_jsval(cx, rval.handle_mut().into());
+				str.to_jsval(cx, rval.handle_mut());
 
 				args.rval().set(rval.get());
 				return true;
@@ -81,7 +81,7 @@ unsafe extern "C" fn read_dir(cx: *mut JSContext, argc: u32, vp: *mut Value) -> 
 					.iter()
 					.map(|entry_string| {
 						rooted!(in(cx) let mut rval = UndefinedValue());
-						entry_string.to_jsval(cx, rval.handle_mut().into());
+						entry_string.to_jsval(cx, rval.handle_mut());
 						rval.get()
 					})
 					.collect();
@@ -288,7 +288,7 @@ unsafe extern "C" fn hard_link(cx: *mut JSContext, argc: u32, vp: *mut Value) ->
 	false
 }
 
-const METHODS: &'static [JSFunctionSpecWithHelp] = &[
+const METHODS: &[JSFunctionSpecWithHelp] = &[
 	JSFunctionSpecWithHelp {
 		name: "readBinary\0".as_ptr() as *const i8,
 		call: Some(read_binary),
@@ -417,7 +417,7 @@ const METHODS: &'static [JSFunctionSpecWithHelp] = &[
 	},
 ];
 
-pub(crate) fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
 	unsafe {
 		rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
 		rooted!(in(cx) let undefined = UndefinedValue());

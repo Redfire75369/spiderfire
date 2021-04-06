@@ -11,16 +11,17 @@ use libc::c_uint;
 use mozjs::jsapi::*;
 use mozjs::jsval::UndefinedValue;
 
-pub(crate) struct ErrorInfo {
+pub struct ErrorInfo {
 	message: String,
 	filename: String,
 	lineno: c_uint,
 	column: c_uint,
+	#[allow(dead_code)]
 	stack: Option<String>,
 }
 
 impl ErrorInfo {
-	pub(crate) fn format(&self) -> String {
+	pub fn format(&self) -> String {
 		format!(
 			"Uncaught exception at {}:{}:{} - {}",
 			self.filename, self.lineno, self.column, self.message
@@ -28,7 +29,7 @@ impl ErrorInfo {
 	}
 }
 
-pub(crate) fn report_and_clear_exception(cx: *mut JSContext) {
+pub fn report_and_clear_exception(cx: *mut JSContext) {
 	rooted!(in(cx) let mut exception = UndefinedValue());
 
 	unsafe {
@@ -82,5 +83,5 @@ unsafe fn error_info_from_exception(report: *mut JSErrorReport) -> Option<ErrorI
 		stack: None,
 	};
 
-	return Some(error);
+	Some(error)
 }

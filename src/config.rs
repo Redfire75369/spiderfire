@@ -9,20 +9,21 @@ use std::{io, result::Result};
 use once_cell::sync::OnceCell;
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct Config {
-	pub(crate) debug: bool,
-	pub(crate) script: bool,
+pub struct Config {
+	pub debug: bool,
+	pub script: bool,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 impl Config {
-	pub(crate) fn initialise(debug: bool, script: bool) -> Result<Config, io::Error> {
+	pub fn initialise(debug: bool, script: bool) -> Result<Config, io::Error> {
 		let config = Config { debug, script };
-		return Ok(config);
+		Ok(config)
 	}
 
-	pub(crate) fn global() -> &'static Config {
+	pub fn global() -> &'static Config {
 		CONFIG.get().expect("Configuration not initialised")
 	}
 }
 
-pub(crate) static CONFIG: OnceCell<Config> = OnceCell::new();
+pub static CONFIG: OnceCell<Config> = OnceCell::new();

@@ -9,10 +9,10 @@ use mozjs::jsapi::*;
 use crate::runtime::globals::console;
 use crate::modules::fs;
 
-pub(crate) fn init(cx: *mut JSContext, global: *mut JSObject) -> bool {
-	return console::define(cx, global);
+pub fn init(cx: *mut JSContext, global: *mut JSObject) -> bool {
+	console::define(cx, global)
 }
 
-pub(crate) fn init_modules(cx: *mut JSContext, global: *mut JSObject) -> bool {
-	return fs::init_fs(cx, global);
+pub fn init_modules(cx: *mut JSContext, global: *mut JSObject) -> bool {
+	fs::init_fs(cx, global)
 }

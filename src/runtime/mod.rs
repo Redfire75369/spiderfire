@@ -5,6 +5,6 @@
  */
 
 mod globals;
-pub(crate) mod init;
-pub(crate) mod jsapi_utils;
-pub(crate) mod modules;
+pub mod init;
+pub mod jsapi_utils;
+pub mod modules;

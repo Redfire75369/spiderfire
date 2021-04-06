@@ -13,7 +13,7 @@ use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use crate::runtime::{init, jsapi_utils::eval::eval_inline};
 
-pub(crate) fn start_repl() {
+pub fn start_repl() {
 	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
 	let rt = Runtime::new(engine.handle());
 
