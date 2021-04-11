@@ -120,6 +120,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "ion",
+ "modules",
+ "mozjs",
+ "once_cell",
+ "runtime",
+]
+
+[[package]]
 name = "encoding_c"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -162,6 +174,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ion"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "mozjs",
+ "termcolor",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,9 +196,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
+checksum = "9385f66bf6105b241aa65a61cb923ef20efc665cb9f9bb50ac2f0c4b7f378d41"
 
 [[package]]
 name = "libloading"
@@ -215,6 +236,16 @@ name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
+
+[[package]]
+name = "modules"
+version = "0.1.0"
+dependencies = [
+ "ion",
+ "libc",
+ "mozjs",
+ "runtime",
+]
 
 [[package]]
 name = "mozjs"
@@ -324,6 +355,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d5f089152e60f62d28b835fbff2cd2e8dc0baf1ac13343bef92ab7eed84548"
 
 [[package]]
+name = "runtime"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ion",
+ "libc",
+ "mozjs",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,18 +384,6 @@ name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
-
-[[package]]
-name = "spiderfire"
-version = "0.1.1"
-dependencies = [
- "chrono",
- "clap",
- "libc",
- "mozjs",
- "once_cell",
- "termcolor",
-]
 
 [[package]]
 name = "strsim"
