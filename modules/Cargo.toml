@@ -1,0 +1,14 @@
+[package]
+name = "modules"
+version = "0.1.0"
+authors = ["Redfire <redfire75369@hotmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ion = { path = "../ion" }
+libc = "0.2.92"
+# macro_rules_attributes = "0.0.1"
+mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs", features = ["debugmozjs"] }
+runtime = { path = "../runtime" }
