@@ -59,7 +59,6 @@ fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
 	}
 }
 
-trace_macros!(true);
 #[macro_rules_attribute(js_fn!)]
 fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	println!("Rips");
@@ -69,7 +68,6 @@ fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 
 	Ok(())
 }
-trace_macros!(false);
 
 // unsafe extern "C" fn debug(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
 // 	let args = Arguments::new(argc, vp);
