@@ -5,3 +5,5 @@
  */
 
 pub mod arguments;
+#[macro_use]
+pub mod macros;

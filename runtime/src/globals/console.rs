@@ -6,6 +6,7 @@
 
 use ::std::cell::RefCell;
 use ::std::collections::hash_map::{Entry, HashMap};
+use ::std::ffi::CString;
 use ::std::ptr;
 
 use chrono::{DateTime, offset::Utc};
@@ -15,6 +16,7 @@ use mozjs::jsval::{ObjectValue, UndefinedValue};
 use ion::functions::arguments::Arguments;
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
+use ion::functions::macros::{IonResult, IonContext};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";
@@ -33,7 +35,6 @@ fn get_indents() -> usize {
 	INDENTS.with(|indents| {
 		ret = *indents.borrow();
 	});
-
 	ret
 }
 
@@ -58,16 +59,17 @@ fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
 	}
 }
 
-unsafe extern "C" fn log(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
+trace_macros!(true);
+#[macro_rules_attribute(js_fn!)]
+fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	println!("Rips");
 	print_indent(false);
-	print_args(cx, args.range_full(), false);
+	print_args(cx, values, false);
 	println!();
 
-	true
+	Ok(())
 }
+trace_macros!(false);
 
 // unsafe extern "C" fn debug(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
 // 	let args = Arguments::new(argc, vp);
@@ -132,10 +134,8 @@ unsafe extern "C" fn assert(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bo
 	true
 }
 
-unsafe extern "C" fn clear(_cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
+#[macro_rules_attribute(js_fn!)]
+fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
 	});
@@ -143,7 +143,7 @@ unsafe extern "C" fn clear(_cx: *mut JSContext, argc: u32, vp: *mut Value) -> bo
 	println!("{}", ANSI_CLEAR);
 	println!("{}", ANSI_CLEAR_SCREEN_DOWN);
 
-	true
+	Ok(())
 }
 
 unsafe extern "C" fn trace(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
@@ -336,7 +336,7 @@ unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, vp: *mut Value) -> 
 	true
 }
 
-// TODO: console.table
+// TODO: Create console.table, Fix console.debug
 const METHODS: &[JSFunctionSpecWithHelp] = &[
 	JSFunctionSpecWithHelp {
 		name: "log\0".as_ptr() as *const i8,
