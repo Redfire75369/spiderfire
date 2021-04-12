@@ -81,23 +81,23 @@ macro_rules! unpack_args_count {
 #[macro_export]
 macro_rules! unpack_unwrap_args {
     (($cx:expr, $args:expr, 0) $(,)*) => {};
-    // Special Case: @this
+    // Special Case: #[this]
     (($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty, $($fn_args:tt)*) => {
         let $name = <*mut JSObject as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), ())?;
         unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
-    // Special Case: @this with Explicit Typing
+    // Special Case: #[this] with Conversion Options
     (($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty {$opt:expr}, $($fn_args:tt)*) => {
 		let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), $opt)?;
         unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
-	// Special Case: Variable Args
+	// Special Case: Variable Args #[varargs]
     (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>, ) => {
 		let $name = $args.range_handles($n..).iter().map(|arg| {
 			<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), ()).unwrap().get_success_value().unwrap().clone()
 		}).collect::<Vec<$type>>();
     };
-	// Special Case: Variable Args with Conversion Options
+	// Special Case: Variable Args #[varargs] with Conversion Options
     (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty> {$opt:expr}, ) => {
 		let $name = $args.range_handles($n..).iter().map(|arg| {
 			<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), $opt).unwrap().get_success_value().unwrap().clone()
