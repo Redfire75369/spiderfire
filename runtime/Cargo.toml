@@ -10,5 +10,5 @@ edition = "2018"
 chrono = "0.4.19"
 ion = { path = "../ion" }
 libc = "0.2.92"
-# macro_rules_attributes = "0.0.1"
+macro_rules_attribute = "0.0.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs", features = ["debugmozjs"] }
