@@ -17,7 +17,7 @@ impl Arguments {
 	pub unsafe fn new(argc: u32, vp: *mut Value) -> Arguments {
 		let call_args = CallArgs::from_vp(vp, argc);
 
-		let values: Vec<_> = (0..argc).map(|i| call_args.get(i)).collect();
+		let values: Vec<_> = (0..(argc + 1)).map(|i| call_args.get(i)).collect();
 
 		Arguments { values, call_args }
 	}
