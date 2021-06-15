@@ -11,6 +11,7 @@ extern crate macro_rules_attribute;
 #[macro_use]
 extern crate mozjs;
 
+pub mod config;
 pub mod globals;
 pub mod init;
 pub mod modules;

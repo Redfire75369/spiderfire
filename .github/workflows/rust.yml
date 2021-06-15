@@ -17,53 +17,53 @@ jobs:
 
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
 
-    - name: Install dependencies on OS X
-      if: startsWith(matrix.os, 'macOS')
-      run: |
-        brew install python autoconf@2.13 ccache llvm yasm
-    - name: Install dependencies on Linux
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        sudo apt install autoconf2.13 gcc-7 g++-7 ccache llvm -y
-    - name: Install dependencies on windows
-      if: startsWith(matrix.os, 'windows')
-      run: |
-        Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
-        .\MozillaBuildSetup.exe /S | Out-Null
-        iwr -useb get.scoop.sh | iex
-        scoop install llvm --global
-        echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install dependencies on OS X
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install python autoconf@2.13 ccache llvm yasm
+      - name: Install dependencies on Linux
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt install autoconf2.13 gcc-7 g++-7 ccache llvm -y
+      - name: Install dependencies on windows
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
+          .\MozillaBuildSetup.exe /S | Out-Null
+          iwr -useb get.scoop.sh | iex
+          scoop install llvm --global
+          echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
 
-    - uses: actions-rs/toolchain@v1
-      with:
+      - uses: actions-rs/toolchain@v1
+        with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true,
           default: true,
 
 
-    - name: POSIX
-      if: startsWith(matrix.os, 'windows') != true
-      run: |
-        cargo build --verbose
-        cargo test
-    - name: Windows
-      if: startsWith(matrix.os, 'windows')
-      shell: cmd
-      env:
-        MOZTOOLS_PATH: 'C:\mozilla-build\msys\bin;C:\mozilla-build\bin'
-        AUTOCONF: "C:/mozilla-build/msys/local/bin/autoconf-2.13"
-        LINKER: "lld-link.exe"
-        CC: "clang-cl.exe"
-        CXX: "clang-cl.exe"
-        NATIVE_WIN32_PYTHON: "C:\\mozilla-build\\python\\python.exe"
-        PYTHON3: "C:\\mozilla-build\\python3\\python3.exe"
-        LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
-        CARGO_HOME: ${{ github.workspace }}\..\.cargo
-      run: |
-        cargo build --verbose
-        cargo test
+      - name: POSIX
+        if: startsWith(matrix.os, 'windows') != true
+        run: |
+          cargo build --verbose
+          cargo test
+      - name: Windows
+        if: startsWith(matrix.os, 'windows')
+        shell: cmd
+        env:
+          MOZTOOLS_PATH: 'C:\mozilla-build\msys\bin;C:\mozilla-build\bin'
+          AUTOCONF: "C:/mozilla-build/msys/local/bin/autoconf-2.13"
+          LINKER: "lld-link.exe"
+          CC: "clang-cl.exe"
+          CXX: "clang-cl.exe"
+          NATIVE_WIN32_PYTHON: "C:\\mozilla-build\\python\\python.exe"
+          PYTHON3: "C:\\mozilla-build\\python3\\python3.exe"
+          LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
+          CARGO_HOME: ${{ github.workspace }}\..\.cargo
+        run: |
+          cargo build --verbose
+          cargo test

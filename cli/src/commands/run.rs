@@ -6,7 +6,8 @@
 
 use std::path::Path;
 
-use crate::config::Config;
+use runtime::config::Config;
+
 use crate::evaluate::{eval_module, eval_script};
 
 pub fn run(path: &str) {

@@ -36,7 +36,6 @@ macro_rules! js_fn {
 		unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
 			#[allow(unused_imports)]
 			use mozjs::conversions::FromJSValConvertible;
-			println!("Rips");
 
             unpack_args!({stringify!($name), cx, args} ($($args)*));
 
@@ -80,28 +79,28 @@ macro_rules! unpack_args_count {
 
 #[macro_export]
 macro_rules! unpack_unwrap_args {
-    (($cx:expr, $args:expr, 0) $(,)*) => {};
+    (($cx:expr, $args:expr, $n:expr) $(,)*) => {};
     // Special Case: #[this]
     (($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty, $($fn_args:tt)*) => {
-        let $name = <*mut JSObject as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), ())?;
+        let $name = <*mut JSObject as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), ()).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
     // Special Case: #[this] with Conversion Options
     (($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty {$opt:expr}, $($fn_args:tt)*) => {
-		let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), $opt)?;
+		let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), $opt).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
 	// Special Case: Variable Args #[varargs]
     (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>, ) => {
-		let $name = $args.range_handles($n..).iter().map(|arg| {
-			<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), ()).unwrap().get_success_value().unwrap().clone()
-		}).collect::<Vec<$type>>();
+		let $name = $args.range_handles($n..($args.len() + 1)).iter().map::<::std::result::Result<$type, ()>, _>(|arg| {
+            Ok(<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), ())?.get_success_value().unwrap().clone())
+        }).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
     };
 	// Special Case: Variable Args #[varargs] with Conversion Options
     (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty> {$opt:expr}, ) => {
-		let $name = $args.range_handles($n..).iter().map(|arg| {
-			<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), $opt).unwrap().get_success_value().unwrap().clone()
-		}).collect::<Vec<$type>>();
+		let $name = $args.range_handles($n..($args.len() + 1)).iter().map(|arg| {
+            Ok(<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), $opt)?.get_success_value().unwrap().clone())
+        }).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
     };
 	// Special Case: IonContext
     (($cx:expr, $args:expr, $n:expr) $name:ident : IonContext, $($fn_args:tt)*) => {
@@ -110,12 +109,12 @@ macro_rules! unpack_unwrap_args {
     };
 	// No Conversion Options
     (($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
-        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), ())?;
+        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), ()).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
     };
     // With Conversion Options
     (($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty {$opt:expr}, $($fn_args:tt)*) => {
-        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), $opt)?;
+        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), $opt).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
     };
 }

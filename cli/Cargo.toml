@@ -11,5 +11,4 @@ clap = "2.33.3"
 ion = { path = "../ion" }
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs", features = ["debugmozjs"] }
-once_cell = "1.7.2"
 runtime = { path = "../runtime" }

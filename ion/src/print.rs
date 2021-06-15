@@ -15,9 +15,9 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 #[allow(clippy::if_same_then_else)]
-pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
+pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: bool) {
 	let mut out;
-	if !is_error {
+	if !is_stderr {
 		out = StandardStream::stdout(ColorChoice::Auto);
 	} else {
 		out = StandardStream::stderr(ColorChoice::Auto);
@@ -43,8 +43,8 @@ pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_error: boo
 	out.reset().unwrap();
 }
 
-pub fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_error: bool) {
-	print_value(cx, val, indents, is_error);
+pub fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: bool) {
+	print_value(cx, val, indents, is_stderr);
 	println!();
 }
 

@@ -14,9 +14,11 @@ use mozjs::jsapi::*;
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 
 use ion::functions::arguments::Arguments;
+use ion::functions::macros::{IonContext, IonResult};
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
-use ion::functions::macros::{IonResult, IonContext};
+
+use crate::config::{Config, LogLevel};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";
@@ -38,9 +40,9 @@ fn get_indents() -> usize {
 	ret
 }
 
-fn print_indent(is_error: bool) {
+fn print_indent(is_stderr: bool) {
 	INDENTS.with(|indents| {
-		if !is_error {
+		if !is_stderr {
 			print!("{}", INDENT.repeat(*indents.borrow()));
 		} else {
 			eprint!("{}", INDENT.repeat(*indents.borrow()));
@@ -48,10 +50,10 @@ fn print_indent(is_error: bool) {
 	});
 }
 
-fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
+fn print_args(cx: IonContext, args: Vec<Value>, is_stderr: bool) {
 	for val in args.iter() {
-		print_value(cx, *val, get_indents(), is_error);
-		if !is_error {
+		print_value(cx, *val, get_indents(), is_stderr);
+		if !is_stderr {
 			print!(" ");
 		} else {
 			eprint!(" ");
@@ -59,9 +61,8 @@ fn print_args(cx: *mut JSContext, args: Vec<Value>, is_error: bool) {
 	}
 }
 
-#[macro_rules_attribute(js_fn!)]
+#[macro_rules_attribute(js_fn !)]
 fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
-	println!("Rips");
 	print_indent(false);
 	print_args(cx, values, false);
 	println!();
@@ -69,16 +70,16 @@ fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-// unsafe extern "C" fn debug(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-// 	let args = Arguments::new(argc, vp);
-// 	args.rval().set(UndefinedValue());
-//
-// 	if Config::global().debug {
-// 		log(cx, argc, vp)
-// 	} else {
-// 		true
-// 	}
-// }
+#[macro_rules_attribute(js_fn !)]
+fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	if Config::global().log_level == LogLevel::Debug {
+		print_indent(false);
+		print_args(cx, values, false);
+		println!();
+	}
+
+	Ok(())
+}
 
 unsafe extern "C" fn error(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
 	let args = Arguments::new(argc, vp);
@@ -132,7 +133,7 @@ unsafe extern "C" fn assert(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bo
 	true
 }
 
-#[macro_rules_attribute(js_fn!)]
+#[macro_rules_attribute(js_fn !)]
 fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
@@ -159,7 +160,7 @@ unsafe extern "C" fn trace(cx: *mut JSContext, argc: u32, vp: *mut Value) -> boo
 		indent(
 			&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(),
 			get_indents() + 1,
-			true
+			true,
 		)
 	);
 
@@ -372,15 +373,15 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		usage: "dirxml([exp ...])\0".as_ptr() as *const i8,
 		help: "\0".as_ptr() as *const i8,
 	},
-	// JSFunctionSpecWithHelp {
-	// 	name: "debug\0".as_ptr() as *const i8,
-	// 	call: Some(debug),
-	// 	nargs: 0,
-	// 	flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-	// 	jitInfo: ptr::null_mut(),
-	// 	usage: "debug([exp ...])\0".as_ptr() as *const i8,
-	// 	help: "\0".as_ptr() as *const i8,
-	// },
+	JSFunctionSpecWithHelp {
+		name: "debug\0".as_ptr() as *const i8,
+		call: Some(debug),
+		nargs: 0,
+		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
+		jitInfo: ptr::null_mut(),
+		usage: "debug([exp ...])\0".as_ptr() as *const i8,
+		help: "\0".as_ptr() as *const i8,
+	},
 	JSFunctionSpecWithHelp {
 		name: "warn\0".as_ptr() as *const i8,
 		call: Some(error),
