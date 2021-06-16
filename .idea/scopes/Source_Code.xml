@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Source Code" pattern="file[spiderfire]:cli/src//*||file[spiderfire]:ion/src//*||file[spiderfire]:modules/src//*||file[spiderfire]:runtime/src//*" />
+</component>

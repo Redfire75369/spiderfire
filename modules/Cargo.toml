@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 ion = { path = "../ion" }
 libc = "0.2.92"
-# macro_rules_attributes = "0.0.1"
+# macro_rules_attributes = "0.0.2"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs", features = ["debugmozjs"] }
 runtime = { path = "../runtime" }
