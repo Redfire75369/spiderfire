@@ -10,7 +10,7 @@ use once_cell::sync::OnceCell;
 
 pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
 	None = 0,
 	Info = 1,
@@ -38,7 +38,6 @@ pub struct Config {
 	pub script: bool,
 }
 
-#[allow(clippy::unnecessary_wraps)]
 impl Config {
 	pub fn initialise(log_level: LogLevel, script: bool) -> Result<Config, Error> {
 		let config = Config { log_level, script };

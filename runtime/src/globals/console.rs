@@ -11,7 +11,7 @@ use ::std::ptr;
 
 use chrono::{DateTime, offset::Utc};
 use mozjs::jsapi::*;
-use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::jsval::ObjectValue;
 
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
@@ -51,8 +51,12 @@ fn print_indent(is_stderr: bool) {
 }
 
 fn print_args(cx: IonContext, args: Vec<Value>, is_stderr: bool) {
+	print_args_with_indents(cx, args, is_stderr, get_indents());
+}
+
+fn print_args_with_indents(cx: IonContext, args: Vec<Value>, is_stderr: bool, indents: usize) {
 	for val in args.iter() {
-		print_value(cx, *val, get_indents(), is_stderr);
+		print_value(cx, *val, indents, is_stderr);
 		if !is_stderr {
 			print!(" ");
 		} else {
@@ -61,16 +65,40 @@ fn print_args(cx: IonContext, args: Vec<Value>, is_stderr: bool) {
 	}
 }
 
-#[macro_rules_attribute(js_fn !)]
+#[apply(js_fn!)]
 fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
-	print_indent(false);
-	print_args(cx, values, false);
-	println!();
+	if Config::global().log_level >= LogLevel::Info {
+		print_indent(false);
+		print_args(cx, values, false);
+		println!();
+	}
 
 	Ok(())
 }
 
-#[macro_rules_attribute(js_fn !)]
+#[apply(js_fn!)]
+fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	if Config::global().log_level >= LogLevel::Warn {
+		print_indent(true);
+		print_args(cx, values, true);
+		println!();
+	}
+
+	Ok(())
+}
+
+#[apply(js_fn!)]
+fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	if Config::global().log_level >= LogLevel::Error {
+		print_indent(true);
+		print_args(cx, values, true);
+		println!();
+	}
+
+	Ok(())
+}
+
+#[apply(js_fn!)]
 fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
@@ -81,59 +109,38 @@ fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-unsafe extern "C" fn error(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	print_indent(true);
-	print_args(cx, args.range_full(), true);
-	println!();
-
-	true
-}
-
-unsafe extern "C" fn assert(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-
-	args.rval().set(UndefinedValue());
-	if args.len() > 0 {
-		if args.value(0).unwrap().is_boolean() {
-			if args.value(0).unwrap().to_boolean() {
-				return true;
-			}
-		} else {
-			print_indent(true);
-			eprintln!("Assertion Failed");
-			return true;
+#[apply(js_fn!)]
+fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	if Config::global().log_level >= LogLevel::Error {
+		if assertion {
+			return Ok(());
 		}
 
-		if args.len() == 1 {
+		if values.len() == 0 {
 			print_indent(true);
 			eprintln!("Assertion Failed");
-			return true;
+			return Ok(());
 		}
 
-		if args.value(1).unwrap().is_string() {
+		if values[0].is_string() {
 			print_indent(true);
-			eprint!("Assertion Failed: {} ", to_string(cx, args.value(1).unwrap()));
-			print_args(cx, args.range(2..), true);
+			eprint!("Assertion Failed: {} ", to_string(cx, values[0]));
+			print_indent(true);
+			print_args(cx, values[2..].to_vec(), true);
 			eprintln!();
-			return true;
+			return Ok(());
 		}
 
 		print_indent(true);
 		eprint!("Assertion Failed: ");
-		print_args(cx, args.range(1..), true);
+		print_args(cx, values, true);
 		println!();
-	} else {
-		print_indent(true);
-		eprintln!("Assertion Failed: ");
 	}
 
-	true
+	Ok(())
 }
 
-#[macro_rules_attribute(js_fn !)]
+#[apply(js_fn!)]
 fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
@@ -145,98 +152,102 @@ fn clear() -> IonResult<()> {
 	Ok(())
 }
 
-unsafe extern "C" fn trace(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
+#[apply(js_fn!)]
+fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	if Config::global().log_level == LogLevel::Debug {
+		print_indent(false);
+		print!("Trace: ");
+		print_args(cx, values, false);
+		println!();
 
-	print_indent(false);
-	print!("Trace: ");
-	print_args(cx, args.range_full(), false);
-	println!();
+		capture_stack!(in(cx) let stack);
+		println!(
+			"{}",
+			indent(
+				&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(),
+				get_indents() + 1,
+				true,
+			)
+		);
+	}
 
-	capture_stack!(in(cx) let stack);
-	println!(
-		"{}",
-		indent(
-			&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(),
-			get_indents() + 1,
-			true,
-		)
-	);
-
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn group(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
+#[apply(js_fn!)]
+fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
-		print!("{}", "  ".repeat(*indents));
-		print_args(cx, args.range_full(), false);
-		println!();
+
+		if Config::global().log_level >= LogLevel::Info {
+			print!("{}", "  ".repeat(*indents));
+			print_args_with_indents(cx, values, false, *indents);
+			println!();
+		}
 
 		*indents = (*indents).min(usize::MAX - 1) + 1;
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn group_end(_cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
+#[apply(js_fn!)]
+fn group_end() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn count(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	let label = if args.len() > 0 {
-		to_string(cx, args.values[0].get())
-	} else {
+#[apply(js_fn!)]
+fn count(label: String) -> IonResult<()> {
+	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
+	} else {
+		label
 	};
 
-	print_indent(false);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
 			Entry::Vacant(v) => {
-				println!("{}: {}", label, v.insert(1));
+				let val = v.insert(1);
+				if Config::global().log_level >= LogLevel::Info {
+					print_indent(false);
+					println!("{}: {}", label, val);
+				}
 			}
 			Entry::Occupied(mut o) => {
-				println!("{}: {}", label, o.insert(o.get() + 1));
+				let val = o.insert(o.get() + 1);
+				if Config::global().log_level >= LogLevel::Info {
+					print_indent(false);
+					println!("{}: {}", label, val);
+				}
 			}
 		}
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn count_reset(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	let label = if args.len() > 0 {
-		to_string(cx, args.values[0].get())
-	} else {
+#[apply(js_fn!)]
+fn count_reset(label: String) -> IonResult<()> {
+	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
+	} else {
+		label
 	};
 
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
 			Entry::Vacant(_) => {
-				print_indent(true);
-				eprintln!("Count for {} does not exist", label);
+				if Config::global().log_level >= LogLevel::Error {
+					print_indent(true);
+					eprintln!("Count for {} does not exist", label);
+				}
 			}
 			Entry::Occupied(mut o) => {
 				o.insert(0);
@@ -244,17 +255,15 @@ unsafe extern "C" fn count_reset(cx: *mut JSContext, argc: u32, vp: *mut Value) 
 		}
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn time(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	let label = if args.len() > 0 {
-		to_string(cx, args.values[0].get())
-	} else {
+#[apply(js_fn!)]
+fn time(label: String) -> IonResult<()> {
+	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
+	} else {
+		label
 	};
 
 	TIMER_MAP.with(|map| {
@@ -264,78 +273,84 @@ unsafe extern "C" fn time(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool
 				v.insert(Utc::now());
 			}
 			Entry::Occupied(_) => {
-				print_indent(true);
-				eprintln!("Timer {} already exists", label);
+				if Config::global().log_level >= LogLevel::Error {
+					print_indent(true);
+					eprintln!("Timer {} already exists", label);
+				}
 			}
 		}
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn time_log(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	let label = if args.len() > 0 {
-		to_string(cx, args.values[0].get())
-	} else {
+#[apply(js_fn!)]
+fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
+	} else {
+		label
 	};
 
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
 			Entry::Vacant(_) => {
-				print_indent(true);
-				eprintln!("Timer {} does not exist", label);
+				if Config::global().log_level >= LogLevel::Error {
+					print_indent(true);
+					eprintln!("Timer {} does not exist", label);
+				}
 			}
 			Entry::Occupied(o) => {
-				let start_time = o.get();
-				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
-				print_indent(false);
-				print!("{}: {}ms", label, duration);
-				print_args(cx, args.range(1..), false);
-				println!();
+				if Config::global().log_level >= LogLevel::Info {
+					let start_time = o.get();
+					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
+					print_indent(false);
+					print!("{}: {}ms", label, duration);
+					print_args(cx, values, false);
+					println!();
+				}
 			}
 		}
 	});
 
-	true
+	Ok(())
 }
 
-unsafe extern "C" fn time_end(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
-	let args = Arguments::new(argc, vp);
-	args.rval().set(UndefinedValue());
-
-	let label = if args.len() > 0 {
-		to_string(cx, args.values[0].get())
-	} else {
+#[apply(js_fn!)]
+fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
+	} else {
+		label
 	};
 
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
 			Entry::Vacant(_) => {
-				print_indent(true);
-				eprintln!("Timer {} does not exist", label);
+				if Config::global().log_level >= LogLevel::Error {
+					print_indent(true);
+					eprintln!("Timer {} does not exist", label);
+				}
 			}
 			Entry::Occupied(o) => {
-				let (_, start_time) = o.remove_entry();
-				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
-				print_indent(false);
-				print!("{}: {}ms", label, duration);
-				print_args(cx, args.range(1..), false);
-				println!();
+				if Config::global().log_level >= LogLevel::Info {
+					let (_, start_time) = o.remove_entry();
+					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
+					print_indent(false);
+					print!("{}: {}ms", label, duration);
+					print_args(cx, values, false);
+					println!();
+				}
 			}
 		}
 	});
 
-	true
+	Ok(())
 }
 
-// TODO: Create console.table, Fix console.debug
+// TODO: Create console.table
 const METHODS: &[JSFunctionSpecWithHelp] = &[
 	JSFunctionSpecWithHelp {
 		name: "log\0".as_ptr() as *const i8,
@@ -374,17 +389,8 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		help: "\0".as_ptr() as *const i8,
 	},
 	JSFunctionSpecWithHelp {
-		name: "debug\0".as_ptr() as *const i8,
-		call: Some(debug),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "debug([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
 		name: "warn\0".as_ptr() as *const i8,
-		call: Some(error),
+		call: Some(warn),
 		nargs: 0,
 		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
 		jitInfo: ptr::null_mut(),
@@ -398,6 +404,15 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
 		jitInfo: ptr::null_mut(),
 		usage: "error([exp ...])\0".as_ptr() as *const i8,
+		help: "\0".as_ptr() as *const i8,
+	},
+	JSFunctionSpecWithHelp {
+		name: "debug\0".as_ptr() as *const i8,
+		call: Some(debug),
+		nargs: 0,
+		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
+		jitInfo: ptr::null_mut(),
+		usage: "debug([exp ...])\0".as_ptr() as *const i8,
 		help: "\0".as_ptr() as *const i8,
 	},
 	JSFunctionSpecWithHelp {
@@ -424,7 +439,7 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		nargs: 0,
 		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
 		jitInfo: ptr::null_mut(),
-		usage: "trace([...args])\0".as_ptr() as *const i8,
+		usage: "trace([exp ...])\0".as_ptr() as *const i8,
 		help: "\0".as_ptr() as *const i8,
 	},
 	JSFunctionSpecWithHelp {
@@ -433,7 +448,7 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		nargs: 0,
 		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
 		jitInfo: ptr::null_mut(),
-		usage: "group([labels])\0".as_ptr() as *const i8,
+		usage: "group([label])\0".as_ptr() as *const i8,
 		help: "\0".as_ptr() as *const i8,
 	},
 	JSFunctionSpecWithHelp {
@@ -442,7 +457,7 @@ const METHODS: &[JSFunctionSpecWithHelp] = &[
 		nargs: 0,
 		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
 		jitInfo: ptr::null_mut(),
-		usage: "groupCollapsed([labels])\0".as_ptr() as *const i8,
+		usage: "groupCollapsed([label])\0".as_ptr() as *const i8,
 		help: "\0".as_ptr() as *const i8,
 	},
 	JSFunctionSpecWithHelp {

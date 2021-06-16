@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 use mozjs::jsapi::JSContext;
 
 pub type IonContext = *mut JSContext;
@@ -32,7 +38,7 @@ macro_rules! js_fn_raw {
 #[macro_export]
 macro_rules! js_fn {
     (fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
-        #[macro_rules_attribute(js_fn_raw!)]
+        #[apply(js_fn_raw!)]
 		unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
 			#[allow(unused_imports)]
 			use mozjs::conversions::FromJSValConvertible;
@@ -54,6 +60,8 @@ macro_rules! unpack_args {
     }
 }
 
+// [TODO]: Add support for mutable parameters
+// [TODO]: Add support for optional parameters (Option<T>)
 #[macro_export]
 macro_rules! unpack_args_count {
     () => {0};

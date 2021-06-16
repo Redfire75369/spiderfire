@@ -62,7 +62,7 @@ fn main() {
 
 	match matches.subcommand_name() {
 		Some("eval") => {
-			let subcmd = matches.subcommand_matches("run").unwrap();
+			let subcmd = matches.subcommand_matches("eval").unwrap();
 
 			let config = Config::initialise(LogLevel::Debug, true).unwrap();
 			CONFIG.set(config).unwrap();
