@@ -45,7 +45,7 @@ macro_rules! js_fn_m {
             unpack_args!({stringify!($name), cx, args} ($($args)*));
 
             $body
-        })
+        });
 	}
 }
 
