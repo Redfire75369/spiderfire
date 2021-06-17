@@ -234,21 +234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macro_rules_attribute"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "641c64af6cd80b81cf9c2f2f6ee382b1050c71ce63e20800499971a4a4195005"
-dependencies = [
- "macro_rules_attribute-proc_macro",
-]
-
-[[package]]
-name = "macro_rules_attribute-proc_macro"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb246ada5a8c47b8b6e90c9f9a0f84f294939cdf558f1bc8d17fbb30f9706598"
-
-[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,7 +363,6 @@ dependencies = [
  "chrono",
  "ion",
  "libc",
- "macro_rules_attribute",
  "mozjs",
  "once_cell",
 ]
