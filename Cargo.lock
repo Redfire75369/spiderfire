@@ -169,9 +169,19 @@ dependencies = [
 name = "ion"
 version = "0.1.0"
 dependencies = [
+ "ion-proc",
  "libc",
  "mozjs",
  "termcolor",
+]
+
+[[package]]
+name = "ion-proc"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]
