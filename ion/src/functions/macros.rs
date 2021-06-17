@@ -38,7 +38,7 @@ macro_rules! js_fn_raw_m {
 #[macro_export]
 macro_rules! js_fn_m {
     (fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
-        js_fn_raw!(unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
+        js_fn_raw_m!(unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
 			#[allow(unused_imports)]
 			use mozjs::conversions::FromJSValConvertible;
 
