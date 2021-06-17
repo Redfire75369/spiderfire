@@ -11,7 +11,7 @@ use quote::quote;
 pub fn js_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = proc_macro2::TokenStream::from(item);
 	let new = quote! {
-        js_fn_m!(#item)
+        js_fn_m!(#item);
     };
     TokenStream::from(new)
 }
