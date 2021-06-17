@@ -10,7 +10,7 @@ pub type IonContext = *mut JSContext;
 pub type IonResult<T> = Result<T, Option<String>>;
 
 #[macro_export]
-macro_rules! js_fn_raw {
+macro_rules! js_fn_raw_m {
 	(unsafe fn $name:ident($($param:ident : $type:ty), *) -> IonResult<$ret:ty> $body:tt) => {
 		unsafe extern "C" fn $name(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
 			use mozjs::conversions::ToJSValConvertible;
@@ -38,15 +38,14 @@ macro_rules! js_fn_raw {
 #[macro_export]
 macro_rules! js_fn_m {
     (fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
-        #[apply(js_fn_raw!)]
-		unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
+        js_fn_raw!(unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
 			#[allow(unused_imports)]
 			use mozjs::conversions::FromJSValConvertible;
 
             unpack_args!({stringify!($name), cx, args} ($($args)*));
 
             $body
-        }
+        })
 	}
 }
 

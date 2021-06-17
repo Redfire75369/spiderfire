@@ -9,9 +9,18 @@ use quote::quote;
 
 #[proc_macro_attribute]
 pub fn js_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let item = proc_macro2::TokenStream::from(item);
+	let item = proc_macro2::TokenStream::from(item);
 	let new = quote! {
-        js_fn_m!(#item);
-    };
-    TokenStream::from(new)
+		js_fn_m!(#item);
+	};
+	TokenStream::from(new)
+}
+
+#[proc_macro_attribute]
+pub fn js_fn_raw(_attr: TokenStream, item: TokenStream) -> TokenStream {
+	let item = proc_macro2::TokenStream::from(item);
+	let new = quote! {
+		js_fn_raw_m!(#item);
+	};
+	TokenStream::from(new)
 }
