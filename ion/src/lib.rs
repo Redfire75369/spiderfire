@@ -12,4 +12,4 @@ pub mod functions;
 pub mod print;
 pub mod types;
 
-pub use ion-proc::js_fn;
+pub use ion_proc::js_fn;
