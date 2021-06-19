@@ -65,7 +65,7 @@ fn print_args_with_indents(cx: IonContext, args: Vec<Value>, is_stderr: bool, in
 	}
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
@@ -76,7 +76,7 @@ fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
@@ -87,7 +87,7 @@ fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
@@ -98,7 +98,7 @@ fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
@@ -109,7 +109,7 @@ fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		if assertion {
@@ -140,7 +140,7 @@ fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> Ion
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
@@ -152,7 +152,7 @@ fn clear() -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
@@ -174,7 +174,7 @@ fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
@@ -191,7 +191,7 @@ fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn group_end() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
@@ -201,7 +201,7 @@ fn group_end() -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn count(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
@@ -232,7 +232,7 @@ fn count(label: String) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn count_reset(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
@@ -258,7 +258,7 @@ fn count_reset(label: String) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn time(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
@@ -284,7 +284,7 @@ fn time(label: String) -> IonResult<()> {
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
@@ -317,7 +317,7 @@ fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> Ion
 	Ok(())
 }
 
-#[apply(js_fn!)]
+#[js_fn]
 fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
