@@ -7,8 +7,6 @@
 #[macro_use]
 extern crate ion;
 #[macro_use]
-extern crate macro_rules_attribute;
-#[macro_use]
 extern crate mozjs;
 
 pub mod config;
