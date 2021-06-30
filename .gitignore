@@ -12,7 +12,4 @@ target/**
 *.code-workspace
 
 ## CLion ##
-.idea/discord.xml
-.idea/workspace.xml
-.idea/httpRequests/**/*
-.idea/shelf/**/*
+.idea/**/*

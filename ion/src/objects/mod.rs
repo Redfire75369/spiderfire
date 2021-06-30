@@ -4,13 +4,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[macro_use]
-extern crate mozjs;
-
-pub mod exceptions;
-pub mod functions;
-pub mod objects;
-pub mod print;
-pub mod types;
-
-pub use ion_proc::js_fn;
+pub mod date;
+pub mod object;

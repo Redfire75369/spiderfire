@@ -1,3 +1,0 @@
-<component name="DependencyValidationManager">
-  <scope name="Tests" pattern="file[spiderfire]:runtime/tests//*" />
-</component>
