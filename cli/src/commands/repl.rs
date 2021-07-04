@@ -25,10 +25,9 @@ pub fn start_repl() {
 	let c_options = RealmOptions::default();
 
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
-	init::init(rt.cx(), global);
+	init(rt.cx(), global);
 
 	loop {
 		print!("> ");

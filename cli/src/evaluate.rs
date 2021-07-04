@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::fs;
+use ::std::fs::read_to_string;
 use ::std::path::Path;
 use ::std::ptr;
 
@@ -14,7 +14,9 @@ use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::exceptions::exception::report_and_clear_exception;
 use ion::print::println_value;
+use modules::init_modules;
 use runtime::init;
+use runtime::modules::compile_module;
 
 pub fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
 	let filename: &'static str = "inline.js";
@@ -45,14 +47,14 @@ pub fn eval_script(path: &Path) {
 	let c_options = RealmOptions::default();
 
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-
 	let _ac = JSAutoRealm::new(rt.cx(), global);
-	init::init(rt.cx(), global);
+
+	init(rt.cx(), global);
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
 	}
-	let script = fs::read_to_string(path).unwrap_or_else(|_| String::from(""));
+	let script = read_to_string(path).unwrap_or_else(|_| String::from(""));
 	let line_number = 1;
 
 	rooted!(in(rt.cx()) let rooted_global = global);
@@ -83,22 +85,21 @@ pub fn eval_module(path: &Path) {
 	let c_options = RealmOptions::default();
 
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(rt.cx()), Some(runtime::modules::resolve_module));
 	}
-	init::init(rt.cx(), global);
-	modules::init_modules(rt.cx(), global);
+	init(rt.cx(), global);
+	init_modules(rt.cx(), global);
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
 	}
-	let script = fs::read_to_string(path).unwrap_or_else(|_| String::from(""));
+	let script = read_to_string(path).unwrap_or_else(|_| String::from(""));
 
 	rooted!(in(rt.cx()) let rooted_global = global);
-	rooted!(in(rt.cx()) let module = runtime::modules::compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), &script));
+	rooted!(in(rt.cx()) let module = unsafe { compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap() });
 
 	unsafe {
 		if ModuleInstantiate(rt.cx(), module.handle().into()) {

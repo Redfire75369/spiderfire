@@ -7,10 +7,10 @@
 #[macro_use]
 extern crate mozjs;
 
+pub use ion_proc::js_fn;
+
 pub mod exceptions;
 pub mod functions;
 pub mod objects;
 pub mod print;
 pub mod types;
-
-pub use ion_proc::js_fn;

@@ -4,41 +4,49 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::*;
-use mozjs::conversions::{ToJSValConvertible, FromJSValConvertible, ConversionResult};
-use mozjs::rust::{MutableHandleValue, maybe_wrap_object_value, HandleValue, IdVector};
-use mozjs::jsval::{ObjectValue};
-use crate::functions::macros::IonContext;
-use mozjs::error::throw_type_error;
 use ::std::result::Result;
+
+use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
+use mozjs::conversions::ConversionResult::Success;
+use mozjs::error::throw_type_error;
+use mozjs::jsapi::*;
+use mozjs::jsval::ObjectValue;
+use mozjs::rust::{HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+
+use crate::functions::macros::IonContext;
 
 pub type IonRawObject = *mut JSObject;
 
 pub struct IonObject {
-	obj: IonRawObject
+	obj: IonRawObject,
 }
 
 impl IonObject {
-	unsafe fn new(cx: IonContext) -> IonObject {
+	#[allow(dead_code)]
+	pub unsafe fn new(cx: IonContext) -> IonObject {
 		IonObject::from(JS_NewPlainObject(cx))
 	}
 
-	unsafe fn from(obj: IonRawObject) -> IonObject {
-		IonObject {
-			obj
-		}
+	pub unsafe fn from(obj: IonRawObject) -> IonObject {
+		IonObject { obj }
 	}
 
-	unsafe fn from_value(val: Value) -> IonObject {
+	pub unsafe fn from_value(val: Value) -> IonObject {
 		assert!(val.is_object());
 		IonObject::from(val.to_object())
 	}
 
-	unsafe fn raw(&self) -> IonRawObject {
+	pub unsafe fn raw(&self) -> IonRawObject {
 		self.obj
 	}
 
-	unsafe fn has(&self, cx: IonContext, key: String) -> bool {
+	pub unsafe fn to_value(&self) -> Value {
+		ObjectValue(self.raw())
+	}
+
+	#[allow(dead_code)]
+	pub unsafe fn has(&self, cx: IonContext, key: String) -> bool {
+		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		let mut found = false;
 
@@ -50,7 +58,8 @@ impl IonObject {
 		}
 	}
 
-	unsafe fn get(&self, cx: IonContext, key: String) -> Option<Value> {
+	pub unsafe fn get(&self, cx: IonContext, key: String) -> Option<Value> {
+		let key = format!("{}\0", key);
 		if self.has(cx, key.clone()) {
 			rooted!(in(cx) let obj = self.obj);
 			rooted!(in(cx) let mut rval: Value);
@@ -61,16 +70,46 @@ impl IonObject {
 		}
 	}
 
-	unsafe fn set(&mut self, cx: IonContext, key: String, value: Value) -> bool {
+	#[allow(dead_code)]
+	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, key: String, config: T::Config) -> Option<T> {
+		let opt = self.get(cx, key);
+		if let Some(val) = opt {
+			rooted!(in(cx) let rooted_val = val);
+			if let Success(v) = T::from_jsval(cx, rooted_val.handle(), config).unwrap() {
+				Some(v)
+			} else {
+				None
+			}
+		} else {
+			None
+		}
+	}
+
+	#[allow(dead_code)]
+	pub unsafe fn set(&mut self, cx: IonContext, key: String, value: Value) -> bool {
+		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut obj = self.obj);
 		rooted!(in(cx) let rval = value);
 		JS_SetProperty(cx, obj.handle_mut().into(), key.as_ptr() as *const i8, rval.handle().into())
 	}
 
-	unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
+	// Waiting on rust-mozjs #545
+	// pub unsafe fn set_as<T: ToJSValConvertible + GCMethods>(&mut self, cx: IonContext, key: String, value: T) -> bool {
+	// 	rooted!(in(cx) let mut val = value);
+	// 	value.to_jsval(cx, val.handle_mut());
+	// 	self.set(cx, key, val.get())
+	// }
+
+	#[allow(dead_code)]
+	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
 		rooted!(in(cx) let mut obj = self.obj);
 		let mut ids = IdVector::new(cx);
-		GetPropertyKeys(cx, obj.handle().into(), JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, ids.handle_mut().into());
+		GetPropertyKeys(
+			cx,
+			obj.handle().into(),
+			JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS,
+			ids.handle_mut().into(),
+		);
 		ids.to_vec()
 	}
 }

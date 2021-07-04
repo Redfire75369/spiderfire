@@ -15,6 +15,7 @@ use mozjs::jsval::ObjectValue;
 
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
+use ion::functions::specs::{create_function_spec, NULL_SPEC};
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
 
@@ -66,7 +67,7 @@ fn print_args_with_indents(cx: IonContext, args: Vec<Value>, is_stderr: bool, in
 }
 
 #[js_fn]
-fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -77,7 +78,7 @@ fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -88,7 +89,7 @@ fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -99,7 +100,7 @@ fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -110,7 +111,7 @@ fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		if assertion {
 			return Ok(());
@@ -141,7 +142,7 @@ fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> Ion
 }
 
 #[js_fn]
-fn clear() -> IonResult<()> {
+unsafe fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
 	});
@@ -153,7 +154,7 @@ fn clear() -> IonResult<()> {
 }
 
 #[js_fn]
-fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -175,7 +176,7 @@ fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 
@@ -192,7 +193,7 @@ fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn group_end() -> IonResult<()> {
+unsafe fn group_end() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
@@ -202,7 +203,7 @@ fn group_end() -> IonResult<()> {
 }
 
 #[js_fn]
-fn count(label: String) -> IonResult<()> {
+unsafe fn count(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
 	} else {
@@ -233,7 +234,7 @@ fn count(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-fn count_reset(label: String) -> IonResult<()> {
+unsafe fn count_reset(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
 	} else {
@@ -259,7 +260,7 @@ fn count_reset(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-fn time(label: String) -> IonResult<()> {
+unsafe fn time(label: String) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
 	} else {
@@ -285,7 +286,7 @@ fn time(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
 	} else {
@@ -318,7 +319,7 @@ fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> Ion
 }
 
 #[js_fn]
-fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = if label.as_str() == "undefined" {
 		String::from(DEFAULT_LABEL)
 	} else {
@@ -351,178 +352,152 @@ fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> Ion
 }
 
 // TODO: Create console.table
-const METHODS: &[JSFunctionSpecWithHelp] = &[
-	JSFunctionSpecWithHelp {
-		name: "log\0".as_ptr() as *const i8,
-		call: Some(log),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "log([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "info\0".as_ptr() as *const i8,
-		call: Some(log),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "info([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "dir\0".as_ptr() as *const i8,
-		call: Some(log),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "dir([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "dirxml\0".as_ptr() as *const i8,
-		call: Some(log),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "dirxml([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "warn\0".as_ptr() as *const i8,
-		call: Some(warn),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "warn([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "error\0".as_ptr() as *const i8,
-		call: Some(error),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "error([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "debug\0".as_ptr() as *const i8,
-		call: Some(debug),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "debug([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "assert\0".as_ptr() as *const i8,
-		call: Some(assert),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "assert(condition, [args ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "clear\0".as_ptr() as *const i8,
-		call: Some(clear),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "clear()\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "trace\0".as_ptr() as *const i8,
-		call: Some(trace),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "trace([exp ...])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "group\0".as_ptr() as *const i8,
-		call: Some(group),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "group([label])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "groupCollapsed\0".as_ptr() as *const i8,
-		call: Some(group),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "groupCollapsed([label])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "groupEnd\0".as_ptr() as *const i8,
-		call: Some(group_end),
-		nargs: 0,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "groupEnd()\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "count\0".as_ptr() as *const i8,
-		call: Some(count),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "count(label)\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "countReset\0".as_ptr() as *const i8,
-		call: Some(count_reset),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "countReset(label)\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "time\0".as_ptr() as *const i8,
-		call: Some(time),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "time(label)\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "timeLog\0".as_ptr() as *const i8,
-		call: Some(time_log),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "timeLog(label[, exp])\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: "timeEnd\0".as_ptr() as *const i8,
-		call: Some(time_end),
-		nargs: 1,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
-		jitInfo: ptr::null_mut(),
-		usage: "timeEnd(label)\0".as_ptr() as *const i8,
-		help: "\0".as_ptr() as *const i8,
-	},
-	JSFunctionSpecWithHelp {
-		name: ptr::null_mut(),
-		call: None,
-		nargs: 0,
-		flags: 0,
-		jitInfo: ptr::null_mut(),
-		usage: ptr::null_mut(),
-		help: ptr::null_mut(),
-	},
+const METHODS: &[JSFunctionSpec] = &[
+	create_function_spec(
+		"log\0",
+		JSNativeWrapper {
+			op: Some(log),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"info\0",
+		JSNativeWrapper {
+			op: Some(log),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"dir\0",
+		JSNativeWrapper {
+			op: Some(log),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"dirxml\0",
+		JSNativeWrapper {
+			op: Some(log),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"warn\0",
+		JSNativeWrapper {
+			op: Some(warn),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"error\0",
+		JSNativeWrapper {
+			op: Some(error),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"debug\0",
+		JSNativeWrapper {
+			op: Some(debug),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"assert\0",
+		JSNativeWrapper {
+			op: Some(assert),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"clear\0",
+		JSNativeWrapper {
+			op: Some(clear),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"trace\0",
+		JSNativeWrapper {
+			op: Some(trace),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"group\0",
+		JSNativeWrapper {
+			op: Some(group),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"groupCollapsed\0",
+		JSNativeWrapper {
+			op: Some(group),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"groupEnd\0",
+		JSNativeWrapper {
+			op: Some(group_end),
+			info: ptr::null_mut(),
+		},
+		0,
+	),
+	create_function_spec(
+		"count\0",
+		JSNativeWrapper {
+			op: Some(count),
+			info: ptr::null_mut(),
+		},
+		1,
+	),
+	create_function_spec(
+		"countReset\0",
+		JSNativeWrapper {
+			op: Some(count_reset),
+			info: ptr::null_mut(),
+		},
+		1,
+	),
+	create_function_spec(
+		"time\0",
+		JSNativeWrapper {
+			op: Some(time),
+			info: ptr::null_mut(),
+		},
+		1,
+	),
+	create_function_spec(
+		"timeLog\0",
+		JSNativeWrapper {
+			op: Some(time_log),
+			info: ptr::null_mut(),
+		},
+		1,
+	),
+	create_function_spec(
+		"timeEnd\0",
+		JSNativeWrapper {
+			op: Some(time_end),
+			info: ptr::null_mut(),
+		},
+		1,
+	),
+	NULL_SPEC,
 ];
 
 pub fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
@@ -530,7 +505,7 @@ pub fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
 		rooted!(in(cx) let obj = JS_NewPlainObject(cx));
 		rooted!(in(cx) let obj_val = ObjectValue(obj.get()));
 		rooted!(in(cx) let rglobal = global);
-		return JS_DefineFunctionsWithHelp(cx, obj.handle().into(), METHODS.as_ptr())
+		return JS_DefineFunctions(cx, obj.handle().into(), METHODS.as_ptr())
 			&& JS_DefineProperty(cx, rglobal.handle().into(), "console\0".as_ptr() as *const i8, obj_val.handle().into(), 0);
 	}
 }

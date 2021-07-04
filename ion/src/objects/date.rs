@@ -4,28 +4,41 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::objects::object::IonRawObject;
-use crate::functions::macros::IonContext;
-use chrono::offset::Utc;
-use chrono::DateTime;
-use mozjs::jsapi::*;
-use mozjs::error::throw_type_error;
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
-use mozjs::rust::{HandleValue, MutableHandleValue, maybe_wrap_object_value};
-use mozjs::jsval::ObjectValue;
 use ::std::result::Result;
 
+use chrono::DateTime;
+use chrono::offset::Utc;
+use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
+use mozjs::error::throw_type_error;
+use mozjs::jsapi::*;
+use mozjs::jsval::ObjectValue;
+use mozjs::rust::{HandleValue, maybe_wrap_object_value, MutableHandleValue};
+
+use crate::functions::macros::IonContext;
+use crate::objects::object::IonRawObject;
+
 pub struct IonDate {
-	obj: IonRawObject
+	obj: IonRawObject,
 }
 
 impl IonDate {
+	#[allow(dead_code)]
 	unsafe fn new(cx: IonContext) -> IonDate {
-		IonDate::from(cx, NewDateObject(cx, ClippedTime {t: Utc::now().timestamp_millis() as f64})).unwrap()
+		IonDate::from_date(cx, Utc::now())
 	}
 
+	#[allow(dead_code)]
 	unsafe fn from_date(cx: IonContext, time: DateTime<Utc>) -> IonDate {
-		IonDate::from(cx, NewDateObject(cx, ClippedTime {t: time.timestamp_millis() as f64})).unwrap()
+		IonDate::from(
+			cx,
+			NewDateObject(
+				cx,
+				ClippedTime {
+					t: time.timestamp_millis() as f64,
+				},
+			),
+		)
+		.unwrap()
 	}
 
 	unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonDate> {
@@ -36,26 +49,27 @@ impl IonDate {
 			throw_type_error(cx, "Object cannot be converted to Date");
 			None
 		} else {
-			Some(IonDate {obj})
+			Some(IonDate { obj })
 		}
 	}
 
+	#[allow(dead_code)]
 	unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonDate> {
 		assert!(val.is_object());
-		IonDate::from(cx,val.to_object())
+		IonDate::from(cx, val.to_object())
 	}
 
 	unsafe fn raw(&self) -> IonRawObject {
 		self.obj
 	}
 
+	#[allow(dead_code)]
 	unsafe fn is_valid(&self, cx: IonContext) -> bool {
 		rooted!(in(cx) let obj = self.obj);
 		let mut is_valid = true;
 		return DateIsValid(cx, obj.handle().into(), &mut is_valid) && is_valid;
 	}
 }
-
 
 impl FromJSValConvertible for IonDate {
 	type Config = ();

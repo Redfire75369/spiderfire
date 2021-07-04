@@ -5,12 +5,16 @@
  */
 
 #[macro_use]
+extern crate ion;
+#[macro_use]
 extern crate mozjs;
 
 use mozjs::jsapi::*;
 
+use crate::fs::fs::init_fs;
+
 mod fs;
 
 pub fn init_modules(cx: *mut JSContext, global: *mut JSObject) -> bool {
-	fs::fs::init_fs(cx, global)
+	init_fs(cx, global)
 }
