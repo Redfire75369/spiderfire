@@ -15,7 +15,7 @@ use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::functions::arguments::Arguments;
-use ion::functions::macros::IonResult;
+use ion::functions::macros::{IonContext, IonResult};
 use ion::functions::specs::{create_function_spec, NULL_SPEC};
 use ion::objects::object::IonRawObject;
 use runtime::modules::{compile_module, register_module};
@@ -183,7 +183,7 @@ unsafe fn soft_link(original_str: String, link_str: String) -> IonResult<bool> {
 	if !link.exists() {
 		#[cfg(target_family = "unix")]
 		{
-			os::unix::fs::symlink(original, link).is_ok()
+			Ok(os::unix::fs::symlink(original, link).is_ok())
 		}
 		#[cfg(target_family = "windows")]
 		{

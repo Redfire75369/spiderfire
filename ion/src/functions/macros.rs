@@ -12,7 +12,7 @@ pub type IonResult<T> = Result<T, Option<String>>;
 #[macro_export]
 macro_rules! js_fn_raw_m {
 	(unsafe fn $name:ident($($param:ident : $type:ty), *) -> IonResult<$ret:ty> $body:tt) => {
-		unsafe extern "C" fn $name(cx: *mut JSContext, argc: u32, vp: *mut Value) -> bool {
+		unsafe extern "C" fn $name(cx: IonContext, argc: u32, vp: *mut Value) -> bool {
 			use mozjs::conversions::ToJSValConvertible;
 
 			let args = Arguments::new(argc, vp);
@@ -64,20 +64,11 @@ macro_rules! unpack_args {
 #[macro_export]
 macro_rules! unpack_args_count {
     () => {0};
-    (#[$special:ident] $name:ident: $type:ty, $($args:tt)*) => {
-        unpack_args_count!($($args)*)
-    };
-    (#[$special:ident] $name:ident: $type:ty {$opt:expr}, $($args:tt)*) => {
-        unpack_args_count!($($args)*)
-    };
 	($name:ident: IonContext, $($args:tt)*) => {
         unpack_args_count!($($args)*)
     };
-	($name:ident: $ty:ty, $($args:tt)*) => {
-        1 + unpack_args_count!($($args)*)
-    };
-    ($name:ident: $ty:ty {$opt:expr}, $($args:tt)*) => {
-        1 + unpack_args_count!($($args)*)
+    ($(#[$special:ident])? $(mut)? $name:ident: $type:ty, $($args:tt)*) => {
+        unpack_args_count!($($args)*)
     };
     (, $($rest:tt)*) => {
         unpack_args_count!($($rest)*)
@@ -92,21 +83,10 @@ macro_rules! unpack_unwrap_args {
         let $name = <*mut JSObject as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), ()).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
-    // Special Case: #[this] with Conversion Options
-    (($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty {$opt:expr}, $($fn_args:tt)*) => {
-		let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.thisv()), $opt).unwrap().get_success_value().unwrap().clone();
-        unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
-    };
 	// Special Case: Variable Args #[varargs]
     (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>, ) => {
 		let $name = $args.range_handles($n..($args.len() + 1)).iter().map::<::std::result::Result<$type, ()>, _>(|arg| {
             Ok(<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), ())?.get_success_value().unwrap().clone())
-        }).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
-    };
-	// Special Case: Variable Args #[varargs] with Conversion Options
-    (($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty> {$opt:expr}, ) => {
-		let $name = $args.range_handles($n..($args.len() + 1)).iter().map(|arg| {
-            Ok(<$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw(arg.clone()), $opt)?.get_success_value().unwrap().clone())
         }).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
     };
 	// Special Case: IonContext
@@ -114,14 +94,9 @@ macro_rules! unpack_unwrap_args {
 		let $name = $cx;
 		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
     };
-	// No Conversion Options
+	// Default Case
     (($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
         let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), ()).unwrap().get_success_value().unwrap().clone();
-        unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
-    };
-    // With Conversion Options
-    (($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty {$opt:expr}, $($fn_args:tt)*) => {
-        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), $opt).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
     };
 }
