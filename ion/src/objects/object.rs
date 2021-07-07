@@ -47,8 +47,8 @@ impl IonObject {
 	#[allow(dead_code)]
 	pub unsafe fn has(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
-		rooted!(in(cx) let obj = self.obj);
 		let mut found = false;
+		rooted!(in(cx) let obj = self.obj);
 
 		if JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
 			found
@@ -88,22 +88,37 @@ impl IonObject {
 	#[allow(dead_code)]
 	pub unsafe fn set(&mut self, cx: IonContext, key: String, value: Value) -> bool {
 		let key = format!("{}\0", key);
-		rooted!(in(cx) let mut obj = self.obj);
+		rooted!(in(cx) let obj = self.obj);
 		rooted!(in(cx) let rval = value);
-		JS_SetProperty(cx, obj.handle_mut().into(), key.as_ptr() as *const i8, rval.handle().into())
+		JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into())
 	}
 
-	// Waiting on rust-mozjs #545
+	pub unsafe fn define(&mut self, cx: IonContext, key: String, value: Value, attrs: u32) -> bool {
+		let key = format!("{}\0", key);
+		rooted!(in(cx) let obj = self.obj);
+		rooted!(in(cx) let rval = value);
+		JS_DefineProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into(), attrs)
+	}
+
+	#[allow(dead_code)]
+	pub unsafe fn delete(&self, cx: IonContext, key: String) -> bool {
+		let key = format!("{}\0", key);
+		rooted!(in(cx) let obj = self.obj);
+		JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8)
+	}
+
+	// Waiting on rust-mozjs #546
 	// pub unsafe fn set_as<T: ToJSValConvertible + GCMethods>(&mut self, cx: IonContext, key: String, value: T) -> bool {
 	// 	rooted!(in(cx) let mut val = value);
 	// 	value.to_jsval(cx, val.handle_mut());
 	// 	self.set(cx, key, val.get())
 	// }
 
+	// TODO: Return Vec<String> - Waiting on rust-mozjs #544
 	#[allow(dead_code)]
 	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
-		rooted!(in(cx) let mut obj = self.obj);
 		let mut ids = IdVector::new(cx);
+		rooted!(in(cx) let obj = self.obj);
 		GetPropertyKeys(
 			cx,
 			obj.handle().into(),

@@ -8,8 +8,9 @@ use mozjs::jsapi::*;
 use mozjs::jsval::UndefinedValue;
 
 use crate::exceptions::report::ErrorReport;
+use crate::functions::macros::IonContext;
 
-pub unsafe fn report_and_clear_exception(cx: *mut JSContext) -> bool {
+pub unsafe fn report_and_clear_exception(cx: IonContext) -> bool {
 	rooted!(in(cx) let mut exception = UndefinedValue());
 	if !JS_GetPendingException(cx, exception.handle_mut().into()) {
 		return false;

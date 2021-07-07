@@ -38,7 +38,7 @@ macro_rules! js_fn_raw_m {
 #[macro_export]
 macro_rules! js_fn_m {
     (unsafe fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
-        js_fn_raw_m!(unsafe fn $name(cx: *mut JSContext, args: &Arguments) -> IonResult<$ret> {
+        js_fn_raw_m!(unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
 			#[allow(unused_imports)]
 			use mozjs::conversions::FromJSValConvertible;
 
@@ -96,7 +96,7 @@ macro_rules! unpack_unwrap_args {
     };
 	// Default Case
     (($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
-        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle($n).unwrap()), ()).unwrap().get_success_value().unwrap().clone();
+        let $name = <$type as FromJSValConvertible>::from_jsval($cx, mozjs::rust::Handle::from_raw($args.handle_or_undefined($n)), ()).unwrap().get_success_value().unwrap().clone();
         unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
     };
 }

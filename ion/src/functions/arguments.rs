@@ -6,7 +6,8 @@
 
 use ::std::ops::RangeBounds;
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue, Value};
+use mozjs::jsval::UndefinedValue;
 
 pub struct Arguments {
 	pub values: Vec<Handle<Value>>,
@@ -16,7 +17,6 @@ pub struct Arguments {
 impl Arguments {
 	pub unsafe fn new(argc: u32, vp: *mut Value) -> Arguments {
 		let call_args = CallArgs::from_vp(vp, argc);
-
 		let values: Vec<_> = (0..(argc + 1)).map(|i| call_args.get(i)).collect();
 
 		Arguments { values, call_args }
@@ -33,11 +33,25 @@ impl Arguments {
 		None
 	}
 
+	pub fn handle_or_undefined(&self, index: usize) -> Handle<Value> {
+		if self.len() > index + 1 {
+			return self.values[index];
+		}
+		unsafe { UndefinedHandleValue }
+	}
+
 	pub fn value(&self, index: usize) -> Option<Value> {
 		if self.len() > index + 1 {
 			return Some(self.values[index].get());
 		}
 		None
+	}
+
+	pub fn value_or_undefined(&self, index: usize) -> Value {
+		if self.len() > index + 1 {
+			return self.values[index].get();
+		}
+		UndefinedValue()
 	}
 
 	pub fn range<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<Value> {

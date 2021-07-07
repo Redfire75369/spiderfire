@@ -14,6 +14,7 @@ use mozjs::rooted;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::exceptions::exception::report_and_clear_exception;
+use ion::objects::object::IonObject;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::init;
 
@@ -29,7 +30,7 @@ pub fn eval_script(path: &Path) -> Result<(), ()> {
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
-	init(rt.cx(), global);
+	init(rt.cx(), unsafe { IonObject::from(global) });
 
 	if !path.is_file() {
 		panic!("File not found: {}", path.display());

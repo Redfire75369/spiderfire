@@ -6,16 +6,17 @@
 
 use ::std::io::Write;
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::Value;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+use crate::functions::macros::IonContext;
 use crate::types::{array::is_array, string::to_string};
 
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 #[allow(clippy::if_same_then_else)]
-pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: bool) {
+pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
 	let mut out;
 	if !is_stderr {
 		out = StandardStream::stdout(ColorChoice::Auto);
@@ -43,7 +44,7 @@ pub fn print_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: bo
 	out.reset().unwrap();
 }
 
-pub fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: bool) {
+pub fn println_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
 	print_value(cx, val, indents, is_stderr);
 	println!();
 }

@@ -9,12 +9,13 @@ extern crate ion;
 #[macro_use]
 extern crate mozjs;
 
-use mozjs::jsapi::*;
+use ion::functions::macros::IonContext;
+use ion::objects::object::IonObject;
 
 use crate::fs::fs::init_fs;
 
 mod fs;
 
-pub fn init_modules(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn init_modules(cx: IonContext, global: IonObject) -> bool {
 	init_fs(cx, global)
 }

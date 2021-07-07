@@ -17,7 +17,7 @@ use mozjs::typedarray::{CreateWith, Uint8Array};
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
 use ion::functions::specs::{create_function_spec, NULL_SPEC};
-use ion::objects::object::IonRawObject;
+use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::{compile_module, register_module};
 
 const FS_SOURCE: &str = include_str!("fs.js");
@@ -307,7 +307,7 @@ const METHODS: &[JSFunctionSpec] = &[
 			op: Some(soft_link),
 			info: ptr::null_mut(),
 		},
-		1,
+		2,
 	),
 	create_function_spec(
 		"hardLink\0",
@@ -315,30 +315,23 @@ const METHODS: &[JSFunctionSpec] = &[
 			op: Some(soft_link),
 			info: ptr::null_mut(),
 		},
-		1,
+		2,
 	),
 	NULL_SPEC,
 ];
 
-pub fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn init_fs(cx: IonContext, mut global: IonObject) -> bool {
+	let internal_key = String::from("______fsInternal______");
 	unsafe {
 		rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
-		rooted!(in(cx) let rglobal = global);
 		if JS_DefineFunctions(cx, fs_module.handle().into(), METHODS.as_ptr()) {
-			rooted!(in(cx) let fs_module_obj = ObjectValue(fs_module.get()));
-			if JS_DefineProperty(
-				cx,
-				rglobal.handle().into(),
-				"______fsInternal______\0".as_ptr() as *const i8,
-				fs_module_obj.handle().into(),
-				0,
-			) {
+			if global.define(cx, internal_key, ObjectValue(fs_module.get()), 0) {
 				return register_module(
 					cx,
 					&String::from("fs"),
 					compile_module(cx, &String::from("fs"), None, &String::from(FS_SOURCE)).unwrap(),
 				);
-				// && JS_SetProperty(cx, rglobal.handle().into(), "______fsInternal______\0".as_ptr() as *const i8, undefined.handle().into());
+				// && global.delete(cx, internal_key);
 			}
 		}
 		false

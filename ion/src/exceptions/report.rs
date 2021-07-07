@@ -8,7 +8,9 @@ use ::std::ffi::CStr;
 use ::std::slice::from_raw_parts;
 
 use libc::c_uint;
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JSErrorReport, StackFormat};
+
+use crate::functions::macros::IonContext;
 
 pub struct ErrorReport {
 	message: String,
@@ -54,7 +56,7 @@ impl ErrorReport {
 		Some(error)
 	}
 
-	pub unsafe fn new_with_stack(cx: *mut JSContext, report: *mut JSErrorReport) -> Option<ErrorReport> {
+	pub unsafe fn new_with_stack(cx: IonContext, report: *mut JSErrorReport) -> Option<ErrorReport> {
 		if let Some(error) = ErrorReport::new(report) {
 			capture_stack!(in(cx) let stack);
 			let str_stack = stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap();

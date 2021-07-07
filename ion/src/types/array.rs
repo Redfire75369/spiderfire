@@ -4,14 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{IsArray, Value};
 
-pub fn is_array(cx: *mut JSContext, val: Value) -> bool {
+use crate::functions::macros::IonContext;
+
+pub fn is_array(cx: IonContext, val: Value) -> bool {
 	let mut bool = false;
 	if val.is_object() {
 		unsafe {
-			rooted!(in(cx) let rval = val.to_object());
-			IsArray(cx, rval.handle().into(), &mut bool);
+			rooted!(in(cx) let obj = val.to_object());
+			IsArray(cx, obj.handle().into(), &mut bool);
 		}
 	}
 

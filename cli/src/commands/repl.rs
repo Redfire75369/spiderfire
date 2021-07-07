@@ -11,6 +11,7 @@ use ::std::ptr;
 use mozjs::jsapi::*;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
+use ion::objects::object::IonObject;
 use runtime::init;
 
 use crate::evaluate::eval_inline;
@@ -27,7 +28,7 @@ pub fn start_repl() {
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
-	init(rt.cx(), global);
+	init(rt.cx(), unsafe { IonObject::from(global) });
 
 	loop {
 		print!("> ");

@@ -13,6 +13,7 @@ use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::exceptions::exception::report_and_clear_exception;
+use ion::objects::object::IonObject;
 use ion::print::println_value;
 use modules::init_modules;
 use runtime::init;
@@ -49,7 +50,7 @@ pub fn eval_script(path: &Path) {
 	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _ac = JSAutoRealm::new(rt.cx(), global);
 
-	init(rt.cx(), global);
+	init(rt.cx(), unsafe { IonObject::from(global) });
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());
@@ -90,8 +91,8 @@ pub fn eval_module(path: &Path) {
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(rt.cx()), Some(runtime::modules::resolve_module));
 	}
-	init(rt.cx(), global);
-	init_modules(rt.cx(), global);
+	init(rt.cx(), unsafe { IonObject::from(global) });
+	init_modules(rt.cx(), unsafe { IonObject::from(global) });
 
 	if !path.is_file() {
 		eprintln!("File not found: {}", path.display());

@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JSString, Value};
 
-type IonValue = *mut Value;
+use crate::functions::macros::IonContext;
 
-type IonBoolean = bool;
-type IonNumber = f64;
+type IonRawValue = *mut Value;
+
 type IonString = *mut JSString;
-type IonFunction = unsafe extern "C" fn(*mut JSContext, u32, IonValue) -> bool;
+type IonFunction = unsafe extern "C" fn(IonContext, u32, IonRawValue) -> bool;

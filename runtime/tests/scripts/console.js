@@ -4,7 +4,7 @@ console.warn("Warn", "Warning", 0, [1, "Array"]);
 console.error("Error", undefined, {"key": "value"});
 console.debug("Debug", "Debugging", null, {"key": {"value": "Object", "val": 1e3}});
 
-// console.assert();
+console.assert();
 console.assert(true);
 console.assert(false, "Assertion", true, 5);
 
@@ -13,6 +13,7 @@ console.clear();
 function trace() {
 	console.trace();
 }
+
 console.trace();
 trace();
 
@@ -25,19 +26,27 @@ console.log("Less Indented");
 console.groupEnd();
 console.log("No Indent");
 
+console.count();
 console.count("First Counter");
 console.count("Second Counter");
 console.count("First Counter");
 console.countReset("Second Counter");
+console.count();
 console.countReset("First Counter");
 console.count("Second Counter");
+console.countReset();
 
+console.time();
 console.time("Timer");
 let val = 144;
 for (let i = 0; i < 576; i++) {
 	val += 12;
-	if (i % 40 == 4) {
+	if (i % 40 === 4) {
 		console.timeLog("Timer", {val});
 	}
+	if (i % 20 === 48) {
+		console.timeLog();
+	}
 }
-console.timeEnd("Timer", ["Timer End."]);
+console.timeEnd();
+console.timeEnd("Timer");

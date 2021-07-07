@@ -16,6 +16,7 @@ use mozjs::jsval::ObjectValue;
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
 use ion::functions::specs::{create_function_spec, NULL_SPEC};
+use ion::objects::object::IonObject;
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
 
@@ -66,6 +67,15 @@ fn print_args_with_indents(cx: IonContext, args: Vec<Value>, is_stderr: bool, in
 	}
 }
 
+// TODO: Convert to Undefinable<String> as null is a valid label
+fn get_label(label: Option<String>) -> String {
+	if let Some(label) = label {
+		label
+	} else {
+		String::from(DEFAULT_LABEL)
+	}
+}
+
 #[js_fn]
 unsafe fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Info {
@@ -111,31 +121,36 @@ unsafe fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn assert(cx: IonContext, assertion: bool, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
-		if assertion {
+		if let Some(assertion) = assertion {
+			if assertion {
+				return Ok(());
+			}
+
+			if values.len() == 0 {
+				print_indent(true);
+				eprintln!("Assertion Failed");
+				return Ok(());
+			}
+
+			if values[0].is_string() {
+				print_indent(true);
+				eprint!("Assertion Failed: {} ", to_string(cx, values[0]));
+				print_indent(true);
+				print_args(cx, values[2..].to_vec(), true);
+				eprintln!();
+				return Ok(());
+			}
+
+			print_indent(true);
+			eprint!("Assertion Failed: ");
+			print_args(cx, values, true);
+			println!();
+		} else {
+			eprintln!("Assertion Failed:");
 			return Ok(());
 		}
-
-		if values.len() == 0 {
-			print_indent(true);
-			eprintln!("Assertion Failed");
-			return Ok(());
-		}
-
-		if values[0].is_string() {
-			print_indent(true);
-			eprint!("Assertion Failed: {} ", to_string(cx, values[0]));
-			print_indent(true);
-			print_args(cx, values[2..].to_vec(), true);
-			eprintln!();
-			return Ok(());
-		}
-
-		print_indent(true);
-		eprint!("Assertion Failed: ");
-		print_args(cx, values, true);
-		println!();
 	}
 
 	Ok(())
@@ -203,13 +218,8 @@ unsafe fn group_end() -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn count(label: String) -> IonResult<()> {
-	let label = if label.as_str() == "undefined" {
-		String::from(DEFAULT_LABEL)
-	} else {
-		label
-	};
-
+unsafe fn count(label: Option<String>) -> IonResult<()> {
+	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
@@ -234,13 +244,8 @@ unsafe fn count(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn count_reset(label: String) -> IonResult<()> {
-	let label = if label.as_str() == "undefined" {
-		String::from(DEFAULT_LABEL)
-	} else {
-		label
-	};
-
+unsafe fn count_reset(label: Option<String>) -> IonResult<()> {
+	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
@@ -260,13 +265,8 @@ unsafe fn count_reset(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn time(label: String) -> IonResult<()> {
-	let label = if label.as_str() == "undefined" {
-		String::from(DEFAULT_LABEL)
-	} else {
-		label
-	};
-
+unsafe fn time(label: Option<String>) -> IonResult<()> {
+	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
@@ -286,13 +286,8 @@ unsafe fn time(label: String) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
-	let label = if label.as_str() == "undefined" {
-		String::from(DEFAULT_LABEL)
-	} else {
-		label
-	};
-
+unsafe fn time_log(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
@@ -319,13 +314,8 @@ unsafe fn time_log(cx: IonContext, label: String, #[varargs] values: Vec<Value>)
 }
 
 #[js_fn]
-unsafe fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>) -> IonResult<()> {
-	let label = if label.as_str() == "undefined" {
-		String::from(DEFAULT_LABEL)
-	} else {
-		label
-	};
-
+unsafe fn time_end(label: Option<String>) -> IonResult<()> {
+	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
 		match (*map).entry(label.clone()) {
@@ -340,8 +330,7 @@ unsafe fn time_end(cx: IonContext, label: String, #[varargs] values: Vec<Value>)
 					let (_, start_time) = o.remove_entry();
 					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 					print_indent(false);
-					print!("{}: {}ms", label, duration);
-					print_args(cx, values, false);
+					print!("{}: {}ms - Timer Ended", label, duration);
 					println!();
 				}
 			}
@@ -500,12 +489,10 @@ const METHODS: &[JSFunctionSpec] = &[
 	NULL_SPEC,
 ];
 
-pub fn define(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn define(cx: IonContext, mut global: IonObject) -> bool {
 	unsafe {
-		rooted!(in(cx) let obj = JS_NewPlainObject(cx));
-		rooted!(in(cx) let obj_val = ObjectValue(obj.get()));
-		rooted!(in(cx) let rglobal = global);
-		return JS_DefineFunctions(cx, obj.handle().into(), METHODS.as_ptr())
-			&& JS_DefineProperty(cx, rglobal.handle().into(), "console\0".as_ptr() as *const i8, obj_val.handle().into(), 0);
+		rooted!(in(cx) let console = JS_NewPlainObject(cx));
+		return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
+			&& global.define(cx, String::from("console"), ObjectValue(console.get()), 0);
 	}
 }

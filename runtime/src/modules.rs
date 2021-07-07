@@ -85,7 +85,7 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 	Some(module)
 }
 
-pub fn register_module(cx: *mut JSContext, name: &str, module: *mut JSObject) -> bool {
+pub fn register_module(cx: IonContext, name: &str, module: *mut JSObject) -> bool {
 	MODULE_REGISTRY.with(|registry| {
 		let mut registry = registry.borrow_mut();
 		rooted!(in(cx) let mut module = module);
@@ -99,7 +99,7 @@ pub fn register_module(cx: *mut JSContext, name: &str, module: *mut JSObject) ->
 	})
 }
 
-pub unsafe extern "C" fn resolve_module(cx: *mut JSContext, module_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
+pub unsafe extern "C" fn resolve_module(cx: IonContext, module_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
 	let name = jsstr_to_string(cx, name.get());
 	let data = get_module_data(cx, module_private);
 

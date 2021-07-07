@@ -14,6 +14,7 @@ use mozjs::rooted;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::exceptions::exception::report_and_clear_exception;
+use ion::objects::object::IonObject;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::init;
 use runtime::modules::{compile_module, resolve_module};
@@ -33,14 +34,13 @@ pub fn eval_module(path: &Path) -> Result<(), ()> {
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(rt.cx()), Some(resolve_module));
 	}
-	init(rt.cx(), global);
+	init(rt.cx(), unsafe { IonObject::from(global) });
 
 	if !path.is_file() {
 		panic!("File not found: {}", path.display());
 	}
 	let script = read_to_string(path).unwrap();
 
-	rooted!(in(rt.cx()) let rooted_global = global);
 	rooted!(in(rt.cx()) let module = unsafe { compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap() });
 
 	unsafe {

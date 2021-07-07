@@ -5,9 +5,11 @@
  */
 
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JS_ValueToSource, Value};
 
-pub fn to_string(cx: *mut JSContext, val: Value) -> String {
+use crate::functions::macros::IonContext;
+
+pub fn to_string(cx: IonContext, val: Value) -> String {
 	rooted!(in(cx) let rval = val);
 
 	if val.is_number() {

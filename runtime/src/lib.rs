@@ -9,7 +9,8 @@ extern crate ion;
 #[macro_use]
 extern crate mozjs;
 
-use mozjs::jsapi::{JSContext, JSObject};
+use ion::functions::macros::IonContext;
+use ion::objects::object::IonObject;
 
 use crate::globals::console;
 
@@ -17,6 +18,6 @@ pub mod config;
 pub mod globals;
 pub mod modules;
 
-pub fn init(cx: *mut JSContext, global: *mut JSObject) -> bool {
+pub fn init(cx: IonContext, global: IonObject) -> bool {
 	console::define(cx, global)
 }
