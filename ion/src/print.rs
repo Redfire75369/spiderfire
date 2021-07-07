@@ -48,13 +48,13 @@ pub fn println_value(cx: *mut JSContext, val: Value, indents: usize, is_stderr: 
 	println!();
 }
 
-pub fn indent(string: &str, indents: usize, initial: bool) -> String {
+pub fn indent(string: &String, indents: usize, initial: bool) -> String {
 	if string.contains(NEWLINE) {
 		let indent = INDENT.repeat(indents);
 		if initial {
-			str::replace(&(indent.clone() + string), NEWLINE, &("\n".to_owned() + &indent))
+			(indent.clone() + string).replace(NEWLINE, &(String::from(NEWLINE) + &indent))
 		} else {
-			str::replace(&string, NEWLINE, &("\n".to_owned() + &indent))
+			string.replace(NEWLINE, &(String::from(NEWLINE) + &indent))
 		}
 	} else {
 		string.to_string()

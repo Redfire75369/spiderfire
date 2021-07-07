@@ -70,12 +70,14 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 	}
 
 	if !ModuleInstantiate(cx, rooted_module.handle().into()) {
+		eprintln!("Failed to instantiate module :(");
 		report_and_clear_exception(cx);
 		return None;
 	}
 
 	rooted!(in (cx) let mut rval = UndefinedValue());
 	if !ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) {
+		eprintln!("Failed to evaluate module :(");
 		report_and_clear_exception(cx);
 		return None;
 	}
@@ -102,7 +104,7 @@ pub unsafe extern "C" fn resolve_module(cx: *mut JSContext, module_private: Hand
 	let data = get_module_data(cx, module_private);
 
 	let path = if name.starts_with("./") || name.starts_with("../") {
-		Path::new(&data.unwrap().path.unwrap()).join("..").join(&name)
+		Path::new(&data.clone().unwrap().path.unwrap()).parent().unwrap().join(&name)
 	} else if name.starts_with("/") {
 		Path::new(&name).to_path_buf()
 	} else {

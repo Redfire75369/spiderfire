@@ -323,7 +323,6 @@ const METHODS: &[JSFunctionSpec] = &[
 pub fn init_fs(cx: *mut JSContext, global: *mut JSObject) -> bool {
 	unsafe {
 		rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
-		rooted!(in(cx) let undefined = UndefinedValue());
 		rooted!(in(cx) let rglobal = global);
 		if JS_DefineFunctions(cx, fs_module.handle().into(), METHODS.as_ptr()) {
 			rooted!(in(cx) let fs_module_obj = ObjectValue(fs_module.get()));

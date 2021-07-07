@@ -24,13 +24,13 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 ### MSVC
 
 1. Follow the instructions at [Windows Prerequisites](https://firefox-source-docs.mozilla.org/setup/windows_build.html) (Steps 1.1 and 1.2)
-2. Start Visual Studio Developer Command Prompt
+2. Download and Install Clang for Windows (64 bit) from [LLVM Releases](https://releases.llvm.org/download.html)
+3. Start Visual Studio Developer Command Prompt
 
 ```batch
 "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 ```
 
-3. Download and Install Clang for Windows (64 bit) from [LLVM Releases](https://releases.llvm.org/download.html)
 4. Set Environment Variables
 
 ```batch
@@ -58,7 +58,7 @@ cargo build
 1. Install Build Dependencies
 
 ```shell
-sudo apt -y install python python3 autoconf2.13 gcc g++ make clang llvm pkg-config libzlibg1-dev
+sudo apt -y install python3 python3-distutils autoconf2.13 build-essential clang llvm pkg-config zlib1g-dev
 ```
 
 2. Build with Cargo
