@@ -12,10 +12,12 @@ extern crate mozjs;
 use ion::functions::macros::IonContext;
 use ion::objects::object::IonObject;
 
+use crate::assert::assert::init_assert;
 use crate::fs::fs::init_fs;
 
+mod assert;
 mod fs;
 
 pub fn init_modules(cx: IonContext, global: IonObject) -> bool {
-	init_fs(cx, global)
+	init_assert(cx, global) && init_fs(cx, global)
 }

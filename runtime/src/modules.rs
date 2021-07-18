@@ -57,13 +57,13 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 		if let Some(path_str) = path.to_str() {
 			rooted!(in(cx) let mut path = UndefinedValue());
 			path_str.to_jsval(cx, path.handle_mut().into());
-			let mut data = IonObject::from(JS_NewPlainObject(cx));
+			let mut data = IonObject::new(cx);
 			data.set(cx, String::from("path"), path.get());
 			data.set(cx, String::from("std"), BooleanValue(false));
 			SetModulePrivate(module, &data.to_value());
 		}
 	} else {
-		let mut data = IonObject::from(JS_NewPlainObject(cx));
+		let mut data = IonObject::new(cx);
 		data.set(cx, String::from("path"), UndefinedValue());
 		data.set(cx, String::from("std"), BooleanValue(true));
 		SetModulePrivate(module, &data.to_value());

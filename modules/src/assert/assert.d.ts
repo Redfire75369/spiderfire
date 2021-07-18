@@ -4,6 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod array;
-pub mod date;
-pub mod object;
+declare function assert(assertion?: boolean);
+
+declare function debugAssert(assertion?: boolean);

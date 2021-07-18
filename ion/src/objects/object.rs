@@ -9,7 +9,12 @@ use ::std::result::Result;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::conversions::ConversionResult::Success;
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JSObject, PropertyKey, Value};
+use mozjs::jsapi::{
+	AssertSameCompartment, GetPropertyKeys, JS_ClearPendingException, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasProperty,
+	JS_NewPlainObject, JS_SetProperty,
+};
+use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS};
 use mozjs::jsval::ObjectValue;
 use mozjs::rust::{HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 
@@ -17,6 +22,7 @@ use crate::functions::macros::IonContext;
 
 pub type IonRawObject = *mut JSObject;
 
+#[derive(Clone, Copy)]
 pub struct IonObject {
 	obj: IonRawObject,
 }

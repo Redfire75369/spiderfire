@@ -4,6 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod array;
-pub mod date;
-pub mod object;
+export const assert = ______assertInternal______.assert;
+export const debugAssert = ______assertInternal______.debugAssert;
+
+export default Object.freeze({
+	assert,
+	debugAssert
+});

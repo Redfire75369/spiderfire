@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 ion = { path = "../ion" }
 libc = "0.2.92"
-mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs"}
+mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 runtime = { path = "../runtime" }
 
 [features]

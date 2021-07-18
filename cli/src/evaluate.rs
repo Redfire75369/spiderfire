@@ -99,7 +99,9 @@ pub fn eval_module(path: &Path) {
 	}
 	let script = read_to_string(path).unwrap_or_else(|_| String::from(""));
 
-	rooted!(in(rt.cx()) let module = unsafe { compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap() });
+	rooted!(in(rt.cx()) let module = unsafe {
+		compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap()
+	});
 
 	unsafe {
 		if ModuleInstantiate(rt.cx(), module.handle().into()) {

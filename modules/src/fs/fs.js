@@ -21,7 +21,7 @@ export const rename = ______fsInternal______.rename;
 export const softLink = ______fsInternal______.softLink;
 export const hardLink = ______fsInternal______.hardLink;
 
-const fs = Object.freeze({
+export default Object.freeze({
 	readBinary,
 	readString,
 	readDir,
@@ -39,5 +39,3 @@ const fs = Object.freeze({
 	softLink,
 	hardLink
 });
-
-export default fs;
