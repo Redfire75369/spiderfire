@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::io::Write;
+use std::io::Write;
 
 use mozjs::jsapi::Value;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};

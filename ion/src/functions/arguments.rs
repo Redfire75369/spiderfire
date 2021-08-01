@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::ops::RangeBounds;
+use std::ops::RangeBounds;
 
 use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue, Value};
 use mozjs::jsval::UndefinedValue;
@@ -36,7 +36,6 @@ impl Arguments {
 		self.values.len()
 	}
 
-	#[allow(dead_code)]
 	pub fn handle(&self, index: usize) -> Option<Handle<Value>> {
 		if self.len() > index + 1 {
 			return Some(self.values[index]);
@@ -51,7 +50,6 @@ impl Arguments {
 		unsafe { UndefinedHandleValue }
 	}
 
-	#[allow(dead_code)]
 	pub fn value(&self, index: usize) -> Option<Value> {
 		if self.len() > index + 1 {
 			return Some(self.values[index].get());
@@ -59,7 +57,6 @@ impl Arguments {
 		None
 	}
 
-	#[allow(dead_code)]
 	pub fn value_or_undefined(&self, index: usize) -> Value {
 		if self.len() > index + 1 {
 			return self.values[index].get();
@@ -67,7 +64,6 @@ impl Arguments {
 		UndefinedValue()
 	}
 
-	#[allow(dead_code)]
 	pub fn range<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<Value> {
 		range.filter_map(|index| self.value(index)).collect::<Vec<_>>()
 	}
@@ -76,7 +72,6 @@ impl Arguments {
 		range.filter_map(|index| self.handle(index)).collect::<Vec<_>>()
 	}
 
-	#[allow(dead_code)]
 	pub fn range_full(&self) -> Vec<Value> {
 		self.values.iter().map(|value| value.get()).collect::<Vec<_>>()
 	}

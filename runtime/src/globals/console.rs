@@ -4,18 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::cell::RefCell;
-use ::std::collections::hash_map::{Entry, HashMap};
-use ::std::ffi::CString;
-use ::std::ptr;
+use std::cell::RefCell;
+use std::collections::hash_map::{Entry, HashMap};
 
 use chrono::{DateTime, offset::Utc};
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
 use mozjs::jsval::ObjectValue;
 
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
-use ion::functions::specs::{create_function_spec, NULL_SPEC};
 use ion::objects::object::IonObject;
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
@@ -208,7 +205,7 @@ unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn group_end() -> IonResult<()> {
+unsafe fn groupEnd() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
@@ -244,7 +241,7 @@ unsafe fn count(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn count_reset(label: Option<String>) -> IonResult<()> {
+unsafe fn countReset(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -286,7 +283,7 @@ unsafe fn time(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn time_log(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -302,7 +299,7 @@ unsafe fn time_log(cx: IonContext, label: Option<String>, #[varargs] values: Vec
 					let start_time = o.get();
 					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 					print_indent(false);
-					print!("{}: {}ms", label, duration);
+					print!("{}: {}ms ", label, duration);
 					print_args(cx, values, false);
 					println!();
 				}
@@ -314,7 +311,7 @@ unsafe fn time_log(cx: IonContext, label: Option<String>, #[varargs] values: Vec
 }
 
 #[js_fn]
-unsafe fn time_end(label: Option<String>) -> IonResult<()> {
+unsafe fn timeEnd(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -342,151 +339,25 @@ unsafe fn time_end(label: Option<String>) -> IonResult<()> {
 
 // TODO: Create console.table
 const METHODS: &[JSFunctionSpec] = &[
-	create_function_spec(
-		"log\0",
-		JSNativeWrapper {
-			op: Some(log),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"info\0",
-		JSNativeWrapper {
-			op: Some(log),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"dir\0",
-		JSNativeWrapper {
-			op: Some(log),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"dirxml\0",
-		JSNativeWrapper {
-			op: Some(log),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"warn\0",
-		JSNativeWrapper {
-			op: Some(warn),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"error\0",
-		JSNativeWrapper {
-			op: Some(error),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"debug\0",
-		JSNativeWrapper {
-			op: Some(debug),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"assert\0",
-		JSNativeWrapper {
-			op: Some(assert),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"clear\0",
-		JSNativeWrapper {
-			op: Some(clear),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"trace\0",
-		JSNativeWrapper {
-			op: Some(trace),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"group\0",
-		JSNativeWrapper {
-			op: Some(group),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"groupCollapsed\0",
-		JSNativeWrapper {
-			op: Some(group),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"groupEnd\0",
-		JSNativeWrapper {
-			op: Some(group_end),
-			info: ptr::null_mut(),
-		},
-		0,
-	),
-	create_function_spec(
-		"count\0",
-		JSNativeWrapper {
-			op: Some(count),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"countReset\0",
-		JSNativeWrapper {
-			op: Some(count_reset),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"time\0",
-		JSNativeWrapper {
-			op: Some(time),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"timeLog\0",
-		JSNativeWrapper {
-			op: Some(time_log),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"timeEnd\0",
-		JSNativeWrapper {
-			op: Some(time_end),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	NULL_SPEC,
+	function_spec!(log, 0),
+	function_spec!(log, "info", 0),
+	function_spec!(log, "dir", 0),
+	function_spec!(log, "dirxml", 0),
+	function_spec!(warn, 0),
+	function_spec!(error, 0),
+	function_spec!(debug, 0),
+	function_spec!(assert, 0),
+	function_spec!(clear, 0),
+	function_spec!(trace, 0),
+	function_spec!(group, 0),
+	function_spec!(group, "groupCollapsed", 0),
+	function_spec!(groupEnd, 0),
+	function_spec!(count, 1),
+	function_spec!(countReset, 1),
+	function_spec!(time, 1),
+	function_spec!(timeLog, 1),
+	function_spec!(timeEnd, 1),
+	JSFunctionSpec::ZERO,
 ];
 
 pub fn define(cx: IonContext, mut global: IonObject) -> bool {

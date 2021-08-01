@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{Handle, JS_ClearPendingException, JS_ErrorFromException, JS_GetPendingException};
 use mozjs::jsval::UndefinedValue;
 
 use crate::exceptions::report::ErrorReport;

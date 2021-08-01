@@ -4,14 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::cell::RefCell;
-use ::std::collections::hash_map::{Entry, HashMap};
-use ::std::fs::read_to_string;
-use ::std::path::Path;
-use ::std::ptr;
+use std::cell::RefCell;
+use std::collections::hash_map::{Entry, HashMap};
+use std::fs::read_to_string;
+use std::path::Path;
+use std::ptr;
 
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
-use mozjs::jsapi::*;
+use mozjs::jsapi::{CompileModule, Handle, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate, Value};
 use mozjs::jsval::{BooleanValue, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 

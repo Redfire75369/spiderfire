@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::io::{stdin, stdout, Write};
-use ::std::process;
-use ::std::ptr;
+use std::io::{stdin, stdout, Write};
+use std::process;
+use std::ptr;
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::objects::object::IonObject;

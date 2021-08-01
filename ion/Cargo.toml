@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 chrono = "0.4.19"
-libc = "0.2.92"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
+mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "de147f0cf52da9c84fa95edf09c5f9f84695088c" }
 termcolor = "1.1.2"
 ion-proc = { path = "../ion-proc" }
 

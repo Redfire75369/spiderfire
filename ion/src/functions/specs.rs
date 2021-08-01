@@ -6,27 +6,37 @@
 
 use std::ptr;
 
-use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY, JSPropertySpec_Name};
+use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 
-pub const NULL_SPEC: JSFunctionSpec = JSFunctionSpec {
-	name: JSPropertySpec_Name { string_: ptr::null_mut() },
-	call: JSNativeWrapper {
-		op: None,
-		info: ptr::null_mut(),
-	},
-	nargs: 0,
-	flags: 0,
-	selfHostedName: ptr::null_mut(),
-};
-
-pub const fn create_function_spec(name: &str, call: JSNativeWrapper, nargs: u16) -> JSFunctionSpec {
+pub const fn create_function_spec(name: &'static str, call: JSNativeWrapper, nargs: u16, flags: u16) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name {
 			string_: name.as_ptr() as *const i8,
 		},
 		call,
 		nargs,
-		flags: (JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT) as u16,
+		flags,
 		selfHostedName: ptr::null_mut(),
 	}
+}
+
+#[macro_export]
+macro_rules! function_spec {
+	($function:expr, $nargs:expr) => {
+		function_spec!($function, stringify!($function), $nargs)
+	};
+	($function:expr, $name:expr, $nargs:expr) => {
+		function_spec!($function, stringify!($function), $nargs, $crate::objects::object::JSPROP_CONSTANT)
+	};
+	($function:expr, $name:expr, $nargs:expr, $flags:expr) => {
+		$crate::functions::specs::create_function_spec(
+			concat!($name, "\0"),
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($function),
+				info: std::ptr::null_mut(),
+			},
+			$nargs,
+			$flags,
+		)
+	};
 }

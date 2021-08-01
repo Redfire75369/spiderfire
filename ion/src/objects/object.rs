@@ -4,21 +4,24 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::result::Result;
+use std::result::Result;
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
-use mozjs::conversions::ConversionResult::Success;
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{JSObject, PropertyKey, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, GetPropertyKeys, JS_ClearPendingException, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasProperty,
-	JS_NewPlainObject, JS_SetProperty,
+	AssertSameCompartment, GetPropertyKeys, JS_ClearPendingException, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
+	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
 };
-use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS};
-use mozjs::jsval::ObjectValue;
-use mozjs::rust::{HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
+use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::rust::{GCMethods, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+use mozjs_sys::jsgc::RootKind;
 
 use crate::functions::macros::IonContext;
+use crate::types::values::from_value;
+
+pub const JSPROP_CONSTANT: u16 = (JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT) as u16;
 
 pub type IonRawObject = *mut JSObject;
 
@@ -28,7 +31,6 @@ pub struct IonObject {
 }
 
 impl IonObject {
-	#[allow(dead_code)]
 	pub unsafe fn new(cx: IonContext) -> IonObject {
 		IonObject::from(JS_NewPlainObject(cx))
 	}
@@ -50,13 +52,25 @@ impl IonObject {
 		ObjectValue(self.raw())
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn has(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
 		let mut found = false;
 		rooted!(in(cx) let obj = self.obj);
 
 		if JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
+			found
+		} else {
+			JS_ClearPendingException(cx);
+			false
+		}
+	}
+
+	pub unsafe fn has_own(&self, cx: IonContext, key: String) -> bool {
+		let key = format!("{}\0", key);
+		let mut found = false;
+		rooted!(in(cx) let obj = self.obj);
+
+		if JS_HasOwnProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
 			found
 		} else {
 			JS_ClearPendingException(cx);
@@ -76,27 +90,27 @@ impl IonObject {
 		}
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, key: String, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
 		if let Some(val) = opt {
-			rooted!(in(cx) let rooted_val = val);
-			if let Success(v) = T::from_jsval(cx, rooted_val.handle(), config).unwrap() {
-				Some(v)
-			} else {
-				None
-			}
+			from_value(cx, val, config)
 		} else {
 			None
 		}
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn set(&mut self, cx: IonContext, key: String, value: Value) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		rooted!(in(cx) let rval = value);
 		JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into())
+	}
+
+	pub unsafe fn set_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, key: String, value: T) -> bool {
+		let key = format!("{}\0", key);
+		rooted!(in(cx) let mut val = UndefinedValue());
+		value.to_jsval(cx, val.handle_mut());
+		self.set(cx, key, val.get())
 	}
 
 	pub unsafe fn define(&mut self, cx: IonContext, key: String, value: Value, attrs: u32) -> bool {
@@ -106,22 +120,21 @@ impl IonObject {
 		JS_DefineProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into(), attrs)
 	}
 
-	#[allow(dead_code)]
+	pub unsafe fn define_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, key: String, value: T, attrs: u32) -> bool {
+		let key = format!("{}\0", key);
+		rooted!(in(cx) let mut val = UndefinedValue());
+		value.to_jsval(cx, val.handle_mut());
+		self.define(cx, key, val.get(), attrs)
+	}
+
 	pub unsafe fn delete(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8)
 	}
 
-	// Waiting on rust-mozjs #546
-	// pub unsafe fn set_as<T: ToJSValConvertible + GCMethods>(&mut self, cx: IonContext, key: String, value: T) -> bool {
-	// 	rooted!(in(cx) let mut val = value);
-	// 	value.to_jsval(cx, val.handle_mut());
-	// 	self.set(cx, key, val.get())
-	// }
-
 	// TODO: Return Vec<String> - Waiting on rust-mozjs #544
-	#[allow(dead_code)]
+
 	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);

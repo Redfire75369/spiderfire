@@ -4,26 +4,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::ffi::CString;
-use ::std::fs;
-use ::std::os;
-use ::std::path::Path;
-use ::std::ptr;
+use std::fs;
+use std::os;
+use std::path::Path;
 
-use mozjs::jsapi::*;
-use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsval::ObjectValue;
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::functions::arguments::Arguments;
 use ion::functions::macros::{IonContext, IonResult};
-use ion::functions::specs::{create_function_spec, NULL_SPEC};
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::{compile_module, register_module};
 
 const FS_SOURCE: &str = include_str!("fs.js");
 
 #[js_fn]
-unsafe fn read_binary(cx: IonContext, path_str: String) -> IonResult<IonRawObject> {
+unsafe fn readBinary(cx: IonContext, path_str: String) -> IonResult<IonRawObject> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -44,7 +41,7 @@ unsafe fn read_binary(cx: IonContext, path_str: String) -> IonResult<IonRawObjec
 }
 
 #[js_fn]
-unsafe fn read_string(path_str: String) -> IonResult<String> {
+unsafe fn readString(path_str: String) -> IonResult<String> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -59,26 +56,18 @@ unsafe fn read_string(path_str: String) -> IonResult<String> {
 }
 
 #[js_fn]
-unsafe fn read_dir(cx: IonContext, path_str: String) -> IonResult<IonRawObject> {
+unsafe fn readDir(path_str: String) -> IonResult<Vec<String>> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
 		if let Ok(dir) = fs::read_dir(path) {
 			let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect();
-			let mut entry_strings: Vec<_> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
-			entry_strings.sort();
-			let dir_entries: Vec<_> = entry_strings
-				.iter()
-				.map(|entry_string| {
-					rooted!(in(cx) let mut rval = UndefinedValue());
-					entry_string.to_jsval(cx, rval.handle_mut());
-					rval.get()
-				})
-				.collect();
+			let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
+			str_entries.sort();
 
-			Ok(NewArrayObject(cx, &HandleValueArray::from_rooted_slice(dir_entries.as_slice())))
+			Ok(str_entries)
 		} else {
-			Ok(NewArrayObject(cx, &HandleValueArray::from_rooted_slice(&[])))
+			Ok(Vec::new())
 		}
 	} else {
 		Err(Some(String::from(format!("Directory {} does not exist", path_str))))
@@ -97,7 +86,7 @@ unsafe fn write(path_str: String, contents: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn create_dir(path_str: String) -> IonResult<bool> {
+unsafe fn createDir(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -108,7 +97,7 @@ unsafe fn create_dir(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn create_dir_recursive(path_str: String) -> IonResult<bool> {
+unsafe fn createDirRecursive(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -119,7 +108,7 @@ unsafe fn create_dir_recursive(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn remove_file(path_str: String) -> IonResult<bool> {
+unsafe fn removeFile(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -130,7 +119,7 @@ unsafe fn remove_file(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn remove_dir(path_str: String) -> IonResult<bool> {
+unsafe fn removeDir(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -141,7 +130,7 @@ unsafe fn remove_dir(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn remove_dir_recursive(path_str: String) -> IonResult<bool> {
+unsafe fn removeDirRecursive(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -176,7 +165,7 @@ unsafe fn rename(from_str: String, to_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn soft_link(original_str: String, link_str: String) -> IonResult<bool> {
+unsafe fn softLink(original_str: String, link_str: String) -> IonResult<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -201,7 +190,7 @@ unsafe fn soft_link(original_str: String, link_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-unsafe fn hard_link(original_str: String, link_str: String) -> IonResult<bool> {
+unsafe fn hardLink(original_str: String, link_str: String) -> IonResult<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -213,113 +202,26 @@ unsafe fn hard_link(original_str: String, link_str: String) -> IonResult<bool> {
 }
 
 const METHODS: &[JSFunctionSpec] = &[
-	create_function_spec(
-		"readBinary\0",
-		JSNativeWrapper {
-			op: Some(read_binary),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"readString\0",
-		JSNativeWrapper {
-			op: Some(read_string),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"readDir\0",
-		JSNativeWrapper {
-			op: Some(read_dir),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"write\0",
-		JSNativeWrapper {
-			op: Some(write),
-			info: ptr::null_mut(),
-		},
-		2,
-	),
-	create_function_spec(
-		"createDir\0",
-		JSNativeWrapper {
-			op: Some(create_dir),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"createDirRecursive\0",
-		JSNativeWrapper {
-			op: Some(create_dir_recursive),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"removeFile\0",
-		JSNativeWrapper {
-			op: Some(remove_file),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"removeDir\0",
-		JSNativeWrapper {
-			op: Some(remove_dir),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"removeDirRecursive\0",
-		JSNativeWrapper {
-			op: Some(remove_dir_recursive),
-			info: ptr::null_mut(),
-		},
-		1,
-	),
-	create_function_spec(
-		"copy\0",
-		JSNativeWrapper {
-			op: Some(copy),
-			info: ptr::null_mut(),
-		},
-		2,
-	),
-	create_function_spec(
-		"rename\0",
-		JSNativeWrapper {
-			op: Some(rename),
-			info: ptr::null_mut(),
-		},
-		2,
-	),
-	create_function_spec(
-		"softLink\0",
-		JSNativeWrapper {
-			op: Some(soft_link),
-			info: ptr::null_mut(),
-		},
-		2,
-	),
-	create_function_spec(
-		"hardLink\0",
-		JSNativeWrapper {
-			op: Some(soft_link),
-			info: ptr::null_mut(),
-		},
-		2,
-	),
-	NULL_SPEC,
+	function_spec!(readBinary, 1),
+	function_spec!(readString, 1),
+	function_spec!(readDir, 1),
+	function_spec!(write, 2),
+	function_spec!(createDir, 1),
+	function_spec!(createDirRecursive, 1),
+	function_spec!(removeFile, 1),
+	function_spec!(removeDir, 1),
+	function_spec!(removeDirRecursive, 1),
+	function_spec!(copy, 2),
+	function_spec!(rename, 2),
+	function_spec!(softLink, 2),
+	function_spec!(hardLink, 2),
+	JSFunctionSpec::ZERO,
 ];
 
+/*
+ * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
+ * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
+ */
 pub fn init_fs(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = String::from("______fsInternal______");
 	unsafe {

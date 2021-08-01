@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::ffi::CStr;
-use ::std::slice::from_raw_parts;
+use std::ffi::CStr;
+use std::fmt::{Display, Formatter};
+use std::slice::from_raw_parts;
 
-use libc::c_uint;
 use mozjs::jsapi::{JSErrorReport, StackFormat};
 
 use crate::functions::macros::IonContext;
@@ -15,8 +15,8 @@ use crate::functions::macros::IonContext;
 pub struct ErrorReport {
 	message: String,
 	filename: String,
-	lineno: c_uint,
-	column: c_uint,
+	lineno: u32,
+	column: u32,
 	stack: Option<String>,
 }
 
@@ -83,5 +83,11 @@ impl ErrorReport {
 			"Uncaught exception at {}:{}:{} - {}",
 			self.filename, self.lineno, self.column, self.message
 		)
+	}
+}
+
+impl Display for ErrorReport {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&self.format())
 	}
 }

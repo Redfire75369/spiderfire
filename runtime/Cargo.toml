@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 chrono = "0.4.19"
 ion = { path = "../ion" }
-libc = "0.2.92"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 once_cell = "1.7.2"
 

@@ -4,11 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::fs::read_to_string;
-use ::std::path::Path;
-use ::std::ptr;
+use std::fs::read_to_string;
+use std::path::Path;
+use std::ptr;
 
-use mozjs::jsapi::*;
+use mozjs::jsapi::{JSAutoRealm, JSObject, OnNewGlobalHookOption};
+use mozjs::jsapi::{JS_GetRuntime, JS_NewGlobalObject, ModuleEvaluate, ModuleInstantiate, SetModuleResolveHook};
 use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 

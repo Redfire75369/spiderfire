@@ -4,13 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ::std::result::Result;
+use std::result::Result;
 
 use chrono::DateTime;
 use chrono::offset::Utc;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::*;
+use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateIsValid, NewDateObject, ObjectIsDate, Value};
 use mozjs::jsval::ObjectValue;
 use mozjs::rust::{HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
@@ -22,12 +22,10 @@ pub struct IonDate {
 }
 
 impl IonDate {
-	#[allow(dead_code)]
 	pub unsafe fn new(cx: IonContext) -> IonDate {
 		IonDate::from_date(cx, Utc::now())
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn from_date(cx: IonContext, time: DateTime<Utc>) -> IonDate {
 		IonDate::from(
 			cx,
@@ -50,7 +48,6 @@ impl IonDate {
 		}
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonDate> {
 		assert!(val.is_object());
 		IonDate::from(cx, val.to_object())
@@ -60,21 +57,18 @@ impl IonDate {
 		self.obj
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn is_valid(&self, cx: IonContext) -> bool {
 		rooted!(in(cx) let obj = self.obj);
 		let mut is_valid = true;
 		return DateIsValid(cx, obj.handle().into(), &mut is_valid) && is_valid;
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn is_date_raw(cx: IonContext, obj: IonRawObject) -> bool {
 		rooted!(in(cx) let mut robj = obj);
 		let mut is_date = false;
 		ObjectIsDate(cx, robj.handle_mut().into(), &mut is_date) && is_date
 	}
 
-	#[allow(dead_code)]
 	pub unsafe fn is_date(&self, cx: IonContext) -> bool {
 		IonDate::is_date_raw(cx, self.obj)
 	}

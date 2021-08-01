@@ -5,18 +5,19 @@
  */
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
-use mozjs::conversions::ConversionResult::Success;
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{HandleValueArray, Value};
 use mozjs::jsapi::{
 	AssertSameCompartment, GetArrayLength, IsArray, JS_ClearPendingException, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement,
 	JS_SetElement, NewArrayObject,
 };
-use mozjs::jsval::ObjectValue;
-use mozjs::rust::{HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::rust::{GCMethods, HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs_sys::jsgc::RootKind;
 
 use crate::functions::macros::IonContext;
 use crate::objects::object::IonRawObject;
+use crate::types::values::from_value;
 
 pub struct IonArray {
 	obj: IonRawObject,
@@ -36,7 +37,7 @@ impl IonArray {
 		IonArray::from_slice(cx, vec.as_slice())
 	}
 
-	unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonArray> {
+	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonArray> {
 		if IonArray::is_array_raw(cx, obj) {
 			Some(IonArray { obj })
 		} else {
@@ -49,15 +50,23 @@ impl IonArray {
 		self.obj
 	}
 
-	// #[allow(dead_code)]
-	unsafe fn len(&self, cx: IonContext) -> u32 {
+	pub unsafe fn to_vec(&self, cx: IonContext) -> Vec<Value> {
+		rooted!(in(cx) let obj = ObjectValue(self.obj));
+		if let ConversionResult::Success(vec) = <Vec<Value>>::from_jsval(cx, obj.handle(), ()).unwrap() {
+			vec
+		} else {
+			Vec::new()
+		}
+	}
+
+	pub unsafe fn len(&self, cx: IonContext) -> u32 {
 		rooted!(in(cx) let robj = self.obj);
 		let mut length = 0;
 		GetArrayLength(cx, robj.handle().into(), &mut length);
 		length
 	}
 
-	unsafe fn has(&self, cx: IonContext, index: u32) -> bool {
+	pub unsafe fn has(&self, cx: IonContext, index: u32) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		let mut found = false;
 		if JS_HasElement(cx, robj.handle().into(), index, &mut found) {
@@ -68,7 +77,7 @@ impl IonArray {
 		}
 	}
 
-	unsafe fn get(&self, cx: IonContext, index: u32) -> Option<Value> {
+	pub unsafe fn get(&self, cx: IonContext, index: u32) -> Option<Value> {
 		if self.has(cx, index) {
 			rooted!(in(cx) let robj = self.obj);
 			rooted!(in(cx) let mut rval: Value);
@@ -82,29 +91,34 @@ impl IonArray {
 	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, index: u32, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, index);
 		if let Some(val) = opt {
-			rooted!(in(cx) let rooted_val = val);
-			if let Success(v) = T::from_jsval(cx, rooted_val.handle(), config).unwrap() {
-				Some(v)
-			} else {
-				None
-			}
+			from_value(cx, val, config)
 		} else {
 			None
 		}
 	}
 
-	#[allow(dead_code)]
-	unsafe fn set(&mut self, cx: IonContext, index: u32, value: Value) -> bool {
+	pub unsafe fn set(&mut self, cx: IonContext, index: u32, value: Value) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		rooted!(in(cx) let rval = value);
 		JS_SetElement(cx, robj.handle().into(), index, rval.handle().into())
 	}
 
-	#[allow(dead_code)]
+	pub unsafe fn set_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, index: u32, value: T) -> bool {
+		rooted!(in(cx) let mut val = UndefinedValue());
+		value.to_jsval(cx, val.handle_mut());
+		self.set(cx, index, val.get())
+	}
+
 	unsafe fn define(&mut self, cx: IonContext, index: u32, value: Value, attrs: u32) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		rooted!(in(cx) let rval = value);
 		JS_DefineElement(cx, robj.handle().into(), index, rval.handle().into(), attrs)
+	}
+
+	pub unsafe fn define_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, index: u32, value: T, attrs: u32) -> bool {
+		rooted!(in(cx) let mut val = UndefinedValue());
+		value.to_jsval(cx, val.handle_mut());
+		self.define(cx, index, val.get(), attrs)
 	}
 
 	#[allow(dead_code)]
