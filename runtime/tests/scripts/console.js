@@ -1,12 +1,12 @@
-console.log("Log", true, {});
-console.info("Info", "Information", false, []);
-console.warn("Warn", "Warning", 0, [1, "Array"]);
-console.error("Error", undefined, {"key": "value"});
-console.debug("Debug", "Debugging", null, {"key": {"value": "Object", "val": 1e3}});
+console.log("Log", true, false);
+console.info("Info", "Information", 0, -4e8, 2 ** 16);
+console.warn("Warn", "Warning", undefined, [], [3, false, "String"]);
+console.error("Error", null, {}, {"key": "value"}, /^\d{8}$/gi);
+console.debug("Debug", {"key": {"obj": "Object", "date": new Date()}}, function debug() {});
 
 console.assert();
 console.assert(true);
-console.assert(false, "Assertion", true, 5);
+console.assert(false, "Assertion:", true, "Time -", new Date());
 
 console.clear();
 

@@ -26,7 +26,7 @@ macro_rules! function_spec {
 		function_spec!($function, stringify!($function), $nargs)
 	};
 	($function:expr, $name:expr, $nargs:expr) => {
-		function_spec!($function, stringify!($function), $nargs, $crate::objects::object::JSPROP_CONSTANT)
+		function_spec!($function, $name, $nargs, $crate::objects::object::JSPROP_CONSTANT)
 	};
 	($function:expr, $name:expr, $nargs:expr, $flags:expr) => {
 		$crate::functions::specs::create_function_spec(
