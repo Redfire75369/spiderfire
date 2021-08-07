@@ -9,6 +9,11 @@ use mozjs::jsapi::{JS_ValueToSource, Value};
 
 use crate::functions::macros::IonContext;
 
+// TODO: Write function to convert objects to strings
+/**
+ * Converts a [Value] to a string.
+ * Objects and functions are converted using [JS_ValueToSource]. This behaviour will be changed in the future.
+ */
 pub fn to_string(cx: IonContext, val: Value) -> String {
 	rooted!(in(cx) let rval = val);
 

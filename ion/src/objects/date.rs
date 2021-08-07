@@ -4,15 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
 use std::result::Result;
 
-use chrono::DateTime;
+use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateIsValid, NewDateObject, ObjectIsDate, Value};
+use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSTracer, NewDateObject, ObjectIsDate, Value};
 use mozjs::jsval::ObjectValue;
-use mozjs::rust::{HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
 use crate::functions::macros::IonContext;
 use crate::objects::object::IonRawObject;
@@ -63,6 +64,16 @@ impl IonDate {
 		return DateIsValid(cx, obj.handle().into(), &mut is_valid) && is_valid;
 	}
 
+	pub unsafe fn to_date(&self, cx: IonContext) -> Option<DateTime<Utc>> {
+		rooted!(in(cx) let obj = self.obj);
+		let mut milliseconds: f64 = f64::MAX;
+		if !DateGetMsecSinceEpoch(cx, obj.handle().into(), &mut milliseconds) || milliseconds == f64::MAX {
+			None
+		} else {
+			Some(Utc.timestamp_millis(milliseconds as i64))
+		}
+	}
+
 	pub unsafe fn is_date_raw(cx: IonContext, obj: IonRawObject) -> bool {
 		rooted!(in(cx) let mut robj = obj);
 		let mut is_date = false;
@@ -97,5 +108,19 @@ impl ToJSValConvertible for IonDate {
 	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
 		rval.set(ObjectValue(self.raw()));
 		maybe_wrap_object_value(cx, rval);
+	}
+}
+
+impl Deref for IonDate {
+	type Target = IonRawObject;
+
+	fn deref(&self) -> &Self::Target {
+		&self.obj
+	}
+}
+
+unsafe impl CustomTrace for IonDate {
+	fn trace(&self, tracer: *mut JSTracer) {
+		self.obj.trace(tracer)
 	}
 }

@@ -8,19 +8,19 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::ptr;
 
-use mozjs::jsapi::{JSAutoRealm, JSObject, OnNewGlobalHookOption};
+use mozjs::jsapi::{JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::jsapi::{JS_GetRuntime, JS_NewGlobalObject, ModuleEvaluate, ModuleInstantiate, SetModuleResolveHook};
 use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
 use ion::exceptions::exception::report_and_clear_exception;
-use ion::objects::object::IonObject;
-use ion::print::println_value;
+use ion::objects::object::{IonObject, IonRawObject};
+use ion::print::print_value;
 use modules::init_modules;
 use runtime::init;
 use runtime::modules::compile_module;
 
-pub fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
+pub fn eval_inline(rt: &Runtime, global: IonRawObject, source: &str) {
 	let filename: &'static str = "inline.js";
 	let line_number: u32 = 1;
 
@@ -30,7 +30,8 @@ pub fn eval_inline(rt: &Runtime, global: *mut JSObject, source: &str) {
 	let res = rt.evaluate_script(rooted_global.handle(), source, filename, line_number, rval.handle_mut());
 
 	if res.is_ok() {
-		println_value(rt.cx(), rval.get(), 0, false);
+		print_value(rt.cx(), rval.get(), 0, false);
+		println!();
 	} else {
 		println!("Script Execution Failed :(");
 		unsafe {

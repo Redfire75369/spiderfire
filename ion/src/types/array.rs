@@ -9,6 +9,9 @@ use mozjs::jsapi::Value;
 use crate::functions::macros::IonContext;
 use crate::objects::array::IonArray;
 
+/**
+ * Checks if a [Value] is an array.
+ */
 pub fn is_array(cx: IonContext, value: Value) -> bool {
 	value.is_object() && unsafe { IonArray::is_array_raw(cx, value.to_object()) }
 }

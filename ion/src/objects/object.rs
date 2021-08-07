@@ -4,18 +4,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
 use std::result::Result;
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{JSObject, PropertyKey, Value};
+use mozjs::jsapi::{JSObject, JSTracer, PropertyKey, Value};
 use mozjs::jsapi::{
 	AssertSameCompartment, GetPropertyKeys, JS_ClearPendingException, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
 	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
 };
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
-use mozjs::rust::{GCMethods, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::rust::{CustomTrace, GCMethods, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 use mozjs_sys::jsgc::RootKind;
 
 use crate::functions::macros::IonContext;
@@ -134,7 +135,6 @@ impl IonObject {
 	}
 
 	// TODO: Return Vec<String> - Waiting on rust-mozjs #544
-
 	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
@@ -167,5 +167,19 @@ impl ToJSValConvertible for IonObject {
 	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
 		rval.set(ObjectValue(self.raw()));
 		maybe_wrap_object_value(cx, rval);
+	}
+}
+
+impl Deref for IonObject {
+	type Target = IonRawObject;
+
+	fn deref(&self) -> &Self::Target {
+		&self.obj
+	}
+}
+
+unsafe impl CustomTrace for IonObject {
+	fn trace(&self, tracer: *mut JSTracer) {
+		self.obj.trace(tracer)
 	}
 }

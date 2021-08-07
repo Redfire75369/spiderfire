@@ -15,14 +15,16 @@ use crate::types::{array::is_array, string::to_string};
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
+/**
+ * Prints a [Value] with the appropriate colour and indentation, to stdout or stderr.
+ */
 #[allow(clippy::if_same_then_else)]
 pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
-	let mut out;
-	if !is_stderr {
-		out = StandardStream::stdout(ColorChoice::Auto);
+	let mut out= if !is_stderr {
+		StandardStream::stdout(ColorChoice::Auto)
 	} else {
-		out = StandardStream::stderr(ColorChoice::Auto);
-	}
+		StandardStream::stderr(ColorChoice::Auto)
+	};
 
 	if val.is_number() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).unwrap();
@@ -34,19 +36,12 @@ pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) 
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 127, 63)))).unwrap();
 	} else if val.is_object() {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(240, 240, 240)))).unwrap();
-	} else if val.is_null() {
-		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(118, 118, 118)))).unwrap();
 	} else {
 		out.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(118, 118, 118)))).unwrap();
 	}
 
 	write!(out, "{}", indent(&to_string(cx, val), indents, false)).unwrap();
 	out.reset().unwrap();
-}
-
-pub fn println_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
-	print_value(cx, val, indents, is_stderr);
-	println!();
 }
 
 pub fn indent(string: &String, indents: usize, initial: bool) -> String {

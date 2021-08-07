@@ -11,37 +11,33 @@ use std::path::Path;
 use std::ptr;
 
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
-use mozjs::jsapi::{CompileModule, Handle, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate, Value};
+use mozjs::jsapi::{CompileModule, Handle, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate, Value};
 use mozjs::jsval::{BooleanValue, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
 use ion::exceptions::exception::report_and_clear_exception;
 use ion::functions::macros::IonContext;
-use ion::objects::object::IonObject;
+use ion::objects::object::{IonObject, IonRawObject};
 
-thread_local! {
-	static MODULE_REGISTRY: RefCell<HashMap<String, *mut JSObject>> = RefCell::new(HashMap::new());
-}
+thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonRawObject>> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug)]
 struct ModuleData {
 	pub path: Option<String>,
-	pub std: bool,
 }
 
 unsafe fn get_module_data(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
 	if module.get().is_object() && !module.get().is_null() {
 		let obj = IonObject::from_value(module.get());
 		let path = obj.get_as::<String>(cx, String::from("path"), ());
-		let std = obj.get_as::<bool>(cx, String::from("std"), ()).unwrap();
 
-		Some(ModuleData { path, std })
+		Some(ModuleData { path })
 	} else {
 		None
 	}
 }
 
-pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Option<*mut JSObject> {
+pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Option<IonRawObject> {
 	let options = CompileOptionsWrapper::new(cx, filename, 1);
 	let script_text: Vec<u16> = script.encode_utf16().collect();
 	let mut source = transform_u16_to_source_text(script_text.as_slice());
@@ -65,7 +61,6 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 	} else {
 		let mut data = IonObject::new(cx);
 		data.set(cx, String::from("path"), UndefinedValue());
-		data.set(cx, String::from("std"), BooleanValue(true));
 		SetModulePrivate(module, &data.to_value());
 	}
 
@@ -85,7 +80,7 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 	Some(module)
 }
 
-pub fn register_module(cx: IonContext, name: &str, module: *mut JSObject) -> bool {
+pub fn register_module(cx: IonContext, name: &str, module: IonRawObject) -> bool {
 	MODULE_REGISTRY.with(|registry| {
 		let mut registry = registry.borrow_mut();
 		rooted!(in(cx) let mut module = module);
@@ -99,7 +94,7 @@ pub fn register_module(cx: IonContext, name: &str, module: *mut JSObject) -> boo
 	})
 }
 
-pub unsafe extern "C" fn resolve_module(cx: IonContext, module_private: Handle<Value>, name: Handle<*mut JSString>) -> *mut JSObject {
+pub unsafe extern "C" fn resolve_module(cx: IonContext, module_private: Handle<Value>, name: Handle<*mut JSString>) -> IonRawObject {
 	let name = jsstr_to_string(cx, name.get());
 	let data = get_module_data(cx, module_private);
 

@@ -10,6 +10,9 @@ use mozjs::jsapi::Value;
 
 use crate::functions::macros::IonContext;
 
+/**
+ * Converts a [Value] to a Rust type. Returns [None] if the conversion fails
+ */
 pub unsafe fn from_value<T: FromJSValConvertible>(cx: IonContext, value: Value, config: T::Config) -> Option<T> {
 	rooted!(in(cx) let rooted_val = value);
 	if let Success(v) = T::from_jsval(cx, rooted_val.handle(), config).unwrap() {

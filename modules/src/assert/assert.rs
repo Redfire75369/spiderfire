@@ -62,7 +62,6 @@ pub fn init_assert(cx: IonContext, mut global: IonObject) -> bool {
 					&String::from("assert"),
 					compile_module(cx, &String::from("assert"), None, &String::from(ASSERT_SOURCE)).unwrap(),
 				);
-				// && global.delete(cx, internal_key);
 			}
 		}
 		false

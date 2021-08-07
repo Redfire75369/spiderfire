@@ -233,7 +233,6 @@ pub fn init_fs(cx: IonContext, mut global: IonObject) -> bool {
 					&String::from("fs"),
 					compile_module(cx, &String::from("fs"), None, &String::from(FS_SOURCE)).unwrap(),
 				);
-				// && global.delete(cx, internal_key);
 			}
 		}
 		false

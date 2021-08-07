@@ -4,15 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
+
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{HandleValueArray, Value};
+use mozjs::jsapi::{HandleValueArray, JSTracer, Value};
 use mozjs::jsapi::{
 	AssertSameCompartment, GetArrayLength, IsArray, JS_ClearPendingException, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement,
 	JS_SetElement, NewArrayObject,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
-use mozjs::rust::{GCMethods, HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::rust::{CustomTrace, GCMethods, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 use mozjs_sys::jsgc::RootKind;
 
 use crate::functions::macros::IonContext;
@@ -164,7 +166,21 @@ impl FromJSValConvertible for IonArray {
 impl ToJSValConvertible for IonArray {
 	#[inline]
 	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
-		rval.set(ObjectValue(self.raw()));
+		rval.set(ObjectValue(self.obj));
 		maybe_wrap_object_value(cx, rval);
+	}
+}
+
+impl Deref for IonArray {
+	type Target = IonRawObject;
+
+	fn deref(&self) -> &Self::Target {
+		&self.obj
+	}
+}
+
+unsafe impl CustomTrace for IonArray {
+	fn trace(&self, tracer: *mut JSTracer) {
+		self.obj.trace(tracer)
 	}
 }
