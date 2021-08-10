@@ -11,12 +11,15 @@ use std::path::Path;
 use std::ptr;
 
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
-use mozjs::jsapi::{CompileModule, Handle, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate, Value};
+use mozjs::jsapi::{
+	CompileModule, Handle, JS_GetRuntime, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate,
+	SetModuleResolveHook, Value,
+};
 use mozjs::jsval::{BooleanValue, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use ion::exceptions::exception::report_and_clear_exception;
-use ion::functions::macros::IonContext;
+use ion::exception::{ErrorReport, Exception};
+use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonRawObject>> = RefCell::new(HashMap::new()));
@@ -24,6 +27,12 @@ thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonRawObject>> = R
 #[derive(Clone, Debug)]
 struct ModuleData {
 	pub path: Option<String>,
+}
+
+pub fn init_module_loaders(cx: IonContext) {
+	unsafe {
+		SetModuleResolveHook(JS_GetRuntime(cx), Some(resolve_module));
+	}
 }
 
 unsafe fn get_module_data(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
@@ -45,14 +54,15 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 	let module = CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source);
 	rooted!(in(cx) let rooted_module = module);
 	if module.is_null() {
-		report_and_clear_exception(cx);
+		let exception = Exception::new(cx).unwrap();
+		ErrorReport::new(exception).print();
 		return None;
 	}
 
 	if let Some(path) = path {
 		if let Some(path_str) = path.to_str() {
 			rooted!(in(cx) let mut path = UndefinedValue());
-			path_str.to_jsval(cx, path.handle_mut().into());
+			path_str.to_jsval(cx, path.handle_mut());
 			let mut data = IonObject::new(cx);
 			data.set(cx, String::from("path"), path.get());
 			data.set(cx, String::from("std"), BooleanValue(false));
@@ -66,14 +76,16 @@ pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>
 
 	if !ModuleInstantiate(cx, rooted_module.handle().into()) {
 		eprintln!("Failed to instantiate module :(");
-		report_and_clear_exception(cx);
+		let exception = Exception::new(cx).unwrap();
+		ErrorReport::new(exception).print();
 		return None;
 	}
 
 	rooted!(in (cx) let mut rval = UndefinedValue());
 	if !ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) {
 		eprintln!("Failed to evaluate module :(");
-		report_and_clear_exception(cx);
+		let exception = Exception::new(cx).unwrap();
+		ErrorReport::new(exception).print();
 		return None;
 	}
 
@@ -99,8 +111,8 @@ pub unsafe extern "C" fn resolve_module(cx: IonContext, module_private: Handle<V
 	let data = get_module_data(cx, module_private);
 
 	let path = if name.starts_with("./") || name.starts_with("../") {
-		Path::new(&data.clone().unwrap().path.unwrap()).parent().unwrap().join(&name)
-	} else if name.starts_with("/") {
+		Path::new(&data.unwrap().path.unwrap()).parent().unwrap().join(&name)
+	} else if name.starts_with('/') {
 		Path::new(&name).to_path_buf()
 	} else {
 		Path::new(&name).to_path_buf()

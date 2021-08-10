@@ -7,10 +7,15 @@
 #[macro_use]
 extern crate mozjs;
 
-pub use ion_proc::js_fn;
+use mozjs::jsapi::JSContext;
 
-pub mod exceptions;
+pub use ion_proc::*;
+
+pub mod exception;
 pub mod functions;
 pub mod objects;
 pub mod print;
 pub mod types;
+
+pub type IonContext = *mut JSContext;
+pub type IonResult<T> = Result<T, Option<String>>;

@@ -6,48 +6,33 @@
 
 use std::fs::read_to_string;
 use std::path::Path;
-use std::ptr;
 
-use mozjs::jsapi::{JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::jsapi::{JS_GetRuntime, JS_NewGlobalObject, ModuleEvaluate, ModuleInstantiate, SetModuleResolveHook};
+use mozjs::jsapi::{ModuleEvaluate, ModuleInstantiate};
 use mozjs::jsval::UndefinedValue;
 use mozjs::rooted;
-use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
-use ion::exceptions::exception::report_and_clear_exception;
-use ion::objects::object::IonObject;
+use ion::exception::{ErrorReport, Exception};
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::init;
-use runtime::modules::{compile_module, resolve_module};
+use runtime::globals::{init_globals, new_global};
+use runtime::modules::{compile_module, init_module_loaders};
+use runtime::new_runtime;
 
 #[test]
 fn modules() {
-	let config = Config::initialise(LogLevel::Debug, false).unwrap();
-	CONFIG.set(config).unwrap();
+	CONFIG
+		.set(Config::default().log_level(LogLevel::Debug))
+		.expect("Config Initialisation Failed");
 	assert!(eval_module(Path::new("./tests/scripts/module-import.js")).is_ok());
 }
 
 pub fn eval_module(path: &Path) -> Result<(), ()> {
-	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
-	let rt = Runtime::new(engine.handle());
+	let (_engine, rt) = new_runtime();
+	let (global, _ac) = new_global(rt.cx());
 
-	assert!(!rt.cx().is_null(), "JSContext Creation Failed");
+	init_module_loaders(rt.cx());
+	init_globals(rt.cx(), global);
 
-	let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
-	let c_options = RealmOptions::default();
-
-	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-	let _ac = JSAutoRealm::new(rt.cx(), global);
-
-	unsafe {
-		SetModuleResolveHook(JS_GetRuntime(rt.cx()), Some(resolve_module));
-	}
-	init(rt.cx(), unsafe { IonObject::from(global) });
-
-	if !path.is_file() {
-		panic!("File not found: {}", path.display());
-	}
-	let script = read_to_string(path).unwrap();
+	let script = read_script(path).expect("");
 
 	rooted!(in(rt.cx()) let module = unsafe {
 		compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap()
@@ -57,13 +42,29 @@ pub fn eval_module(path: &Path) -> Result<(), ()> {
 		return if ModuleInstantiate(rt.cx(), module.handle().into()) {
 			rooted!(in(rt.cx()) let mut rval = UndefinedValue());
 			if !ModuleEvaluate(rt.cx(), module.handle().into(), rval.handle_mut().into()) {
-				report_and_clear_exception(rt.cx());
+				let exception = Exception::new(rt.cx()).unwrap();
+				ErrorReport::new_with_stack(rt.cx(), exception).print();
 				return Err(());
 			}
 			Ok(())
 		} else {
-			report_and_clear_exception(rt.cx());
+			let exception = Exception::new(rt.cx()).unwrap();
+			ErrorReport::new_with_stack(rt.cx(), exception).print();
 			Err(())
 		};
+	}
+}
+
+fn read_script(path: &Path) -> Option<String> {
+	if path.is_file() {
+		if let Ok(script) = read_to_string(path) {
+			Some(script)
+		} else {
+			eprintln!("Failed to read file: {}", path.display());
+			None
+		}
+	} else {
+		eprintln!("File not found: {}", path.display());
+		None
 	}
 }

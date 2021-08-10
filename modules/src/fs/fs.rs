@@ -12,8 +12,8 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value}
 use mozjs::jsval::ObjectValue;
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
+use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
-use ion::functions::macros::{IonContext, IonResult};
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::{compile_module, register_module};
 
@@ -222,19 +222,18 @@ const METHODS: &[JSFunctionSpec] = &[
  * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
  * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
  */
-pub fn init_fs(cx: IonContext, mut global: IonObject) -> bool {
+pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = String::from("______fsInternal______");
-	unsafe {
-		rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, fs_module.handle().into(), METHODS.as_ptr()) {
-			if global.define(cx, internal_key, ObjectValue(fs_module.get()), 0) {
-				return register_module(
-					cx,
-					&String::from("fs"),
-					compile_module(cx, &String::from("fs"), None, &String::from(FS_SOURCE)).unwrap(),
-				);
-			}
+	rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
+	if JS_DefineFunctions(cx, fs_module.handle().into(), METHODS.as_ptr()) {
+		if global.define(cx, internal_key, ObjectValue(fs_module.get()), 0) {
+			let module = compile_module(cx, &String::from("fs"), None, &String::from(FS_SOURCE)).unwrap();
+			register_module(cx, &String::from("fs"), module);
+			true
+		} else {
+			false
 		}
+	} else {
 		false
 	}
 }

@@ -9,7 +9,7 @@ use std::io::Write;
 use mozjs::jsapi::Value;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::functions::macros::IonContext;
+use crate::IonContext;
 use crate::types::{array::is_array, string::to_string};
 
 pub const INDENT: &str = "  ";
@@ -18,9 +18,8 @@ pub const NEWLINE: &str = "\n";
 /**
  * Prints a [Value] with the appropriate colour and indentation, to stdout or stderr.
  */
-#[allow(clippy::if_same_then_else)]
 pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
-	let mut out= if !is_stderr {
+	let mut out = if !is_stderr {
 		StandardStream::stdout(ColorChoice::Auto)
 	} else {
 		StandardStream::stderr(ColorChoice::Auto)
@@ -44,7 +43,7 @@ pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) 
 	out.reset().unwrap();
 }
 
-pub fn indent(string: &String, indents: usize, initial: bool) -> String {
+pub fn indent(string: &str, indents: usize, initial: bool) -> String {
 	if string.contains(NEWLINE) {
 		let indent = INDENT.repeat(indents);
 		if initial {

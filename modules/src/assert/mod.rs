@@ -4,4 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub(crate) mod assert;
+pub use assert::*;
+
+pub mod assert;

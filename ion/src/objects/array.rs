@@ -10,14 +10,14 @@ use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConverti
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{HandleValueArray, JSTracer, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, GetArrayLength, IsArray, JS_ClearPendingException, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement,
-	JS_SetElement, NewArrayObject,
+	AssertSameCompartment, GetArrayLength, IsArray, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement, JS_SetElement, NewArrayObject,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, GCMethods, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 use mozjs_sys::jsgc::RootKind;
 
-use crate::functions::macros::IonContext;
+use crate::exception::Exception;
+use crate::IonContext;
 use crate::objects::object::IonRawObject;
 use crate::types::values::from_value;
 
@@ -26,39 +26,52 @@ pub struct IonArray {
 }
 
 impl IonArray {
+	pub unsafe fn raw(&self) -> IonRawObject {
+		self.obj
+	}
+
 	#[allow(dead_code)]
 	unsafe fn new(cx: IonContext) -> IonArray {
 		IonArray::from_slice(cx, &[])
-	}
-
-	pub unsafe fn from_slice(cx: IonContext, slice: &[Value]) -> IonArray {
-		IonArray::from(cx, NewArrayObject(cx, &HandleValueArray::from_rooted_slice(slice))).unwrap()
 	}
 
 	pub unsafe fn from_vec(cx: IonContext, vec: Vec<Value>) -> IonArray {
 		IonArray::from_slice(cx, vec.as_slice())
 	}
 
+	pub unsafe fn from_slice(cx: IonContext, slice: &[Value]) -> IonArray {
+		IonArray::from_handle(cx, HandleValueArray::from_rooted_slice(slice))
+	}
+
+	pub unsafe fn from_handle(cx: IonContext, handle: HandleValueArray) -> IonArray {
+		IonArray::from(cx, NewArrayObject(cx, &handle)).unwrap()
+	}
+
 	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonArray> {
 		if IonArray::is_array_raw(cx, obj) {
 			Some(IonArray { obj })
 		} else {
-			throw_type_error(cx, "Object cannot be converted to Date");
+			throw_type_error(cx, "Object cannot be converted to Array");
 			None
 		}
 	}
 
-	pub unsafe fn raw(&self) -> IonRawObject {
-		self.obj
+	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonArray> {
+		assert!(val.is_object());
+		IonArray::from(cx, val.to_object())
 	}
 
 	pub unsafe fn to_vec(&self, cx: IonContext) -> Vec<Value> {
 		rooted!(in(cx) let obj = ObjectValue(self.obj));
-		if let ConversionResult::Success(vec) = <Vec<Value>>::from_jsval(cx, obj.handle(), ()).unwrap() {
+		if let ConversionResult::Success(vec) = Vec::<Value>::from_jsval(cx, obj.handle(), ()).unwrap() {
 			vec
 		} else {
 			Vec::new()
 		}
+	}
+
+	pub unsafe fn to_value(&self) -> Value {
+		ObjectValue(self.obj)
 	}
 
 	pub unsafe fn len(&self, cx: IonContext) -> u32 {
@@ -74,7 +87,7 @@ impl IonArray {
 		if JS_HasElement(cx, robj.handle().into(), index, &mut found) {
 			found
 		} else {
-			JS_ClearPendingException(cx);
+			Exception::clear(cx);
 			false
 		}
 	}
@@ -155,8 +168,8 @@ impl FromJSValConvertible for IonArray {
 		}
 
 		AssertSameCompartment(cx, value.to_object());
-		if let Some(date) = IonArray::from(cx, value.to_object()) {
-			Ok(ConversionResult::Success(date))
+		if let Some(array) = IonArray::from(cx, value.to_object()) {
+			Ok(ConversionResult::Success(array))
 		} else {
 			Err(())
 		}

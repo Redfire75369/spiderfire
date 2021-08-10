@@ -11,7 +11,7 @@ use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConverti
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{JSObject, JSTracer, PropertyKey, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, GetPropertyKeys, JS_ClearPendingException, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
+	AssertSameCompartment, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
 	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
 };
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
@@ -19,7 +19,9 @@ use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, GCMethods, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 use mozjs_sys::jsgc::RootKind;
 
-use crate::functions::macros::IonContext;
+use crate::exception::Exception;
+use crate::functions::function::{IonFunction, IonNativeFunction};
+use crate::IonContext;
 use crate::types::values::from_value;
 
 pub const JSPROP_CONSTANT: u16 = (JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT) as u16;
@@ -32,6 +34,10 @@ pub struct IonObject {
 }
 
 impl IonObject {
+	pub fn raw(&self) -> IonRawObject {
+		self.obj
+	}
+
 	pub unsafe fn new(cx: IonContext) -> IonObject {
 		IonObject::from(JS_NewPlainObject(cx))
 	}
@@ -45,12 +51,8 @@ impl IonObject {
 		IonObject::from(val.to_object())
 	}
 
-	pub unsafe fn raw(&self) -> IonRawObject {
-		self.obj
-	}
-
 	pub unsafe fn to_value(&self) -> Value {
-		ObjectValue(self.raw())
+		ObjectValue(self.obj)
 	}
 
 	pub unsafe fn has(&self, cx: IonContext, key: String) -> bool {
@@ -61,7 +63,7 @@ impl IonObject {
 		if JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
 			found
 		} else {
-			JS_ClearPendingException(cx);
+			Exception::clear(cx);
 			false
 		}
 	}
@@ -74,7 +76,7 @@ impl IonObject {
 		if JS_HasOwnProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
 			found
 		} else {
-			JS_ClearPendingException(cx);
+			Exception::clear(cx);
 			false
 		}
 	}
@@ -128,6 +130,19 @@ impl IonObject {
 		self.define(cx, key, val.get(), attrs)
 	}
 
+	pub unsafe fn define_method(&mut self, cx: IonContext, name: String, method: IonNativeFunction, nargs: u32, attrs: u32) -> IonFunction {
+		let name = format!("{}\0", name);
+		rooted!(in(cx) let mut obj = self.obj);
+		IonFunction::from(JS_DefineFunction(
+			cx,
+			obj.handle().into(),
+			name.as_ptr() as *const i8,
+			Some(method),
+			nargs,
+			attrs,
+		))
+	}
+
 	pub unsafe fn delete(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
@@ -138,12 +153,7 @@ impl IonObject {
 	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
-		GetPropertyKeys(
-			cx,
-			obj.handle().into(),
-			JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS,
-			ids.handle_mut().into(),
-		);
+		GetPropertyKeys(cx, obj.handle().into(), JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, ids.handle_mut());
 		ids.to_vec()
 	}
 }

@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{io::Error, result::Result};
-
 use once_cell::sync::OnceCell;
 
 pub static CONFIG: OnceCell<Config> = OnceCell::new();
@@ -22,8 +20,8 @@ pub enum LogLevel {
 impl LogLevel {
 	pub fn is_stdout(&self) -> bool {
 		match self {
-			LogLevel::None | LogLevel::Info | LogLevel::Debug => false,
-			LogLevel::Warn | LogLevel::Error => true,
+			LogLevel::None | LogLevel::Info | LogLevel::Debug => true,
+			LogLevel::Warn | LogLevel::Error => false,
 		}
 	}
 
@@ -39,13 +37,24 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn initialise(log_level: LogLevel, script: bool) -> Result<Config, Error> {
-		let config = Config { log_level, script };
+	pub fn log_level(self, log_level: LogLevel) -> Config {
+		Config { log_level, ..self }
+	}
 
-		Ok(config)
+	pub fn script(self, script: bool) -> Config {
+		Config { script, ..self }
 	}
 
 	pub fn global() -> &'static Config {
 		CONFIG.get().expect("Configuration not initialised")
+	}
+}
+
+impl Default for Config {
+	fn default() -> Config {
+		Config {
+			log_level: LogLevel::Error,
+			script: false,
+		}
 	}
 }

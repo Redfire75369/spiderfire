@@ -64,13 +64,15 @@ fn main() {
 		Some("eval") => {
 			let subcmd = matches.subcommand_matches("eval").unwrap();
 
-			let config = Config::initialise(LogLevel::Debug, true).unwrap();
-			CONFIG.set(config).unwrap();
+			CONFIG
+				.set(Config::default().log_level(LogLevel::Debug).script(true))
+				.expect("Config Initialisation Failed");
 			eval::eval_source(subcmd.value_of("source").unwrap());
 		}
 		Some("repl") => {
-			let config = Config::initialise(LogLevel::Debug, true).unwrap();
-			CONFIG.set(config).unwrap();
+			CONFIG
+				.set(Config::default().log_level(LogLevel::Debug).script(true))
+				.expect("Config Initialisation Failed");
 			repl::start_repl();
 		}
 		Some("run") => {
@@ -92,8 +94,9 @@ fn main() {
 				LogLevel::Error
 			};
 
-			let config = Config::initialise(log_level, subcmd.is_present("script")).unwrap();
-			CONFIG.set(config).unwrap();
+			CONFIG
+				.set(Config::default().log_level(log_level).script(subcmd.is_present("script")))
+				.expect("Config Initialisation Failed");
 			run::run(&String::from(subcmd.value_of("path").unwrap_or("./main.js")));
 		}
 		_ => (),

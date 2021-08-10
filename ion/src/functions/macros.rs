@@ -4,11 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::JSContext;
-
-pub type IonContext = *mut JSContext;
-pub type IonResult<T> = Result<T, Option<String>>;
-
 #[macro_export]
 macro_rules! js_fn_raw_m {
 	(unsafe fn $name:ident($($param:ident : $type:ty), *) -> IonResult<$ret:ty> $body:tt) => {

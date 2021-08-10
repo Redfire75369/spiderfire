@@ -11,8 +11,8 @@ use chrono::{DateTime, offset::Utc};
 use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
 use mozjs::jsval::ObjectValue;
 
+use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
-use ion::functions::macros::{IonContext, IonResult};
 use ion::objects::object::IonObject;
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
@@ -360,10 +360,8 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: IonContext, mut global: IonObject) -> bool {
-	unsafe {
-		rooted!(in(cx) let console = JS_NewPlainObject(cx));
-		return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
-			&& global.define(cx, String::from("console"), ObjectValue(console.get()), 0);
-	}
+pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
+	rooted!(in(cx) let console = JS_NewPlainObject(cx));
+	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
+		&& global.define(cx, String::from("console"), ObjectValue(console.get()), 0);
 }

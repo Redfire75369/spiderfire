@@ -15,7 +15,7 @@ use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, Da
 use mozjs::jsval::ObjectValue;
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
-use crate::functions::macros::IonContext;
+use crate::IonContext;
 use crate::objects::object::IonRawObject;
 
 pub struct IonDate {

@@ -8,7 +8,7 @@ use mozjs::conversions::ConversionResult::Success;
 use mozjs::conversions::FromJSValConvertible;
 use mozjs::jsapi::Value;
 
-use crate::functions::macros::IonContext;
+use crate::IonContext;
 
 /**
  * Converts a [Value] to a Rust type. Returns [None] if the conversion fails

@@ -7,8 +7,8 @@
 use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
 use mozjs::jsval::ObjectValue;
 
+use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
-use ion::functions::macros::{IonContext, IonResult};
 use ion::objects::object::IonObject;
 use runtime::config::{Config, LogLevel};
 use runtime::modules::{compile_module, register_module};
@@ -51,7 +51,7 @@ const METHODS: &[JSFunctionSpec] = &[
  * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
  * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
  */
-pub fn init_assert(cx: IonContext, mut global: IonObject) -> bool {
+pub fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = String::from("______assertInternal______");
 	unsafe {
 		rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));

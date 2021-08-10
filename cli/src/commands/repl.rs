@@ -6,29 +6,17 @@
 
 use std::io::{stdin, stdout, Write};
 use std::process;
-use std::ptr;
 
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
-
-use ion::objects::object::IonObject;
-use runtime::init;
+use runtime::globals::{init_globals, new_global};
+use runtime::new_runtime;
 
 use crate::evaluate::eval_inline;
 
 pub fn start_repl() {
-	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
-	let rt = Runtime::new(engine.handle());
+	let (_engine, rt) = new_runtime();
+	let (global, _ac) = new_global(rt.cx());
 
-	assert!(!rt.cx().is_null(), "JSContext Creation Failed");
-
-	let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
-	let c_options = RealmOptions::default();
-
-	let global = unsafe { JS_NewGlobalObject(rt.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-	let _ac = JSAutoRealm::new(rt.cx(), global);
-
-	init(rt.cx(), unsafe { IonObject::from(global) });
+	init_globals(rt.cx(), global);
 
 	loop {
 		print!("> ");

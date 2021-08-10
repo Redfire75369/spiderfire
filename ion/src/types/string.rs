@@ -7,7 +7,7 @@
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{JS_ValueToSource, Value};
 
-use crate::functions::macros::IonContext;
+use crate::IonContext;
 
 // TODO: Write function to convert objects to strings
 /**

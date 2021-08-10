@@ -6,7 +6,7 @@
 
 use mozjs::jsapi::Value;
 
-use crate::functions::macros::IonContext;
+use crate::IonContext;
 use crate::objects::array::IonArray;
 
 /**

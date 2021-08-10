@@ -1,9 +1,11 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- */
+declare module "assert" {
+	export function assert(assertion?: boolean): void;
+	export function debugAssert(assertion?: boolean): void;
 
-declare function assert(assertion?: boolean);
+	namespace Assert {
+		function assert(assertion?: boolean): void;
+		function debugAssert(assertion?: boolean): void;
+	}
 
-declare function debugAssert(assertion?: boolean);
+	export default Assert;
+}
