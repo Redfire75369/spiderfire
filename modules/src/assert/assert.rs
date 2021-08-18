@@ -11,7 +11,7 @@ use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
 use runtime::config::{Config, LogLevel};
-use runtime::modules::{compile_module, register_module};
+use runtime::modules::IonModule;
 
 const ASSERT_SOURCE: &str = include_str!("assert.js");
 
@@ -51,19 +51,17 @@ const METHODS: &[JSFunctionSpec] = &[
  * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
  * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
  */
-pub fn init(cx: IonContext, mut global: IonObject) -> bool {
+pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = String::from("______assertInternal______");
-	unsafe {
-		rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, assert_module.handle().into(), METHODS.as_ptr()) {
-			if global.define(cx, internal_key, ObjectValue(assert_module.get()), 0) {
-				return register_module(
-					cx,
-					&String::from("assert"),
-					compile_module(cx, &String::from("assert"), None, &String::from(ASSERT_SOURCE)).unwrap(),
-				);
-			}
+	rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
+	if JS_DefineFunctions(cx, assert_module.handle().into(), METHODS.as_ptr()) {
+		if global.define(cx, internal_key, ObjectValue(assert_module.get()), 0) {
+			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
+			module.register("assert")
+		} else {
+			false
 		}
+	} else {
 		false
 	}
 }

@@ -10,142 +10,208 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::ptr;
 
-use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
+use dunce::canonicalize;
+use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, Handle, JS_GetRuntime, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModulePrivate,
-	SetModuleResolveHook, Value,
+	CompileModule, Handle, JS_GetRuntime, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModuleMetadataHook,
+	SetModulePrivate, SetModuleResolveHook, Value,
 };
-use mozjs::jsval::{BooleanValue, UndefinedValue};
+use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
+use url::Url;
 
 use ion::exception::{ErrorReport, Exception};
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
+use ion::types::string::from_string;
 
-thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonRawObject>> = RefCell::new(HashMap::new()));
+thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonModule>> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug)]
-struct ModuleData {
+pub struct ModuleData {
 	pub path: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct IonModule {
+	module: IonObject,
+	data: ModuleData,
+}
+
+impl ModuleData {
+	fn from_module(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
+		if module.get().is_object() {
+			let obj = unsafe { IonObject::from(module.get().to_object()) };
+			let path = unsafe { obj.get_as::<String>(cx, String::from("path"), ()) };
+
+			Some(ModuleData { path })
+		} else {
+			None
+		}
+	}
+
+	pub unsafe fn to_object(&self, cx: IonContext) -> IonObject {
+		let mut data = IonObject::new(cx);
+
+		if let Some(path) = self.path.as_ref() {
+			data.set(cx, String::from("path"), from_string(cx, path));
+		} else {
+			data.set(cx, String::from("path"), UndefinedValue());
+		}
+
+		data
+	}
+}
+
+impl IonModule {
+	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Option<IonModule> {
+		let script: Vec<u16> = script.encode_utf16().collect();
+		let mut source = transform_u16_to_source_text(script.as_slice());
+		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
+
+		let module = unsafe { CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };
+		rooted!(in(cx) let rooted_module = module);
+
+		unsafe {
+			if !rooted_module.is_null() {
+				let data = if let Some(path) = path {
+					ModuleData {
+						path: if let Some(path_str) = path.to_str() {
+							Some(String::from(path_str))
+						} else {
+							None
+						},
+					}
+				} else {
+					ModuleData { path: None }
+				};
+				SetModulePrivate(module, &data.to_object(cx).to_value());
+
+				let module = IonModule {
+					module: IonObject::from(module),
+					data,
+				};
+
+				if let Err(e) = module.instantiate(cx) {
+					println!("Module Instantiation Failure");
+					ErrorReport::new(e).print();
+					return None;
+				}
+
+				if let Err(e) = module.evaluate(cx) {
+					println!("Module Evaluation Failure");
+					ErrorReport::new(e).print();
+					return None;
+				}
+
+				Some(module)
+			} else {
+				let exception = Exception::new(cx).unwrap();
+				ErrorReport::new(exception).print();
+				None
+			}
+		}
+	}
+
+	pub unsafe fn instantiate(&self, cx: IonContext) -> Result<(), Exception> {
+		rooted!(in(cx) let rooted_module = self.module.raw());
+		if ModuleInstantiate(cx, rooted_module.handle().into()) {
+			Ok(())
+		} else {
+			Err(Exception::new(cx).unwrap())
+		}
+	}
+
+	pub unsafe fn evaluate(&self, cx: IonContext) -> Result<Value, Exception> {
+		rooted!(in(cx) let rooted_module = self.module.raw());
+		rooted!(in(cx) let mut rval = UndefinedValue());
+		if ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) {
+			Ok(rval.get())
+		} else {
+			Err(Exception::new(cx).unwrap())
+		}
+	}
+
+	pub fn register(&self, name: &str) -> bool {
+		MODULE_REGISTRY.with(|registry| {
+			let mut registry = registry.borrow_mut();
+			match (*registry).entry(String::from(name)) {
+				Entry::Vacant(v) => {
+					v.insert(self.clone());
+					true
+				}
+				Entry::Occupied(_) => false,
+			}
+		})
+	}
+
+	pub fn resolve(cx: IonContext, specifier: &str, data: ModuleData) -> Option<IonModule> {
+		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
+			Path::new(&data.path.unwrap()).parent().unwrap().join(specifier)
+		} else if specifier.starts_with('/') {
+			Path::new(specifier).to_path_buf()
+		} else {
+			Path::new(specifier).to_path_buf()
+		};
+
+		let opt = MODULE_REGISTRY.with(|registry| {
+			let mut registry = registry.borrow_mut();
+
+			let str = String::from(path.to_str().unwrap());
+			match (*registry).entry(str) {
+				Entry::Vacant(_) => None,
+				Entry::Occupied(o) => Some(o.get().clone()),
+			}
+		});
+
+		if opt.is_some() {
+			opt
+		} else {
+			if let Ok(script) = read_to_string(&path) {
+				let module = IonModule::compile(cx, specifier, Some(path.as_path()), &script);
+				if let Some(module) = module {
+					module.register(path.to_str().unwrap());
+					Some(module)
+				} else {
+					eprintln!("Module Compilation Failed");
+					None
+				}
+			} else {
+				eprintln!("Module Read Failed");
+				None
+			}
+		}
+	}
+}
+
+pub unsafe extern "C" fn resolve_module(cx: IonContext, private_data: Handle<Value>, specifier: Handle<*mut JSString>) -> IonRawObject {
+	let specifier = jsstr_to_string(cx, specifier.get());
+	let data = ModuleData::from_module(cx, private_data).unwrap();
+
+	if let Some(module) = IonModule::resolve(cx, &specifier, data) {
+		module.module.raw()
+	} else {
+		ptr::null_mut()
+	}
+}
+
+pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Value>, meta: Handle<IonRawObject>) -> bool {
+	let data = ModuleData::from_module(cx, private_data).unwrap();
+
+	if let Some(path) = data.path.as_ref() {
+		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
+		let mut meta = IonObject::from(meta.get());
+		if !meta.set(cx, String::from("url"), from_string(cx, url.as_str())) {
+			return false;
+		}
+	}
+
+	true
 }
 
 pub fn init_module_loaders(cx: IonContext) {
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(cx), Some(resolve_module));
-	}
-}
-
-unsafe fn get_module_data(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
-	if module.get().is_object() && !module.get().is_null() {
-		let obj = IonObject::from_value(module.get());
-		let path = obj.get_as::<String>(cx, String::from("path"), ());
-
-		Some(ModuleData { path })
-	} else {
-		None
-	}
-}
-
-pub unsafe fn compile_module(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Option<IonRawObject> {
-	let options = CompileOptionsWrapper::new(cx, filename, 1);
-	let script_text: Vec<u16> = script.encode_utf16().collect();
-	let mut source = transform_u16_to_source_text(script_text.as_slice());
-
-	let module = CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source);
-	rooted!(in(cx) let rooted_module = module);
-	if module.is_null() {
-		let exception = Exception::new(cx).unwrap();
-		ErrorReport::new(exception).print();
-		return None;
-	}
-
-	if let Some(path) = path {
-		if let Some(path_str) = path.to_str() {
-			rooted!(in(cx) let mut path = UndefinedValue());
-			path_str.to_jsval(cx, path.handle_mut());
-			let mut data = IonObject::new(cx);
-			data.set(cx, String::from("path"), path.get());
-			data.set(cx, String::from("std"), BooleanValue(false));
-			SetModulePrivate(module, &data.to_value());
-		}
-	} else {
-		let mut data = IonObject::new(cx);
-		data.set(cx, String::from("path"), UndefinedValue());
-		SetModulePrivate(module, &data.to_value());
-	}
-
-	if !ModuleInstantiate(cx, rooted_module.handle().into()) {
-		eprintln!("Failed to instantiate module :(");
-		let exception = Exception::new(cx).unwrap();
-		ErrorReport::new(exception).print();
-		return None;
-	}
-
-	rooted!(in (cx) let mut rval = UndefinedValue());
-	if !ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) {
-		eprintln!("Failed to evaluate module :(");
-		let exception = Exception::new(cx).unwrap();
-		ErrorReport::new(exception).print();
-		return None;
-	}
-
-	Some(module)
-}
-
-pub fn register_module(cx: IonContext, name: &str, module: IonRawObject) -> bool {
-	MODULE_REGISTRY.with(|registry| {
-		let mut registry = registry.borrow_mut();
-		rooted!(in(cx) let mut module = module);
-		match (*registry).entry(name.to_string()) {
-			Entry::Vacant(v) => {
-				v.insert(module.handle().get());
-				true
-			}
-			Entry::Occupied(_) => false,
-		}
-	})
-}
-
-pub unsafe extern "C" fn resolve_module(cx: IonContext, module_private: Handle<Value>, name: Handle<*mut JSString>) -> IonRawObject {
-	let name = jsstr_to_string(cx, name.get());
-	let data = get_module_data(cx, module_private);
-
-	let path = if name.starts_with("./") || name.starts_with("../") {
-		Path::new(&data.unwrap().path.unwrap()).parent().unwrap().join(&name)
-	} else if name.starts_with('/') {
-		Path::new(&name).to_path_buf()
-	} else {
-		Path::new(&name).to_path_buf()
-	};
-
-	let path_str = if let Some(p) = path.to_str() {
-		String::from(p)
-	} else {
-		return ptr::null_mut();
-	};
-
-	let opt = MODULE_REGISTRY.with(|registry| {
-		let mut registry = registry.borrow_mut();
-		match (*registry).entry(path_str.clone()) {
-			Entry::Vacant(_) => None,
-			Entry::Occupied(o) => Some(*o.get()),
-		}
-	});
-	if let Some(module) = opt {
-		return module;
-	}
-
-	if let Ok(script) = read_to_string(&path) {
-		let module = compile_module(cx, &name, Some(&path), &script);
-		if let Some(module) = module {
-			register_module(cx, &path_str, module);
-			module
-		} else {
-			eprintln!("Module could not be compiled :(");
-			ptr::null_mut()
-		}
-	} else {
-		eprintln!("Could not read module :(");
-		ptr::null_mut()
+		SetModuleMetadataHook(JS_GetRuntime(cx), Some(module_metadata));
 	}
 }

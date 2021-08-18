@@ -15,6 +15,7 @@ pub mod exception;
 pub mod functions;
 pub mod objects;
 pub mod print;
+pub mod script;
 pub mod types;
 
 pub type IonContext = *mut JSContext;

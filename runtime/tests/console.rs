@@ -7,10 +7,11 @@
 use std::fs::read_to_string;
 use std::path::Path;
 
-use mozjs::jsval::UndefinedValue;
-use mozjs::rooted;
+use mozjs::jsapi::Value;
 
-use ion::exception::{ErrorReport, Exception};
+use ion::exception::ErrorReport;
+use ion::script::IonScript;
+use ion::types::string::to_string;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::globals::{init_globals, new_global};
 use runtime::new_runtime;
@@ -23,31 +24,21 @@ fn console() {
 	assert!(eval_script(Path::new("./tests/scripts/console.js")).is_ok());
 }
 
-pub fn eval_script(path: &Path) -> Result<(), ()> {
+pub fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
 	let (_engine, rt) = new_runtime();
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
 
 	let script = read_script(path).expect("");
+	let res = IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script);
 
-	rooted!(in(rt.cx()) let rooted_global = global.raw());
-	rooted!(in(rt.cx()) let mut rval = UndefinedValue());
-
-	let res = rt.evaluate_script(
-		rooted_global.handle(),
-		&script,
-		path.file_name().unwrap().to_str().unwrap(),
-		1,
-		rval.handle_mut(),
-	);
-
-	if res.is_err() {
-		let exception = unsafe { Exception::new(rt.cx()).unwrap() };
-		ErrorReport::new_with_stack(rt.cx(), exception).print();
+	match IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script) {
+		Ok(v) => println!("{}", to_string(rt.cx(), v)),
+		Err(e) => e.print(),
 	}
 
-	return res;
+	res
 }
 
 fn read_script(path: &Path) -> Option<String> {

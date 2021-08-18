@@ -9,10 +9,11 @@ use std::ops::RangeBounds;
 use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue, Value};
 use mozjs::jsval::UndefinedValue;
 
+#[derive(Clone, Debug)]
 pub struct Arguments {
-	pub values: Vec<Handle<Value>>,
-	pub this: Handle<Value>,
-	pub rval: MutableHandle<Value>,
+	values: Vec<Handle<Value>>,
+	this: Handle<Value>,
+	rval: MutableHandle<Value>,
 	#[allow(dead_code)]
 	call_args: CallArgs,
 }
@@ -65,14 +66,22 @@ impl Arguments {
 	}
 
 	pub fn range<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<Value> {
-		range.filter_map(|index| self.value(index)).collect::<Vec<_>>()
+		range.filter_map(|index| self.value(index)).collect()
 	}
 
 	pub fn range_handles<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<Handle<Value>> {
-		range.filter_map(|index| self.handle(index)).collect::<Vec<_>>()
+		range.filter_map(|index| self.handle(index)).collect()
 	}
 
 	pub fn range_full(&self) -> Vec<Value> {
-		self.values.iter().map(|value| value.get()).collect::<Vec<_>>()
+		self.values.iter().map(|value| value.get()).collect()
+	}
+
+	pub fn this(&self) -> Handle<Value> {
+		self.this
+	}
+
+	pub fn rval(&self) -> MutableHandle<Value> {
+		self.rval
 	}
 }

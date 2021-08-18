@@ -4,10 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::conversions::jsstr_to_string;
+use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
 use mozjs::jsapi::{JS_ValueToSource, Value};
+use mozjs::jsval::UndefinedValue;
 
 use crate::IonContext;
+
+/**
+ * Converts a string to a [Value]
+ */
+pub fn from_string(cx: IonContext, str: &str) -> Value {
+	rooted!(in(cx) let mut val = UndefinedValue());
+	unsafe { str.to_jsval(cx, val.handle_mut()) };
+	val.get()
+}
 
 // TODO: Write function to convert objects to strings
 /**

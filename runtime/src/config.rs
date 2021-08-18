@@ -30,7 +30,7 @@ impl LogLevel {
 	}
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Config {
 	pub log_level: LogLevel,
 	pub script: bool,

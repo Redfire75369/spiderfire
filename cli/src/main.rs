@@ -4,9 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[macro_use]
-extern crate mozjs;
-
 use clap::{App, Arg, SubCommand};
 
 use runtime::config::{Config, CONFIG, LogLevel};

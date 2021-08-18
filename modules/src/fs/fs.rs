@@ -15,7 +15,7 @@ use mozjs::typedarray::{CreateWith, Uint8Array};
 use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
 use ion::objects::object::{IonObject, IonRawObject};
-use runtime::modules::{compile_module, register_module};
+use runtime::modules::IonModule;
 
 const FS_SOURCE: &str = include_str!("fs.js");
 
@@ -227,9 +227,8 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, fs_module.handle().into(), METHODS.as_ptr()) {
 		if global.define(cx, internal_key, ObjectValue(fs_module.get()), 0) {
-			let module = compile_module(cx, &String::from("fs"), None, &String::from(FS_SOURCE)).unwrap();
-			register_module(cx, &String::from("fs"), module);
-			true
+			let module = IonModule::compile(cx, "fs", None, FS_SOURCE).unwrap();
+			module.register("fs")
 		} else {
 			false
 		}

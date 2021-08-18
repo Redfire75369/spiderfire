@@ -17,7 +17,7 @@ macro_rules! js_fn_raw_m {
 
 			match native_fn(cx, &args) {
 				Ok(v) => {
-					v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval));
+					v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 					true
 				},
 				Err(Some(str)) => {

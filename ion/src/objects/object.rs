@@ -28,7 +28,7 @@ pub const JSPROP_CONSTANT: u16 = (JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PE
 
 pub type IonRawObject = *mut JSObject;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct IonObject {
 	obj: IonRawObject,
 }

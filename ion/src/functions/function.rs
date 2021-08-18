@@ -22,6 +22,7 @@ use crate::objects::object::{IonObject, IonRawObject};
 pub type IonNativeFunction = unsafe extern "C" fn(IonContext, u32, *mut Value) -> bool;
 pub type IonRawFunction = *mut JSFunction;
 
+#[derive(Clone, Copy, Debug)]
 pub struct IonFunction {
 	fun: IonRawFunction,
 }

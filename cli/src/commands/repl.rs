@@ -48,7 +48,7 @@ pub fn start_repl() {
 		}
 
 		if input.len() != 1 {
-			eval_inline(&rt, global, &input);
+			eval_inline(&rt, &input);
 		} else if input == "exit\n" {
 			process::exit(0);
 		}

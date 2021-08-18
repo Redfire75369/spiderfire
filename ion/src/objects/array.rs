@@ -21,6 +21,7 @@ use crate::IonContext;
 use crate::objects::object::IonRawObject;
 use crate::types::values::from_value;
 
+#[derive(Clone, Copy, Debug)]
 pub struct IonArray {
 	obj: IonRawObject,
 }

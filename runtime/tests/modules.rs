@@ -7,14 +7,9 @@
 use std::fs::read_to_string;
 use std::path::Path;
 
-use mozjs::jsapi::{ModuleEvaluate, ModuleInstantiate};
-use mozjs::jsval::UndefinedValue;
-use mozjs::rooted;
-
-use ion::exception::{ErrorReport, Exception};
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::globals::{init_globals, new_global};
-use runtime::modules::{compile_module, init_module_loaders};
+use runtime::modules::{init_module_loaders, IonModule};
 use runtime::new_runtime;
 
 #[test]
@@ -33,25 +28,10 @@ pub fn eval_module(path: &Path) -> Result<(), ()> {
 	init_globals(rt.cx(), global);
 
 	let script = read_script(path).expect("");
-
-	rooted!(in(rt.cx()) let module = unsafe {
-		compile_module(rt.cx(), &String::from(path.file_name().unwrap().to_str().unwrap()), Some(path), &script).unwrap()
-	});
-
-	unsafe {
-		return if ModuleInstantiate(rt.cx(), module.handle().into()) {
-			rooted!(in(rt.cx()) let mut rval = UndefinedValue());
-			if !ModuleEvaluate(rt.cx(), module.handle().into(), rval.handle_mut().into()) {
-				let exception = Exception::new(rt.cx()).unwrap();
-				ErrorReport::new_with_stack(rt.cx(), exception).print();
-				return Err(());
-			}
-			Ok(())
-		} else {
-			let exception = Exception::new(rt.cx()).unwrap();
-			ErrorReport::new_with_stack(rt.cx(), exception).print();
-			Err(())
-		};
+	if IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script).is_some() {
+		Ok(())
+	} else {
+		Err(())
 	}
 }
 

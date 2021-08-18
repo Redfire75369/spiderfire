@@ -11,7 +11,7 @@ use crate::evaluate::eval_inline;
 
 pub fn eval_source(source: &str) {
 	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
+	let (_global, _ac) = new_global(rt.cx());
 
-	eval_inline(&rt, global, source);
+	eval_inline(&rt, source);
 }

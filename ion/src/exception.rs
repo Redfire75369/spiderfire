@@ -11,6 +11,7 @@ use mozjs::jsval::UndefinedValue;
 use crate::IonContext;
 use crate::objects::object::IonObject;
 
+#[derive(Clone, Debug)]
 pub struct Exception {
 	message: String,
 	filename: String,
@@ -18,6 +19,7 @@ pub struct Exception {
 	column: u32,
 }
 
+#[derive(Clone, Debug)]
 pub struct ErrorReport {
 	exception: Exception,
 	stack: Option<String>,

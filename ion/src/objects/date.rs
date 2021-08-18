@@ -18,6 +18,7 @@ use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHand
 use crate::IonContext;
 use crate::objects::object::IonRawObject;
 
+#[derive(Clone, Copy, Debug)]
 pub struct IonDate {
 	obj: IonRawObject,
 }
