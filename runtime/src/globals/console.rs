@@ -49,14 +49,11 @@ fn print_indent(is_stderr: bool) {
 	});
 }
 
-fn print_args(cx: IonContext, args: Vec<Value>, is_stderr: bool) {
-	print_args_with_indents(cx, args, is_stderr, get_indents());
-}
-
-fn print_args_with_indents(cx: IonContext, args: Vec<Value>, is_stderr: bool, indents: usize) {
+fn print_args(cx: IonContext, args: Vec<Value>, stderr: bool) {
+	let indents = get_indents();
 	for val in args.iter() {
-		print_value(cx, *val, indents, is_stderr);
-		if !is_stderr {
+		print_value(cx, *val, indents, stderr);
+		if !stderr {
 			print!(" ");
 		} else {
 			eprint!(" ");
@@ -174,10 +171,11 @@ unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 		println!();
 
 		capture_stack!(in(cx) let stack);
+		let stack = stack.unwrap();
 		println!(
 			"{}",
 			indent(
-				&stack.unwrap().as_string(None, StackFormat::SpiderMonkey).unwrap(),
+				&stack.as_string(None, StackFormat::SpiderMonkey).unwrap(),
 				get_indents() + 1,
 				true,
 			)
@@ -192,14 +190,13 @@ unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 
-		if Config::global().log_level >= LogLevel::Info {
-			print!("{}", "  ".repeat(*indents));
-			print_args_with_indents(cx, values, false, *indents);
-			println!();
-		}
-
 		*indents = (*indents).min(usize::MAX - 1) + 1;
 	});
+
+	if Config::global().log_level >= LogLevel::Info {
+		print_args(cx, values, false);
+		println!();
+	}
 
 	Ok(())
 }

@@ -15,11 +15,17 @@ use crate::types::{array::is_array, string::to_string};
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
-/**
- * Prints a [Value] with the appropriate colour and indentation, to stdout or stderr.
- */
-pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) {
-	let mut out = if !is_stderr {
+/// Prints a [Value] with the appropriate colour and given indentation, to stdout or stderr.
+///
+/// ### Colours
+/// - Number: Blue
+/// - Boolean: Cyan
+/// - String: Green
+/// - Array: #FF7F3F
+/// - Object: #F0F0F0
+/// - Undefined/Null: #77676
+pub fn print_value(cx: IonContext, val: Value, indents: usize, stderr: bool) {
+	let mut out = if !stderr {
 		StandardStream::stdout(ColorChoice::Auto)
 	} else {
 		StandardStream::stderr(ColorChoice::Auto)
@@ -43,15 +49,25 @@ pub fn print_value(cx: IonContext, val: Value, indents: usize, is_stderr: bool) 
 	out.reset().unwrap();
 }
 
-pub fn indent(string: &str, indents: usize, initial: bool) -> String {
-	if string.contains(NEWLINE) {
-		let indent = INDENT.repeat(indents);
-		if initial {
-			(indent.clone() + string).replace(NEWLINE, &(String::from(NEWLINE) + &indent))
-		} else {
-			string.replace(NEWLINE, &(String::from(NEWLINE) + &indent))
+/// Indents a string with the given indentation.
+///
+/// Indents first line only when `initial_indent` is true.
+pub fn indent(string: &str, indents: usize, initial_indent: bool) -> String {
+	let mut output = String::new();
+	let indent = INDENT.repeat(indents);
+
+	for (i, line) in string.lines().enumerate() {
+		if i > 0 {
+			output.push_str(NEWLINE);
+
+			if !line.is_empty() {
+				output.push_str(&indent);
+			}
+		} else if initial_indent && !line.is_empty() {
+			output.push_str(&indent);
 		}
-	} else {
-		string.to_string()
+
+		output.push_str(line);
 	}
+	output
 }

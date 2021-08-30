@@ -33,10 +33,14 @@ impl Arguments {
 		}
 	}
 
+	/// Returns the number of arguments.
 	pub fn len(&self) -> usize {
 		self.values.len()
 	}
 
+	/// Gets the handle of the value at the given index.
+	///
+	/// Returns [None] if the given index is larger than the number of arguments.
 	pub fn handle(&self, index: usize) -> Option<Handle<Value>> {
 		if self.len() > index + 1 {
 			return Some(self.values[index]);
@@ -44,6 +48,9 @@ impl Arguments {
 		None
 	}
 
+	/// Gets the handle of the value at the given index.
+	///
+	/// Returns `undefined` if the given index is larger than the number of arguments.
 	pub fn handle_or_undefined(&self, index: usize) -> Handle<Value> {
 		if self.len() > index + 1 {
 			return self.values[index];
@@ -51,6 +58,9 @@ impl Arguments {
 		unsafe { UndefinedHandleValue }
 	}
 
+	/// Gets the value at the given index.
+	///
+	/// Returns [None] if the given index is larger than the number of arguments.
 	pub fn value(&self, index: usize) -> Option<Value> {
 		if self.len() > index + 1 {
 			return Some(self.values[index].get());
@@ -58,6 +68,9 @@ impl Arguments {
 		None
 	}
 
+	/// Gets the value at the given index.
+	///
+	/// Returns `undefined` if the given index is larger than the number of arguments.
 	pub fn value_or_undefined(&self, index: usize) -> Value {
 		if self.len() > index + 1 {
 			return self.values[index].get();
@@ -77,10 +90,12 @@ impl Arguments {
 		self.values.iter().map(|value| value.get()).collect()
 	}
 
+	/// Returns the `this` value of the current scope.
 	pub fn this(&self) -> Handle<Value> {
 		self.this
 	}
 
+	/// Returns the mutable return value of the function.
 	pub fn rval(&self) -> MutableHandle<Value> {
 		self.rval
 	}

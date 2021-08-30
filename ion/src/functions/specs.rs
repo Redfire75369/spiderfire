@@ -8,6 +8,7 @@ use std::ptr;
 
 use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 
+/// Creates a function spec with the given native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, call: JSNativeWrapper, nargs: u16, flags: u16) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name {

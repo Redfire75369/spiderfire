@@ -24,10 +24,17 @@ pub struct IonDate {
 }
 
 impl IonDate {
+	/// Returns the wrapped [IonRawObject].
+	pub unsafe fn raw(&self) -> IonRawObject {
+		self.obj
+	}
+
+	/// Creates a new [IonDate] with the current time.
 	pub unsafe fn new(cx: IonContext) -> IonDate {
 		IonDate::from_date(cx, Utc::now())
 	}
 
+	/// Creates a new [IonDate] with the given time.
 	pub unsafe fn from_date(cx: IonContext, time: DateTime<Utc>) -> IonDate {
 		IonDate::from(
 			cx,
@@ -41,6 +48,7 @@ impl IonDate {
 		.unwrap()
 	}
 
+	/// Creates a [IonDate] from an [IonRawObject].
 	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonDate> {
 		if IonDate::is_date_raw(cx, obj) {
 			Some(IonDate { obj })
@@ -50,21 +58,23 @@ impl IonDate {
 		}
 	}
 
+	/// Creates a [IonDate] from a [Value].
 	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonDate> {
-		assert!(val.is_object());
-		IonDate::from(cx, val.to_object())
+		if val.is_object() {
+			IonDate::from(cx, val.to_object())
+		} else {
+			None
+		}
 	}
 
-	pub unsafe fn raw(&self) -> IonRawObject {
-		self.obj
-	}
-
+	/// Checks if a date is a valid date.
 	pub unsafe fn is_valid(&self, cx: IonContext) -> bool {
 		rooted!(in(cx) let obj = self.obj);
 		let mut is_valid = true;
 		return DateIsValid(cx, obj.handle().into(), &mut is_valid) && is_valid;
 	}
 
+	/// Converts a date to a [DateTime].
 	pub unsafe fn to_date(&self, cx: IonContext) -> Option<DateTime<Utc>> {
 		rooted!(in(cx) let obj = self.obj);
 		let mut milliseconds: f64 = f64::MAX;
@@ -75,6 +85,7 @@ impl IonDate {
 		}
 	}
 
+	/// Checks if an [IonRawObject] is a date.
 	pub unsafe fn is_date_raw(cx: IonContext, obj: IonRawObject) -> bool {
 		rooted!(in(cx) let mut robj = obj);
 		let mut is_date = false;

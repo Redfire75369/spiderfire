@@ -20,6 +20,9 @@ pub struct IonScript {
 }
 
 impl IonScript {
+	/// Compiles a script with a given filename and returns it.
+	///
+	/// Returns [Err] when script compilation fails.
 	pub fn compile(cx: IonContext, filename: &str, script: &str) -> Result<IonScript, Exception> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
@@ -35,6 +38,9 @@ impl IonScript {
 		}
 	}
 
+	/// Evaluates a script and returns its return value.
+	///
+	/// Returns [Err] when an exception occurs during script evaluation.
 	pub fn evaluate(&self, cx: IonContext) -> Result<Value, ErrorReport> {
 		rooted!(in(cx) let script = self.script);
 		rooted!(in(cx) let mut rval = UndefinedValue());
@@ -46,6 +52,9 @@ impl IonScript {
 		}
 	}
 
+	/// Wrapper that compiles and evaluates a script with a given filename, and returns its return value.
+	///
+	/// Returns [Err] when script compilation fails or an exception occurs during script evaluation.
 	pub fn compile_and_evaluate(cx: IonContext, filename: &str, script: &str) -> Result<Value, ErrorReport> {
 		match IonScript::compile(cx, filename, script) {
 			Ok(s) => match s.evaluate(cx) {

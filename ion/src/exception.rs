@@ -26,6 +26,9 @@ pub struct ErrorReport {
 }
 
 impl Exception {
+	/// Gets an exception from the runtime.
+	///
+	/// Returns [None] is no exception is pending.
 	pub unsafe fn new(cx: IonContext) -> Option<Exception> {
 		if JS_IsExceptionPending(cx) {
 			rooted!(in(cx) let mut exception = UndefinedValue());
@@ -56,16 +59,24 @@ impl Exception {
 		}
 	}
 
+	/// Clears all exceptions within the runtime.
 	pub unsafe fn clear(cx: IonContext) {
 		JS_ClearPendingException(cx);
+	}
+
+	/// Formats the exception as an error message.
+	pub fn format(&self) -> String {
+		format!("Uncaught exception at {}:{}:{} - {}", self.filename, self.lineno, self.column, self.message)
 	}
 }
 
 impl ErrorReport {
+	/// Creates a new [ErrorReport] with the given [Exception] and no stack.
 	pub fn new(exception: Exception) -> ErrorReport {
 		ErrorReport { exception, stack: None }
 	}
 
+	/// Creates a new [ErrorReport] with the given [Exception] and the current stack.
 	pub fn new_with_stack(cx: IonContext, exception: Exception) -> ErrorReport {
 		unsafe {
 			capture_stack!(in(cx) let stack);
@@ -78,15 +89,9 @@ impl ErrorReport {
 		self.stack.as_ref()
 	}
 
-	pub fn format(&self) -> String {
-		format!(
-			"Uncaught exception at {}:{}:{} - {}",
-			self.exception.filename, self.exception.lineno, self.exception.column, self.exception.message
-		)
-	}
-
+	/// Prints a formatted error message.
 	pub fn print(&self) {
-		println!("{}", self.format());
+		println!("{}", self.exception.format());
 		if let Some(stack) = self.stack() {
 			println!("{}", stack);
 		}

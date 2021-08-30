@@ -10,9 +10,7 @@ use mozjs::jsval::UndefinedValue;
 
 use crate::IonContext;
 
-/**
- * Converts a string to a [Value]
- */
+/// Converts a string to a [Value].
 pub fn from_string(cx: IonContext, str: &str) -> Value {
 	rooted!(in(cx) let mut val = UndefinedValue());
 	unsafe { str.to_jsval(cx, val.handle_mut()) };
@@ -20,10 +18,9 @@ pub fn from_string(cx: IonContext, str: &str) -> Value {
 }
 
 // TODO: Write function to convert objects to strings
-/**
- * Converts a [Value] to a string.
- * Objects and functions are converted using [JS_ValueToSource]. This behaviour will be changed in the future.
- */
+/// Converts a [Value] to a string.
+///
+/// Objects and functions are converted using [JS_ValueToSource]. This behaviour will be changed in the future.
 pub fn to_string(cx: IonContext, val: Value) -> String {
 	rooted!(in(cx) let rval = val);
 

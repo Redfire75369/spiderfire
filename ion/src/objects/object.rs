@@ -34,27 +34,36 @@ pub struct IonObject {
 }
 
 impl IonObject {
+	/// Returns the wrapped [IonRawObject].
 	pub fn raw(&self) -> IonRawObject {
 		self.obj
 	}
 
+	/// Creates an empty [IonObject].
 	pub unsafe fn new(cx: IonContext) -> IonObject {
 		IonObject::from(JS_NewPlainObject(cx))
 	}
 
+	/// Creates an [IonObject] from an [IonRawObject].
 	pub unsafe fn from(obj: IonRawObject) -> IonObject {
 		IonObject { obj }
 	}
 
-	pub unsafe fn from_value(val: Value) -> IonObject {
-		assert!(val.is_object());
-		IonObject::from(val.to_object())
+	/// Creates an [IonObject] from a [Value].
+	pub unsafe fn from_value(val: Value) -> Option<IonObject> {
+		if val.is_object() {
+			Some(IonObject::from(val.to_object()))
+		} else {
+			None
+		}
 	}
 
+	/// Converts an [IonObject] to a [Value].
 	pub unsafe fn to_value(&self) -> Value {
 		ObjectValue(self.obj)
 	}
 
+	/// Checks if an object has the given key.
 	pub unsafe fn has(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
 		let mut found = false;
@@ -81,6 +90,9 @@ impl IonObject {
 		}
 	}
 
+	/// Gets the value at the given key.
+	///
+	/// Returns [None] if the object does not contain the key.
 	pub unsafe fn get(&self, cx: IonContext, key: String) -> Option<Value> {
 		let key = format!("{}\0", key);
 		if self.has(cx, key.clone()) {
@@ -93,6 +105,9 @@ impl IonObject {
 		}
 	}
 
+	/// Gets the value at the given key as a Rust type.
+	///
+	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, key: String, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
 		if let Some(val) = opt {
@@ -102,6 +117,7 @@ impl IonObject {
 		}
 	}
 
+	/// Sets the value with the given key.
 	pub unsafe fn set(&mut self, cx: IonContext, key: String, value: Value) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
@@ -116,6 +132,7 @@ impl IonObject {
 		self.set(cx, key, val.get())
 	}
 
+	/// Defines the value with the given key with the given attributes.
 	pub unsafe fn define(&mut self, cx: IonContext, key: String, value: Value, attrs: u32) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
@@ -130,6 +147,7 @@ impl IonObject {
 		self.define(cx, key, val.get(), attrs)
 	}
 
+	/// Defines a method with the given name, and the given number of arguments and attributes.
 	pub unsafe fn define_method(&mut self, cx: IonContext, name: String, method: IonNativeFunction, nargs: u32, attrs: u32) -> IonFunction {
 		let name = format!("{}\0", name);
 		rooted!(in(cx) let mut obj = self.obj);
@@ -143,6 +161,7 @@ impl IonObject {
 		))
 	}
 
+	/// Deletes the value at the given key.
 	pub unsafe fn delete(&self, cx: IonContext, key: String) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
@@ -150,6 +169,7 @@ impl IonObject {
 	}
 
 	// TODO: Return Vec<String> - Waiting on rust-mozjs #544
+	/// Returns a [Vec] of the keys of the object
 	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
