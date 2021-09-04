@@ -174,11 +174,7 @@ unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 		let stack = stack.unwrap();
 		println!(
 			"{}",
-			indent(
-				&stack.as_string(None, StackFormat::SpiderMonkey).unwrap(),
-				get_indents() + 1,
-				true,
-			)
+			indent(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap(), get_indents() + 1, true)
 		);
 	}
 

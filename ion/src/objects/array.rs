@@ -174,10 +174,6 @@ impl IonArray {
 		let mut is_array = false;
 		IsArray(cx, robj.handle().into(), &mut is_array) && is_array
 	}
-
-	pub unsafe fn is_array(&self, cx: IonContext) -> bool {
-		IonArray::is_array_raw(cx, self.obj)
-	}
 }
 
 impl FromJSValConvertible for IonArray {

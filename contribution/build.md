@@ -16,31 +16,39 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 	- [Arch Linux](#arch-linux-and-derivatives)
 	- [Gentoo Linux](#gentoo-linux-and-derivatives)
 	- [Alpine Linux](#alpine-linux)
-- [BSD](#bsd)
-	- [FreeBSD](#freebsd)
+- [FreeBSD](#freebsd)
 
 ## Windows
 
 ### MSVC
 
-1. Follow the instructions at [Windows Prerequisites](https://firefox-source-docs.mozilla.org/setup/windows_build.html) (Steps 1.1 and 1.2)
-2. Download and Install Clang for Windows (64 bit) from [LLVM Releases](https://releases.llvm.org/download.html)
-3. Start Visual Studio Developer Command Prompt
+1. Follow the instructions at [Windows Prerequisites](https://firefox-source-docs.mozilla.org/setup/windows_build.html). (Steps 1.1 and 1.2)
+2. Download and install LLVM for Windows (64 bit) from [LLVM Releases](https://github.com/llvm/llvm-project/releases/latest).
+   - Note: When installing LLVM, choose to add LLVM to the system path.
 
-```batch
-"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+3. Add the following to `%USERPROFILE\.cargo\config` for faster build times.
+
+```toml
+[target.x86_64-pc-windows-msvc]
+linker = "lld-link.exe"
 ```
 
-4. Set Environment Variables
+4. Start Visual Studio Developer Command Prompt.
+
+```batch
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+```
+
+5. Set Environment Variables
 
 ```batch
 build.bat
 ```
 
-5. Build with Cargo
+6. Build with Cargo
 
 ```batch
-cargo build
+cargo build --features debugmozjs
 ```
 
 ### GNU
@@ -87,9 +95,7 @@ cargo build
 
 -- TODO --
 
-## *BSD
-
-### FreeBSD
+## FreeBSD
 
 -- TODO --
 

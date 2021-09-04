@@ -14,6 +14,7 @@ use ion::script::IonScript;
 use ion::types::string::to_string;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::globals::{init_globals, new_global};
+use runtime::microtask_queue::init_microtask_queue;
 use runtime::new_runtime;
 
 #[test]
@@ -29,6 +30,7 @@ pub fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
+	init_microtask_queue(rt.cx());
 
 	let script = read_script(path).expect("");
 	let res = IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script);

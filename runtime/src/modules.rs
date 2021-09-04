@@ -41,7 +41,7 @@ pub struct IonModule {
 impl ModuleData {
 	fn from_module(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
 		if module.get().is_object() {
-			let obj = unsafe { IonObject::from(module.get().to_object()) };
+			let obj = IonObject::from(module.get().to_object());
 			let path = unsafe { obj.get_as::<String>(cx, String::from("path"), ()) };
 
 			Some(ModuleData { path })

@@ -40,17 +40,17 @@ impl IonObject {
 	}
 
 	/// Creates an empty [IonObject].
-	pub unsafe fn new(cx: IonContext) -> IonObject {
-		IonObject::from(JS_NewPlainObject(cx))
+	pub fn new(cx: IonContext) -> IonObject {
+		unsafe { IonObject::from(JS_NewPlainObject(cx)) }
 	}
 
 	/// Creates an [IonObject] from an [IonRawObject].
-	pub unsafe fn from(obj: IonRawObject) -> IonObject {
+	pub fn from(obj: IonRawObject) -> IonObject {
 		IonObject { obj }
 	}
 
 	/// Creates an [IonObject] from a [Value].
-	pub unsafe fn from_value(val: Value) -> Option<IonObject> {
+	pub fn from_value(val: Value) -> Option<IonObject> {
 		if val.is_object() {
 			Some(IonObject::from(val.to_object()))
 		} else {
@@ -59,7 +59,7 @@ impl IonObject {
 	}
 
 	/// Converts an [IonObject] to a [Value].
-	pub unsafe fn to_value(&self) -> Value {
+	pub fn to_value(&self) -> Value {
 		ObjectValue(self.obj)
 	}
 

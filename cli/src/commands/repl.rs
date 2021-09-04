@@ -8,6 +8,7 @@ use std::io::{stdin, stdout, Write};
 use std::process;
 
 use runtime::globals::{init_globals, new_global};
+use runtime::microtask_queue::init_microtask_queue;
 use runtime::new_runtime;
 
 use crate::evaluate::eval_inline;
@@ -17,6 +18,7 @@ pub fn start_repl() {
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
+	init_microtask_queue(rt.cx());
 
 	loop {
 		print!("> ");

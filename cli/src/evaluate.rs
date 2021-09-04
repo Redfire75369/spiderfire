@@ -13,6 +13,7 @@ use ion::script::IonScript;
 use ion::types::string::to_string;
 use modules::init_modules;
 use runtime::globals::{init_globals, new_global};
+use runtime::microtask_queue::init_microtask_queue;
 use runtime::modules::{init_module_loaders, IonModule};
 use runtime::new_runtime;
 
@@ -28,6 +29,7 @@ pub fn eval_script(path: &Path) {
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
+	init_microtask_queue(rt.cx());
 
 	let script = read_script(path).expect("");
 	match IonScript::compile_and_evaluate(rt.cx(), &path.file_name().unwrap().to_str().unwrap(), &script) {
@@ -40,8 +42,9 @@ pub fn eval_module(path: &Path) {
 	let (_engine, rt) = new_runtime();
 	let (global, _ac) = new_global(rt.cx());
 
-	init_module_loaders(rt.cx());
 	init_globals(rt.cx(), global);
+	init_microtask_queue(rt.cx());
+	init_module_loaders(rt.cx());
 	init_modules(rt.cx(), global);
 
 	let script = read_script(path).expect("");

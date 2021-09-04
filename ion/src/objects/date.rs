@@ -91,10 +91,6 @@ impl IonDate {
 		let mut is_date = false;
 		ObjectIsDate(cx, robj.handle_mut().into(), &mut is_date) && is_date
 	}
-
-	pub unsafe fn is_date(&self, cx: IonContext) -> bool {
-		IonDate::is_date_raw(cx, self.obj)
-	}
 }
 
 impl FromJSValConvertible for IonDate {

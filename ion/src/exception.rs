@@ -66,7 +66,10 @@ impl Exception {
 
 	/// Formats the exception as an error message.
 	pub fn format(&self) -> String {
-		format!("Uncaught exception at {}:{}:{} - {}", self.filename, self.lineno, self.column, self.message)
+		format!(
+			"Uncaught exception at {}:{}:{} - {}",
+			self.filename, self.lineno, self.column, self.message
+		)
 	}
 }
 

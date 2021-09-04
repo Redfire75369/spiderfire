@@ -13,6 +13,7 @@ use mozjs::rust::{JSEngine, Runtime};
 
 pub mod config;
 pub mod globals;
+pub mod microtask_queue;
 pub mod modules;
 
 pub fn new_runtime() -> (JSEngine, Runtime) {

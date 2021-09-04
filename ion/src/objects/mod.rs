@@ -7,3 +7,4 @@
 pub mod array;
 pub mod date;
 pub mod object;
+pub mod promise;
