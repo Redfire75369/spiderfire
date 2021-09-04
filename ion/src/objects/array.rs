@@ -13,8 +13,7 @@ use mozjs::jsapi::{
 	AssertSameCompartment, GetArrayLength, IsArray, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement, JS_SetElement, NewArrayObject,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
-use mozjs::rust::{CustomTrace, GCMethods, HandleValue, maybe_wrap_object_value, MutableHandleValue};
-use mozjs_sys::jsgc::RootKind;
+use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
 use crate::exception::Exception;
 use crate::IonContext;
@@ -142,7 +141,7 @@ impl IonArray {
 		JS_SetElement(cx, robj.handle().into(), index, rval.handle().into())
 	}
 
-	pub unsafe fn set_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, index: u32, value: T) -> bool {
+	pub unsafe fn set_as<T: ToJSValConvertible>(&mut self, cx: IonContext, index: u32, value: T) -> bool {
 		rooted!(in(cx) let mut val = UndefinedValue());
 		value.to_jsval(cx, val.handle_mut());
 		self.set(cx, index, val.get())
@@ -155,7 +154,7 @@ impl IonArray {
 		JS_DefineElement(cx, robj.handle().into(), index, rval.handle().into(), attrs)
 	}
 
-	pub unsafe fn define_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, index: u32, value: T, attrs: u32) -> bool {
+	pub unsafe fn define_as<T: ToJSValConvertible>(&mut self, cx: IonContext, index: u32, value: T, attrs: u32) -> bool {
 		rooted!(in(cx) let mut val = UndefinedValue());
 		value.to_jsval(cx, val.handle_mut());
 		self.define(cx, index, val.get(), attrs)

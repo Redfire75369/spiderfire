@@ -16,8 +16,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
-use mozjs::rust::{CustomTrace, GCMethods, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
-use mozjs_sys::jsgc::RootKind;
+use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 
 use crate::exception::Exception;
 use crate::functions::function::{IonFunction, IonNativeFunction};
@@ -125,7 +124,7 @@ impl IonObject {
 		JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into())
 	}
 
-	pub unsafe fn set_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, key: String, value: T) -> bool {
+	pub unsafe fn set_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: String, value: T) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut val = UndefinedValue());
 		value.to_jsval(cx, val.handle_mut());
@@ -140,7 +139,7 @@ impl IonObject {
 		JS_DefineProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into(), attrs)
 	}
 
-	pub unsafe fn define_as<T: ToJSValConvertible + RootKind + GCMethods>(&mut self, cx: IonContext, key: String, value: T, attrs: u32) -> bool {
+	pub unsafe fn define_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: String, value: T, attrs: u32) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut val = UndefinedValue());
 		value.to_jsval(cx, val.handle_mut());

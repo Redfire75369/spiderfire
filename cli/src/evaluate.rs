@@ -48,7 +48,9 @@ pub fn eval_module(path: &Path) {
 	init_modules(rt.cx(), global);
 
 	let script = read_script(path).expect("");
-	IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script);
+	if let Err(e) = IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script) {
+		e.print();
+	}
 }
 
 fn read_script(path: &Path) -> Option<String> {

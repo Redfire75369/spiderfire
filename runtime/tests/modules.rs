@@ -30,7 +30,7 @@ pub fn eval_module(path: &Path) -> Result<(), ()> {
 	init_module_loaders(rt.cx());
 
 	let script = read_script(path).expect("");
-	if IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script).is_some() {
+	if IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script).is_ok() {
 		Ok(())
 	} else {
 		Err(())

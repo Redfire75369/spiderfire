@@ -19,7 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-
       - name: Install dependencies on OS X
         if: startsWith(matrix.os, 'macOS')
         run: |
@@ -37,14 +36,12 @@ jobs:
           scoop install llvm --global
           echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true,
           default: true,
-
 
       - name: POSIX
         if: startsWith(matrix.os, 'windows') != true

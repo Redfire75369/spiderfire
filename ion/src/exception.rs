@@ -29,33 +29,35 @@ impl Exception {
 	/// Gets an exception from the runtime.
 	///
 	/// Returns [None] is no exception is pending.
-	pub unsafe fn new(cx: IonContext) -> Option<Exception> {
-		if JS_IsExceptionPending(cx) {
-			rooted!(in(cx) let mut exception = UndefinedValue());
-			if JS_GetPendingException(cx, exception.handle_mut().into()) {
-				let exception = IonObject::from(exception.to_object());
-				Exception::clear(cx);
+	pub fn new(cx: IonContext) -> Option<Exception> {
+		unsafe {
+			if JS_IsExceptionPending(cx) {
+				rooted!(in(cx) let mut exception = UndefinedValue());
+				if JS_GetPendingException(cx, exception.handle_mut().into()) {
+					let exception = IonObject::from(exception.to_object());
+					Exception::clear(cx);
 
-				let message = exception.get_as::<String>(cx, String::from("message"), ()).unwrap();
-				let filename = exception.get_as::<String>(cx, String::from("fileName"), ()).unwrap();
-				let lineno = exception
-					.get_as::<u32>(cx, String::from("lineNumber"), ConversionBehavior::Clamp)
-					.unwrap();
-				let column = exception
-					.get_as::<u32>(cx, String::from("columnNumber"), ConversionBehavior::Clamp)
-					.unwrap();
+					let message = exception.get_as::<String>(cx, String::from("message"), ()).unwrap();
+					let filename = exception.get_as::<String>(cx, String::from("fileName"), ()).unwrap();
+					let lineno = exception
+						.get_as::<u32>(cx, String::from("lineNumber"), ConversionBehavior::Clamp)
+						.unwrap();
+					let column = exception
+						.get_as::<u32>(cx, String::from("columnNumber"), ConversionBehavior::Clamp)
+						.unwrap();
 
-				Some(Exception {
-					message,
-					filename,
-					lineno,
-					column,
-				})
+					Some(Exception {
+						message,
+						filename,
+						lineno,
+						column,
+					})
+				} else {
+					None
+				}
 			} else {
 				None
 			}
-		} else {
-			None
 		}
 	}
 

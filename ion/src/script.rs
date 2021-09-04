@@ -34,7 +34,7 @@ impl IonScript {
 		if !rooted_script.is_null() {
 			Ok(IonScript { script })
 		} else {
-			Err(unsafe { Exception::new(cx).unwrap() })
+			Err(Exception::new(cx).unwrap())
 		}
 	}
 
@@ -48,7 +48,7 @@ impl IonScript {
 		if unsafe { JS_ExecuteScript(cx, script.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(unsafe { ErrorReport::new(Exception::new(cx).unwrap()) })
+			Err(ErrorReport::new(Exception::new(cx).unwrap()))
 		}
 	}
 

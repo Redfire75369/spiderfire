@@ -143,7 +143,6 @@ unsafe fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec
 			println!();
 		} else {
 			eprintln!("Assertion Failed:");
-			return Ok(());
 		}
 	}
 

@@ -11,6 +11,9 @@ use mozjs::jsapi::JSContext;
 
 pub use ion_proc::*;
 
+use crate::error::IonError;
+
+pub mod error;
 pub mod exception;
 pub mod functions;
 pub mod objects;
@@ -19,4 +22,4 @@ pub mod script;
 pub mod types;
 
 pub type IonContext = *mut JSContext;
-pub type IonResult<T> = Result<T, Option<String>>;
+pub type IonResult<T> = Result<T, IonError>;

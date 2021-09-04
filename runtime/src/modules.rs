@@ -54,9 +54,9 @@ impl ModuleData {
 		let mut data = IonObject::new(cx);
 
 		if let Some(path) = self.path.as_ref() {
-			data.set(cx, String::from("path"), from_string(cx, path));
+			data.set_as(cx, String::from("path"), path);
 		} else {
-			data.set(cx, String::from("path"), UndefinedValue());
+			data.set_as(cx, String::from("path"), ());
 		}
 
 		data
@@ -64,7 +64,7 @@ impl ModuleData {
 }
 
 impl IonModule {
-	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Option<IonModule> {
+	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Result<IonModule, ErrorReport> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
@@ -93,22 +93,19 @@ impl IonModule {
 				};
 
 				if let Err(e) = module.instantiate(cx) {
-					println!("Module Instantiation Failure");
-					ErrorReport::new(e).print();
-					return None;
+					eprintln!("Module Instantiation Failure");
+					return Err(ErrorReport::new(e));
 				}
 
 				if let Err(e) = module.evaluate(cx) {
-					println!("Module Evaluation Failure");
-					ErrorReport::new(e).print();
-					return None;
+					eprintln!("Module Evaluation Failure");
+					return Err(ErrorReport::new(e));
 				}
 
-				Some(module)
+				Ok(module)
 			} else {
 				let exception = Exception::new(cx).unwrap();
-				ErrorReport::new(exception).print();
-				None
+				Err(ErrorReport::new(exception))
 			}
 		}
 	}
@@ -169,7 +166,7 @@ impl IonModule {
 		} else {
 			if let Ok(script) = read_to_string(&path) {
 				let module = IonModule::compile(cx, specifier, Some(path.as_path()), &script);
-				if let Some(module) = module {
+				if let Ok(module) = module {
 					module.register(path.to_str().unwrap());
 					Some(module)
 				} else {

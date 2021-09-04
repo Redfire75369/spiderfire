@@ -13,6 +13,7 @@ use mozjs::jsval::ObjectValue;
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::{IonContext, IonResult};
+use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::IonModule;
@@ -28,15 +29,15 @@ unsafe fn readBinary(cx: IonContext, path_str: String) -> IonResult<IonRawObject
 			rooted!(in(cx) let mut obj = JS_NewPlainObject(cx));
 			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), obj.handle_mut()).is_ok() {
 				if !Uint8Array::create(cx, CreateWith::Length(0), obj.handle_mut()).is_ok() {
-					return Err(Some(String::from("Unable to create Uint8Array")));
+					return Err(IonError::Error(String::from("Unable to create Uint8Array")));
 				}
 			}
 			Ok(obj.get())
 		} else {
-			Err(Some(String::from(format!("Could not read file: {}", path_str))))
+			Err(IonError::Error(format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(Some(String::from(format!("File {} does not exist", path_str))))
+		Err(IonError::Error(format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -48,10 +49,10 @@ unsafe fn readString(path_str: String) -> IonResult<String> {
 		if let Ok(str) = fs::read_to_string(&path) {
 			Ok(str)
 		} else {
-			Err(Some(String::from(format!("Could not read file: {}", path_str))))
+			Err(IonError::Error(format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(Some(String::from(format!("File {} does not exist", path_str))))
+		Err(IonError::Error(format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -70,7 +71,7 @@ unsafe fn readDir(path_str: String) -> IonResult<Vec<String>> {
 			Ok(Vec::new())
 		}
 	} else {
-		Err(Some(String::from(format!("Directory {} does not exist", path_str))))
+		Err(IonError::Error(format!("Directory {} does not exist", path_str)))
 	}
 }
 
@@ -81,7 +82,7 @@ unsafe fn write(path_str: String, contents: String) -> IonResult<bool> {
 	if !path.is_dir() {
 		Ok(fs::write(path, contents).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is a directory", path_str))))
+		Err(IonError::Error(format!("Path {} is a directory", path_str)))
 	}
 }
 
@@ -92,7 +93,7 @@ unsafe fn createDir(path_str: String) -> IonResult<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir(path).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is a file", path_str))))
+		Err(IonError::Error(format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -103,7 +104,7 @@ unsafe fn createDirRecursive(path_str: String) -> IonResult<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir_all(path).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is a file", path_str))))
+		Err(IonError::Error(format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -114,7 +115,7 @@ unsafe fn removeFile(path_str: String) -> IonResult<bool> {
 	if path.is_file() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is not a file", path_str))))
+		Err(IonError::Error(format!("Path {} is not a file", path_str)))
 	}
 }
 
@@ -125,7 +126,7 @@ unsafe fn removeDir(path_str: String) -> IonResult<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is not a directory", path_str))))
+		Err(IonError::Error(format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -136,7 +137,7 @@ unsafe fn removeDirRecursive(path_str: String) -> IonResult<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_dir_all(path).is_ok())
 	} else {
-		Err(Some(String::from(format!("Path {} is not a directory", path_str))))
+		Err(IonError::Error(format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -148,7 +149,7 @@ unsafe fn copy(from_str: String, to_str: String) -> IonResult<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::copy(from, to).is_ok())
 	} else {
-		Err(Some(String::from("")))
+		Err(IonError::None)
 	}
 }
 
@@ -160,7 +161,7 @@ unsafe fn rename(from_str: String, to_str: String) -> IonResult<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::rename(from, to).is_ok())
 	} else {
-		Err(Some(String::from("")))
+		Err(IonError::None)
 	}
 }
 
@@ -185,7 +186,7 @@ unsafe fn softLink(original_str: String, link_str: String) -> IonResult<bool> {
 			}
 		}
 	} else {
-		Err(Some(String::from("Link already exists")))
+		Err(IonError::Error(String::from("Link already exists")))
 	}
 }
 
@@ -197,7 +198,7 @@ unsafe fn hardLink(original_str: String, link_str: String) -> IonResult<bool> {
 	if !link.exists() {
 		Ok(fs::hard_link(original, link).is_ok())
 	} else {
-		Err(Some(String::from("Link already exists")))
+		Err(IonError::Error(String::from("Link already exists")))
 	}
 }
 

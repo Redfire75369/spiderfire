@@ -20,12 +20,10 @@ macro_rules! js_fn_raw_m {
 					v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 					true
 				},
-				Err(Some(str)) => {
-					let cstr = ::std::ffi::CString::new(str).unwrap();
-					::mozjs::jsapi::JS_ReportErrorUTF8(cx, cstr.as_ptr() as *const i8);
+				Err(error) => {
+					error.throw(cx);
 					false
-				},
-				Err(None) => false
+				}
 			}
 		}
 	}
@@ -38,7 +36,7 @@ macro_rules! js_fn_m {
 			#[allow(unused_imports)]
 			use ::mozjs::conversions::FromJSValConvertible;
 
-			unpack_args!({stringify!($name), cx, args} ($($args)*));
+			unpack_args!((stringify!($name), cx, args) ($($args)*));
 
 			$body
 		});
@@ -47,10 +45,10 @@ macro_rules! js_fn_m {
 
 #[macro_export]
 macro_rules! unpack_args {
-	({$fn:expr, $cx:expr, $args:expr} ($($fn_args:tt)*)) => {
+	(($fn:expr, $cx:expr, $args:expr) ($($fn_args:tt)*)) => {
 		let nargs = unpack_args_count!($($fn_args)*,);
 		if $args.len() < nargs {
-			return Err(Some(format!("{}() requires at least {} argument", $fn, nargs).into()));
+			return Err($crate::error::IonError::Error(format!("{}() requires at least {} argument", $fn, nargs).into()));
 		}
 		unpack_unwrap_args!(($cx, $args, 0) $($fn_args)*,);
 	}
@@ -62,10 +60,10 @@ macro_rules! unpack_args_count {
 	($name:ident: IonContext, $($args:tt)*) => {
 		unpack_args_count!($($args)*)
 	};
-	($(#[$special:ident])? $(mut)? $name:ident: Option<$type:ty>, $($args:tt)*) => {
+	($(#[$special:ident])? $(mut)? $name:ident : Option<$type:ty>, $($args:tt)*) => {
 		1
 	};
-	($(#[$special:ident])? $(mut)? $name:ident: $type:ty, $($args:tt)*) => {
+	($(#[$special:ident])? $(mut)? $name:ident : $type:ty, $($args:tt)*) => {
 		1 + unpack_args_count!($($args)*)
 	};
 	(, $($rest:tt)*) => {
@@ -78,20 +76,20 @@ macro_rules! unpack_unwrap_args {
 	(($cx:expr, $args:expr, $n:expr) $(,)*) => {};
 	// Special Case: #[this]
 	(($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name = <IonObject as FromJSValConvertible>::from_jsval($cx, ::mozjs::rust::Handle::from_raw($args.this), ()).unwrap().get_success_value().unwrap().clone();
+		let $name = $crate::objects::object::IonObject::from_value($cx, $args.this());
 		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
 	};
 	// Special Case: Variable Args #[varargs]
 	(($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>, ) => {
-		let $name = $args.range_handles($n..($args.len() + 1)).iter().map::<::std::result::Result<$type, ()>, _>(|arg| {
-			Ok(<$type as FromJSValConvertible>::from_jsval($cx, ::mozjs::rust::Handle::from_raw(arg.clone()), ())?.get_success_value().unwrap().clone())
-		}).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
+		let $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
+			unwrap_arg!(($cx, $n+index) $name: $type, handle)
+		}).collect::<IonResult<_>>()?;
 	};
 	// Special Case: Mutable Variable Args #[varargs]
 	(($cx:expr, $args:expr, $n:expr) #[varargs] mut $name:ident : Vec<$type:ty>, ) => {
-		let mut $name = $args.range_handles($n..($args.len() + 1)).iter().map::<::std::result::Result<$type, ()>, _>(|arg| {
-			Ok(<$type as FromJSValConvertible>::from_jsval($cx, ::mozjs::rust::Handle::from_raw(arg.clone()), ())?.get_success_value().unwrap().clone())
-		}).collect::<::std::result::Result<Vec<$type>, _>>().unwrap();
+		let mut $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
+			unwrap_arg!(($cx, $n+index) $name: $type, handle)
+		}).collect::<IonResult<_>>()?;
 	};
 	// Special Case: IonContext
 	(($cx:expr, $args:expr, $n:expr) $name:ident : IonContext, $($fn_args:tt)*) => {
@@ -100,12 +98,28 @@ macro_rules! unpack_unwrap_args {
 	};
 	// Default Case
 	(($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name = <$type as FromJSValConvertible>::from_jsval($cx, ::mozjs::rust::Handle::from_raw($args.handle_or_undefined($n)), ()).unwrap().get_success_value().unwrap().clone();
+		let $name: $type  = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
 		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
 	};
 	// Default Mutable Case
 	(($cx:expr, $args:expr, $n:expr) mut $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let mut $name = <$type as FromJSValConvertible>::from_jsval($cx, ::mozjs::rust::Handle::from_raw($args.handle_or_undefined($n)), ()).unwrap().get_success_value().unwrap().clone();
+		let mut $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
 		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
+	};
+}
+
+#[macro_export]
+macro_rules! unwrap_arg {
+	(($cx:expr, $n:expr) $name:ident : $type:ty, $handle:expr) => {
+		if let Some(value) = $crate::types::values::from_value($cx, $handle.get(), ()) {
+			Ok(value)
+		} else {
+			Err($crate::error::IonError::TypeError(format!(
+				"Failed to convert argument {} at index {}, to {}",
+				stringify!($name),
+				$n,
+				stringify!($type)
+			)))
+		}
 	};
 }

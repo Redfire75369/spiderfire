@@ -8,7 +8,7 @@ use once_cell::sync::OnceCell;
 
 pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LogLevel {
 	None = 0,
 	Info = 1,

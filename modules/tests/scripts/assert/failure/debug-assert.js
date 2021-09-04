@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import assert, {debugAssert} from "assert";
+import {debugAssert} from "assert";
 
-debugAssert(true);
-assert.assert(true);
+debugAssert(true, "Assertion Failed");

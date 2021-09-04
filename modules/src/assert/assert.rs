@@ -8,6 +8,7 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value}
 use mozjs::jsval::ObjectValue;
 
 use ion::{IonContext, IonResult};
+use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
 use runtime::config::{Config, LogLevel};
@@ -15,30 +16,28 @@ use runtime::modules::IonModule;
 
 const ASSERT_SOURCE: &str = include_str!("assert.js");
 
+fn assert_internal(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
+	match assertion {
+		Some(true) => Err(IonError::Error(match message {
+			Some(msg) => format!("Assertion Failed: {}", msg),
+			None => String::from("Assertion Failed"),
+		})),
+		_ => Ok(()),
+	}
+}
+
 #[js_fn]
 unsafe fn assert(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
-	match assertion {
-		Some(b) => match message {
-			Some(m) => assert!(b, "Assertion Failed: {}", m),
-			None => assert!(b, "Assertion Failed"),
-		},
-		None => (),
-	};
-	Ok(())
+	assert_internal(assertion, message)
 }
 
 #[js_fn]
 unsafe fn debugAssert(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
-		match assertion {
-			Some(b) => match message {
-				Some(m) => assert!(b, "Assertion Failed: {}", m),
-				None => assert!(b, "Assertion Failed"),
-			},
-			None => (),
-		};
+		assert_internal(assertion, message)
+	} else {
+		Ok(())
 	}
-	Ok(())
 }
 
 const METHODS: &[JSFunctionSpec] = &[

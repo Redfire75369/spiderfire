@@ -7,26 +7,20 @@
 use std::fs::read_to_string;
 use std::path::Path;
 
+use mozjs::rust::Runtime;
+
 use modules::init_modules;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::globals::{init_globals, new_global};
 use runtime::modules::{init_module_loaders, IonModule};
 use runtime::new_runtime;
 
-// TODO: Convert test to use #[should_panic]
-// #[should_panic(expected = "Assertion Failed: Failing Assertion")]
 #[test]
 fn assert() {
 	CONFIG
 		.set(Config::default().log_level(LogLevel::Debug))
 		.expect("Config Initialisation Failed");
-	assert!(
-		eval_module(Path::new("./tests/scripts/assert.js")).is_ok(),
-		"Failed to evaluate module: assert.js"
-	);
-}
 
-pub fn eval_module(path: &Path) -> Result<(), ()> {
 	let (_engine, rt) = new_runtime();
 	let (global, _ac) = new_global(rt.cx());
 
@@ -34,24 +28,30 @@ pub fn eval_module(path: &Path) -> Result<(), ()> {
 	init_globals(rt.cx(), global);
 	init_modules(rt.cx(), global);
 
-	let script = read_script(path).expect("");
-	if IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script).is_some() {
-		Ok(())
-	} else {
-		Err(())
-	}
+	assert!(
+		eval_module(&rt, Path::new("./tests/scripts/assert/success/assert.js")).is_ok(),
+		"Exception was thrown in: success/assert.js"
+	);
+	assert!(
+		eval_module(&rt, Path::new("./tests/scripts/assert/success/debug-assert.js")).is_ok(),
+		"Exception was thrown in: success/debug-assert.js"
+	);
+	assert!(
+		eval_module(&rt, Path::new("./tests/scripts/assert/failure/assert.js")).is_err(),
+		"No exception was thrown in: failure/assert.js"
+	);
+	assert!(
+		eval_module(&rt, Path::new("./tests/scripts/assert/failure/debug-assert.js")).is_err(),
+		"No exception was thrown in: failure/debug-assert.js"
+	);
 }
 
-fn read_script(path: &Path) -> Option<String> {
-	if path.is_file() {
-		if let Ok(script) = read_to_string(path) {
-			Some(script)
-		} else {
-			eprintln!("Failed to read file: {}", path.display());
-			None
-		}
+pub fn eval_module(rt: &Runtime, path: &Path) -> Result<(), ()> {
+	let script = read_to_string(path).unwrap();
+	if let Err(e) = IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script) {
+		e.print();
+		Err(())
 	} else {
-		eprintln!("File not found: {}", path.display());
-		None
+		Ok(())
 	}
 }
