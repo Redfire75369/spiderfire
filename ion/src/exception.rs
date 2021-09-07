@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt::{Display, Formatter};
+
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, StackFormat};
 use mozjs::jsval::UndefinedValue;
@@ -13,16 +15,16 @@ use crate::objects::object::IonObject;
 
 #[derive(Clone, Debug)]
 pub struct Exception {
-	message: String,
-	filename: String,
-	lineno: u32,
-	column: u32,
+	pub message: String,
+	pub filename: String,
+	pub lineno: u32,
+	pub column: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct ErrorReport {
-	exception: Exception,
-	stack: Option<String>,
+	pub exception: Exception,
+	pub stack: Option<String>,
 }
 
 impl Exception {
@@ -96,9 +98,16 @@ impl ErrorReport {
 
 	/// Prints a formatted error message.
 	pub fn print(&self) {
-		println!("{}", self.exception.format());
+		println!("{}", self);
+	}
+}
+
+impl Display for ErrorReport {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&self.exception.format())?;
 		if let Some(stack) = self.stack() {
-			println!("{}", stack);
+			f.write_str(&format!("\n{}", stack))?;
 		}
+		Ok(())
 	}
 }

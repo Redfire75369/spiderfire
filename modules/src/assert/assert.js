@@ -4,10 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-export const assert = ______assertInternal______.assert;
-export const debugAssert = ______assertInternal______.debugAssert;
+export const ok = ______assertInternal______.ok;
+export const equals = ______assertInternal______.equals;
+export const throws = ______assertInternal______.throws;
+export const fail = ______assertInternal______.fail;
 
 export default Object.freeze({
-	assert,
-	debugAssert
+	ok,
+	equals,
+	throws,
+	fail
 });

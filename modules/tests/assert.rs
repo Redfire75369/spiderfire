@@ -15,6 +15,11 @@ use runtime::globals::{init_globals, new_global};
 use runtime::modules::{init_module_loaders, IonModule};
 use runtime::new_runtime;
 
+const OK_MESSAGE: &str = "Assertion Failed: assert.ok";
+const EQUALS_MESSAGE: &str = "Assertion Failed: assert.equals";
+const THROWS_MESSAGE: &str = "Assertion Failed: assert.throws";
+const FAIL_MESSAGE: &str = "Assertion Failed: assert.fail";
+
 #[test]
 fn assert() {
 	CONFIG
@@ -28,30 +33,19 @@ fn assert() {
 	init_globals(rt.cx(), global);
 	init_modules(rt.cx(), global);
 
-	assert!(
-		eval_module(&rt, Path::new("./tests/scripts/assert/success/assert.js")).is_ok(),
-		"Exception was thrown in: success/assert.js"
-	);
-	assert!(
-		eval_module(&rt, Path::new("./tests/scripts/assert/success/debug-assert.js")).is_ok(),
-		"Exception was thrown in: success/debug-assert.js"
-	);
-	assert!(
-		eval_module(&rt, Path::new("./tests/scripts/assert/failure/assert.js")).is_err(),
-		"No exception was thrown in: failure/assert.js"
-	);
-	assert!(
-		eval_module(&rt, Path::new("./tests/scripts/assert/failure/debug-assert.js")).is_err(),
-		"No exception was thrown in: failure/debug-assert.js"
-	);
+	eval_module(&rt, concat!("./tests/scripts/assert/", "ok.js"), OK_MESSAGE);
+	eval_module(&rt, concat!("./tests/scripts/assert/", "equals.js"), EQUALS_MESSAGE);
+	eval_module(&rt, concat!("./tests/scripts/assert/", "throws.js"), THROWS_MESSAGE);
+	eval_module(&rt, concat!("./tests/scripts/assert/", "fail.js"), FAIL_MESSAGE);
 }
 
-pub fn eval_module(rt: &Runtime, path: &Path) -> Result<(), ()> {
+pub fn eval_module(rt: &Runtime, path: &str, expected_message: &str) {
+	let path = Path::new(path);
+	let filename = path.file_name().unwrap().to_str().unwrap();
 	let script = read_to_string(path).unwrap();
-	if let Err(e) = IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script) {
-		e.print();
-		Err(())
-	} else {
-		Ok(())
-	}
+
+	let module = IonModule::compile(rt.cx(), filename, Some(path), &script);
+	assert!(module.is_err(), "No exception was thrown in: {}", filename);
+	let report = module.unwrap_err();
+	assert_eq!(report.exception.message, expected_message, "{}: {}", filename, report);
 }

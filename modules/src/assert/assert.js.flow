@@ -1,9 +1,13 @@
 // @flow
 
 declare module "assert" {
-	declare function assert(assertion?: boolean, message?: string): void;
-	declare function debugAssert(assertion?: boolean, message?: string): void;
-
 	declare export function assert(assertion?: boolean, message?: string): void;
-	declare export function debugAssert(assertion?: boolean, message?: string): void;
+	declare export function equal(actual: any, expected: any, message?: string): void;
+	declare export function throws(func: () => void , message?: string): void;
+	declare export function fail(message?: string): void;
+
+	declare function ok(assertion?: boolean, message?: string): void;
+	declare function equal(actual: any, expected: any, message?: string): void;
+	declare function throws(func: () => void , message?: string): void;
+	declare function fail(message?: string): void;
 }

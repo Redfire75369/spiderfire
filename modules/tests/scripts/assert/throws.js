@@ -4,6 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import {assert} from "assert";
+import {throws} from "assert";
 
-assert(false);
+function thrower() {
+	throw new Error();
+}
+
+throws(thrower, "assert.throws");

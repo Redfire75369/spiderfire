@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import {debugAssert} from "assert";
+import {equals} from "assert";
 
-debugAssert(true, "Assertion Failed");
+const actual = 999;
+const expected = 1000;
+
+equals(actual, expected, "assert.equals");
