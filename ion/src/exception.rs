@@ -4,11 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt::{Display, Formatter};
-
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, StackFormat};
 use mozjs::jsval::UndefinedValue;
+use std::fmt::{Display, Formatter};
 
 use crate::IonContext;
 use crate::objects::object::IonObject;

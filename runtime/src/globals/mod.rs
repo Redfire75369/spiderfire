@@ -4,13 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ptr;
-
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
-
 use ion::IonContext;
 use ion::objects::object::IonObject;
+use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
+use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
+use std::ptr;
 
 pub mod console;
 

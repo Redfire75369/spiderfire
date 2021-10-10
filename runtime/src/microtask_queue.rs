@@ -4,18 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use ion::exception::{ErrorReport, Exception};
+use ion::IonContext;
+use ion::objects::object::{IonObject, IonRawObject};
+use mozjs::glue::{CreateJobQueue, JobQueueTraps};
+use mozjs::jsapi::{Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, SetJobQueue, UndefinedHandleValue};
+use mozjs::jsval::UndefinedValue;
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::process;
 use std::rc::Rc;
-
-use mozjs::glue::{CreateJobQueue, JobQueueTraps};
-use mozjs::jsapi::{Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, SetJobQueue, UndefinedHandleValue};
-use mozjs::jsval::UndefinedValue;
-
-use ion::exception::{ErrorReport, Exception};
-use ion::IonContext;
-use ion::objects::object::{IonObject, IonRawObject};
 
 #[derive(Copy, Clone, Debug)]
 enum Microtask {

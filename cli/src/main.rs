@@ -5,7 +5,6 @@
  */
 
 use clap::{App, Arg, SubCommand};
-
 use runtime::config::{Config, CONFIG, LogLevel};
 
 use crate::commands::{repl, run};

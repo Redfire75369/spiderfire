@@ -4,9 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ptr;
-
 use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
+use std::ptr;
 
 /// Creates a function spec with the given native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, call: JSNativeWrapper, nargs: u16, flags: u16) -> JSFunctionSpec {
@@ -30,7 +29,7 @@ macro_rules! function_spec {
 		function_spec!($function, $name, $nargs, $crate::objects::object::JSPROP_CONSTANT)
 	};
 	($function:expr, $name:expr, $nargs:expr, $flags:expr) => {
-		$crate::functions::specs::create_function_spec(
+		$crate::specs::create_function_spec(
 			concat!($name, "\0"),
 			::mozjs::jsapi::JSNativeWrapper {
 				op: Some($function),

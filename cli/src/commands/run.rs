@@ -4,9 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::path::Path;
-
 use runtime::config::Config;
+use std::path::Path;
 
 use crate::evaluate::{eval_module, eval_script};
 

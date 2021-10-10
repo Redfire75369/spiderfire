@@ -5,7 +5,7 @@
  */
 
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{PromiseState, Value};
+use mozjs::jsapi::{HandleObject, PromiseState, Value};
 use mozjs::jsapi::{AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, NewPromiseObject, RejectPromise, ResolvePromise};
 use mozjs::jsval::NullValue;
 
@@ -33,6 +33,16 @@ impl IonPromise {
 		}
 	}
 
+	/// Creates a new function with an executor of the form `Fn(IonFunction, IonFunction)`.
+	///
+	/// ```ignore
+	/// #[js_fn]
+	/// unsafe fn executor(cx: IonContext, res: IonFunction, rej: IonFunction) -> IonResult<()> {
+	/// 	// Code here
+	/// }
+	///
+	/// IonPromise::new_with_executor(cx, IonFunction::new(cx, "executor", Some(executor), 2, 0));
+	/// ```
 	pub fn new_with_executor(cx: IonContext, executor: IonFunction) -> IonPromise {
 		unsafe {
 			rooted!(in(cx) let executor = executor.to_object());
@@ -70,7 +80,7 @@ impl IonPromise {
 	}
 
 	pub unsafe fn add_reactions(&mut self, cx: IonContext, on_fulfilled: Option<IonFunction>, on_rejected: Option<IonFunction>) -> bool {
-		rooted!(in(cx) let null = NullValue().to_object_or_null());
+		let null = HandleObject::null();
 		rooted!(in(cx) let robj = self.obj);
 		if let Some(on_fulfilled) = on_fulfilled {
 			rooted!(in(cx) let on_fulfilled = on_fulfilled.to_object());
@@ -78,10 +88,13 @@ impl IonPromise {
 				rooted!(in(cx) let on_rejected = on_rejected.to_object());
 				AddPromiseReactions(cx, robj.handle().into(), on_fulfilled.handle().into(), on_rejected.handle().into())
 			} else {
-				AddPromiseReactions(cx, robj.handle().into(), on_fulfilled.handle().into(), null.handle().into())
+				AddPromiseReactions(cx, robj.handle().into(), on_fulfilled.handle().into(), null)
 			}
+		} else if let Some(on_rejected) = on_rejected {
+			rooted!(in(cx) let on_rejected = on_rejected.to_object());
+			AddPromiseReactions(cx, robj.handle().into(), null, on_rejected.handle().into())
 		} else {
-			AddPromiseReactions(cx, robj.handle().into(), null.handle().into(), null.handle().into())
+			AddPromiseReactions(cx, robj.handle().into(), null, null)
 		}
 	}
 

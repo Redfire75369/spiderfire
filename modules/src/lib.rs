@@ -14,7 +14,8 @@ use ion::objects::object::IonObject;
 
 mod assert;
 mod fs;
+mod path;
 
 pub fn init_modules(cx: IonContext, global: IonObject) -> bool {
-	unsafe { assert::init(cx, global) && fs::init(cx, global) }
+	unsafe { assert::init(cx, global) && fs::init(cx, global) && path::init(cx, global) }
 }

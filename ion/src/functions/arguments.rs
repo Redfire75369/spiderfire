@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::RangeBounds;
-
 use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue, Value};
 use mozjs::jsval::UndefinedValue;
+use std::ops::RangeBounds;
 
 #[derive(Clone, Debug)]
 pub struct Arguments {

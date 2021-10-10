@@ -4,19 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fs;
-use std::os;
-use std::path::Path;
-
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
-use mozjs::jsval::ObjectValue;
-use mozjs::typedarray::{CreateWith, Uint8Array};
-
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::{IonObject, IonRawObject};
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsval::ObjectValue;
+use mozjs::typedarray::{CreateWith, Uint8Array};
 use runtime::modules::IonModule;
+use std::fs;
+use std::os;
+use std::path::Path;
 
 const FS_SOURCE: &str = include_str!("fs.js");
 

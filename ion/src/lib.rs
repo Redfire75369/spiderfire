@@ -7,9 +7,8 @@
 #[macro_use]
 extern crate mozjs;
 
-use mozjs::jsapi::JSContext;
-
 pub use ion_proc::*;
+use mozjs::jsapi::JSContext;
 
 use crate::error::IonError;
 
@@ -20,6 +19,8 @@ pub mod objects;
 pub mod print;
 pub mod script;
 pub mod types;
+#[macro_use]
+pub mod specs;
 
 pub type IonContext = *mut JSContext;
 pub type IonResult<T> = Result<T, IonError>;

@@ -13,5 +13,5 @@ export default Object.freeze({
 	ok,
 	equals,
 	throws,
-	fail
+	fail,
 });

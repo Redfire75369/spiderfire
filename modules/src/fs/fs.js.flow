@@ -14,4 +14,20 @@ declare module "fs" {
 	declare function rename(from: string, to: string): boolean;
 	declare function softLink(original: string, link: string): boolean;
 	declare function hardLink(original: string, link: string): boolean;
+
+	declare export default {
+		readBinary: typeof readBinary,
+		readString: typeof readString,
+		readDir: typeof readDir,
+		write: typeof write,
+		createDir: typeof createDir,
+		createDirRecursive: typeof createDirRecursive,
+		removeFile: typeof removeFile,
+		removeDir: typeof removeDir,
+		removeDirRecursive: typeof removeDirRecursive,
+		copy: typeof copy,
+		rename: typeof rename,
+		softLink: typeof softLink,
+		hardLink: typeof hardLink,
+	}
 }

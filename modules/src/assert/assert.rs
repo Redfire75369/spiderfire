@@ -4,14 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
-use mozjs::jsval::ObjectValue;
-
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
+use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
+use mozjs::jsval::ObjectValue;
 use runtime::modules::IonModule;
 
 const ASSERT_SOURCE: &str = include_str!("assert.js");

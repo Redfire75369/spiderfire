@@ -4,9 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::Deref;
-use std::result::Result;
-
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
@@ -14,6 +11,8 @@ use mozjs::error::throw_type_error;
 use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSTracer, NewDateObject, ObjectIsDate, Value};
 use mozjs::jsval::ObjectValue;
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use std::ops::Deref;
+use std::result::Result;
 
 use crate::IonContext;
 use crate::objects::object::IonRawObject;

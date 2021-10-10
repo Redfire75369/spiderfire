@@ -4,9 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::Deref;
-use std::result::Result;
-
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{JSObject, JSTracer, PropertyKey, Value};
@@ -17,6 +14,8 @@ use mozjs::jsapi::{
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+use std::ops::Deref;
+use std::result::Result;
 
 use crate::exception::Exception;
 use crate::functions::function::{IonFunction, IonNativeFunction};
