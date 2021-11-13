@@ -25,7 +25,7 @@ fn console() {
 	assert!(eval_script(Path::new("./tests/scripts/console.js")).is_ok());
 }
 
-pub fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
+fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
 	let (_engine, rt) = new_runtime();
 	let (global, _ac) = new_global(rt.cx());
 

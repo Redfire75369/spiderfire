@@ -4,16 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cell::RefCell;
+use std::collections::hash_map::{Entry, HashMap};
+
 use chrono::{DateTime, offset::Utc};
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
+use mozjs::jsval::ObjectValue;
+
 use ion::{IonContext, IonResult};
 use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
 use ion::print::{indent, INDENT, print_value};
 use ion::types::string::to_string;
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
-use mozjs::jsval::ObjectValue;
-use std::cell::RefCell;
-use std::collections::hash_map::{Entry, HashMap};
 
 use crate::config::{Config, LogLevel};
 

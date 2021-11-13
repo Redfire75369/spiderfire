@@ -4,13 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
+use mozjs::jsval::ObjectValue;
+
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
-use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
-use mozjs::jsval::ObjectValue;
 use runtime::modules::IonModule;
 
 const ASSERT_SOURCE: &str = include_str!("assert.js");
@@ -49,7 +50,7 @@ unsafe fn equals(cx: IonContext, actual: Value, expected: Value, message: Option
 
 #[js_fn]
 unsafe fn throws(cx: IonContext, func: IonFunction, message: Option<String>) -> IonResult<()> {
-	if func.call_with_vec(cx, IonObject::from(CurrentGlobalOrNull(cx)), vec![]).is_err() {
+	if func.call_with_vec(cx, IonObject::from(CurrentGlobalOrNull(cx)), Vec::new()).is_err() {
 		assert_internal(message)
 	} else {
 		Ok(())

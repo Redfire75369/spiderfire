@@ -4,17 +4,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fs;
+use std::os;
+use std::path::Path;
+
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsval::ObjectValue;
+use mozjs::typedarray::{CreateWith, Uint8Array};
+
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::{IonObject, IonRawObject};
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
-use mozjs::jsval::ObjectValue;
-use mozjs::typedarray::{CreateWith, Uint8Array};
 use runtime::modules::IonModule;
-use std::fs;
-use std::os;
-use std::path::Path;
 
 const FS_SOURCE: &str = include_str!("fs.js");
 
@@ -24,13 +26,13 @@ unsafe fn readBinary(cx: IonContext, path_str: String) -> IonResult<IonRawObject
 
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
-			rooted!(in(cx) let mut obj = JS_NewPlainObject(cx));
-			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), obj.handle_mut()).is_ok() {
-				if !Uint8Array::create(cx, CreateWith::Length(0), obj.handle_mut()).is_ok() {
+			rooted!(in(cx) let mut array = JS_NewPlainObject(cx));
+			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok() {
+				if !Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok() {
 					return Err(IonError::Error(String::from("Unable to create Uint8Array")));
 				}
 			}
-			Ok(obj.get())
+			Ok(array.get())
 		} else {
 			Err(IonError::Error(format!("Could not read file: {}", path_str)))
 		}

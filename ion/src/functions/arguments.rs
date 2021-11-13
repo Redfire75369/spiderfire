@@ -4,9 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::RangeBounds;
+
 use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue, Value};
 use mozjs::jsval::UndefinedValue;
-use std::ops::RangeBounds;
 
 #[derive(Clone, Debug)]
 pub struct Arguments {
@@ -20,7 +21,7 @@ pub struct Arguments {
 impl Arguments {
 	pub unsafe fn new(argc: u32, vp: *mut Value) -> Arguments {
 		let call_args = CallArgs::from_vp(vp, argc);
-		let values: Vec<_> = (0..(argc + 1)).map(|i| call_args.get(i)).collect();
+		let values = (0..(argc + 1)).map(|i| call_args.get(i)).collect();
 		let this = call_args.thisv();
 		let rval = call_args.rval();
 
@@ -97,5 +98,13 @@ impl Arguments {
 	/// Returns the mutable return value of the function.
 	pub fn rval(&self) -> MutableHandle<Value> {
 		self.rval
+	}
+
+	pub fn is_constructing(&self) -> bool {
+		self.call_args.constructing_()
+	}
+
+	pub fn call_args(&self) -> CallArgs {
+		self.call_args
 	}
 }

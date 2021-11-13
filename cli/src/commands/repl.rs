@@ -4,11 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::io::{stdin, stdout, Write};
+use std::process;
+
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
 use runtime::new_runtime;
-use std::io::{stdin, stdout, Write};
-use std::process;
 
 use crate::evaluate::eval_inline;
 

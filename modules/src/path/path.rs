@@ -4,14 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::path::{Path, PathBuf};
+
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsval::ObjectValue;
+
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
-use mozjs::jsval::ObjectValue;
 use runtime::modules::IonModule;
-use std::path::{Path, PathBuf};
 
 const PATH_SOURCE: &str = include_str!("path.js");
 

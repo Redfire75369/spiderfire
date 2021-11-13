@@ -21,7 +21,7 @@ fn modules() {
 	assert!(eval_module(Path::new("./tests/scripts/module-import.js")).is_ok());
 }
 
-pub fn eval_module(path: &Path) -> Result<(), ()> {
+fn eval_module(path: &Path) -> Result<(), ()> {
 	let (_engine, rt) = new_runtime();
 	let (global, _ac) = new_global(rt.cx());
 

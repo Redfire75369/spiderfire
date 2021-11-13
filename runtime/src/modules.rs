@@ -4,11 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cell::RefCell;
+use std::collections::hash_map::{Entry, HashMap};
+use std::fs::read_to_string;
+use std::path::Path;
+use std::ptr;
+
 use dunce::canonicalize;
-use ion::exception::{ErrorReport, Exception};
-use ion::IonContext;
-use ion::objects::object::{IonObject, IonRawObject};
-use ion::types::string::from_string;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
 	CompileModule, Handle, JS_GetRuntime, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModuleMetadataHook,
@@ -16,12 +18,12 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
-use std::cell::RefCell;
-use std::collections::hash_map::{Entry, HashMap};
-use std::fs::read_to_string;
-use std::path::Path;
-use std::ptr;
 use url::Url;
+
+use ion::exception::{ErrorReport, Exception};
+use ion::IonContext;
+use ion::objects::object::{IonObject, IonRawObject};
+use ion::types::string::from_string;
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonModule>> = RefCell::new(HashMap::new()));
 

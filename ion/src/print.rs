@@ -4,8 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::Value;
 use std::io::Write;
+
+use mozjs::jsapi::Value;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::IonContext;
@@ -22,7 +23,7 @@ pub const NEWLINE: &str = "\n";
 /// - String: Green
 /// - Array: #FF7F3F
 /// - Object: #F0F0F0
-/// - Undefined/Null: #77676
+/// - Undefined/Null: #76676
 pub fn print_value(cx: IonContext, val: Value, indents: usize, stderr: bool) {
 	let mut out = if !stderr {
 		StandardStream::stdout(ColorChoice::Auto)

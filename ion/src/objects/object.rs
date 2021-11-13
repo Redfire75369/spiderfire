@@ -4,9 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
+use std::result::Result;
+
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{JSObject, JSTracer, PropertyKey, Value};
+use mozjs::jsapi::{CurrentGlobalOrNull, JSObject, JSTracer, PropertyKey, Value};
 use mozjs::jsapi::{
 	AssertSameCompartment, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
 	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
@@ -14,8 +17,6 @@ use mozjs::jsapi::{
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
-use std::ops::Deref;
-use std::result::Result;
 
 use crate::exception::Exception;
 use crate::functions::function::{IonFunction, IonNativeFunction};
@@ -173,6 +174,10 @@ impl IonObject {
 		rooted!(in(cx) let obj = self.obj);
 		GetPropertyKeys(cx, obj.handle().into(), JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, ids.handle_mut());
 		ids.to_vec()
+	}
+
+	pub unsafe fn global(cx: IonContext) -> IonObject {
+		IonObject::from(CurrentGlobalOrNull(cx))
 	}
 }
 

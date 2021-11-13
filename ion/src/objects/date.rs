@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
+use std::result::Result;
+
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
@@ -11,8 +14,6 @@ use mozjs::error::throw_type_error;
 use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSTracer, NewDateObject, ObjectIsDate, Value};
 use mozjs::jsval::ObjectValue;
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
-use std::ops::Deref;
-use std::result::Result;
 
 use crate::IonContext;
 use crate::objects::object::IonRawObject;
@@ -47,7 +48,7 @@ impl IonDate {
 		.unwrap()
 	}
 
-	/// Creates a [IonDate] from an [IonRawObject].
+	/// Creates an [IonDate] from an [IonRawObject].
 	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonDate> {
 		if IonDate::is_date_raw(cx, obj) {
 			Some(IonDate { obj })
@@ -57,13 +58,18 @@ impl IonDate {
 		}
 	}
 
-	/// Creates a [IonDate] from a [Value].
+	/// Creates an [IonDate] from a [Value].
 	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonDate> {
 		if val.is_object() {
 			IonDate::from(cx, val.to_object())
 		} else {
 			None
 		}
+	}
+
+	/// Converts an [IonDate] to a [Value].
+	pub fn to_value(&self) -> Value {
+		ObjectValue(self.obj)
 	}
 
 	/// Checks if a date is a valid date.
@@ -113,7 +119,7 @@ impl FromJSValConvertible for IonDate {
 impl ToJSValConvertible for IonDate {
 	#[inline]
 	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
-		rval.set(ObjectValue(self.raw()));
+		rval.set(self.to_value());
 		maybe_wrap_object_value(cx, rval);
 	}
 }

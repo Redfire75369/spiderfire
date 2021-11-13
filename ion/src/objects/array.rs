@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ops::Deref;
+
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{HandleValueArray, JSTracer, Value};
@@ -12,7 +14,6 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
-use std::ops::Deref;
 
 use crate::exception::Exception;
 use crate::IonContext;
@@ -195,7 +196,7 @@ impl FromJSValConvertible for IonArray {
 impl ToJSValConvertible for IonArray {
 	#[inline]
 	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
-		rval.set(ObjectValue(self.obj));
+		rval.set(self.to_value());
 		maybe_wrap_object_value(cx, rval);
 	}
 }

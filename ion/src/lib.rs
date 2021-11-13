@@ -7,8 +7,9 @@
 #[macro_use]
 extern crate mozjs;
 
-pub use ion_proc::*;
 use mozjs::jsapi::JSContext;
+
+pub use ion_proc::*;
 
 use crate::error::IonError;
 

@@ -96,6 +96,11 @@ macro_rules! unpack_unwrap_args {
 		let $name = $cx;
 		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
 	};
+	// Special Case: Arguments
+	(($cx:expr, $args:expr, $n:expr) $name:ident : Arguments, $($fn_args:tt)*) => {
+		let $name = $args;
+		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
+	};
 	// Default Case
 	(($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
 		let $name: $type  = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;

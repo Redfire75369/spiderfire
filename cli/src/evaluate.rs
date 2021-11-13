@@ -4,16 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fs::read_to_string;
+use std::path::Path;
+
+use mozjs::rust::Runtime;
+
 use ion::script::IonScript;
 use ion::types::string::to_string;
 use modules::init_modules;
-use mozjs::rust::Runtime;
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
 use runtime::modules::{init_module_loaders, IonModule};
 use runtime::new_runtime;
-use std::fs::read_to_string;
-use std::path::Path;
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
 	match IonScript::compile_and_evaluate(rt.cx(), "inline.js", source) {

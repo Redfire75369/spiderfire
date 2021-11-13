@@ -4,16 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::exception::{ErrorReport, Exception};
-use ion::IonContext;
-use ion::objects::object::{IonObject, IonRawObject};
-use mozjs::glue::{CreateJobQueue, JobQueueTraps};
-use mozjs::jsapi::{Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, SetJobQueue, UndefinedHandleValue};
-use mozjs::jsval::UndefinedValue;
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::process;
 use std::rc::Rc;
+
+use mozjs::glue::{CreateJobQueue, JobQueueTraps};
+use mozjs::jsapi::{Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, SetJobQueue, UndefinedHandleValue};
+use mozjs::jsval::UndefinedValue;
+
+use ion::exception::{ErrorReport, Exception};
+use ion::IonContext;
+use ion::objects::object::{IonObject, IonRawObject};
 
 #[derive(Copy, Clone, Debug)]
 enum Microtask {
@@ -49,25 +51,27 @@ impl MicrotaskQueue {
 			let args = HandleValueArray::new();
 			rooted!(in(cx) let mut rval = UndefinedValue());
 
-			let queue = self.microtasks.borrow();
+			{
+				let queue = self.microtasks.borrow();
 
-			let mut index = 0;
-			while index < queue.len() {
-				let microtask = queue[index];
-				index += 1;
+				let mut index = 0;
+				while index < queue.len() {
+					let microtask = queue[index];
+					index += 1;
 
-				unsafe {
-					match microtask {
-						Microtask::Promise(ref promise) => {
-							rooted!(in(cx) let promise = promise.to_value());
-							if !Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
-								match Exception::new(cx) {
-									Some(e) => ErrorReport::new(e).print(),
-									None => ret = Err(()),
+					unsafe {
+						match microtask {
+							Microtask::Promise(ref promise) => {
+								rooted!(in(cx) let promise = promise.to_value());
+								if !Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
+									match Exception::new(cx) {
+										Some(e) => ErrorReport::new(e).print(),
+										None => ret = Err(()),
+									}
 								}
 							}
+							Microtask::None => (),
 						}
-						Microtask::None => (),
 					}
 				}
 			}
@@ -80,7 +84,7 @@ impl MicrotaskQueue {
 	}
 
 	pub fn clear(&self) {
-		*self.microtasks.borrow_mut() = vec![];
+		*self.microtasks.borrow_mut() = Vec::new();
 	}
 }
 
