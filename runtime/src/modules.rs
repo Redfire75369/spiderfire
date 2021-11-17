@@ -35,6 +35,7 @@ pub struct ModuleData {
 #[derive(Clone, Debug)]
 pub struct IonModule {
 	module: IonObject,
+	#[allow(dead_code)]
 	data: ModuleData,
 }
 
@@ -42,7 +43,7 @@ impl ModuleData {
 	fn from_module(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
 		if module.get().is_object() {
 			let obj = IonObject::from(module.get().to_object());
-			let path = unsafe { obj.get_as::<String>(cx, String::from("path"), ()) };
+			let path = unsafe { obj.get_as::<String>(cx, "path", ()) };
 
 			Some(ModuleData { path })
 		} else {
@@ -54,9 +55,9 @@ impl ModuleData {
 		let mut data = IonObject::new(cx);
 
 		if let Some(path) = self.path.as_ref() {
-			data.set_as(cx, String::from("path"), path);
+			data.set_as(cx, "path", path);
 		} else {
-			data.set_as(cx, String::from("path"), ());
+			data.set_as(cx, "path", ());
 		}
 
 		data
@@ -198,7 +199,7 @@ pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Va
 	if let Some(path) = data.path.as_ref() {
 		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
 		let mut meta = IonObject::from(meta.get());
-		if !meta.set(cx, String::from("url"), from_string(cx, url.as_str())) {
+		if !meta.set(cx, "url", from_string(cx, url.as_str())) {
 			return false;
 		}
 	}

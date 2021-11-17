@@ -5,7 +5,6 @@
  */
 
 use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
-use mozjs::jsval::ObjectValue;
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
@@ -75,10 +74,10 @@ const METHODS: &[JSFunctionSpec] = &[
  * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
  */
 pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = String::from("______assertInternal______");
+	let internal_key = "______assertInternal______";
 	rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, assert_module.handle().into(), METHODS.as_ptr()) {
-		if global.define(cx, internal_key, ObjectValue(assert_module.get()), 0) {
+		if global.define_as(cx, internal_key, assert_module.get(), 0) {
 			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
 			module.register("assert")
 		} else {

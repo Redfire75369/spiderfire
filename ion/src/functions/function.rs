@@ -34,7 +34,7 @@ impl IonFunction {
 	}
 
 	/// Creates a new [IonFunction] with the given name, native function, number of arguments and flags.
-	pub unsafe fn new(cx: IonContext, name: String, func: Option<IonNativeFunction>, nargs: u32, flags: u32) -> IonFunction {
+	pub unsafe fn new(cx: IonContext, name: &str, func: Option<IonNativeFunction>, nargs: u32, flags: u32) -> IonFunction {
 		let name = format!("{}\0", name);
 		IonFunction::from(JS_NewFunction(cx, func, nargs, flags, name.as_ptr() as *const i8))
 	}

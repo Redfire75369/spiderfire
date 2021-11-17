@@ -354,6 +354,5 @@ const METHODS: &[JSFunctionSpec] = &[
 
 pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
 	rooted!(in(cx) let console = JS_NewPlainObject(cx));
-	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
-		&& global.define(cx, String::from("console"), ObjectValue(console.get()), 0);
+	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr()) && global.define(cx, "console", ObjectValue(console.get()), 0);
 }

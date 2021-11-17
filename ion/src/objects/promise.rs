@@ -12,11 +12,10 @@ use futures::Future;
 use libffi::high::arity3::ClosureMut3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{AssertSameCompartment, HandleObject, PromiseState, Value};
+use mozjs::jsapi::{AssertSameCompartment, HandleObject, JSTracer, PromiseState, Value};
 use mozjs::jsapi::{AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, NewPromiseObject, RejectPromise, ResolvePromise};
-use mozjs::jsval::ObjectValue;
+use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
-use mozjs_sys::jsapi::JSTracer;
 
 use crate::{IonContext, IonResult};
 use crate::functions::arguments::Arguments;
@@ -66,7 +65,7 @@ impl IonPromise {
 			};
 			let closure = ClosureMut3::new(&mut native);
 			let fn_ptr = transmute::<_, &unsafe extern "C" fn(IonContext, u32, *mut Value) -> bool>(closure.code_ptr());
-			let function = IonFunction::new(cx, String::from("executor"), Some(*fn_ptr), 2, 0);
+			let function = IonFunction::new(cx, "executor", Some(*fn_ptr), 2, 0);
 			rooted!(in(cx) let executor = function.to_object());
 			let promise = NewPromiseObject(cx, executor.handle().into());
 			if !promise.is_null() {
@@ -78,9 +77,11 @@ impl IonPromise {
 	}
 
 	/// Creates a promise with a [Future]
-	pub fn new_with_future<F>(cx: IonContext, future: F) -> Option<IonPromise>
+	pub fn new_with_future<F, O, E>(cx: IonContext, future: F) -> Option<IonPromise>
 	where
-		F: Future<Output = Result<Value, Value>>,
+		F: Future<Output = Result<O, E>>,
+		O: ToJSValConvertible,
+		E: ToJSValConvertible,
 	{
 		let mut future = Some(future);
 		let null = IonObject::from(HandleObject::null().get());
@@ -89,14 +90,22 @@ impl IonPromise {
 				unsafe {
 					let future = future.take().unwrap();
 					match future.await {
-						Ok(v) => match resolve.call_with_vec(cx, null, vec![v]) {
-							Err(Some(error)) => error.print(),
-							_ => (),
-						},
-						Err(v) => match reject.call_with_vec(cx, null, vec![v]) {
-							Err(Some(error)) => error.print(),
-							_ => (),
-						},
+						Ok(v) => {
+							rooted!(in(cx) let mut value = UndefinedValue());
+							v.to_jsval(cx, value.handle_mut());
+							match resolve.call_with_vec(cx, null, vec![value.get()]) {
+								Err(Some(error)) => error.print(),
+								_ => (),
+							}
+						}
+						Err(v) => {
+							rooted!(in(cx) let mut value = UndefinedValue());
+							v.to_jsval(cx, value.handle_mut());
+							match reject.call_with_vec(cx, null, vec![value.get()]) {
+								Err(Some(error)) => error.print(),
+								_ => (),
+							}
+						}
 					}
 				}
 			});

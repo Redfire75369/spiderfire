@@ -9,9 +9,4 @@ export const equals = ______assertInternal______.equals;
 export const throws = ______assertInternal______.throws;
 export const fail = ______assertInternal______.fail;
 
-export default Object.freeze({
-	ok,
-	equals,
-	throws,
-	fail,
-});
+export default Object.freeze(______assertInternal______);

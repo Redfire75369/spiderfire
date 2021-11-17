@@ -39,14 +39,10 @@ impl Exception {
 					let exception = IonObject::from(exception.to_object());
 					Exception::clear(cx);
 
-					let message = exception.get_as::<String>(cx, String::from("message"), ()).unwrap();
-					let filename = exception.get_as::<String>(cx, String::from("fileName"), ()).unwrap();
-					let lineno = exception
-						.get_as::<u32>(cx, String::from("lineNumber"), ConversionBehavior::Clamp)
-						.unwrap();
-					let column = exception
-						.get_as::<u32>(cx, String::from("columnNumber"), ConversionBehavior::Clamp)
-						.unwrap();
+					let message = exception.get_as::<String>(cx, "message", ()).unwrap();
+					let filename = exception.get_as::<String>(cx, "fileName", ()).unwrap();
+					let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
+					let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
 
 					Some(Exception {
 						message,

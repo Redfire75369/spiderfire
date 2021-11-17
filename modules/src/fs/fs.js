@@ -18,18 +18,6 @@ export const rename = ______fsInternal______.rename;
 export const softLink = ______fsInternal______.softLink;
 export const hardLink = ______fsInternal______.hardLink;
 
-export default Object.freeze({
-	readBinary,
-	readString,
-	readDir,
-	write,
-	createDir,
-	createDirRecursive,
-	removeFile,
-	removeDir,
-	removeDirRecursive,
-	copy,
-	rename,
-	softLink,
-	hardLink,
-});
+export const sync = ______fsInternal______.sync;
+
+export default Object.freeze(______fsInternal______);

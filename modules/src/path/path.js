@@ -21,21 +21,4 @@ export const endsWith = ______pathInternal______.endsWith;
 export const separator = ______pathInternal______.separator;
 export const delimiter = ______pathInternal______.delimiter;
 
-export default Object.freeze({
-	join,
-	stripPrefix,
-	fileStem,
-	parent,
-	fileName,
-	extension,
-	withFileName,
-	withExtension,
-	isAbsolute,
-	isRelative,
-	hasRoot,
-	startsWith,
-	endsWith,
-
-	separator,
-	delimiter,
-});
+export default Object.freeze(______pathInternal______);

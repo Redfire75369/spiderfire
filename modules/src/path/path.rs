@@ -7,7 +7,6 @@
 use std::path::{Path, PathBuf};
 
 use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
-use mozjs::jsval::ObjectValue;
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
@@ -125,13 +124,13 @@ const METHODS: &[JSFunctionSpec] = &[
  * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
  */
 pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = String::from("______pathInternal______");
+	let internal_key = "______pathInternal______";
 	rooted!(in(cx) let path_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, path_module.handle().into(), METHODS.as_ptr()) {
-		if IonObject::from(path_module.get()).define_as(cx, String::from("separator"), String::from(SEPARATOR), 0)
-			&& IonObject::from(path_module.get()).define_as(cx, String::from("delimiter"), String::from(DELIMITER), 0)
+		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), 0)
+			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), 0)
 		{
-			if global.define(cx, internal_key, ObjectValue(path_module.get()), 0) {
+			if global.define_as(cx, internal_key, path_module.get(), 0) {
 				let module = IonModule::compile(cx, "path", None, PATH_SOURCE).unwrap();
 				module.register("path")
 			} else {

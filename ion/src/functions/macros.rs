@@ -11,7 +11,7 @@ macro_rules! js_fn_raw_m {
 		unsafe extern "C" fn $name(cx: IonContext, argc: u32, vp: *mut Value) -> bool {
 			use ::mozjs::conversions::ToJSValConvertible;
 
-			let args = Arguments::new(argc, vp);
+			let args = $crate::functions::arguments::Arguments::new(argc, vp);
 
 			unsafe fn native_fn($($param : $type),*) -> IonResult<$ret> $body
 
@@ -26,7 +26,7 @@ macro_rules! js_fn_raw_m {
 				}
 			}
 		}
-	}
+	};
 }
 
 #[macro_export]
@@ -40,7 +40,23 @@ macro_rules! js_fn_m {
 
 			$body
 		});
-	}
+	};
+	(async unsafe fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
+		js_fn_raw_m!(unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
+			#[allow(unused_imports)]
+			use ::mozjs::conversions::FromJSValConvertible;
+
+			unpack_args!((stringify!($name), cx, args) ($($args)*));
+
+			let future = async $body;
+
+			if let Some(promise) = $crate::objects::promise::IonPromise::new_with_future(cx, future) {
+				Ok(promise)
+			} else {
+				Err($crate::error::IonError::None)
+			}
+		});
+	};
 }
 
 #[macro_export]

@@ -94,7 +94,7 @@ fn main() {
 			CONFIG
 				.set(Config::default().log_level(log_level).script(subcmd.is_present("script")))
 				.expect("Config Initialisation Failed");
-			run::run(&String::from(subcmd.value_of("path").unwrap_or("./main.js")));
+			run::run(subcmd.value_of("path").unwrap_or("./main.js"));
 		}
 		_ => (),
 	}
