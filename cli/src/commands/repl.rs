@@ -6,6 +6,11 @@
 
 use std::io::{stdin, stdout, Write};
 use std::process;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
+
+use ctrlc::set_handler;
 
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
@@ -19,6 +24,22 @@ pub fn start_repl() {
 
 	init_globals(rt.cx(), global);
 	init_microtask_queue(rt.cx());
+
+	let terminate = Arc::new(AtomicBool::new(false));
+	let t = terminate.clone();
+
+	let handler = set_handler(move || {
+		if t.load(SeqCst) {
+			process::exit(0);
+		}
+		t.store(true, SeqCst);
+		println!();
+		println!("Press Ctrl+C again to exit.");
+	});
+
+	if handler.is_err() {
+		println!("Failed to initialise termination handler.")
+	}
 
 	loop {
 		print!("> ");
@@ -43,16 +64,20 @@ pub fn start_repl() {
 				}
 			}
 
-			input = input + "\n" + &line;
+			input = (input + "\n" + &line.trim()).trim().to_owned();
 			if multiline.0 <= 0 && multiline.1 <= 0 && multiline.2 <= 0 {
 				break;
 			}
 		}
 
-		if input.len() != 1 {
-			eval_inline(&rt, &input);
-		} else if input == "exit\n" {
+		terminate.store(true, SeqCst);
+
+		if input == "exit" {
 			process::exit(0);
+		}
+
+		if !input.is_empty() {
+			eval_inline(&rt, &input);
 		}
 	}
 }
