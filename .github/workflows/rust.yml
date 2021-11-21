@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies on Linux
         if: startsWith(matrix.os, 'ubuntu')
         run: |
-          sudo apt install autoconf2.13 gcc-7 g++-7 ccache llvm -y
+          sudo apt install autoconf2.13 clang ccache llvm -y
       - name: Install dependencies on windows
         if: startsWith(matrix.os, 'windows')
         run: |
@@ -45,6 +45,9 @@ jobs:
 
       - name: POSIX
         if: startsWith(matrix.os, 'windows') != true
+        env:
+          CC: "clang"
+          CXX: "clang++"
         run: |
           cargo build --verbose
           cargo test
