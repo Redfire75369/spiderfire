@@ -5,13 +5,13 @@
  */
 
 use std::fs;
+use std::iter::Iterator;
 use std::os;
 use std::path::Path;
-use std::iter::Iterator;
 
+use futures_lite::stream::StreamExt;
 use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
 use mozjs::typedarray::{CreateWith, Uint8Array};
-use futures_lite::stream::StreamExt;
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;

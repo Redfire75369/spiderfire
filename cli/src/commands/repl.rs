@@ -4,13 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::io::{stdin, stdout, Write};
-use std::process;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::SeqCst;
-
-use ctrlc::set_handler;
+use rustyline::{Config, Editor};
+use rustyline::config::Builder;
+use rustyline::error::ReadlineError;
 
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
@@ -25,31 +21,34 @@ pub fn start_repl() {
 	init_globals(rt.cx(), global);
 	init_microtask_queue(rt.cx());
 
-	let terminate = Arc::new(AtomicBool::new(false));
-	let t = terminate.clone();
-
-	let handler = set_handler(move || {
-		if t.load(SeqCst) {
-			process::exit(0);
-		}
-		t.store(true, SeqCst);
-		println!();
-		println!("Press Ctrl+C again to exit.");
-	});
-
-	if handler.is_err() {
-		println!("Failed to initialise termination handler.")
-	}
+	let mut repl = Editor::<()>::with_config(rustyline_config());
+	let mut terminate: u8 = 0;
 
 	loop {
-		print!("> ");
-		stdout().flush().expect("Failed to flush stdout :(");
-
 		let mut input = String::new();
-		let mut multiline: (i8, i8, i8) = (0, 0, 0); // (), [], {}
+		let mut lines = 0;
+		let mut multiline: (u16, u16, u16) = (0, 0, 0); // (), [], {}
 		loop {
 			let mut line = String::new();
-			stdin().read_line(&mut line).expect("Failed to read input :(");
+
+			if lines == 0 {
+				match repl.readline("> ") {
+					Ok(input) => line = input,
+					Err(error) => terminate += handle_error(error),
+				}
+			} else {
+				match repl.readline("") {
+					Ok(input) => line = input,
+					Err(error) => terminate += handle_error(error),
+				}
+			}
+
+			if terminate == 1 {
+				println!("Press Ctrl+C to exit again.");
+				break;
+			} else if terminate > 1 {
+				break;
+			}
 
 			let mut chars = line.chars();
 			while let Some(ch) = chars.next() {
@@ -65,19 +64,32 @@ pub fn start_repl() {
 			}
 
 			input = (input + "\n" + &line.trim()).trim().to_owned();
+			lines += 1;
 			if multiline.0 <= 0 && multiline.1 <= 0 && multiline.2 <= 0 {
 				break;
 			}
 		}
 
-		terminate.store(true, SeqCst);
-
-		if input == "exit" {
-			process::exit(0);
+		if input == "exit" || terminate > 1 {
+			break;
 		}
 
 		if !input.is_empty() {
+			terminate = 0;
 			eval_inline(&rt, &input);
 		}
 	}
+}
+
+fn handle_error(error: ReadlineError) -> u8 {
+	match error {
+		ReadlineError::Interrupted => 1,
+		ReadlineError::Eof => 2,
+		_ => 0,
+	}
+}
+
+fn rustyline_config() -> Config {
+	let builder = Builder::new();
+	builder.tab_stop(4).build()
 }
