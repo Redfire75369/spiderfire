@@ -28,7 +28,6 @@ jobs:
           sudo apt install autoconf2.13 clang ccache llvm -y
 
       - name: Install dependencies on Windows
-
         if: startsWith(matrix.os, 'windows')
         run: |
           Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
