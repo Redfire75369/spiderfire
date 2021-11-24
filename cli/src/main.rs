@@ -63,20 +63,20 @@ fn main() {
 			debug,
 			script,
 		}) => {
-			let mut log_lev = LogLevel::Error;
 
-			if debug {
-				log_lev = LogLevel::Debug
+			let log_lev = if debug {
+				 LogLevel::Debug
 			} else {
 				match log_level.to_uppercase().as_str() {
-					"NONE" => log_lev = LogLevel::None,
-					"INFO" => log_lev = LogLevel::Info,
-					"WARN" => log_lev = LogLevel::Warn,
-					"ERROR" => log_lev = LogLevel::Error,
-					"DEBUG" => log_lev = LogLevel::Debug,
+					"NONE" => LogLevel::None,
+					"INFO" => LogLevel::Info,
+					"WARN" => LogLevel::Warn,
+					"ERROR" => LogLevel::Error,
+					"DEBUG" => LogLevel::Debug,
 					_ => panic!("Invalid Logging Level"),
 				}
-			}
+			};
+
 			CONFIG
 				.set(Config::default().log_level(log_lev).script(script))
 				.expect("Config Initialisation Failed");
