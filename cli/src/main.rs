@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use runtime::config::{Config, CONFIG, LogLevel};
 use structopt::StructOpt;
+use runtime::config::{Config, CONFIG, LogLevel};
 use crate::commands::{repl, run};
 use crate::commands::eval;
 
