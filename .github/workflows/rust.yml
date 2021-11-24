@@ -26,6 +26,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt install autoconf2.13 clang ccache llvm -y
+
       - name: Install dependencies on Windows
         if: startsWith(matrix.os, 'windows')
         run: |

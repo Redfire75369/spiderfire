@@ -4,82 +4,73 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use clap::{App, Arg, SubCommand};
+use structopt::StructOpt;
 
 use runtime::config::{Config, CONFIG, LogLevel};
 
 use crate::commands::{repl, run};
 use crate::commands::eval;
+use crate::Commands::{Eval, Repl, Run};
 
 mod commands;
 pub mod evaluate;
 
+#[derive(StructOpt)]
+#[structopt(name = "spiderfire", about = "JavaScript Runtime")]
+struct Cli {
+	#[structopt(subcommand)]
+	commands: Option<Commands>,
+}
+
+#[derive(StructOpt)]
+pub enum Commands {
+	#[structopt(about = "Evaluates a line of JavaScript")]
+	Eval {
+		#[structopt(required(true), about = "Line of JavaScript to be evaluated")]
+		source: String,
+	},
+
+	#[structopt(about = "Starts a JavaScript Shell")]
+	Repl,
+
+	#[structopt(about = "Runs a JavaScript file")]
+	Run {
+		#[structopt(about = "The JavaScript file to run. Default: 'main.js'", required(false), default_value = "main.js")]
+		path: String,
+
+		#[structopt(about = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "error")]
+		log_level: String,
+
+		#[structopt(about = "Sets logging level to DEBUG.", short, long)]
+		debug: bool,
+
+		#[structopt(about = "Disables ES Modules Features", short, long)]
+		script: bool,
+	},
+}
+
 fn main() {
-	let matches = App::new("Spiderfire")
-		.version("0.1.0")
-		.about("JavaScript Runtime")
-		.subcommand(
-			SubCommand::with_name("eval")
-				.about("Evaluates a line of JavaScript")
-				.arg(Arg::with_name("source").help("Line of JavaScript to be evaluated").required(true)),
-		)
-		.subcommand(SubCommand::with_name("repl").about("Starts a JavaScript Shell"))
-		.subcommand(
-			SubCommand::with_name("run")
-				.about("Runs a JavaScript File")
-				.arg(
-					Arg::with_name("path")
-						.help("The JavaScript file to be run. Default: 'main.js'")
-						.required(false),
-				)
-				.arg(
-					Arg::with_name("log_level")
-						.help("Sets Logging Level. Default: ERROR")
-						.takes_value(true)
-						.short("l")
-						.long("loglevel")
-						.required(false)
-						.conflicts_with("debug"),
-				)
-				.arg(
-					Arg::with_name("debug")
-						.help("Sets Logging Level to DEBUG.")
-						.short("d")
-						.long("debug")
-						.required(false),
-				)
-				.arg(
-					Arg::with_name("script")
-						.help("Disables ES Modules Features")
-						.long("script")
-						.required(false),
-				),
-		)
-		.get_matches();
+	let args = Cli::from_args();
 
-	match matches.subcommand_name() {
-		Some("eval") => {
-			let subcmd = matches.subcommand_matches("eval").unwrap();
-
+	match args.commands {
+		Some(Eval { source }) => {
 			CONFIG
 				.set(Config::default().log_level(LogLevel::Debug).script(true))
 				.expect("Config Initialisation Failed");
-			eval::eval_source(subcmd.value_of("source").unwrap());
+			eval::eval_source(&source);
 		}
-		Some("repl") => {
-			CONFIG
-				.set(Config::default().log_level(LogLevel::Debug).script(true))
-				.expect("Config Initialisation Failed");
-			repl::start_repl();
-		}
-		Some("run") => {
-			let subcmd = matches.subcommand_matches("run").unwrap();
 
-			let log_level = if subcmd.is_present("debug") {
-				LogLevel::Debug
-			} else if let Some(level) = subcmd.value_of("log_level") {
-				let level = level.to_uppercase();
-				match level.as_str() {
+		Some(Run {
+			path,
+			log_level,
+			debug,
+			script,
+		}) => {
+
+			let log_lev = if debug {
+				 LogLevel::Debug
+			} else {
+				match log_level.to_uppercase().as_str() {
 					"NONE" => LogLevel::None,
 					"INFO" => LogLevel::Info,
 					"WARN" => LogLevel::Warn,
@@ -87,15 +78,19 @@ fn main() {
 					"DEBUG" => LogLevel::Debug,
 					_ => panic!("Invalid Logging Level"),
 				}
-			} else {
-				LogLevel::Error
 			};
 
 			CONFIG
-				.set(Config::default().log_level(log_level).script(subcmd.is_present("script")))
+				.set(Config::default().log_level(log_lev).script(script))
 				.expect("Config Initialisation Failed");
-			run::run(subcmd.value_of("path").unwrap_or("./main.js"));
+			run::run(&path);
 		}
-		_ => (),
+
+		Some(Repl) | None => {
+			CONFIG
+				.set(Config::default().log_level(LogLevel::Debug).script(true))
+				.expect("Config Initialisation Failed");
+			repl::start_repl();
+		}
 	}
 }
