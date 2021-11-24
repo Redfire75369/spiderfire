@@ -87,8 +87,6 @@ fn main() {
                 .expect("Config Initialisation Failed");
             repl::start_repl();
         }
-
     }
-
 }
 
