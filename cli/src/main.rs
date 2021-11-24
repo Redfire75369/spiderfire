@@ -57,7 +57,7 @@ fn main() {
 			CONFIG
 				.set(Config::default().log_level(LogLevel::Debug).script(true))
 				.expect("Config Initialisation Failed");
-			eval::eval_source(source);
+			eval::eval_source(&source);
 		}
 
 		Some(Run {
@@ -83,7 +83,7 @@ fn main() {
 			CONFIG
 				.set(Config::default().log_level(log_lev).script(script))
 				.expect("Config Initialisation Failed");
-			run::run(path);
+			run::run(&path);
 		}
 
 		Some(Repl) | None => {
