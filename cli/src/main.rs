@@ -5,7 +5,9 @@
  */
 
 use structopt::StructOpt;
+
 use runtime::config::{Config, CONFIG, LogLevel};
+
 use crate::commands::{repl, run};
 use crate::commands::eval;
 
