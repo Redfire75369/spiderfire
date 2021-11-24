@@ -11,6 +11,7 @@ ion = { path = "../ion" }
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 runtime = { path = "../runtime" }
+rustyline = "9.0.0"
 
 [features]
 debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]
