@@ -15,7 +15,6 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
         rust: [stable]
 
-
     steps:
       - uses: actions/checkout@v2
 
@@ -27,7 +26,8 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt install autoconf2.13 clang ccache llvm -y
-      - name: Install dependencies on windows
+
+      - name: Install dependencies on Windows
         if: startsWith(matrix.os, 'windows')
         run: |
           Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
@@ -40,8 +40,8 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true,
-          default: true,
+          override: true
+          default: true
 
       - name: POSIX
         if: startsWith(matrix.os, 'windows') != true
