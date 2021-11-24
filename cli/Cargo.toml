@@ -7,7 +7,6 @@ license = "MPL-2.0"
 
 [dependencies]
 structopt = "0.3.25"
-ctrlc = { version = "3.2.1", features = ["termination"] }
 ion = { path = "../ion" }
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
