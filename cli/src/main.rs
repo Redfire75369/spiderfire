@@ -20,10 +20,9 @@ struct Cli {
     commands: Option<Commands>
 }
 
-
 #[derive(StructOpt)]
 pub enum Commands {
-    #[structopt(about="Evaluated a line of JavaScript")]
+    #[structopt(about="Evaluates a line of JavaScript")]
     Eval {
         #[structopt(required(true), about="Line of JavaScript to be evaluated")]
         source: String
@@ -32,18 +31,18 @@ pub enum Commands {
     #[structopt(about="Starts a JavaScript Shell")]
     Repl,
 
-    #[structopt(about="Runs a javaScript file")]
+    #[structopt(about="Runs a JavaScript file")]
     Run {
         #[structopt(about="The JavaScript file to run. Default: 'main.js'", required(false), default_value="main.js")]
         path: String,
 
-        #[structopt(about="Sets loggin level, Default: ERROR", short, long, required(false), default_value = "error")]
+        #[structopt(about="Sets logging level, Default: ERROR", short, long, required(false), default_value = "error")]
         log_level: String,
 
-        #[structopt(about="Sets logging level to DEBUG.", short)]
+        #[structopt(about="Sets logging level to DEBUG.", short, long)]
         debug: bool,
 
-        #[structopt(about="Disables ES Modules Features", short)]
+        #[structopt(about="Disables ES Modules Features", short, long)]
         script: bool
     }
 }
@@ -102,3 +101,4 @@ fn main() {
     }
 
 }
+
