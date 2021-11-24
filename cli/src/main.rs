@@ -96,6 +96,13 @@ fn main() {
 				.expect("Config Initialisation Failed");
 			run::run(subcmd.value_of("path").unwrap_or("./main.js"));
 		}
+
+        None => {
+            CONFIG
+				.set(Config::default().log_level(LogLevel::Debug).script(true))
+				.expect("Config Initialisation Failed");
+			repl::start_repl();
+        }
 		_ => (),
 	}
 }
