@@ -10,6 +10,7 @@ use runtime::config::{Config, CONFIG, LogLevel};
 
 use crate::commands::{repl, run};
 use crate::commands::eval;
+use crate::Commands::{Eval, Repl, Run};
 
 mod commands;
 pub mod evaluate;
