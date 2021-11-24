@@ -57,7 +57,6 @@ fn main() {
                 .set(Config::default().log_level(LogLevel::Debug).script(true))
                 .expect("Config Initialisation Failed");
             eval::eval_source(source);
-            println!("{}", source);
         }
 
         Some(Run { path, log_level, debug, script }) => {
@@ -80,14 +79,6 @@ fn main() {
                 .set(Config::default().log_level(log_lev).script(script))
                 .expect("Config Initialisation Failed");
             run::run(path);
-
-            match log_lev {
-                LogLevel::None => println!("none"),
-                LogLevel::Info => println!("info"),
-                LogLevel::Warn => println!("Warn"),
-                LogLevel::Error => println!("Error"),
-                LogLevel::Debug => println!("Debug")
-            }
         }
 
         Some(Repl) | None => {
@@ -95,7 +86,6 @@ fn main() {
                 .set(Config::default().log_level(LogLevel::Debug).script(true))
                 .expect("Config Initialisation Failed");
             repl::start_repl();
-            println!("REPL!");
         }
 
     }
