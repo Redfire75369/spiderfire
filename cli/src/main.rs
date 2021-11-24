@@ -14,12 +14,19 @@ use crate::commands::eval;
 mod commands;
 pub mod evaluate;
 
+
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "spiderfire",
     about = "Javascript Runtime"
 )]
-pub enum Cli {
+struct Cli {
+    commands: Option<Commands>
+}
+
+
+#[derive(StructOpt)]
+pub enum Commands {
     #[structopt(about="Evaluated a line of Javascript")]
     Eval {
         #[structopt(required(true), about="Line of Javascript to be evaluated")]
@@ -34,7 +41,7 @@ pub enum Cli {
         #[structopt(about="The Javascript file to run. Default: 'main.js'", required(false), default_value="main.js")]
         path: String,
 
-        #[structopt(about="Sets loggin level, Default: ERROR",required(false))]
+        #[structopt(about="Sets loggin level, Default: ERROR",required(false), default_value = "error")]
         log_level: String,
 
         #[structopt(about="Sets logging level to DEBUG.", short)]
@@ -48,22 +55,18 @@ pub enum Cli {
 fn main() {
     let args = Cli::from_args();
 
+    println!("{:?}", args);
+
     match args {
-        Eval { source } => {
+        Some(Eval { source }) => {
              //CONFIG
 				//.set(Config::default().log_level(LogLevel::Debug).script(true))
 				//.expect("Config Initialisation Failed");
 			//eval::eval_source(source);
             println!("{}", source);
         }
-        Repl | _ => {
-            //CONFIG
-				//.set(Config::default().log_level(LogLevel::Debug).script(true))
-				//.expect("Config Initialisation Failed");
-			//repl::start_repl();
-            println!("REPL!");
-        }
-        Run { path, log_level, debug, script } => {
+
+        Some(Run { path, log_level, debug, script }) => {
 			let mut log_lev = LogLevel::Error;
 
             if debug {
@@ -91,6 +94,14 @@ fn main() {
                 LogLevel::Error => println!("Error"),
                 LogLevel::Debug => println!("Debug")
             }
+        }
+
+        Some(Repl) | None => {
+            //CONFIG
+				//.set(Config::default().log_level(LogLevel::Debug).script(true))
+				//.expect("Config Initialisation Failed");
+			//repl::start_repl();
+            println!("REPL!");
         }
 
     }
