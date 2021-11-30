@@ -10,8 +10,8 @@ use std::path::Path;
 use mozjs::jsapi::Value;
 
 use ion::exception::ErrorReport;
+use ion::format::format_value;
 use ion::script::IonScript;
-use ion::types::string::to_string;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
@@ -35,8 +35,8 @@ fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
 	let script = read_script(path).expect("");
 	let res = IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script);
 
-	match IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script) {
-		Ok(v) => println!("{}", to_string(rt.cx(), v)),
+	match res.clone() {
+		Ok(v) => println!("{}", format_value(rt.cx(), ion::format::config::Config::default().quoted(true), v)),
 		Err(e) => e.print(),
 	}
 

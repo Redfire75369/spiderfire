@@ -7,9 +7,10 @@
 use std::ops::Deref;
 use std::result::Result;
 
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
+use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{CurrentGlobalOrNull, JSObject, JSTracer, PropertyKey, Value};
+use mozjs::glue::RUST_JSID_TO_STRING;
+use mozjs::jsapi::{CurrentGlobalOrNull, JSObject, JSTracer, Value};
 use mozjs::jsapi::{
 	AssertSameCompartment, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
 	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
@@ -167,13 +168,17 @@ impl IonObject {
 		JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8)
 	}
 
-	// TODO: Return Vec<&str> - Waiting on rust-mozjs #544
 	/// Returns a [Vec] of the keys of the object
-	pub unsafe fn keys(&mut self, cx: IonContext) -> Vec<PropertyKey> {
+	pub unsafe fn keys(&self, cx: IonContext) -> Vec<String> {
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
 		GetPropertyKeys(cx, obj.handle().into(), JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, ids.handle_mut());
-		ids.to_vec()
+		ids.iter()
+			.map(|id| {
+				rooted!(in(cx) let id = *id);
+				jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into()))
+			})
+			.collect()
 	}
 
 	pub unsafe fn global(cx: IonContext) -> IonObject {

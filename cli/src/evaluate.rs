@@ -9,8 +9,9 @@ use std::path::Path;
 
 use mozjs::rust::Runtime;
 
+use ion::format::config::Config;
+use ion::format::format_value;
 use ion::script::IonScript;
-use ion::types::string::to_string;
 use modules::init_modules;
 use runtime::globals::{init_globals, new_global};
 use runtime::microtask_queue::init_microtask_queue;
@@ -19,7 +20,7 @@ use runtime::new_runtime;
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
 	match IonScript::compile_and_evaluate(rt.cx(), "inline.js", source) {
-		Ok(v) => println!("{}", to_string(rt.cx(), v)),
+		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 		Err(e) => e.print(),
 	}
 }
@@ -33,7 +34,7 @@ pub fn eval_script(path: &Path) {
 
 	let script = read_script(path).expect("");
 	match IonScript::compile_and_evaluate(rt.cx(), &path.file_name().unwrap().to_str().unwrap(), &script) {
-		Ok(v) => println!("{}", to_string(rt.cx(), v)),
+		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 		Err(e) => e.print(),
 	}
 }

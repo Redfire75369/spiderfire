@@ -10,7 +10,6 @@ use runtime::config::{Config, CONFIG, LogLevel};
 
 use crate::commands::{repl, run};
 use crate::commands::eval;
-use crate::Commands::{Eval, Repl, Run};
 
 mod commands;
 pub mod evaluate;
@@ -19,11 +18,11 @@ pub mod evaluate;
 #[structopt(name = "spiderfire", about = "JavaScript Runtime")]
 struct Cli {
 	#[structopt(subcommand)]
-	commands: Option<Commands>,
+	command: Option<Command>,
 }
 
 #[derive(StructOpt)]
-pub enum Commands {
+pub enum Command {
 	#[structopt(about = "Evaluates a line of JavaScript")]
 	Eval {
 		#[structopt(required(true), about = "Line of JavaScript to be evaluated")]
@@ -35,13 +34,13 @@ pub enum Commands {
 
 	#[structopt(about = "Runs a JavaScript file")]
 	Run {
-		#[structopt(about = "The JavaScript file to run. Default: 'main.js'", required(false), default_value = "main.js")]
+		#[structopt(about = "The JavaScript file to run, Default: 'main.js'", required(false), default_value = "main.js")]
 		path: String,
 
-		#[structopt(about = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "error")]
+		#[structopt(about = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "ERROR")]
 		log_level: String,
 
-		#[structopt(about = "Sets logging level to DEBUG.", short, long)]
+		#[structopt(about = "Sets logging level to DEBUG", short, long)]
 		debug: bool,
 
 		#[structopt(about = "Disables ES Modules Features", short, long)]
@@ -52,23 +51,27 @@ pub enum Commands {
 fn main() {
 	let args = Cli::from_args();
 
-	match args.commands {
-		Some(Eval { source }) => {
+	#[cfg(windows)]
+	{
+		colored::control::set_virtual_terminal(true).unwrap();
+	}
+
+	match args.command {
+		Some(Command::Eval { source }) => {
 			CONFIG
 				.set(Config::default().log_level(LogLevel::Debug).script(true))
 				.expect("Config Initialisation Failed");
 			eval::eval_source(&source);
 		}
 
-		Some(Run {
+		Some(Command::Run {
 			path,
 			log_level,
 			debug,
 			script,
 		}) => {
-
 			let log_lev = if debug {
-				 LogLevel::Debug
+				LogLevel::Debug
 			} else {
 				match log_level.to_uppercase().as_str() {
 					"NONE" => LogLevel::None,
@@ -86,7 +89,7 @@ fn main() {
 			run::run(&path);
 		}
 
-		Some(Repl) | None => {
+		Some(Command::Repl) | None => {
 			CONFIG
 				.set(Config::default().log_level(LogLevel::Debug).script(true))
 				.expect("Config Initialisation Failed");

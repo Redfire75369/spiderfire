@@ -1,0 +1,28 @@
+* text=auto eol=lf
+
+*.rs text
+*.js text
+*.ts text
+*.js.flow text
+*.md text
+
+*.toml text
+*.yml text
+
+*.editorconfig text
+*.gitattributes text
+*.gitignore text
+
+Cargo.lock text
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.sh text
+
+*.gif binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.svg text

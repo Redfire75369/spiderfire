@@ -12,10 +12,10 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackF
 use mozjs::jsval::ObjectValue;
 
 use ion::{IonContext, IonResult};
+use ion::format::{format_value, INDENT};
+use ion::format::primitive::format_primitive;
 use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
-use ion::print::{indent, INDENT, print_value};
-use ion::types::string::to_string;
 
 use crate::config::{Config, LogLevel};
 
@@ -28,35 +28,32 @@ thread_local! {
 	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
 	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
 
-	static INDENTS: RefCell<usize> = RefCell::new(0);
+	static INDENTS: RefCell<u16> = RefCell::new(0);
 }
 
-fn get_indents() -> usize {
-	let mut ret: usize = 0;
-	INDENTS.with(|indents| {
-		ret = *indents.borrow();
-	});
-	ret
+fn get_indents() -> u16 {
+	INDENTS.with(|indents| *indents.borrow())
 }
 
 fn print_indent(is_stderr: bool) {
 	INDENTS.with(|indents| {
 		if !is_stderr {
-			print!("{}", INDENT.repeat(*indents.borrow()));
+			print!("{}", INDENT.repeat(*indents.borrow() as usize));
 		} else {
-			eprint!("{}", INDENT.repeat(*indents.borrow()));
+			eprint!("{}", INDENT.repeat(*indents.borrow() as usize));
 		}
 	});
 }
 
 fn print_args(cx: IonContext, args: Vec<Value>, stderr: bool) {
 	let indents = get_indents();
-	for val in args.iter() {
-		print_value(cx, *val, indents, stderr);
+	for i in 0..args.len() {
+		let value = args[i];
+		let string = &format_value(cx, ion::format::config::Config::default().indentation(indents), value);
 		if !stderr {
-			print!(" ");
+			print!("{} ", string);
 		} else {
-			eprint!(" ");
+			eprint!("{} ", string);
 		}
 	}
 }
@@ -130,8 +127,10 @@ unsafe fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec
 
 			if values[0].is_string() {
 				print_indent(true);
-				eprint!("Assertion Failed: {} ", to_string(cx, values[0]));
-				print_indent(true);
+				eprint!(
+					"Assertion Failed: {} ",
+					format_primitive(cx, ion::format::config::Config::default(), values[0])
+				);
 				print_args(cx, values[2..].to_vec(), true);
 				eprintln!();
 				return Ok(());
@@ -173,7 +172,9 @@ unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 		let stack = stack.unwrap();
 		println!(
 			"{}",
-			indent(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap(), get_indents() + 1, true)
+			&stack
+				.as_string(Some(((get_indents() + 1) * 2) as usize), StackFormat::SpiderMonkey)
+				.unwrap()
 		);
 	}
 
@@ -185,7 +186,7 @@ unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 
-		*indents = (*indents).min(usize::MAX - 1) + 1;
+		*indents = (*indents).min(u16::MAX - 1) + 1;
 	});
 
 	if Config::global().log_level >= LogLevel::Info {

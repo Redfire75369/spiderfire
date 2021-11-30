@@ -15,9 +15,9 @@ use crate::error::IonError;
 
 pub mod error;
 pub mod exception;
+pub mod format;
 pub mod functions;
 pub mod objects;
-pub mod print;
 pub mod script;
 pub mod types;
 #[macro_use]

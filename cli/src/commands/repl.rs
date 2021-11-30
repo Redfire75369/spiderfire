@@ -27,7 +27,7 @@ pub fn start_repl() {
 	loop {
 		let mut input = String::new();
 		let mut lines = 0;
-		let mut multiline: (u16, u16, u16) = (0, 0, 0); // (), [], {}
+		let mut multiline: (i16, i16, i16) = (0, 0, 0); // (), [], {}
 		loop {
 			let mut line = String::new();
 

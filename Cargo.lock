@@ -187,6 +187,7 @@ dependencies = [
 name = "cli"
 version = "0.1.0"
 dependencies = [
+ "colored",
  "ion",
  "modules",
  "mozjs",
@@ -203,6 +204,17 @@ checksum = "3db8340083d28acb43451166543b98c838299b7e0863621be53a338adceea0ed"
 dependencies = [
  "error-code",
  "str-buf",
+ "winapi",
+]
+
+[[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
  "winapi",
 ]
 
@@ -490,12 +502,12 @@ name = "ion"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "colored",
  "futures",
  "ion-proc",
  "libffi",
  "mozjs",
  "mozjs_sys",
- "termcolor",
 ]
 
 [[package]]
@@ -945,15 +957,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]

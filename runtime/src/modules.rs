@@ -23,7 +23,6 @@ use url::Url;
 use ion::exception::{ErrorReport, Exception};
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
-use ion::types::string::from_string;
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonModule>> = RefCell::new(HashMap::new()));
 
@@ -199,7 +198,7 @@ pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Va
 	if let Some(path) = data.path.as_ref() {
 		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
 		let mut meta = IonObject::from(meta.get());
-		if !meta.set(cx, "url", from_string(cx, url.as_str())) {
+		if !meta.set_as(cx, "url", String::from(url.as_str())) {
 			return false;
 		}
 	}

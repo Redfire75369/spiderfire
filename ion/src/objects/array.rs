@@ -32,8 +32,7 @@ impl IonArray {
 	}
 
 	/// Creates an empty [IonArray].
-	#[allow(dead_code)]
-	unsafe fn new(cx: IonContext) -> IonArray {
+	pub unsafe fn new(cx: IonContext) -> IonArray {
 		IonArray::from_slice(cx, &[])
 	}
 

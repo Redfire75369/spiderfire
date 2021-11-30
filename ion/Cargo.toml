@@ -7,12 +7,12 @@ license = "MPL-2.0"
 
 [dependencies]
 chrono = "0.4.19"
-futures = { version = "0.3.17", features = ["executor"]}
+colored = "2.0.0"
+futures = { version = "0.3.17", features = ["executor"] }
 ion-proc = { path = "../ion-proc" }
 libffi = "2.0.0"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "de147f0cf52da9c84fa95edf09c5f9f84695088c" }
-termcolor = "1.1.2"
 
 [features]
 debugmozjs = ["mozjs/debugmozjs"]

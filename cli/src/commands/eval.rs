@@ -4,14 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use runtime::globals::new_global;
+use runtime::globals::{init_globals, new_global};
+use runtime::microtask_queue::init_microtask_queue;
 use runtime::new_runtime;
 
 use crate::evaluate::eval_inline;
 
 pub fn eval_source(source: &str) {
 	let (_engine, rt) = new_runtime();
-	let (_global, _ac) = new_global(rt.cx());
+	let (global, _ac) = new_global(rt.cx());
+
+	init_globals(rt.cx(), global);
+	init_microtask_queue(rt.cx());
 
 	eval_inline(&rt, source);
 }
