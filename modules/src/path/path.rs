@@ -16,9 +16,15 @@ use runtime::modules::IonModule;
 
 const PATH_SOURCE: &str = include_str!("path.js");
 
-const SEPARATOR: &str = if cfg!(windows) { "\\" } else { "/" };
+#[cfg(windows)]
+const SEPARATOR: &str = "\\";
+#[cfg(unix)]
+const SEPARATOR: &str = "/";
 
-const DELIMITER: &str = if cfg!(windows) { ";" } else { ":" };
+#[cfg(windows)]
+const DELIMITER: &str = ";";
+#[cfg(unix)]
+const SEPARATOR: &str = ":";
 
 #[js_fn]
 unsafe fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {

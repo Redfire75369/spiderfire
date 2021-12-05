@@ -15,7 +15,7 @@ pub fn eval_source(source: &str) {
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
-	init_microtask_queue(rt.cx());
+	let queue = init_microtask_queue(rt.cx());
 
-	eval_inline(&rt, source);
+	eval_inline(&rt, &queue, source);
 }

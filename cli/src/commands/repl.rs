@@ -19,7 +19,7 @@ pub fn start_repl() {
 	let (global, _ac) = new_global(rt.cx());
 
 	init_globals(rt.cx(), global);
-	init_microtask_queue(rt.cx());
+	let queue = init_microtask_queue(rt.cx());
 
 	let mut repl = Editor::<()>::with_config(rustyline_config());
 	let mut terminate: u8 = 0;
@@ -76,7 +76,7 @@ pub fn start_repl() {
 
 		if !input.is_empty() {
 			terminate = 0;
-			eval_inline(&rt, &input);
+			eval_inline(&rt, &queue, &input);
 		}
 	}
 }
