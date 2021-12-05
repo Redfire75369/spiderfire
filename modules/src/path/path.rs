@@ -24,7 +24,7 @@ const SEPARATOR: &str = "/";
 #[cfg(windows)]
 const DELIMITER: &str = ";";
 #[cfg(unix)]
-const SEPARATOR: &str = ":";
+const DELIMITER: &str = ":";
 
 #[js_fn]
 unsafe fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
