@@ -1,4 +1,4 @@
-declare module "assert" {
+declare module "fs" {
 	export function readBinary(path: string): Promise<Uint8Array>;
 	export function readString(path: string): Promise<string>;
 	export function readDir(path: string): Promise<string[]>;
