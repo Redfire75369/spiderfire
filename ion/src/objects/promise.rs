@@ -77,11 +77,11 @@ impl IonPromise {
 	}
 
 	/// Creates a promise with a [Future]
-	pub fn new_with_future<F, O, E>(cx: IonContext, future: F) -> Option<IonPromise>
+	pub fn new_with_future<F, Output, Error>(cx: IonContext, future: F) -> Option<IonPromise>
 	where
-		F: Future<Output = Result<O, E>>,
-		O: ToJSValConvertible,
-		E: ToJSValConvertible,
+		F: Future<Output = Result<Output, Error>>,
+		Output: ToJSValConvertible,
+		Error: ToJSValConvertible,
 	{
 		let mut future = Some(future);
 		let null = IonObject::from(HandleObject::null().get());

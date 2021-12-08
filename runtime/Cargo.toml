@@ -15,3 +15,7 @@ url = "2.2.2"
 
 [features]
 debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]
+
+[lib]
+test = false
+doctest = false

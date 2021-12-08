@@ -58,9 +58,7 @@ fn main() {
 
 	match args.command {
 		Some(Command::Eval { source }) => {
-			CONFIG
-				.set(Config::default().log_level(LogLevel::Debug).script(true))
-				.expect("Config Initialisation Failed");
+			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
 			eval::eval_source(&source);
 		}
 
@@ -70,7 +68,7 @@ fn main() {
 			debug,
 			script,
 		}) => {
-			let log_lev = if debug {
+			let log_level = if debug {
 				LogLevel::Debug
 			} else {
 				match log_level.to_uppercase().as_str() {
@@ -83,16 +81,12 @@ fn main() {
 				}
 			};
 
-			CONFIG
-				.set(Config::default().log_level(log_lev).script(script))
-				.expect("Config Initialisation Failed");
+			CONFIG.set(Config::default().log_level(log_level).script(script)).unwrap();
 			run::run(&path);
 		}
 
 		Some(Command::Repl) | None => {
-			CONFIG
-				.set(Config::default().log_level(LogLevel::Debug).script(true))
-				.expect("Config Initialisation Failed");
+			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
 			repl::start_repl();
 		}
 	}

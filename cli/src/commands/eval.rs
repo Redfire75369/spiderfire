@@ -4,18 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use runtime::globals::{init_globals, new_global};
-use runtime::microtask_queue::init_microtask_queue;
-use runtime::new_runtime;
+use mozjs::rust::JSEngine;
+
+use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
 pub fn eval_source(source: &str) {
-	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
-
-	init_globals(rt.cx(), global);
-	let queue = init_microtask_queue(rt.cx());
-
-	eval_inline(&rt, &queue, source);
+	let engine = JSEngine::init().unwrap();
+	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
+	eval_inline(&rt, source);
 }

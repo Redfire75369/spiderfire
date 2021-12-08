@@ -9,18 +9,10 @@ extern crate ion;
 #[macro_use]
 extern crate mozjs;
 
-use mozjs::rust::{JSEngine, Runtime};
+pub use crate::runtime::*;
 
 pub mod config;
 pub mod globals;
 pub mod microtask_queue;
 pub mod modules;
-
-pub fn new_runtime() -> (JSEngine, Runtime) {
-	let engine = JSEngine::init().expect("JS Engine Initialisation Failed");
-	let runtime = Runtime::new(engine.handle());
-
-	assert!(!runtime.cx().is_null(), "JSContext Creation Failed");
-
-	(engine, runtime)
-}
+pub mod runtime;

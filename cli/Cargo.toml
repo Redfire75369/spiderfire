@@ -16,3 +16,7 @@ rustyline = "9.0.0"
 
 [features]
 debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]
+
+[[bin]]
+name = "cli"
+test = false

@@ -14,3 +14,7 @@ runtime = { path = "../runtime" }
 
 [features]
 debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]
+
+[lib]
+test = false
+doctest = false

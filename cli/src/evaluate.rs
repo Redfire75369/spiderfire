@@ -5,80 +5,81 @@
  */
 
 use std::fs::read_to_string;
+use std::io::ErrorKind;
 use std::path::Path;
 
-use mozjs::rust::Runtime;
+use mozjs::rust::JSEngine;
 
 use ion::format::config::Config;
 use ion::format::format_value;
 use ion::script::IonScript;
-use modules::init_modules;
-use runtime::globals::{init_globals, new_global};
-use runtime::microtask_queue::{init_microtask_queue, MicrotaskQueue};
-use runtime::modules::{init_module_loaders, IonModule};
-use runtime::new_runtime;
+use modules::Modules;
+use runtime::{Runtime, RuntimeBuilder};
+use runtime::modules::IonModule;
 
-pub fn eval_inline(rt: &Runtime, queue: &MicrotaskQueue, source: &str) {
+pub fn eval_inline(rt: &Runtime, source: &str) {
 	let result = IonScript::compile_and_evaluate(rt.cx(), "inline.js", source);
 
-	if queue.run_jobs(rt.cx()).is_err() {
-		eprintln!("Error occured while executing microtask.");
+	if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
+		eprintln!("Unknown error occurred while executing microtask.");
 	}
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
-		Err(e) => e.print(),
+		Err(report) => eprintln!("{}", report),
 	}
 }
 
 pub fn eval_script(path: &Path) {
-	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
+	let engine = JSEngine::init().unwrap();
+	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
 
-	init_globals(rt.cx(), global);
-	let queue = init_microtask_queue(rt.cx());
+	if let Some((script, filename)) = read_script(path) {
+		let result = IonScript::compile_and_evaluate(rt.cx(), &filename, &script);
 
-	let script = read_script(path).unwrap();
-	let result = IonScript::compile_and_evaluate(rt.cx(), path.file_name().unwrap().to_str().unwrap(), &script);
-
-	if queue.run_jobs(rt.cx()).is_err() {
-		eprintln!("Error occured while executing microtask.");
-	}
-	match result {
-		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
-		Err(e) => e.print(),
+		if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
+			eprintln!("Unknown error occurred while executing microtask.");
+		}
+		match result {
+			Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
+			Err(report) => eprintln!("{}", report),
+		}
 	}
 }
 
 pub fn eval_module(path: &Path) {
-	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
+	let engine = JSEngine::init().unwrap();
+	let rt = RuntimeBuilder::<Modules>::new()
+		.microtask_queue()
+		.modules()
+		.standard_modules()
+		.build(engine.handle());
 
-	init_globals(rt.cx(), global);
-	let queue = init_microtask_queue(rt.cx());
-	init_module_loaders(rt.cx());
-	init_modules(rt.cx(), global);
+	if let Some((script, filename)) = read_script(path) {
+		let result = IonModule::compile(rt.cx(), &filename, Some(path), &script);
 
-	let script = read_script(path).unwrap();
-	let result = IonModule::compile(rt.cx(), path.file_name().unwrap().to_str().unwrap(), Some(path), &script);
-
-	if queue.run_jobs(rt.cx()).is_err() {
-		eprintln!("Error occured while executing microtask.");
-	}
-	if let Err(e) = result {
-		e.print();
+		if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
+			eprintln!("Unknown error occurred while executing microtask.");
+		}
+		if let Err(report) = result {
+			eprintln!("{}", report);
+		}
 	}
 }
 
-fn read_script(path: &Path) -> Option<String> {
-	if path.is_file() {
-		if let Ok(script) = read_to_string(path) {
-			Some(script)
-		} else {
+fn read_script(path: &Path) -> Option<(String, String)> {
+	match read_to_string(path) {
+		Ok(script) => {
+			let filename = String::from(path.file_name().unwrap().to_str().unwrap());
+			Some((script, filename))
+		}
+		Err(error) => {
 			eprintln!("Failed to read file: {}", path.display());
+			match error.kind() {
+				ErrorKind::NotFound => eprintln!("(File was not found)"),
+				ErrorKind::PermissionDenied => eprintln!("Current User lacks permissions to read the file)"),
+				_ => eprintln!("{:?}", error),
+			}
 			None
 		}
-	} else {
-		eprintln!("File not found: {}", path.display());
-		None
 	}
 }

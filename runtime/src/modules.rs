@@ -4,11 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::{fmt, ptr};
 use std::cell::RefCell;
 use std::collections::hash_map::{Entry, HashMap};
+use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
-use std::ptr;
 
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
@@ -25,6 +26,33 @@ use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonModule>> = RefCell::new(HashMap::new()));
+
+#[derive(Clone, Debug)]
+pub enum ModuleError {
+	Compilation(ErrorReport),
+	Instantiation(ErrorReport),
+	Evaluation(ErrorReport),
+}
+
+impl ModuleError {
+	pub fn inner(&self) -> ErrorReport {
+		match self {
+			ModuleError::Compilation(report) => report.clone(),
+			ModuleError::Instantiation(report) => report.clone(),
+			ModuleError::Evaluation(report) => report.clone(),
+		}
+	}
+}
+
+impl Display for ModuleError {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			ModuleError::Compilation(report) => write!(f, "Module Compilation Error\n{}", report),
+			ModuleError::Instantiation(report) => write!(f, "Module Instantiation Error\n{}", report),
+			ModuleError::Evaluation(report) => write!(f, "Module Evaluation Error\n{}", report),
+		}
+	}
+}
 
 #[derive(Clone, Debug)]
 pub struct ModuleData {
@@ -64,7 +92,7 @@ impl ModuleData {
 }
 
 impl IonModule {
-	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Result<IonModule, ErrorReport> {
+	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Result<IonModule, ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
@@ -92,20 +120,18 @@ impl IonModule {
 					data,
 				};
 
-				if let Err(e) = module.instantiate(cx) {
-					eprintln!("Module Instantiation Failure");
-					return Err(ErrorReport::new(e));
+				if let Err(exception) = module.instantiate(cx) {
+					return Err(ModuleError::Instantiation(ErrorReport::new(exception)));
 				}
 
-				if let Err(e) = module.evaluate(cx) {
-					eprintln!("Module Evaluation Failure");
-					return Err(ErrorReport::new(e));
+				if let Err(exception) = module.evaluate(cx) {
+					return Err(ModuleError::Evaluation(ErrorReport::new(exception)));
 				}
 
 				Ok(module)
 			} else {
 				let exception = Exception::new(cx).unwrap();
-				Err(ErrorReport::new(exception))
+				Err(ModuleError::Compilation(ErrorReport::new(exception)))
 			}
 		}
 	}

@@ -4,22 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use mozjs::rust::JSEngine;
 use rustyline::{Config, Editor};
 use rustyline::config::Builder;
 use rustyline::error::ReadlineError;
 
-use runtime::globals::{init_globals, new_global};
-use runtime::microtask_queue::init_microtask_queue;
-use runtime::new_runtime;
+use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
 pub fn start_repl() {
-	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
-
-	init_globals(rt.cx(), global);
-	let queue = init_microtask_queue(rt.cx());
+	let engine = JSEngine::init().unwrap();
+	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
 
 	let mut repl = Editor::<()>::with_config(rustyline_config());
 	let mut terminate: u8 = 0;
@@ -44,7 +40,7 @@ pub fn start_repl() {
 			}
 
 			if terminate == 1 {
-				println!("Press Ctrl+C to exit again.");
+				println!("Press Ctrl+C again to exit.");
 				break;
 			} else if terminate > 1 {
 				break;
@@ -76,7 +72,7 @@ pub fn start_repl() {
 
 		if !input.is_empty() {
 			terminate = 0;
-			eval_inline(&rt, &queue, &input);
+			eval_inline(&rt, &input);
 		}
 	}
 }

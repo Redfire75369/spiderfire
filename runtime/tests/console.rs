@@ -8,27 +8,23 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 use mozjs::jsapi::Value;
+use mozjs::rust::JSEngine;
 
 use ion::exception::ErrorReport;
 use ion::format::format_value;
 use ion::script::IonScript;
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::globals::{init_globals, new_global};
-use runtime::new_runtime;
+use runtime::RuntimeBuilder;
 
 #[test]
 fn console() {
-	CONFIG
-		.set(Config::default().log_level(LogLevel::Debug).script(true))
-		.expect("Config Initialisation Failed");
+	CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
 	assert!(eval_script(Path::new("./tests/scripts/console.js")).is_ok());
 }
 
 fn eval_script(path: &Path) -> Result<Value, ErrorReport> {
-	let (_engine, rt) = new_runtime();
-	let (global, _ac) = new_global(rt.cx());
-
-	init_globals(rt.cx(), global);
+	let engine = JSEngine::init().unwrap();
+	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
 	let script = read_script(path).expect("");
 	let res = IonScript::compile_and_evaluate(rt.cx(), "inline.js", &script);

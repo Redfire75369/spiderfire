@@ -16,3 +16,7 @@ mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev
 
 [features]
 debugmozjs = ["mozjs/debugmozjs"]
+
+[lib]
+test = false
+doctest = false

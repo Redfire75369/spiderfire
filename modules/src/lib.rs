@@ -11,11 +11,17 @@ extern crate mozjs;
 
 use ion::IonContext;
 use ion::objects::object::IonObject;
+use runtime::StandardModules;
 
-mod assert;
+pub mod assert;
 mod fs;
 mod path;
 
-pub fn init_modules(cx: IonContext, global: IonObject) -> bool {
-	unsafe { assert::init(cx, global) && fs::init(cx, global) && path::init(cx, global) }
+#[derive(Default)]
+pub struct Modules;
+
+impl StandardModules for Modules {
+	fn init(cx: IonContext, global: IonObject) -> bool {
+		unsafe { assert::init(cx, global) && fs::init(cx, global) && path::init(cx, global) }
+	}
 }
