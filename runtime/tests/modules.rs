@@ -21,6 +21,6 @@ fn modules() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<()>::new().modules().build(engine.handle());
 
-	let path = format!("./tests/scripts/assert/{}", FILE_NAME);
+	let path = format!("./tests/scripts/{}", FILE_NAME);
 	assert!(IonModule::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).is_ok())
 }
