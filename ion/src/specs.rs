@@ -21,17 +21,17 @@ pub const fn create_function_spec(name: &'static str, call: JSNativeWrapper, nar
 	}
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! function_spec {
 	($function:expr, $nargs:expr) => {
-		function_spec!($function, stringify!($function), $nargs)
+		function_spec!($function, ::std::stringify!($function), $nargs)
 	};
 	($function:expr, $name:expr, $nargs:expr) => {
 		function_spec!($function, $name, $nargs, $crate::objects::object::JSPROP_CONSTANT)
 	};
 	($function:expr, $name:expr, $nargs:expr, $flags:expr) => {
 		$crate::specs::create_function_spec(
-			concat!($name, "\0"),
+			::std::concat!($name, "\0"),
 			::mozjs::jsapi::JSNativeWrapper {
 				op: Some($function),
 				info: std::ptr::null_mut(),

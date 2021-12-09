@@ -14,8 +14,8 @@ use std::path::Path;
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, Handle, JS_GetRuntime, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions, SetModuleMetadataHook,
-	SetModulePrivate, SetModuleResolveHook, Value,
+	CompileModule, Handle, JS_GetRuntime, JS_ReportErrorUTF8, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
+	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook, Value,
 };
 use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -102,16 +102,8 @@ impl IonModule {
 
 		unsafe {
 			if !rooted_module.is_null() {
-				let data = if let Some(path) = path {
-					ModuleData {
-						path: if let Some(path_str) = path.to_str() {
-							Some(String::from(path_str))
-						} else {
-							None
-						},
-					}
-				} else {
-					ModuleData { path: None }
+				let data = ModuleData {
+					path: path.map(Path::to_str).flatten().map(String::from),
 				};
 				SetModulePrivate(module, &data.to_object(cx).to_value());
 
@@ -170,14 +162,14 @@ impl IonModule {
 
 	pub fn resolve(cx: IonContext, specifier: &str, data: ModuleData) -> Option<IonModule> {
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
-			Path::new(&data.path.unwrap()).parent().unwrap().join(specifier)
+			Path::new(data.path.as_ref().unwrap()).parent().unwrap().join(specifier)
 		} else if specifier.starts_with('/') {
 			Path::new(specifier).to_path_buf()
 		} else {
 			Path::new(specifier).to_path_buf()
 		};
 
-		let opt = MODULE_REGISTRY.with(|registry| {
+		let module = MODULE_REGISTRY.with(|registry| {
 			let mut registry = registry.borrow_mut();
 
 			let str = String::from(path.to_str().unwrap());
@@ -187,23 +179,25 @@ impl IonModule {
 			}
 		});
 
-		if opt.is_some() {
-			opt
-		} else {
+		module.or_else(|| {
 			if let Ok(script) = read_to_string(&path) {
 				let module = IonModule::compile(cx, specifier, Some(path.as_path()), &script);
 				if let Ok(module) = module {
 					module.register(path.to_str().unwrap());
 					Some(module)
 				} else {
-					eprintln!("Module Compilation Failed");
+					unsafe {
+						JS_ReportErrorUTF8(cx, format!("Unable to compile module: {}\0", specifier).as_ptr() as *const i8);
+					}
 					None
 				}
 			} else {
-				eprintln!("Module Read Failed");
+				unsafe {
+					JS_ReportErrorUTF8(cx, format!("Unable to read module: {}\0", specifier).as_ptr() as *const i8);
+				}
 				None
 			}
-		}
+		})
 	}
 }
 
@@ -211,11 +205,9 @@ pub unsafe extern "C" fn resolve_module(cx: IonContext, private_data: Handle<Val
 	let specifier = jsstr_to_string(cx, specifier.get());
 	let data = ModuleData::from_module(cx, private_data).unwrap();
 
-	if let Some(module) = IonModule::resolve(cx, &specifier, data) {
-		module.module.raw()
-	} else {
-		ptr::null_mut()
-	}
+	IonModule::resolve(cx, &specifier, data)
+		.map(|module| module.module.raw())
+		.unwrap_or(ptr::null_mut())
 }
 
 pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Value>, meta: Handle<IonRawObject>) -> bool {

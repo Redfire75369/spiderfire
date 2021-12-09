@@ -19,9 +19,8 @@ pub mod format;
 pub mod functions;
 pub mod objects;
 pub mod script;
-pub mod types;
-#[macro_use]
 pub mod specs;
+pub mod types;
 
 pub type IonContext = *mut JSContext;
 pub type IonResult<T> = Result<T, IonError>;

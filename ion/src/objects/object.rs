@@ -10,10 +10,9 @@ use std::result::Result;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::glue::RUST_JSID_TO_STRING;
-use mozjs::jsapi::{CurrentGlobalOrNull, JSObject, JSTracer, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty, JS_HasOwnProperty,
-	JS_HasProperty, JS_NewPlainObject, JS_SetProperty,
+	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
+	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer, Value,
 };
 use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
@@ -110,11 +109,7 @@ impl IonObject {
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, key: &str, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
-		if let Some(val) = opt {
-			from_value(cx, val, config)
-		} else {
-			None
-		}
+		opt.map(|val| from_value(cx, val, config)).flatten()
 	}
 
 	/// Sets the value with the given key.

@@ -6,9 +6,7 @@
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{ESClass, Value};
-use mozjs::jsapi::GetBuiltinClass;
-use mozjs::jsapi::JS_ValueToSource;
+use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, Value};
 use mozjs::jsval::ObjectValue;
 
 use crate::format::{format_value, INDENT, NEWLINE};

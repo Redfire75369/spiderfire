@@ -12,8 +12,10 @@ use futures::Future;
 use libffi::high::arity3::ClosureMut3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{AssertSameCompartment, HandleObject, JSTracer, PromiseState, Value};
-use mozjs::jsapi::{AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, NewPromiseObject, RejectPromise, ResolvePromise};
+use mozjs::jsapi::{
+	AddPromiseReactions, AssertSameCompartment, GetPromiseID, GetPromiseState, HandleObject, IsPromiseObject, JSTracer, NewPromiseObject,
+	PromiseState, RejectPromise, ResolvePromise, Value,
+};
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 

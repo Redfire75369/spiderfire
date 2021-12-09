@@ -8,9 +8,9 @@ use std::ops::Deref;
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{HandleValueArray, JSTracer, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, GetArrayLength, IsArray, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement, JS_SetElement, NewArrayObject,
+	AssertSameCompartment, GetArrayLength, HandleValueArray, IsArray, JS_DefineElement, JS_DeleteElement1, JS_GetElement, JS_HasElement,
+	JS_SetElement, JSTracer, NewArrayObject, Value,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
@@ -126,11 +126,7 @@ impl IonArray {
 	/// Gets the [Value] at the given index as a Rust type.
 	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, index: u32, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, index);
-		if let Some(val) = opt {
-			from_value(cx, val, config)
-		} else {
-			None
-		}
+		opt.map(|val| from_value(cx, val, config)).flatten()
 	}
 
 	/// Sets the [Value] at the given index.

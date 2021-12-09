@@ -10,12 +10,12 @@ use std::os;
 use std::path::Path;
 
 use futures_lite::stream::StreamExt;
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
-use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::functions::arguments::Arguments;
+use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::IonModule;
 

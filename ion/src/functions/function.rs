@@ -6,11 +6,10 @@
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{HandleValueArray, JSFunction, JSFunctionSpec, JSTracer, Value};
 use mozjs::jsapi::{
-	AssertSameCompartment, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId,
+	AssertSameCompartment, HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId,
 	JS_GetFunctionLength, JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor,
-	JS_IsFunctionBound, JS_NewFunction, JS_ObjectIsFunction, NewFunctionFromSpec1,
+	JS_IsFunctionBound, JS_NewFunction, JS_ObjectIsFunction, JSFunction, JSFunctionSpec, JSTracer, NewFunctionFromSpec1, Value,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};

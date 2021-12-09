@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, Value};
+use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;

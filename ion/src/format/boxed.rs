@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::js::{ESClass, Unbox};
+use mozjs::jsapi::{ESClass, Unbox};
 
 use crate::format::config::Config;
 use crate::format::primitive::format_primitive;

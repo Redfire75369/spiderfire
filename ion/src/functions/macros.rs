@@ -4,16 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! js_fn_raw_m {
-	(unsafe fn $name:ident($($param:ident : $type:ty), *) -> IonResult<$ret:ty> $body:tt) => {
+	($pub:vis unsafe fn $name:ident($($param:ident : $type:ty),*) -> IonResult<$ret:ty> $body:tt) => {
 		#[allow(non_snake_case)]
-		unsafe extern "C" fn $name(cx: IonContext, argc: u32, vp: *mut Value) -> bool {
+		$pub unsafe extern "C" fn $name(cx: $crate::IonContext, argc: u32, vp: *mut ::mozjs::jsapi::Value) -> bool {
+			#[allow(unused_import)]
 			use ::mozjs::conversions::ToJSValConvertible;
 
 			let args = $crate::functions::arguments::Arguments::new(argc, vp);
 
-			unsafe fn native_fn($($param : $type),*) -> IonResult<$ret> $body
+			unsafe fn native_fn($($param : $type),*) -> $crate::IonResult<$ret> $body
 
 			match native_fn(cx, &args) {
 				Ok(v) => {
@@ -29,57 +30,61 @@ macro_rules! js_fn_raw_m {
 	};
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! js_fn_m {
-	(unsafe fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
-		js_fn_raw_m!(unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
-			#[allow(unused_imports)]
-			use ::mozjs::conversions::FromJSValConvertible;
+	($pub:vis unsafe fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
+		js_fn_raw_m!{
+			$pub unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
+				#[allow(unused_imports)]
+				use ::mozjs::conversions::FromJSValConvertible;
 
-			unpack_args!((stringify!($name), cx, args) ($($args)*));
+				unpack_args!((::std::stringify!($name), cx, args) ($($args)*));
 
-			$body
-		});
-	};
-	(async unsafe fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
-		js_fn_raw_m!(unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
-			#[allow(unused_imports)]
-			use ::mozjs::conversions::FromJSValConvertible;
-
-			unpack_args!((stringify!($name), cx, args) ($($args)*));
-
-			let future = async $body;
-
-			if let Some(promise) = $crate::objects::promise::IonPromise::new_with_future(cx, future) {
-				Ok(promise)
-			} else {
-				Err($crate::error::IonError::None)
+				$body
 			}
-		});
+		}
+	};
+	($pub:vis async unsafe fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
+		js_fn_raw_m! {
+			$pub unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
+				#[allow(unused_imports)]
+				use ::mozjs::conversions::FromJSValConvertible;
+
+				unpack_args!((::std::stringify!($name), cx, args) ($($args)*));
+
+				let future = async $body;
+
+				if let Some(promise) = $crate::objects::promise::IonPromise::new_with_future(cx, future) {
+					Ok(promise)
+				} else {
+					Err($crate::error::IonError::None)
+				}
+			}
+		}
 	};
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! unpack_args {
 	(($fn:expr, $cx:expr, $args:expr) ($($fn_args:tt)*)) => {
 		let nargs = unpack_args_count!($($fn_args)*,);
 		if $args.len() < nargs {
-			return Err($crate::error::IonError::Error(format!("{}() requires at least {} argument", $fn, nargs).into()));
+			return Err($crate::error::IonError::Error(::std::format!("{}() requires at least {} argument", $fn, nargs).into()));
 		}
 		unpack_unwrap_args!(($cx, $args, 0) $($fn_args)*,);
 	}
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! unpack_args_count {
 	() => {0};
 	($name:ident: IonContext, $($args:tt)*) => {
 		unpack_args_count!($($args)*)
 	};
-	($(#[$special:ident])? $(mut)? $name:ident : Option<$type:ty>, $($args:tt)*) => {
+	($(#[$special:meta])? $(mut)? $name:ident : Option<$type:ty>, $($args:tt)*) => {
 		1
 	};
-	($(#[$special:ident])? $(mut)? $name:ident : $type:ty, $($args:tt)*) => {
+	($(#[$special:meta])? $(mut)? $name:ident : $type:ty, $($args:tt)*) => {
 		1 + unpack_args_count!($($args)*)
 	};
 	(, $($rest:tt)*) => {
@@ -87,7 +92,7 @@ macro_rules! unpack_args_count {
 	};
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! unpack_unwrap_args {
 	(($cx:expr, $args:expr, $n:expr) $(,)*) => {};
 	// Special Case: #[this]
@@ -129,17 +134,17 @@ macro_rules! unpack_unwrap_args {
 	};
 }
 
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! unwrap_arg {
 	(($cx:expr, $n:expr) $name:ident : $type:ty, $handle:expr) => {
 		if let Some(value) = $crate::types::values::from_value($cx, $handle.get(), ()) {
 			Ok(value)
 		} else {
-			Err($crate::error::IonError::TypeError(format!(
+			Err($crate::error::IonError::TypeError(::std::format!(
 				"Failed to convert argument {} at index {}, to {}",
-				stringify!($name),
+				::std::stringify!($name),
 				$n,
-				stringify!($type)
+				::std::stringify!($type)
 			)))
 		}
 	};
