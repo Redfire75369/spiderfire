@@ -12,58 +12,127 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-10.15]
-        rust: [stable]
+        os: [windows-latest, ubuntu-latest, macOS-10.15]
+        rust: [stable, beta]
+        include:
+          - os: windows-latest
+            id: windows
+            sccache-path: C:\Users\runneradmin\Mozilla\sccache
+          - os: macOS-10.15
+            id: macos
+            sccache-path: /Users/runner/Library/Caches/Mozilla.sccache
+          - os: ubuntu-latest
+            id: linux
+            sccache-path: /home/runner/.cache/sccache
+    env:
+      SCCACHE_CACHE_SIZE: 3G
+      SCCACHE_DIR: ${{ matrix.sccache-path }}
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install dependencies on OS X
-        if: startsWith(matrix.os, 'macOS')
+      - name: Install Dependencies on Windows
+        if: matrix.id == 'windows'
+        env:
+          MOZILLA_BUILD_LINK: https://ftp.mozilla.org/pub/mozilla/libraries/win32
+          MOZILLA_BUILD_VERSION: 3.4
         run: |
-          brew install python autoconf@2.13 ccache llvm yasm
-      - name: Install dependencies on Linux
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          sudo apt install autoconf2.13 clang ccache llvm -y
-
-      - name: Install dependencies on Windows
-        if: startsWith(matrix.os, 'windows')
-        run: |
-          Start-BitsTransfer -Source https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe -Destination ./MozillaBuildSetup.exe
+          Start-BitsTransfer -Source $env:MOZILLA_BUILD_LINK/MozillaBuildSetup-$env:MOZILLA_BUILD_VERSION.exe -Destination ./MozillaBuildSetup.exe
           .\MozillaBuildSetup.exe /S | Out-Null
           iwr -useb get.scoop.sh | iex
-          scoop install llvm --global
+          scoop install llvm sccache --global
           echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - uses: actions-rs/toolchain@v1
+      - name: Install Dependencies on OS X
+        if: matrix.id == 'macos'
+        run: |
+          brew install python autoconf@2.13 llvm sccache yasm
+
+      - name: Install Dependencies on Linux
+        if: matrix.id == 'linux'
+        env:
+          SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
+          SCCACHE_VERSION: v0.2.15
+        run: |
+          sudo apt install autoconf2.13 clang llvm -y
+          SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
+          mkdir -p $HOME/.local/bin
+          curl -L "$SCCACHE_LINK/$SCCACHE_VERSION/$SCCACHE_FILE.tar.gz" | tar xz
+          chmod +x $SCCACHE_FILE/sccache
+          mv -f $SCCACHE_FILE/sccache $HOME/.local/bin/sccache
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
           default: true
 
-      - name: POSIX
-        if: startsWith(matrix.os, 'windows') != true
+      - name: Cache Cargo Cache and Git Database
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: cargo-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.id }}-
+      - name: Cache sccache Cache
+        if: matrix.id == 'macos' || matrix.id == 'linux'
+        uses: actions/cache@v2
+        with:
+          path: ${{ matrix.sccache-path }}
+          key: sccache-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-${{ matrix.id }}-
+
+      - name: Start sccache Server
+        if: matrix.id == 'macos' || matrix.id == 'linux'
+        run: sccache --start-server
+
+      - name: Build POSIX
+        if: matrix.id == 'macos' || matrix.id == 'linux'
         env:
-          CC: "clang"
-          CXX: "clang++"
+          CC: clang
+          CXX: clang++
+          CCACHE: sccache
+          RUSTC_WRAPPER: sccache
         run: |
-          cargo build --verbose
-          cargo test
-      - name: Windows
-        if: startsWith(matrix.os, 'windows')
+          cargo build --release -vv
+          cargo test --release -vv
+          mv ./target/release/cli ./target/release/spiderfire
+          strip ./target/release/spiderfire
+
+      - name: Build Windows
+        if: matrix.id == 'windows'
         shell: cmd
         env:
-          MOZTOOLS_PATH: 'C:\mozilla-build\msys\bin;C:\mozilla-build\bin'
-          AUTOCONF: "C:/mozilla-build/msys/local/bin/autoconf-2.13"
-          LINKER: "lld-link.exe"
-          CC: "clang-cl.exe"
-          CXX: "clang-cl.exe"
-          NATIVE_WIN32_PYTHON: "C:\\mozilla-build\\python\\python.exe"
-          PYTHON3: "C:\\mozilla-build\\python3\\python3.exe"
-          LIBCLANG_PATH: "C:\\ProgramData\\scoop\\apps\\llvm\\current\\lib"
           CARGO_HOME: ${{ github.workspace }}\..\.cargo
+          MOZTOOLS_PATH: C:\mozilla-build\msys\bin;C:\mozilla-build\bin
+          AUTOCONF: C:\mozilla-build\msys\local\bin\autoconf-2.13
+          CC: clang-cl.exe
+          CXX: clang-cl.exe
+          LINKER: lld-link.exe
+          NATIVE_WIN32_PYTHON: C:\mozilla-build\python\python.exe
+          PYTHON3: C:\mozilla-build\python3\python3.exe
+          LIBCLANG_PATH: C:\ProgramData\scoop\apps\llvm\current\lib
         run: |
-          cargo build --verbose
-          cargo test
+          cargo build --release -vv
+          cargo test --release -vv
+          rename .\target\release\cli.exe spiderfire.exe
+
+      - name: Stop sccache Server
+        if: matrix.id == 'macos' || matrix.id == 'linux'
+        run: |
+          sccache --show-stats
+          sccache --stop-server || true
+
+      - name: Upload Executables as Artifacts
+        uses: actions/upload-artifact@v2
+        if: matrix.rust == 'stable'
+        with:
+          name: spiderfire-${{ github.sha }}-${{ matrix.id }}
+          path: target/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
+          if-no-files-found: error
