@@ -14,6 +14,7 @@ use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
 use crate::format::config::Config;
 use crate::format::date::format_date;
+use crate::functions::function::IonFunction;
 use crate::IonContext;
 use crate::objects::array::IonArray;
 use crate::objects::date::IonDate;
@@ -37,6 +38,7 @@ pub fn format_object(cx: IonContext, cfg: Config, value: Value) -> String {
 			Array => format_array(cx, cfg, IonArray::from(cx, object).unwrap()),
 			Object => format_object_raw(cx, cfg, IonObject::from(object)),
 			Date => format_date(cx, cfg, IonDate::from(cx, object).unwrap()),
+			Function => IonFunction::from_object(cx, object).unwrap().to_string(cx),
 			_ => {
 				rooted!(in(cx) let rval = ObjectValue(object));
 				jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))

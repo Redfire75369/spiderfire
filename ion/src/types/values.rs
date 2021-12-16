@@ -15,7 +15,7 @@ use crate::IonContext;
 /// Returns [None] if the conversion fails.
 pub unsafe fn from_value<T: FromJSValConvertible>(cx: IonContext, value: Value, config: T::Config) -> Option<T> {
 	rooted!(in(cx) let rooted_val = value);
-	if let Success(v) = T::from_jsval(cx, rooted_val.handle(), config).unwrap() {
+	if let Ok(Success(v)) = T::from_jsval(cx, rooted_val.handle(), config) {
 		Some(v)
 	} else {
 		None

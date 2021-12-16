@@ -6,7 +6,7 @@
 
 #[macro_export(local_inner_macros)]
 macro_rules! js_fn_raw_m {
-	($pub:vis unsafe fn $name:ident($($param:ident : $type:ty),*) -> IonResult<$ret:ty> $body:tt) => {
+	($pub:vis $(unsafe $(@$unsafe:tt)?)? fn $name:ident($($param:ident : $type:ty),*) -> IonResult<$ret:ty> $body:tt) => {
 		#[allow(non_snake_case)]
 		$pub unsafe extern "C" fn $name(cx: $crate::IonContext, argc: u32, vp: *mut ::mozjs::jsapi::Value) -> bool {
 			#[allow(unused_import)]
@@ -14,15 +14,28 @@ macro_rules! js_fn_raw_m {
 
 			let args = $crate::functions::arguments::Arguments::new(argc, vp);
 
-			unsafe fn native_fn($($param : $type),*) -> $crate::IonResult<$ret> $body
+			$(unsafe $($unsafe)?)? fn native_fn($($param : $type),*) -> $crate::IonResult<$ret> $body
 
-			match native_fn(cx, &args) {
-				Ok(v) => {
+			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| native_fn(cx, &args)));
+
+			match result {
+				Ok(Ok(v)) => {
 					v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 					true
 				},
-				Err(error) => {
+				Ok(Err(error)) => {
 					error.throw(cx);
+					false
+				}
+				Err(unwind_error) => {
+					if let Some(unwind) = unwind_error.downcast_ref::<String>() {
+						$crate::error::IonError::Error(unwind.clone()).throw(cx);
+					} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
+						$crate::error::IonError::Error(String::from(*unwind)).throw(cx);
+					} else {
+						$crate::error::IonError::Error(String::from("Unknown Panic Occurred")).throw(cx);
+						::std::mem::forget(unwind_error);
+					}
 					false
 				}
 			}
@@ -32,9 +45,9 @@ macro_rules! js_fn_raw_m {
 
 #[macro_export(local_inner_macros)]
 macro_rules! js_fn_m {
-	($pub:vis unsafe fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
+	($pub:vis $(unsafe $(@$unsafe:tt)?)? fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
 		js_fn_raw_m!{
-			$pub unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
+			$pub $(unsafe $($unsafe)?)? fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
 				#[allow(unused_imports)]
 				use ::mozjs::conversions::FromJSValConvertible;
 
@@ -44,9 +57,9 @@ macro_rules! js_fn_m {
 			}
 		}
 	};
-	($pub:vis async unsafe fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
+	($pub:vis async $(unsafe $(@$unsafe:tt)?)? fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
 		js_fn_raw_m! {
-			$pub unsafe fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
+			$pub $(unsafe $($unsafe)?)? fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
 				#[allow(unused_imports)]
 				use ::mozjs::conversions::FromJSValConvertible;
 
