@@ -107,10 +107,7 @@ impl IonModule {
 				};
 				SetModulePrivate(module, &data.to_object(cx).to_value());
 
-				let module = IonModule {
-					module: IonObject::from(module),
-					data,
-				};
+				let module = IonModule { module: IonObject::from(module), data };
 
 				if let Err(exception) = module.instantiate(cx) {
 					return Err(ModuleError::Instantiation(ErrorReport::new(exception)));

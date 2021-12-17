@@ -36,16 +36,7 @@ impl IonDate {
 
 	/// Creates a new [IonDate] with the given time.
 	pub unsafe fn from_date(cx: IonContext, time: DateTime<Utc>) -> IonDate {
-		IonDate::from(
-			cx,
-			NewDateObject(
-				cx,
-				ClippedTime {
-					t: time.timestamp_millis() as f64,
-				},
-			),
-		)
-		.unwrap()
+		IonDate::from(cx, NewDateObject(cx, ClippedTime { t: time.timestamp_millis() as f64 })).unwrap()
 	}
 
 	/// Creates an [IonDate] from an [IonRawObject].

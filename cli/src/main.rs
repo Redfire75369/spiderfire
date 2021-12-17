@@ -62,12 +62,7 @@ fn main() {
 			eval::eval_source(&source);
 		}
 
-		Some(Command::Run {
-			path,
-			log_level,
-			debug,
-			script,
-		}) => {
+		Some(Command::Run { path, log_level, debug, script }) => {
 			let log_level = if debug {
 				LogLevel::Debug
 			} else {

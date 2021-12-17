@@ -59,18 +59,17 @@ impl<T: Default> RuntimeBuilder<T> {
 		RuntimeBuilder::default()
 	}
 
-	pub fn microtask_queue(self) -> RuntimeBuilder<T> {
-		RuntimeBuilder {
-			microtask_queue: true,
-			..self
-		}
+	pub fn microtask_queue(&mut self) -> &mut RuntimeBuilder<T> {
+		self.microtask_queue = true;
+		self
 	}
 
-	pub fn modules(self) -> RuntimeBuilder<T> {
-		RuntimeBuilder { modules: true, ..self }
+	pub fn modules(&mut self) -> &mut RuntimeBuilder<T> {
+		self.modules = true;
+		self
 	}
 
-	fn build_internal(&self, engine: JSEngineHandle) -> Runtime {
+	fn build_internal(&mut self, engine: JSEngineHandle) -> Runtime {
 		let runtime = RustRuntime::new(engine);
 		let cx = runtime.cx();
 		let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
@@ -88,31 +87,23 @@ impl<T: Default> RuntimeBuilder<T> {
 			init_module_loaders(cx);
 		}
 
-		Runtime {
-			cx,
-			rt: runtime,
-			global,
-			realm,
-			queue,
-		}
+		Runtime { cx, rt: runtime, global, realm, queue }
 	}
 }
 
 impl RuntimeBuilder<()> {
-	pub fn build(&self, engine: JSEngineHandle) -> Runtime {
+	pub fn build(&mut self, engine: JSEngineHandle) -> Runtime {
 		self.build_internal(engine)
 	}
 }
 
 impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
-	pub fn standard_modules(self) -> RuntimeBuilder<Std> {
-		RuntimeBuilder {
-			standard_modules: self.modules,
-			..self
-		}
+	pub fn standard_modules(&mut self) -> &mut RuntimeBuilder<Std> {
+		self.standard_modules = self.modules;
+		self
 	}
 
-	pub fn build(&self, engine: JSEngineHandle) -> Runtime {
+	pub fn build(&mut self, engine: JSEngineHandle) -> Runtime {
 		let rt = self.build_internal(engine);
 		if self.standard_modules {
 			Std::init(rt.cx(), rt.global());

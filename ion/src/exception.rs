@@ -44,12 +44,7 @@ impl Exception {
 					let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
 					let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
 
-					Some(Exception {
-						message,
-						filename,
-						lineno,
-						column,
-					})
+					Some(Exception { message, filename, lineno, column })
 				} else {
 					None
 				}

@@ -25,12 +25,7 @@ impl Arguments {
 		let this = call_args.thisv();
 		let rval = call_args.rval();
 
-		Arguments {
-			values,
-			this,
-			rval,
-			call_args,
-		}
+		Arguments { values, this, rval, call_args }
 	}
 
 	/// Returns the number of arguments.

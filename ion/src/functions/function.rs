@@ -53,9 +53,7 @@ impl IonFunction {
 	/// Returns [None] if the object is not a function.
 	pub unsafe fn from_object(cx: IonContext, obj: IonRawObject) -> Option<IonFunction> {
 		if IonFunction::is_function_raw(obj) {
-			Some(IonFunction {
-				fun: JS_GetObjectFunction(obj),
-			})
+			Some(IonFunction { fun: JS_GetObjectFunction(obj) })
 		} else {
 			throw_type_error(cx, "Object cannot be converted to Function");
 			None
