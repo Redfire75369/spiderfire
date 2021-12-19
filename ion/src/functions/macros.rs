@@ -47,7 +47,7 @@ macro_rules! js_fn_raw_m {
 macro_rules! js_fn_m {
 	($pub:vis $(unsafe $(@$unsafe:tt)?)? fn $name:ident($($args:tt)*) -> IonResult<$ret:ty> $body:tt) => {
 		js_fn_raw_m!{
-			$pub $(unsafe $($unsafe)?)? fn $name(cx: IonContext, args: &Arguments) -> IonResult<$ret> {
+			$pub $(unsafe $($unsafe)?)? fn $name(cx: $crate::IonContext, args: &$crate::functions::arguments::Arguments) -> IonResult<$ret> {
 				#[allow(unused_imports)]
 				use ::mozjs::conversions::FromJSValConvertible;
 
@@ -59,7 +59,7 @@ macro_rules! js_fn_m {
 	};
 	($pub:vis async $(unsafe $(@$unsafe:tt)?)? fn $name:ident($($args:tt)*) -> Result<$res:ty, $rej:ty> $body:tt) => {
 		js_fn_raw_m! {
-			$pub $(unsafe $($unsafe)?)? fn $name(cx: IonContext, args: &Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
+			$pub $(unsafe $($unsafe)?)? fn $name(cx: $crate::IonContext, args: &$crate::functions::arguments::Arguments) -> IonResult<$crate::objects::promise::IonPromise> {
 				#[allow(unused_imports)]
 				use ::mozjs::conversions::FromJSValConvertible;
 
@@ -82,7 +82,7 @@ macro_rules! unpack_args {
 	(($fn:expr, $cx:expr, $args:expr) ($($fn_args:tt)*)) => {
 		let nargs = unpack_args_count!($($fn_args)*,);
 		if $args.len() < nargs {
-			return Err($crate::error::IonError::Error(::std::format!("{}() requires at least {} argument", $fn, nargs).into()));
+			return Err($crate::error::IonError::Error(::std::format!("{}() requires at least {} {}", $fn, nargs, if nargs == 1 { "argument" } else { "arguments" })));
 		}
 		unpack_unwrap_args!(($cx, $args, 0) $($fn_args)*,);
 	}
@@ -95,7 +95,7 @@ macro_rules! unpack_args_count {
 		unpack_args_count!($($args)*)
 	};
 	($(#[$special:meta])? $(mut)? $name:ident : Option<$type:ty>, $($args:tt)*) => {
-		1
+		0
 	};
 	($(#[$special:meta])? $(mut)? $name:ident : $type:ty, $($args:tt)*) => {
 		1 + unpack_args_count!($($args)*)
@@ -122,7 +122,7 @@ macro_rules! unpack_unwrap_args {
 	// Special Case: Mutable Variable Args #[varargs]
 	(($cx:expr, $args:expr, $n:expr) #[varargs] mut $name:ident : Vec<$type:ty>, ) => {
 		let mut $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
-			unwrap_arg!(($cx, $n+index) $name: $type, handle)
+			unwrap_arg!(($cx, $n + index) $name: $type, handle)
 		}).collect::<IonResult<_>>()?;
 	};
 	// Special Case: IonContext
@@ -135,9 +135,19 @@ macro_rules! unpack_unwrap_args {
 		let $name = $args;
 		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
 	};
+	// Special Case: Conversion Behaviour #[convert()]
+	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] $name:ident : $type:ty, $($fn_args:tt)*) => {
+		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n), $conversion)?;
+		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
+	};
+	// Special Case: Mutable Conversion Behaviour #[convert()]
+	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] mut $name:ident : $type:ty, $($fn_args:tt)*) => {
+		let mut $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n), $conversion)?;
+		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
+	};
 	// Default Case
 	(($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name: $type  = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
+		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
 		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
 	};
 	// Default Mutable Case
@@ -149,8 +159,8 @@ macro_rules! unpack_unwrap_args {
 
 #[macro_export(local_inner_macros)]
 macro_rules! unwrap_arg {
-	(($cx:expr, $n:expr) $name:ident : $type:ty, $handle:expr) => {
-		if let Some(value) = $crate::types::values::from_value($cx, $handle.get(), ()) {
+	(($cx:expr, $n:expr) $name:ident : $type:ty, $handle:expr, $conversion:expr) => {
+		if let Some(value) = unsafe { $crate::types::values::from_value($cx, $handle.get(), $conversion) } {
 			Ok(value)
 		} else {
 			Err($crate::error::IonError::TypeError(::std::format!(
@@ -160,5 +170,8 @@ macro_rules! unwrap_arg {
 				::std::stringify!($type)
 			)))
 		}
+	};
+	(($cx:expr, $n:expr) $name:ident : $type:ty, $handle:expr) => {
+		unwrap_arg!(($cx, $n) $name: $type, $handle, ())
 	};
 }

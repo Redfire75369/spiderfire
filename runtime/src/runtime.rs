@@ -6,7 +6,6 @@
 
 use std::marker::PhantomData;
 use std::ptr;
-use std::rc::Rc;
 
 use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_GLOBAL_CLASS};
@@ -14,8 +13,10 @@ use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_G
 use ion::IonContext;
 use ion::objects::object::IonObject;
 
-use crate::globals::init_globals;
-use crate::microtask_queue::{init_microtask_queue, MicrotaskQueue};
+use crate::event_loop::EventLoop;
+use crate::event_loop::macrotasks::init_macrotask_queue;
+use crate::event_loop::microtasks::init_microtask_queue;
+use crate::globals::{init_globals, init_timers};
 use crate::modules::init_module_loaders;
 
 pub trait StandardModules {
@@ -27,7 +28,7 @@ pub struct Runtime {
 	global: IonObject,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
-	queue: Option<Rc<MicrotaskQueue>>,
+	event_loop: EventLoop,
 	#[allow(dead_code)]
 	rt: RustRuntime,
 }
@@ -41,13 +42,14 @@ impl Runtime {
 		self.global
 	}
 
-	pub fn queue(&self) -> Option<Rc<MicrotaskQueue>> {
-		self.queue.clone()
+	pub fn run_event_loop(&self) -> Result<(), ()> {
+		self.event_loop.run(self.cx)
 	}
 }
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct RuntimeBuilder<T: Default> {
+	macrotask_queue: bool,
 	microtask_queue: bool,
 	modules: bool,
 	standard_modules: bool,
@@ -57,6 +59,11 @@ pub struct RuntimeBuilder<T: Default> {
 impl<T: Default> RuntimeBuilder<T> {
 	pub fn new() -> RuntimeBuilder<T> {
 		RuntimeBuilder::default()
+	}
+
+	pub fn macrotask_queue(&mut self) -> &mut RuntimeBuilder<T> {
+		self.macrotask_queue = true;
+		self
 	}
 
 	pub fn microtask_queue(&mut self) -> &mut RuntimeBuilder<T> {
@@ -81,13 +88,26 @@ impl<T: Default> RuntimeBuilder<T> {
 
 		init_globals(cx, global);
 
-		let queue = if self.microtask_queue { Some(init_microtask_queue(cx)) } else { None };
+		let macrotasks = if self.macrotask_queue {
+			init_timers(cx, global);
+			Some(init_macrotask_queue())
+		} else {
+			None
+		};
+		let microtasks = if self.microtask_queue { Some(init_microtask_queue(cx)) } else { None };
+		let event_loop = EventLoop::new(macrotasks, microtasks);
 
 		if self.modules {
 			init_module_loaders(cx);
 		}
 
-		Runtime { cx, rt: runtime, global, realm, queue }
+		Runtime {
+			cx,
+			rt: runtime,
+			global,
+			realm,
+			event_loop,
+		}
 	}
 }
 

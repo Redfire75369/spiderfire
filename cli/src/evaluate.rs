@@ -20,28 +20,28 @@ use runtime::modules::IonModule;
 pub fn eval_inline(rt: &Runtime, source: &str) {
 	let result = IonScript::compile_and_evaluate(rt.cx(), "inline.js", source);
 
-	if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
-		eprintln!("Unknown error occurred while executing microtask.");
-	}
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 		Err(report) => eprintln!("{}", report),
+	}
+	if rt.run_event_loop().is_err() {
+		eprintln!("Unknown error occurred while executing microtask.");
 	}
 }
 
 pub fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
+	let rt = RuntimeBuilder::<()>::new().macrotask_queue().microtask_queue().build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
 		let result = IonScript::compile_and_evaluate(rt.cx(), &filename, &script);
 
-		if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
-			eprintln!("Unknown error occurred while executing microtask.");
-		}
 		match result {
 			Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 			Err(report) => eprintln!("{}", report),
+		}
+		if rt.run_event_loop().is_err() {
+			eprintln!("Unknown error occurred while executing microtask.");
 		}
 	}
 }
@@ -49,6 +49,7 @@ pub fn eval_script(path: &Path) {
 pub fn eval_module(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<Modules>::new()
+		.macrotask_queue()
 		.microtask_queue()
 		.modules()
 		.standard_modules()
@@ -57,11 +58,11 @@ pub fn eval_module(path: &Path) {
 	if let Some((script, filename)) = read_script(path) {
 		let result = IonModule::compile(rt.cx(), &filename, Some(path), &script);
 
-		if rt.queue().unwrap().run_jobs(rt.cx()).is_err() {
-			eprintln!("Unknown error occurred while executing microtask.");
-		}
 		if let Err(report) = result {
 			eprintln!("{}", report);
+		}
+		if rt.run_event_loop().is_err() {
+			eprintln!("Unknown error occurred while executing microtask.");
 		}
 	}
 }

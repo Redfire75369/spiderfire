@@ -14,7 +14,6 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::error::IonError;
-use ion::functions::arguments::Arguments;
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::IonModule;
@@ -60,7 +59,7 @@ unsafe fn readBinarySync(cx: IonContext, path_str: String) -> IonResult<IonRawOb
 }
 
 #[js_fn]
-async unsafe fn readString(path_str: String) -> Result<String, ()> {
+async fn readString(path_str: String) -> Result<String, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -75,7 +74,7 @@ async unsafe fn readString(path_str: String) -> Result<String, ()> {
 }
 
 #[js_fn]
-unsafe fn readStringSync(path_str: String) -> IonResult<String> {
+fn readStringSync(path_str: String) -> IonResult<String> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -90,7 +89,7 @@ unsafe fn readStringSync(path_str: String) -> IonResult<String> {
 }
 
 #[js_fn]
-async unsafe fn readDir(path_str: String) -> Result<Vec<String>, ()> {
+async fn readDir(path_str: String) -> Result<Vec<String>, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -109,7 +108,7 @@ async unsafe fn readDir(path_str: String) -> Result<Vec<String>, ()> {
 }
 
 #[js_fn]
-unsafe fn readDirSync(path_str: String) -> IonResult<Vec<String>> {
+fn readDirSync(path_str: String) -> IonResult<Vec<String>> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -128,7 +127,7 @@ unsafe fn readDirSync(path_str: String) -> IonResult<Vec<String>> {
 }
 
 #[js_fn]
-async unsafe fn write(path_str: String, contents: String) -> Result<bool, ()> {
+async fn write(path_str: String, contents: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_dir() {
@@ -139,7 +138,7 @@ async unsafe fn write(path_str: String, contents: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn writeSync(path_str: String, contents: String) -> IonResult<bool> {
+fn writeSync(path_str: String, contents: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_dir() {
@@ -150,7 +149,7 @@ unsafe fn writeSync(path_str: String, contents: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn createDir(path_str: String) -> Result<bool, ()> {
+async fn createDir(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -161,7 +160,7 @@ async unsafe fn createDir(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn createDirSync(path_str: String) -> IonResult<bool> {
+fn createDirSync(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -172,7 +171,7 @@ unsafe fn createDirSync(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn createDirRecursive(path_str: String) -> Result<bool, ()> {
+async fn createDirRecursive(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -183,7 +182,7 @@ async unsafe fn createDirRecursive(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn createDirRecursiveSync(path_str: String) -> IonResult<bool> {
+fn createDirRecursiveSync(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -194,7 +193,7 @@ unsafe fn createDirRecursiveSync(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn removeFile(path_str: String) -> Result<bool, ()> {
+async fn removeFile(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -205,7 +204,7 @@ async unsafe fn removeFile(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn removeFileSync(path_str: String) -> IonResult<bool> {
+fn removeFileSync(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -216,7 +215,7 @@ unsafe fn removeFileSync(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn removeDir(path_str: String) -> Result<bool, ()> {
+async fn removeDir(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -227,7 +226,7 @@ async unsafe fn removeDir(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn removeDirSync(path_str: String) -> IonResult<bool> {
+fn removeDirSync(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -238,7 +237,7 @@ unsafe fn removeDirSync(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
+async fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -249,7 +248,7 @@ async unsafe fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn removeDirRecursiveSync(path_str: String) -> IonResult<bool> {
+fn removeDirRecursiveSync(path_str: String) -> IonResult<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -260,7 +259,7 @@ unsafe fn removeDirRecursiveSync(path_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
+async fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -272,7 +271,7 @@ async unsafe fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn copySync(from_str: String, to_str: String) -> IonResult<bool> {
+fn copySync(from_str: String, to_str: String) -> IonResult<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -284,7 +283,7 @@ unsafe fn copySync(from_str: String, to_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
+async fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -296,7 +295,7 @@ async unsafe fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-unsafe fn renameSync(from_str: String, to_str: String) -> IonResult<bool> {
+fn renameSync(from_str: String, to_str: String) -> IonResult<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -308,7 +307,7 @@ unsafe fn renameSync(from_str: String, to_str: String) -> IonResult<bool> {
 }
 
 #[js_fn]
-async unsafe fn softLink(original_str: String, link_str: String) -> Result<bool, ()> {
+async fn softLink(original_str: String, link_str: String) -> Result<bool, ()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -333,7 +332,7 @@ async unsafe fn softLink(original_str: String, link_str: String) -> Result<bool,
 }
 
 #[js_fn]
-unsafe fn softLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
+fn softLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -358,7 +357,7 @@ unsafe fn softLinkSync(original_str: String, link_str: String) -> IonResult<bool
 }
 
 #[js_fn]
-async unsafe fn hardLink(original_str: String, link_str: String) -> Result<bool, ()> {
+async fn hardLink(original_str: String, link_str: String) -> Result<bool, ()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -370,7 +369,7 @@ async unsafe fn hardLink(original_str: String, link_str: String) -> Result<bool,
 }
 
 #[js_fn]
-unsafe fn hardLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
+fn hardLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 

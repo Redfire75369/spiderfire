@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{Compile, JSScript, Value};
+use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript, Value};
 use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
-use mozjs_sys::jsapi::JS_ExecuteScript;
 
 use crate::exception::{ErrorReport, Exception};
 use crate::IonContext;

@@ -10,7 +10,6 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
-use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
 use runtime::modules::IonModule;
 
@@ -27,7 +26,7 @@ const DELIMITER: &str = ";";
 const DELIMITER: &str = ":";
 
 #[js_fn]
-unsafe fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
+fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
 	let mut path = PathBuf::new();
 	for segment in segments {
 		path.push(segment);
@@ -37,7 +36,7 @@ unsafe fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
 }
 
 #[js_fn]
-unsafe fn stripPrefix(path: String, prefix: String) -> IonResult<String> {
+fn stripPrefix(path: String, prefix: String) -> IonResult<String> {
 	let path = Path::new(&path);
 
 	if let Ok(path) = path.strip_prefix(&prefix) {
@@ -48,63 +47,63 @@ unsafe fn stripPrefix(path: String, prefix: String) -> IonResult<String> {
 }
 
 #[js_fn]
-unsafe fn fileStem(path: String) -> IonResult<Option<String>> {
+fn fileStem(path: String) -> IonResult<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.file_stem().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-unsafe fn parent(path: String) -> IonResult<Option<String>> {
+fn parent(path: String) -> IonResult<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.parent().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-unsafe fn fileName(path: String) -> IonResult<Option<String>> {
+fn fileName(path: String) -> IonResult<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.file_name().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-unsafe fn extension(path: String) -> IonResult<Option<String>> {
+fn extension(path: String) -> IonResult<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.extension().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-unsafe fn withFileName(path: String, file_name: String) -> IonResult<String> {
+fn withFileName(path: String, file_name: String) -> IonResult<String> {
 	let path = Path::new(&path);
 	Ok(String::from(path.with_file_name(&file_name).to_str().unwrap()))
 }
 
 #[js_fn]
-unsafe fn withExtension(path: String, extension: String) -> IonResult<String> {
+fn withExtension(path: String, extension: String) -> IonResult<String> {
 	let path = Path::new(&path);
 	Ok(String::from(path.with_extension(&extension).to_str().unwrap()))
 }
 
 #[js_fn]
-unsafe fn isAbsolute(path: String) -> IonResult<bool> {
+fn isAbsolute(path: String) -> IonResult<bool> {
 	Ok(Path::new(&path).is_absolute())
 }
 
 #[js_fn]
-unsafe fn isRelative(path: String) -> IonResult<bool> {
+fn isRelative(path: String) -> IonResult<bool> {
 	Ok(Path::new(&path).is_relative())
 }
 
 #[js_fn]
-unsafe fn hasRoot(path: String) -> IonResult<bool> {
+fn hasRoot(path: String) -> IonResult<bool> {
 	Ok(Path::new(&path).has_root())
 }
 
 #[js_fn]
-unsafe fn startsWith(path: String, prefix: String) -> IonResult<bool> {
+fn startsWith(path: String, prefix: String) -> IonResult<bool> {
 	Ok(Path::new(&path).starts_with(&prefix))
 }
 
 #[js_fn]
-unsafe fn endsWith(path: String, prefix: String) -> IonResult<bool> {
+fn endsWith(path: String, prefix: String) -> IonResult<bool> {
 	Ok(Path::new(&path).ends_with(&prefix))
 }
 

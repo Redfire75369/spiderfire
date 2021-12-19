@@ -14,7 +14,6 @@ use mozjs::jsval::ObjectValue;
 use ion::{IonContext, IonResult};
 use ion::format::{format_value, INDENT};
 use ion::format::primitive::format_primitive;
-use ion::functions::arguments::Arguments;
 use ion::objects::object::IonObject;
 
 use crate::config::{Config, LogLevel};
@@ -68,7 +67,7 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-unsafe fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -79,7 +78,7 @@ unsafe fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -90,7 +89,7 @@ unsafe fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -101,7 +100,7 @@ unsafe fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -112,7 +111,7 @@ unsafe fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -149,7 +148,7 @@ unsafe fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec
 }
 
 #[js_fn]
-unsafe fn clear() -> IonResult<()> {
+fn clear() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
 	});
@@ -182,10 +181,9 @@ unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
-
 		*indents = (*indents).min(u16::MAX - 1) + 1;
 	});
 
@@ -198,7 +196,7 @@ unsafe fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-unsafe fn groupEnd() -> IonResult<()> {
+fn groupEnd() -> IonResult<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
@@ -208,7 +206,7 @@ unsafe fn groupEnd() -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn count(label: Option<String>) -> IonResult<()> {
+fn count(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -234,7 +232,7 @@ unsafe fn count(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn countReset(label: Option<String>) -> IonResult<()> {
+fn countReset(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -255,7 +253,7 @@ unsafe fn countReset(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn time(label: Option<String>) -> IonResult<()> {
+fn time(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -276,7 +274,7 @@ unsafe fn time(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -304,7 +302,7 @@ unsafe fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<
 }
 
 #[js_fn]
-unsafe fn timeEnd(label: Option<String>) -> IonResult<()> {
+fn timeEnd(label: Option<String>) -> IonResult<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();

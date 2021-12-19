@@ -8,7 +8,6 @@ use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, J
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
-use ion::functions::arguments::Arguments;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
 use runtime::modules::IonModule;
@@ -23,7 +22,7 @@ fn assert_internal(message: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn ok(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
+fn ok(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
 	if let Some(true) = assertion {
 		assert_internal(message)
 	} else {
@@ -57,7 +56,7 @@ unsafe fn throws(cx: IonContext, func: IonFunction, message: Option<String>) -> 
 }
 
 #[js_fn]
-unsafe fn fail(message: Option<String>) -> IonResult<()> {
+fn fail(message: Option<String>) -> IonResult<()> {
 	assert_internal(message)
 }
 

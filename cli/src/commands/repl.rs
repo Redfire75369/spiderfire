@@ -15,7 +15,7 @@ use crate::evaluate::eval_inline;
 
 pub fn start_repl() {
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
+	let rt = RuntimeBuilder::<()>::new().macrotask_queue().microtask_queue().build(engine.handle());
 
 	let mut repl = Editor::<()>::with_config(rustyline_config());
 	let mut terminate: u8 = 0;
