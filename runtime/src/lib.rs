@@ -5,6 +5,8 @@
  */
 
 #[macro_use]
+extern crate closure;
+#[macro_use]
 extern crate ion;
 #[macro_use]
 extern crate mozjs;

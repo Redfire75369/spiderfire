@@ -9,32 +9,43 @@ use mozjs::conversions::ConversionBehavior::{Clamp, EnforceRange};
 use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, Value};
 
 use ion::{IonContext, IonResult};
+use ion::error::IonError;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
 
-use crate::event_loop::macrotasks::{Macrotask, MACROTASK_QUEUE, TimerMacrotask};
+use crate::event_loop::EVENT_LOOP;
+use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
 
 const MINIMUM_DELAY: i64 = 1;
 const MINIMUM_DELAY_NESTED: i64 = 4;
 
 fn set_timer(callback: IonFunction, duration: Option<i64>, arguments: Vec<Value>, repeat: bool) -> IonResult<u32> {
-	MACROTASK_QUEUE.with(|queue| {
-		let queue = queue.borrow();
+	EVENT_LOOP.with(|event_loop| {
+		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
+			let nesting = queue.nesting();
+			let minimum = if nesting > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
 
-		let nesting = (*queue).as_ref().unwrap().nesting();
-		let minimum = if nesting > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
-
-		let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
-		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration));
-		Ok((*queue).as_ref().unwrap().enqueue(Macrotask::Timer(timer), None))
+			let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
+			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration));
+			Ok((*queue).enqueue(Macrotask::Timer(timer), None))
+		} else {
+			Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+		}
 	})
 }
 
-fn clear_timer(id: Option<u32>) {
+fn clear_timer(id: Option<u32>) -> IonResult<()> {
 	if let Some(id) = id {
-		MACROTASK_QUEUE.with(|queue| {
-			(*queue.borrow()).as_ref().unwrap().remove(id);
-		});
+		EVENT_LOOP.with(|event_loop| {
+			if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
+				queue.remove(id);
+				Ok(())
+			} else {
+				Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+			}
+		})
+	} else {
+		Ok(())
 	}
 }
 
@@ -50,14 +61,24 @@ fn setInterval(callback: IonFunction, #[convert(Clamp)] duration: Option<i64>, #
 
 #[js_fn]
 fn clearTimeout(#[convert(EnforceRange)] id: Option<u32>) -> IonResult<()> {
-	clear_timer(id);
-	Ok(())
+	clear_timer(id)
 }
 
 #[js_fn]
 fn clearInterval(#[convert(EnforceRange)] id: Option<u32>) -> IonResult<()> {
-	clear_timer(id);
-	Ok(())
+	clear_timer(id)
+}
+
+#[js_fn]
+fn queueMacrotask(callback: IonFunction) -> IonResult<()> {
+	EVENT_LOOP.with(|event_loop| {
+		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
+			queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
+			Ok(())
+		} else {
+			Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+		}
+	})
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
@@ -65,6 +86,7 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(setInterval, 1),
 	function_spec!(clearTimeout, 0),
 	function_spec!(clearInterval, 0),
+	function_spec!(queueMacrotask, 1),
 	JSFunctionSpec::ZERO,
 ];
 

@@ -144,12 +144,12 @@ impl IonModule {
 		}
 	}
 
-	pub fn register(&self, name: &str) -> bool {
+	pub fn register(self, name: &str) -> bool {
 		MODULE_REGISTRY.with(|registry| {
 			let mut registry = registry.borrow_mut();
 			match (*registry).entry(String::from(name)) {
 				Entry::Vacant(v) => {
-					v.insert(self.clone());
+					v.insert(self);
 					true
 				}
 				Entry::Occupied(_) => false,
@@ -171,8 +171,8 @@ impl IonModule {
 
 			let str = String::from(path.to_str().unwrap());
 			match (*registry).entry(str) {
-				Entry::Vacant(_) => None,
 				Entry::Occupied(o) => Some(o.get().clone()),
+				Entry::Vacant(_) => None,
 			}
 		});
 
@@ -180,7 +180,7 @@ impl IonModule {
 			if let Ok(script) = read_to_string(&path) {
 				let module = IonModule::compile(cx, specifier, Some(path.as_path()), &script);
 				if let Ok(module) = module {
-					module.register(path.to_str().unwrap());
+					module.clone().register(path.to_str().unwrap());
 					Some(module)
 				} else {
 					unsafe {

@@ -5,7 +5,6 @@
  */
 
 use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -16,7 +15,7 @@ use ion::functions::function::IonFunction;
 use ion::IonContext;
 use ion::objects::object::IonObject;
 
-thread_local!(pub(crate) static MACROTASK_QUEUE: RefCell<Option<Rc<MacrotaskQueue>>> = RefCell::new(None));
+use crate::event_loop::EVENT_LOOP;
 
 #[derive(Clone, Debug)]
 pub struct TimerMacrotask {
@@ -49,15 +48,21 @@ impl TimerMacrotask {
 }
 
 #[derive(Clone, Debug)]
-pub struct UserMicrotask {
+pub struct UserMacrotask {
 	callback: IonFunction,
 	scheduled: DateTime<Utc>,
+}
+
+impl UserMacrotask {
+	pub fn new(callback: IonFunction) -> UserMacrotask {
+		UserMacrotask { callback, scheduled: Utc::now() }
+	}
 }
 
 #[derive(Clone, Debug)]
 pub enum Macrotask {
 	Timer(TimerMacrotask),
-	User(UserMicrotask),
+	User(UserMacrotask),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -114,14 +119,7 @@ impl MacrotaskQueue {
 		}
 		self.latest.set(Some(index));
 
-		match (*macrotasks).entry(index) {
-			Entry::Occupied(mut o) => {
-				o.insert(macrotask);
-			}
-			Entry::Vacant(v) => {
-				v.insert(macrotask);
-			}
-		}
+		macrotasks.insert(index, macrotask);
 
 		index
 	}
@@ -167,10 +165,7 @@ impl MacrotaskQueue {
 }
 
 pub(crate) fn init_macrotask_queue() -> Rc<MacrotaskQueue> {
-	let queue = Rc::new(MacrotaskQueue::default());
-	let queue_clone = queue.clone();
-	MACROTASK_QUEUE.with(|queue| {
-		*queue.borrow_mut() = Some(queue_clone);
-	});
-	queue
+	let macrotask_queue = Rc::new(MacrotaskQueue::default());
+	EVENT_LOOP.with(closure!(clone macrotask_queue, |event_loop| (*event_loop.borrow_mut()).macrotasks = Some(macrotask_queue)));
+	macrotask_queue
 }

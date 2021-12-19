@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 
@@ -15,16 +16,14 @@ use crate::event_loop::microtasks::MicrotaskQueue;
 pub mod macrotasks;
 pub mod microtasks;
 
+thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop {macrotasks: None,microtasks: None}));
+
 pub struct EventLoop {
-	macrotasks: Option<Rc<MacrotaskQueue>>,
-	microtasks: Option<Rc<MicrotaskQueue>>,
+	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,
+	pub(crate) microtasks: Option<Rc<MicrotaskQueue>>,
 }
 
 impl EventLoop {
-	pub fn new(macrotasks: Option<Rc<MacrotaskQueue>>, microtasks: Option<Rc<MicrotaskQueue>>) -> EventLoop {
-		EventLoop { macrotasks, microtasks }
-	}
-
 	pub fn run(&self, cx: IonContext) -> Result<(), ()> {
 		if self.macrotasks.is_none() && self.microtasks.is_none() {
 			return Ok(());
@@ -46,7 +45,6 @@ impl EventLoop {
 					let macrotask = macrotask_map.get(&next).cloned();
 					drop(macrotask_map);
 					if let Some(macrotask) = macrotask {
-						let macrotask = macrotask.clone();
 						let run = macrotask.run(cx);
 						if run.is_err() {
 							result = Err(());

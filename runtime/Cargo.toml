@@ -7,6 +7,7 @@ license = "MPL-2.0"
 
 [dependencies]
 chrono = "0.4.19"
+closure = "0.3.0"
 dunce = "1.0.2"
 ion = { path = "../ion" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }

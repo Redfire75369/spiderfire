@@ -8,6 +8,7 @@ use ion::IonContext;
 use ion::objects::object::IonObject;
 
 pub mod console;
+pub mod microtasks;
 pub mod timers;
 
 pub fn init_globals(cx: IonContext, global: IonObject) -> bool {
@@ -16,4 +17,8 @@ pub fn init_globals(cx: IonContext, global: IonObject) -> bool {
 
 pub fn init_timers(cx: IonContext, global: IonObject) -> bool {
 	unsafe { timers::define(cx, global) }
+}
+
+pub fn init_microtasks(cx: IonContext, global: IonObject) -> bool {
+	unsafe { microtasks::define(cx, global) }
 }

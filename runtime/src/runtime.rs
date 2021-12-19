@@ -13,10 +13,10 @@ use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_G
 use ion::IonContext;
 use ion::objects::object::IonObject;
 
-use crate::event_loop::EventLoop;
+use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::macrotasks::init_macrotask_queue;
 use crate::event_loop::microtasks::init_microtask_queue;
-use crate::globals::{init_globals, init_timers};
+use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::init_module_loaders;
 
 pub trait StandardModules {
@@ -28,7 +28,6 @@ pub struct Runtime {
 	global: IonObject,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
-	event_loop: EventLoop,
 	#[allow(dead_code)]
 	rt: RustRuntime,
 }
@@ -43,7 +42,7 @@ impl Runtime {
 	}
 
 	pub fn run_event_loop(&self) -> Result<(), ()> {
-		self.event_loop.run(self.cx)
+		EVENT_LOOP.with(|event_loop| (*event_loop.borrow()).run(self.cx))
 	}
 }
 
@@ -88,26 +87,20 @@ impl<T: Default> RuntimeBuilder<T> {
 
 		init_globals(cx, global);
 
-		let macrotasks = if self.macrotask_queue {
+		if self.macrotask_queue {
+			init_macrotask_queue();
 			init_timers(cx, global);
-			Some(init_macrotask_queue())
-		} else {
-			None
-		};
-		let microtasks = if self.microtask_queue { Some(init_microtask_queue(cx)) } else { None };
-		let event_loop = EventLoop::new(macrotasks, microtasks);
+		}
+		if self.microtask_queue {
+			init_microtask_queue(cx);
+			init_microtasks(cx, global);
+		}
 
 		if self.modules {
 			init_module_loaders(cx);
 		}
 
-		Runtime {
-			cx,
-			rt: runtime,
-			global,
-			realm,
-			event_loop,
-		}
+		Runtime { cx, rt: runtime, global, realm }
 	}
 }
 

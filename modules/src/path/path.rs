@@ -10,7 +10,7 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
-use ion::objects::object::IonObject;
+use ion::objects::object::{IonObject, JSPROP_CONSTANT};
 use runtime::modules::IonModule;
 
 const PATH_SOURCE: &str = include_str!("path.js");
@@ -132,19 +132,14 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______pathInternal______";
 	rooted!(in(cx) let path_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, path_module.handle().into(), METHODS.as_ptr()) {
-		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), 0)
-			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), 0)
+		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), JSPROP_CONSTANT as u32)
+			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), JSPROP_CONSTANT as u32)
 		{
 			if global.define_as(cx, internal_key, path_module.get(), 0) {
 				let module = IonModule::compile(cx, "path", None, PATH_SOURCE).unwrap();
-				module.register("path")
-			} else {
-				false
+				return module.register("path");
 			}
-		} else {
-			false
 		}
-	} else {
-		false
 	}
+	false
 }

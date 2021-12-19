@@ -78,11 +78,8 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	if JS_DefineFunctions(cx, assert_module.handle().into(), METHODS.as_ptr()) {
 		if global.define_as(cx, internal_key, assert_module.get(), 0) {
 			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
-			module.register("assert")
-		} else {
-			false
+			return module.register("assert");
 		}
-	} else {
-		false
 	}
+	false
 }

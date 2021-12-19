@@ -18,6 +18,8 @@ use ion::functions::function::IonFunction;
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 
+use crate::event_loop::EVENT_LOOP;
+
 #[derive(Copy, Clone, Debug)]
 pub enum Microtask {
 	Promise(IonObject),
@@ -122,5 +124,6 @@ pub(crate) fn init_microtask_queue(cx: IonContext) -> Rc<MicrotaskQueue> {
 		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, &*microtask_queue as *const _ as *const c_void);
 		SetJobQueue(cx, queue);
 	}
-	microtask_queue.clone()
+	EVENT_LOOP.with(closure!(clone microtask_queue, |event_loop| (*event_loop.borrow_mut()).microtasks = Some(microtask_queue)));
+	microtask_queue
 }
