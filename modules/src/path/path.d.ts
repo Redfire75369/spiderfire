@@ -17,22 +17,24 @@ declare module "path" {
 	export const delimiter: string;
 
 	namespace Path {
-		function join(...segments: string[]): string;
-		function stripPrefix(path: string, prefix: string): string;
-		function fileStem(path: string): string | null;
-		function parent(path: string): string | null;
-		function fileName(path: string): string | null;
-		function extension(path: string): string | null;
-		function withFileName(path: string, fileName: string): string;
-		function withExtension(path: string, extension: string): string;
-		function isAbsolute(path: string): boolean;
-		function isRelative(path: string): boolean;
-		function hasRoot(path: string): boolean;
-		function startsWith(path: string, prefix: string): boolean;
-		function endsWith(path: string, suffix: string): boolean;
+		export {
+			join,
+			stripPrefix,
+			fileStem,
+			parent,
+			fileName,
+			extension,
+			withFileName,
+			withExtension,
+			isAbsolute,
+			isRelative,
+			hasRoot,
+			startsWith,
+			endsWith,
 
-		const separator: string;
-		const delimiter: string;
+			separator,
+			delimiter,
+		};
 	}
 
 	export default Path;

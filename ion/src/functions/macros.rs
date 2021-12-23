@@ -80,80 +80,99 @@ macro_rules! js_fn_m {
 #[macro_export(local_inner_macros)]
 macro_rules! unpack_args {
 	(($fn:expr, $cx:expr, $args:expr) ($($fn_args:tt)*)) => {
-		let nargs = unpack_args_count!($($fn_args)*,);
+		let nargs = unpack_args_count!($($fn_args)*);
 		if $args.len() < nargs {
 			return Err($crate::error::IonError::Error(::std::format!("{}() requires at least {} {}", $fn, nargs, if nargs == 1 { "argument" } else { "arguments" })));
 		}
-		unpack_unwrap_args!(($cx, $args, 0) $($fn_args)*,);
+		unpack_unwrap_args!(($cx, $args, 0) $($fn_args)*);
 	}
 }
 
 #[macro_export(local_inner_macros)]
 macro_rules! unpack_args_count {
 	() => {0};
-	($name:ident: IonContext, $($args:tt)*) => {
-		unpack_args_count!($($args)*)
+	($name:ident: IonContext $(, $($args:tt)*)?) => {
+		0 $(+ unpack_args_count!($($args)*))?
 	};
-	($(#[$special:meta])? $(mut)? $name:ident : Option<$type:ty>, $($args:tt)*) => {
+	($name:ident: &Arguments $(, $($args:tt)*)?) => {
+		0 $(+ unpack_args_count!($($args)*))?
+	};
+	(#[this] mut $name:ident: IonObject $(, $($args:tt)*)?) => {
+		0 $(+ unpack_args_count!($($args)*))?
+	};
+	(#[this] $name:ident: IonObject $(, $($args:tt)*)?) => {
+		0 $(+ unpack_args_count!($($args)*))?
+	};
+	(#[varargs] mut $name:ident: Vec<$type:ty>,) => {
 		0
 	};
-	($(#[$special:meta])? $(mut)? $name:ident : $type:ty, $($args:tt)*) => {
-		1 + unpack_args_count!($($args)*)
+	(#[varargs] $name:ident: Vec<$type:ty>,) => {
+		0
 	};
-	(, $($rest:tt)*) => {
-		unpack_args_count!($($rest)*)
+	($(#[$special:meta])? mut $name:ident : Option<$type:ty> $(, $($args:tt)*)?) => {
+		0
+	};
+	($(#[$special:meta])? $name:ident : Option<$type:ty> $(, $($args:tt)*)?) => {
+		0
+	};
+	($(#[$special:meta])? mut $name:ident : $type:ty $(, $($args:tt)*)?) => {
+		1 $(+ unpack_args_count!($($args)*))?
+	};
+	($(#[$special:meta])? $name:ident : $type:ty $(, $($args:tt)*)?) => {
+		1 $(+ unpack_args_count!($($args)*))?
 	};
 }
 
 #[macro_export(local_inner_macros)]
 macro_rules! unpack_unwrap_args {
-	(($cx:expr, $args:expr, $n:expr) $(,)*) => {};
+	(($cx:expr, $args:expr, $n:expr)) => {};
+	// Special Case: IonContext
+	(($cx:expr, $args:expr, $n:expr) $name:ident : IonContext $(, $($fn_args:tt)*)?) => {
+		let $name = $cx;
+		$(unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);)?
+	};
+	// Special Case: Arguments
+	(($cx:expr, $args:expr, $n:expr) $name:ident : &Arguments $(, $($fn_args:tt)*)?) => {
+		let $name: &Arguments = $args;
+		$(unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);)?
+	};
 	// Special Case: #[this]
-	(($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name = $crate::objects::object::IonObject::from_value($cx, $args.this());
-		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
+	(($cx:expr, $args:expr, $n:expr) #[this] mut $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
+		let mut $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.this())?;
+		$(unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);)?
+	};
+	(($cx:expr, $args:expr, $n:expr) #[this] $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
+		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.this())?;
+		$(unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);)?
 	};
 	// Special Case: Variable Args #[varargs]
-	(($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>, ) => {
-		let $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
-			unwrap_arg!(($cx, $n+index) $name: $type, handle)
-		}).collect::<IonResult<_>>()?;
-	};
-	// Special Case: Mutable Variable Args #[varargs]
-	(($cx:expr, $args:expr, $n:expr) #[varargs] mut $name:ident : Vec<$type:ty>, ) => {
+	(($cx:expr, $args:expr, $n:expr) #[varargs] mut $name:ident : Vec<$type:ty>) => {
 		let mut $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
 			unwrap_arg!(($cx, $n + index) $name: $type, handle)
 		}).collect::<IonResult<_>>()?;
 	};
-	// Special Case: IonContext
-	(($cx:expr, $args:expr, $n:expr) $name:ident : IonContext, $($fn_args:tt)*) => {
-		let $name = $cx;
-		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
-	};
-	// Special Case: Arguments
-	(($cx:expr, $args:expr, $n:expr) $name:ident : Arguments, $($fn_args:tt)*) => {
-		let $name = $args;
-		unpack_unwrap_args!(($cx, $args, $n) $($fn_args)*);
+	(($cx:expr, $args:expr, $n:expr) #[varargs] $name:ident : Vec<$type:ty>) => {
+		let $name: Vec<$type> = $args.range_handles($n..($args.len() + 1)).iter().enumerate().map(|(index, handle)| {
+			unwrap_arg!(($cx, $n + index) $name: $type, handle)
+		}).collect::<IonResult<_>>()?;
 	};
 	// Special Case: Conversion Behaviour #[convert()]
-	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n), $conversion)?;
-		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
-	};
-	// Special Case: Mutable Conversion Behaviour #[convert()]
-	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] mut $name:ident : $type:ty, $($fn_args:tt)*) => {
+	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] mut $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
 		let mut $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n), $conversion)?;
-		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
+		$(unpack_unwrap_args!(($cx, $args, $n + 1) $($fn_args)*);)?
+	};
+	(($cx:expr, $args:expr, $n:expr) #[convert($conversion:expr)] $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
+		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n), $conversion)?;
+		$(unpack_unwrap_args!(($cx, $args, $n + 1) $($fn_args)*);)?
 	};
 	// Default Case
-	(($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty, $($fn_args:tt)*) => {
-		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
-		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
-	};
-	// Default Mutable Case
-	(($cx:expr, $args:expr, $n:expr) mut $name:ident : $type:ty, $($fn_args:tt)*) => {
+	(($cx:expr, $args:expr, $n:expr) mut $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
 		let mut $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
-		unpack_unwrap_args!(($cx, $args, $n+1) $($fn_args)*);
+		$(unpack_unwrap_args!(($cx, $args, $n + 1) $($fn_args)*);)?
+	};
+	(($cx:expr, $args:expr, $n:expr) $name:ident : $type:ty $(, $($fn_args:tt)*)?) => {
+		let $name: $type = unwrap_arg!(($cx, $n) $name: $type, $args.handle_or_undefined($n))?;
+		$(unpack_unwrap_args!(($cx, $args, $n + 1) $($fn_args)*);)?
 	};
 }
 

@@ -16,17 +16,17 @@ use ion::objects::object::IonObject;
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
 
-const MINIMUM_DELAY: i64 = 1;
-const MINIMUM_DELAY_NESTED: i64 = 4;
+const MINIMUM_DELAY: i32 = 1;
+const MINIMUM_DELAY_NESTED: i32 = 4;
 
-fn set_timer(callback: IonFunction, duration: Option<i64>, arguments: Vec<Value>, repeat: bool) -> IonResult<u32> {
+fn set_timer(callback: IonFunction, duration: Option<i32>, arguments: Vec<Value>, repeat: bool) -> IonResult<u32> {
 	EVENT_LOOP.with(|event_loop| {
 		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
 			let nesting = queue.nesting();
 			let minimum = if nesting > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
 
 			let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
-			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration));
+			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
 			Ok((*queue).enqueue(Macrotask::Timer(timer), None))
 		} else {
 			Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
@@ -50,12 +50,12 @@ fn clear_timer(id: Option<u32>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn setTimeout(callback: IonFunction, #[convert(Clamp)] duration: Option<i64>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
+fn setTimeout(callback: IonFunction, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
 	set_timer(callback, duration, arguments, false)
 }
 
 #[js_fn]
-fn setInterval(callback: IonFunction, #[convert(Clamp)] duration: Option<i64>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
+fn setInterval(callback: IonFunction, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
 	set_timer(callback, duration, arguments, true)
 }
 

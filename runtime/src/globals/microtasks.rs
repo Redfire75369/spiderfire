@@ -9,7 +9,8 @@ use mozjs::jsapi::JSFunctionSpec;
 use ion::error::IonError;
 use ion::functions::function::IonFunction;
 use ion::IonContext;
-use ion::objects::object::{IonObject, JSPROP_CONSTANT};
+use ion::objects::object::IonObject;
+use ion::spec::JSPROP_CONSTANT;
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::microtasks::Microtask;

@@ -13,8 +13,10 @@ use crate::IonContext;
 
 pub mod array;
 pub mod boxed;
+pub mod class;
 pub mod config;
 pub mod date;
+pub mod function;
 pub mod object;
 pub mod primitive;
 

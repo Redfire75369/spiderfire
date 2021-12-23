@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import {ok} from "assert";
+pub use function::*;
+pub use property::*;
 
-ok(false, "assert.ok");
+mod function;
+mod property;

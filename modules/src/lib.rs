@@ -16,12 +16,13 @@ use runtime::StandardModules;
 pub mod assert;
 mod fs;
 mod path;
+mod url;
 
 #[derive(Default)]
 pub struct Modules;
 
 impl StandardModules for Modules {
 	fn init(cx: IonContext, global: IonObject) -> bool {
-		unsafe { assert::init(cx, global) && fs::init(cx, global) && path::init(cx, global) }
+		unsafe { assert::init(cx, global) && fs::init(cx, global) && path::init(cx, global) && url::init(cx, global) }
 	}
 }

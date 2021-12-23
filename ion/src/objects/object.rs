@@ -14,7 +14,7 @@ use mozjs::jsapi::{
 	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
 	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer, Value,
 };
-use mozjs::jsapi::{JSITER_HIDDEN, JSITER_OWNONLY, JSITER_SYMBOLS, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY};
+use mozjs::jsapi::JSITER_OWNONLY;
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 
@@ -22,8 +22,6 @@ use crate::exception::Exception;
 use crate::functions::function::{IonFunction, IonNativeFunction};
 use crate::IonContext;
 use crate::types::values::from_value;
-
-pub const JSPROP_CONSTANT: u16 = (JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT) as u16;
 
 pub type IonRawObject = *mut JSObject;
 
@@ -164,10 +162,11 @@ impl IonObject {
 	}
 
 	/// Returns a [Vec] of the keys of the object
-	pub unsafe fn keys(&self, cx: IonContext) -> Vec<String> {
+	pub unsafe fn keys(&self, cx: IonContext, flags: Option<u32>) -> Vec<String> {
+		let flags = flags.unwrap_or(JSITER_OWNONLY);
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
-		GetPropertyKeys(cx, obj.handle().into(), JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, ids.handle_mut());
+		GetPropertyKeys(cx, obj.handle().into(), flags, ids.handle_mut());
 		ids.iter()
 			.map(|id| {
 				rooted!(in(cx) let id = *id);

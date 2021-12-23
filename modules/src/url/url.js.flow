@@ -1,0 +1,61 @@
+// @flow
+
+declare module "url" {
+	declare export type FormatOptions = {
+		auth?: boolean,
+		fragment?: boolean,
+		search?: boolean,
+	};
+
+	declare export function domainToASCII(domain: string): string;
+	declare export function domainToUnicode(domain: string): string;
+
+	declare export class URL {
+		constructor(url: string, base?: string): URL;
+
+		get href(): string;
+		set href(href: string): void;
+
+		get protocol(): string;
+		set protocol(protocol: string): void;
+
+		get host(): string | null;
+		set host(host: string): void;
+
+		get hostname(): string | null;
+		set hostname(hostname: string): void;
+
+		get port(): number | null;
+		set port(port: number): void;
+
+		get path(): string;
+		set path(path: string): void;
+
+		get username(): string;
+		set username(username: string): void;
+
+		get password(): string | null;
+		set password(password: string): void;
+
+		get search(): string | null;
+		set search(string: string): void;
+
+		get hash(): string | null;
+		set hash(hash: string): void;
+
+		get origin(): string;
+
+		toString(): string;
+		toJSON(): string;
+		format(options?: FormatOptions): string;
+	}
+
+	declare export default {
+		FormatOptions: FormatOptions,
+
+		domainToASCII: typeof domainToASCII,
+		domainToUnicode: typeof domainToUnicode,
+
+		URL: typeof URL,
+	}
+}

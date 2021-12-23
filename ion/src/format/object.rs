@@ -12,8 +12,10 @@ use mozjs::jsval::ObjectValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
+use crate::format::class::format_class_object;
 use crate::format::config::Config;
 use crate::format::date::format_date;
+use crate::format::function::format_function;
 use crate::functions::function::IonFunction;
 use crate::IonContext;
 use crate::objects::array::IonArray;
@@ -38,7 +40,8 @@ pub fn format_object(cx: IonContext, cfg: Config, value: Value) -> String {
 			Array => format_array(cx, cfg, IonArray::from(cx, object).unwrap()),
 			Object => format_object_raw(cx, cfg, IonObject::from(object)),
 			Date => format_date(cx, cfg, IonDate::from(cx, object).unwrap()),
-			Function => IonFunction::from_object(cx, object).unwrap().to_string(cx),
+			Function => format_function(cx, cfg, IonFunction::from_object(cx, object).unwrap()),
+			Other => format_class_object(cx, cfg, IonObject::from(object)),
 			_ => {
 				rooted!(in(cx) let rval = ObjectValue(object));
 				jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))
@@ -51,7 +54,7 @@ pub fn format_object_raw(cx: IonContext, cfg: Config, object: IonObject) -> Stri
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
 		unsafe {
-			let mut keys = object.keys(cx);
+			let mut keys = object.keys(cx, Some(0));
 			let length = keys.len();
 			keys.sort();
 

@@ -9,6 +9,7 @@ license = "MPL-2.0"
 chrono = "0.4.19"
 colored = "2.0.0"
 futures = { version = "0.3.17", features = ["executor"] }
+indent = "0.1.1"
 ion-proc = { path = "../ion-proc" }
 libffi = "2.0.0"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }

@@ -19,7 +19,7 @@ pub mod format;
 pub mod functions;
 pub mod objects;
 pub mod script;
-pub mod specs;
+pub mod spec;
 pub mod types;
 
 pub type IonContext = *mut JSContext;

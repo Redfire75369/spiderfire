@@ -24,9 +24,9 @@ fn assert_internal(message: Option<String>) -> IonResult<()> {
 #[js_fn]
 fn ok(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
 	if let Some(true) = assertion {
-		assert_internal(message)
-	} else {
 		Ok(())
+	} else {
+		assert_internal(message)
 	}
 }
 
@@ -36,10 +36,10 @@ unsafe fn equals(cx: IonContext, actual: Value, expected: Value, message: Option
 	rooted!(in(cx) let actual = actual);
 	rooted!(in(cx) let expected = expected);
 	if SameValue(cx, actual.handle().into(), expected.handle().into(), &mut same) {
-		if !same {
-			assert_internal(message)
-		} else {
+		if same {
 			Ok(())
+		} else {
+			assert_internal(message)
 		}
 	} else {
 		Err(IonError::None)
@@ -60,7 +60,7 @@ fn fail(message: Option<String>) -> IonResult<()> {
 	assert_internal(message)
 }
 
-const METHODS: &[JSFunctionSpec] = &[
+const FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(ok, 0),
 	function_spec!(equals, 2),
 	function_spec!(throws, 1),
@@ -75,7 +75,7 @@ const METHODS: &[JSFunctionSpec] = &[
 pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______assertInternal______";
 	rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, assert_module.handle().into(), METHODS.as_ptr()) {
+	if JS_DefineFunctions(cx, assert_module.handle().into(), FUNCTIONS.as_ptr()) {
 		if global.define_as(cx, internal_key, assert_module.get(), 0) {
 			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
 			return module.register("assert");

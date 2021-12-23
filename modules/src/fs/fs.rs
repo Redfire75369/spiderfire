@@ -380,7 +380,7 @@ fn hardLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
 	}
 }
 
-const SYNC_METHODS: &[JSFunctionSpec] = &[
+const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(readBinarySync, "readBinary", 1),
 	function_spec!(readStringSync, "readString", 1),
 	function_spec!(readDirSync, "readDir", 1),
@@ -397,7 +397,7 @@ const SYNC_METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-const ASYNC_METHODS: &[JSFunctionSpec] = &[
+const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(readBinary, 1),
 	function_spec!(readString, 1),
 	function_spec!(readDir, 1),
@@ -422,8 +422,8 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______fsInternal______";
 	rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
 	rooted!(in(cx) let sync = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, fs_module.handle().into(), ASYNC_METHODS.as_ptr())
-		&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_METHODS.as_ptr())
+	if JS_DefineFunctions(cx, fs_module.handle().into(), ASYNC_FUNCTIONS.as_ptr())
+		&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
 	{
 		if IonObject::from(fs_module.get()).define_as(cx, "sync", sync.get(), 0) && global.define_as(cx, internal_key, fs_module.get(), 0) {
 			let module = IonModule::compile(cx, "fs", None, FS_SOURCE).unwrap();

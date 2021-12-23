@@ -10,7 +10,8 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
-use ion::objects::object::{IonObject, JSPROP_CONSTANT};
+use ion::objects::object::IonObject;
+use ion::spec::JSPROP_CONSTANT;
 use runtime::modules::IonModule;
 
 const PATH_SOURCE: &str = include_str!("path.js");
@@ -107,7 +108,7 @@ fn endsWith(path: String, prefix: String) -> IonResult<bool> {
 	Ok(Path::new(&path).ends_with(&prefix))
 }
 
-const METHODS: &[JSFunctionSpec] = &[
+const FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(join, 0),
 	function_spec!(stripPrefix, 2),
 	function_spec!(fileStem, 1),
@@ -131,7 +132,7 @@ const METHODS: &[JSFunctionSpec] = &[
 pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______pathInternal______";
 	rooted!(in(cx) let path_module = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, path_module.handle().into(), METHODS.as_ptr()) {
+	if JS_DefineFunctions(cx, path_module.handle().into(), FUNCTIONS.as_ptr()) {
 		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), JSPROP_CONSTANT as u32)
 			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), JSPROP_CONSTANT as u32)
 		{
