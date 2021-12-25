@@ -7,10 +7,10 @@
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::error::IonError;
+use ion::flags::PropertyFlags;
 use ion::functions::function::IonFunction;
 use ion::IonContext;
 use ion::objects::object::IonObject;
-use ion::spec::JSPROP_CONSTANT;
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::microtasks::Microtask;
@@ -30,5 +30,10 @@ fn queueMicrotask(cx: IonContext, callback: IonFunction) -> IonResult<()> {
 const FUNCTION: JSFunctionSpec = function_spec!(queueMicrotask, 0);
 
 pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
-	global.define_as(cx, "queueMicrotask", IonFunction::from_spec(cx, &FUNCTION), JSPROP_CONSTANT as u32)
+	global.define_as(
+		cx,
+		"queueMicrotask",
+		IonFunction::from_spec(cx, &FUNCTION),
+		PropertyFlags::CONSTANT_ENUMERATED,
+	)
 }

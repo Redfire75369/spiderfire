@@ -14,11 +14,11 @@ use mozjs::jsapi::{
 	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
 	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer, Value,
 };
-use mozjs::jsapi::JSITER_OWNONLY;
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 
 use crate::exception::Exception;
+use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::functions::function::{IonFunction, IonNativeFunction};
 use crate::IonContext;
 use crate::types::values::from_value;
@@ -126,14 +126,20 @@ impl IonObject {
 	}
 
 	/// Defines the value with the given key with the given attributes.
-	pub unsafe fn define(&mut self, cx: IonContext, key: &str, value: Value, attrs: u32) -> bool {
+	pub unsafe fn define(&mut self, cx: IonContext, key: &str, value: Value, attrs: PropertyFlags) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		rooted!(in(cx) let rval = value);
-		JS_DefineProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into(), attrs)
+		JS_DefineProperty(
+			cx,
+			obj.handle().into(),
+			key.as_ptr() as *const i8,
+			rval.handle().into(),
+			attrs.bits() as u32,
+		)
 	}
 
-	pub unsafe fn define_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: &str, value: T, attrs: u32) -> bool {
+	pub unsafe fn define_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: &str, value: T, attrs: PropertyFlags) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut val = UndefinedValue());
 		value.to_jsval(cx, val.handle_mut());
@@ -141,7 +147,7 @@ impl IonObject {
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes.
-	pub unsafe fn define_method(&mut self, cx: IonContext, name: &str, method: IonNativeFunction, nargs: u32, attrs: u32) -> IonFunction {
+	pub unsafe fn define_method(&mut self, cx: IonContext, name: &str, method: IonNativeFunction, nargs: u32, attrs: PropertyFlags) -> IonFunction {
 		let name = format!("{}\0", name);
 		rooted!(in(cx) let mut obj = self.obj);
 		IonFunction::from(JS_DefineFunction(
@@ -150,7 +156,7 @@ impl IonObject {
 			name.as_ptr() as *const i8,
 			Some(method),
 			nargs,
-			attrs,
+			attrs.bits() as u32,
 		))
 	}
 
@@ -162,11 +168,11 @@ impl IonObject {
 	}
 
 	/// Returns a [Vec] of the keys of the object
-	pub unsafe fn keys(&self, cx: IonContext, flags: Option<u32>) -> Vec<String> {
-		let flags = flags.unwrap_or(JSITER_OWNONLY);
+	pub unsafe fn keys(&self, cx: IonContext, flags: Option<IteratorFlags>) -> Vec<String> {
+		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
-		GetPropertyKeys(cx, obj.handle().into(), flags, ids.handle_mut());
+		GetPropertyKeys(cx, obj.handle().into(), flags.bits(), ids.handle_mut());
 		ids.iter()
 			.map(|id| {
 				rooted!(in(cx) let id = *id);

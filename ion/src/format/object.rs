@@ -9,6 +9,7 @@ use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, Value};
 use mozjs::jsval::ObjectValue;
 
+use crate::flags::IteratorFlags;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
@@ -54,7 +55,7 @@ pub fn format_object_raw(cx: IonContext, cfg: Config, object: IonObject) -> Stri
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
 		unsafe {
-			let mut keys = object.keys(cx, Some(0));
+			let mut keys = object.keys(cx, Some(IteratorFlags::empty()));
 			let length = keys.len();
 			keys.sort();
 

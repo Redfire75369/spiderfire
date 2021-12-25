@@ -18,11 +18,11 @@ use mozjs::jsval::NullValue;
 use url::Url;
 
 use ion::error::IonError;
+use ion::flags::PropertyFlags;
 use ion::functions::arguments::Arguments;
 use ion::IonContext;
 use ion::objects::class_reserved_slots;
 use ion::objects::object::IonObject;
-use ion::spec::JSPROP_CONSTANT;
 use runtime::modules::IonModule;
 
 const URL_SOURCE: &str = include_str!("url.js");
@@ -302,9 +302,9 @@ static PROPERTIES: &[JSPropertySpec] = &[
 ];
 
 static METHODS: &[JSFunctionSpec] = &[
-	function_spec!(toString, "toString", 0, JSPROP_CONSTANT),
-	function_spec!(toJSON, "toJSON", 0, JSPROP_CONSTANT),
-	function_spec!(format, "format", 0, JSPROP_CONSTANT),
+	function_spec!(toString, "toString", 0, PropertyFlags::CONSTANT),
+	function_spec!(toJSON, "toJSON", 0, PropertyFlags::CONSTANT),
+	function_spec!(format, "format", 0, PropertyFlags::CONSTANT),
 	JSFunctionSpec::ZERO,
 ];
 
@@ -336,7 +336,7 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 			ptr::null_mut(),
 		);
 
-		if !class.is_null() && global.define_as(cx, internal_key, url_module.get(), 0) {
+		if !class.is_null() && global.define_as(cx, internal_key, url_module.get(), PropertyFlags::CONSTANT) {
 			let module = IonModule::compile(cx, "url", None, URL_SOURCE).unwrap();
 			return module.register("url");
 		}

@@ -14,6 +14,7 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::error::IonError;
+use ion::flags::PropertyFlags;
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
 use runtime::modules::IonModule;
@@ -425,7 +426,9 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	if JS_DefineFunctions(cx, fs_module.handle().into(), ASYNC_FUNCTIONS.as_ptr())
 		&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
 	{
-		if IonObject::from(fs_module.get()).define_as(cx, "sync", sync.get(), 0) && global.define_as(cx, internal_key, fs_module.get(), 0) {
+		if IonObject::from(fs_module.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
+			&& global.define_as(cx, internal_key, fs_module.get(), PropertyFlags::CONSTANT)
+		{
 			let module = IonModule::compile(cx, "fs", None, FS_SOURCE).unwrap();
 			return module.register("fs");
 		}

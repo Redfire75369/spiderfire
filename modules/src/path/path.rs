@@ -10,8 +10,8 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
+use ion::flags::PropertyFlags;
 use ion::objects::object::IonObject;
-use ion::spec::JSPROP_CONSTANT;
 use runtime::modules::IonModule;
 
 const PATH_SOURCE: &str = include_str!("path.js");
@@ -133,10 +133,10 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______pathInternal______";
 	rooted!(in(cx) let path_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, path_module.handle().into(), FUNCTIONS.as_ptr()) {
-		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), JSPROP_CONSTANT as u32)
-			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), JSPROP_CONSTANT as u32)
+		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
+			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			if global.define_as(cx, internal_key, path_module.get(), 0) {
+			if global.define_as(cx, internal_key, path_module.get(), PropertyFlags::CONSTANT) {
 				let module = IonModule::compile(cx, "path", None, PATH_SOURCE).unwrap();
 				return module.register("path");
 			}

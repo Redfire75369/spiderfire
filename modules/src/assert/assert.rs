@@ -8,6 +8,7 @@ use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, J
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
+use ion::flags::PropertyFlags;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
 use runtime::modules::IonModule;
@@ -76,7 +77,7 @@ pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
 	let internal_key = "______assertInternal______";
 	rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
 	if JS_DefineFunctions(cx, assert_module.handle().into(), FUNCTIONS.as_ptr()) {
-		if global.define_as(cx, internal_key, assert_module.get(), 0) {
+		if global.define_as(cx, internal_key, assert_module.get(), PropertyFlags::CONSTANT) {
 			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
 			return module.register("assert");
 		}

@@ -8,13 +8,15 @@ use std::ptr;
 
 use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 
+use crate::flags::PropertyFlags;
+
 /// Creates a function spec with the given native function, number of arguments and flags.
-pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: u16) -> JSFunctionSpec {
+pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
 		call: func,
 		nargs,
-		flags,
+		flags: flags.bits(),
 		selfHostedName: ptr::null_mut(),
 	}
 }
@@ -33,7 +35,7 @@ macro_rules! function_spec {
 		)
 	};
 	($function:expr, $name:expr, $nargs:expr) => {
-		function_spec!($function, $name, $nargs, $crate::spec::JSPROP_CONSTANT_ENUMERATED)
+		function_spec!($function, $name, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
 	};
 	($function:expr, $nargs:expr) => {
 		function_spec!($function, ::std::stringify!($function), $nargs)

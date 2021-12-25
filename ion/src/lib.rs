@@ -5,6 +5,8 @@
  */
 
 #[macro_use]
+extern crate bitflags;
+#[macro_use]
 extern crate mozjs;
 
 use mozjs::jsapi::JSContext;
@@ -15,6 +17,7 @@ use crate::error::IonError;
 
 pub mod error;
 pub mod exception;
+pub mod flags;
 pub mod format;
 pub mod functions;
 pub mod objects;

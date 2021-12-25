@@ -5,18 +5,18 @@
  */
 
 use mozjs::jsapi::{
-	JSNativeWrapper, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue,
-	JSPropertySpec_AccessorsOrValue_Accessors, JSPropertySpec_Name, JSPropertySpec_ValueWrapper, JSPropertySpec_ValueWrapper__bindgen_ty_1,
-	JSPropertySpec_ValueWrapper_Type,
+	JSNativeWrapper, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue, JSPropertySpec_AccessorsOrValue_Accessors,
+	JSPropertySpec_Name, JSPropertySpec_ValueWrapper, JSPropertySpec_ValueWrapper__bindgen_ty_1, JSPropertySpec_ValueWrapper_Type,
 };
 
-pub const JSPROP_CONSTANT: u16 = (JSPROP_READONLY | JSPROP_PERMANENT) as u16;
-pub const JSPROP_CONSTANT_ENUMERATED: u16 = (JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT) as u16;
+use crate::flags::PropertyFlags;
 
-pub const fn create_property_spec_accessor(name: &'static str, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: u8) -> JSPropertySpec {
+pub const fn create_property_spec_accessor(
+	name: &'static str, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
+) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
-		attributes_: attrs,
+		attributes_: attrs.bits() as u8,
 		isAccessor_: true,
 		u: JSPropertySpec_AccessorsOrValue {
 			accessors: JSPropertySpec_AccessorsOrValue_Accessors {
@@ -27,10 +27,10 @@ pub const fn create_property_spec_accessor(name: &'static str, getter: JSNativeW
 	}
 }
 
-pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: u8) -> JSPropertySpec {
+pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
-		attributes_: attrs,
+		attributes_: attrs.bits() as u8,
 		isAccessor_: false,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
@@ -41,10 +41,10 @@ pub const fn create_property_spec_string(name: &'static str, string: &'static st
 	}
 }
 
-pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: u8) -> JSPropertySpec {
+pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
-		attributes_: attrs,
+		attributes_: attrs.bits() as u8,
 		isAccessor_: false,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
@@ -55,10 +55,10 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: u8) -
 	}
 }
 
-pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: u8) -> JSPropertySpec {
+pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
-		attributes_: attrs,
+		attributes_: attrs.bits() as u8,
 		isAccessor_: false,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
@@ -75,7 +75,7 @@ macro_rules! property_spec_getter {
 		property_spec_getter!($getter, ::std::stringify!($getter))
 	};
 	($getter:expr, $name:expr) => {
-		property_spec_getter!($getter, $name, ::mozjs::jsapi::JSPROP_ENUMERATE)
+		property_spec_getter!($getter, $name, $crate::flags::PropertyFlags::ENUMERATE)
 	};
 	($getter:expr, $name:expr, $attrs:expr) => {
 		$crate::spec::create_property_spec_accessor(
@@ -96,7 +96,7 @@ macro_rules! property_spec_setter {
 		property_spec_setter!($setter, ::std::stringify!($setter))
 	};
 	($setter:expr, $name:expr) => {
-		property_spec_setter!($setter, $name, ::mozjs::jsapi::JSPROP_ENUMERATE)
+		property_spec_setter!($setter, $name, $crate::flags::PropertyFlags::ENUMERATE)
 	};
 	($setter:expr, $name:expr, $attrs:expr) => {
 		$crate::spec::create_property_spec_accessor(
@@ -128,7 +128,7 @@ macro_rules! property_spec_getter_setter {
 		)
 	};
 	($getter:expr, $setter:expr, $name:expr) => {
-		property_spec_getter_setter!($getter, $setter, $name, ::mozjs::jsapi::JSPROP_ENUMERATE)
+		property_spec_getter_setter!($getter, $setter, $name, $crate::flags::PropertyFlags::ENUMERATE)
 	};
 	($getter:expr, $setter:expr) => {
 		property_spec_getter_setter!($getter, $setter, ::std::stringify!($getter))

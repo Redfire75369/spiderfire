@@ -12,6 +12,7 @@ use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackF
 use mozjs::jsval::ObjectValue;
 
 use ion::{IonContext, IonResult};
+use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::primitive::format_primitive;
 use ion::objects::object::IonObject;
@@ -353,5 +354,6 @@ const METHODS: &[JSFunctionSpec] = &[
 
 pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
 	rooted!(in(cx) let console = JS_NewPlainObject(cx));
-	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr()) && global.define(cx, "console", ObjectValue(console.get()), 0);
+	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
+		&& global.define(cx, "console", ObjectValue(console.get()), PropertyFlags::CONSTANT_ENUMERATED);
 }
