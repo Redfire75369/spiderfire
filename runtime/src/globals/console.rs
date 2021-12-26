@@ -8,14 +8,20 @@ use std::cell::RefCell;
 use std::collections::hash_map::{Entry, HashMap};
 
 use chrono::{DateTime, offset::Utc};
+use indent::indent_all_by;
+use indexmap::IndexSet;
 use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
 use mozjs::jsval::ObjectValue;
+use term_table::{Table, TableStyle};
+use term_table::row::Row;
+use term_table::table_cell::{Alignment, TableCell};
 
 use ion::{IonContext, IonResult};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
+use ion::format::config::FormatConfig;
 use ion::format::primitive::format_primitive;
-use ion::objects::object::IonObject;
+use ion::objects::object::{IonObject, Key};
 
 use crate::config::{Config, LogLevel};
 
@@ -49,7 +55,7 @@ fn print_args(cx: IonContext, args: Vec<Value>, stderr: bool) {
 	let indents = get_indents();
 	for i in 0..args.len() {
 		let value = args[i];
-		let string = &format_value(cx, ion::format::config::Config::default().indentation(indents), value);
+		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
 		if !stderr {
 			print!("{} ", string);
 		} else {
@@ -127,10 +133,7 @@ fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>
 
 			if values[0].is_string() {
 				print_indent(true);
-				eprint!(
-					"Assertion Failed: {} ",
-					format_primitive(cx, ion::format::config::Config::default(), values[0])
-				);
+				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), values[0]));
 				print_args(cx, values[2..].to_vec(), true);
 				eprintln!();
 				return Ok(());
@@ -329,7 +332,119 @@ fn timeEnd(label: Option<String>) -> IonResult<()> {
 	Ok(())
 }
 
-// TODO: Create console.table
+#[js_fn]
+unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> IonResult<()> {
+	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
+		let mut indexes = IndexSet::<i32>::new();
+		let mut headers = IndexSet::<String>::new();
+
+		for key in unsorted.into_iter() {
+			match key {
+				Key::Int(index) => indexes.insert(index),
+				Key::String(header) => headers.insert(header),
+				_ => false,
+			};
+		}
+
+		combine_keys(indexes, headers)
+	}
+
+	fn combine_keys(indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<Key> {
+		let mut indexes: Vec<i32> = indexes.into_iter().collect();
+		indexes.sort();
+
+		let mut keys: IndexSet<Key> = indexes.into_iter().map(|index| Key::Int(index)).collect();
+		keys.extend(headers.into_iter().map(|header| Key::String(header)));
+		keys
+	}
+
+	let indents = get_indents();
+	if let Some(object) = IonObject::from_value(data) {
+		let (rows, columns, has_values) = if let Some(columns) = columns {
+			let rows = object.keys(cx, None);
+			let mut keys = IndexSet::<Key>::new();
+
+			for column in columns.into_iter() {
+				let key = match column.parse::<i32>() {
+					Ok(int) => Key::Int(int),
+					Err(_) => Key::String(column),
+				};
+				keys.insert(key);
+			}
+
+			(sort_keys(rows), sort_keys(keys.into_iter().collect()), false)
+		} else {
+			let rows = object.keys(cx, None);
+			let mut keys = IndexSet::<Key>::new();
+			let mut has_values = false;
+
+			for row in rows.iter() {
+				let value = object.get(cx, &row.to_string()).unwrap();
+				if let Some(object) = IonObject::from_value(value) {
+					let obj_keys = object.keys(cx, None);
+					keys.extend(obj_keys);
+				} else {
+					has_values = true;
+				}
+			}
+
+			(sort_keys(rows), sort_keys(keys.into_iter().collect()), has_values)
+		};
+
+		let mut table = Table::new();
+		table.style = TableStyle::thin();
+
+		let mut header_row = vec![TableCell::new_with_alignment("Indices", 1, Alignment::Center)];
+		let mut headers = columns
+			.iter()
+			.map(|column| TableCell::new_with_alignment(column, 1, Alignment::Center))
+			.collect();
+		header_row.append(&mut headers);
+		if has_values {
+			header_row.push(TableCell::new_with_alignment("Values", 1, Alignment::Center));
+		}
+		table.add_row(Row::new(header_row));
+
+		for row in rows.iter() {
+			let value = object.get(cx, &row.to_string()).unwrap();
+			let mut table_row = vec![TableCell::new_with_alignment(row.to_string(), 1, Alignment::Center)];
+
+			if let Some(object) = IonObject::from_value(value) {
+				for column in columns.iter() {
+					if let Some(value) = object.get(cx, &column.to_string()) {
+						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), value);
+						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))
+					} else {
+						table_row.push(TableCell::new(""))
+					}
+				}
+				if has_values {
+					table_row.push(TableCell::new(""));
+				}
+			} else {
+				for _ in columns.iter() {
+					table_row.push(TableCell::new(""))
+				}
+				if has_values {
+					let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), value);
+					table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center));
+				}
+			}
+
+			table.add_row(Row::new(table_row));
+		}
+
+		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
+	} else {
+		if Config::global().log_level >= LogLevel::Info {
+			print_indent(true);
+			println!("{}", format_value(cx, FormatConfig::default().indentation(indents), data));
+		}
+	}
+
+	Ok(())
+}
+
 const METHODS: &[JSFunctionSpec] = &[
 	function_spec!(log, 0),
 	function_spec!(log, "info", 0),
@@ -349,6 +464,7 @@ const METHODS: &[JSFunctionSpec] = &[
 	function_spec!(time, 1),
 	function_spec!(timeLog, 1),
 	function_spec!(timeEnd, 1),
+	function_spec!(table, 1),
 	JSFunctionSpec::ZERO,
 ];
 

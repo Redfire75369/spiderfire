@@ -51,8 +51,8 @@ impl IonPromise {
 		unsafe {
 			let mut native = |cx: IonContext, argc: u32, vp: *mut Value| {
 				let args = Arguments::new(argc, vp);
-				let resolve = IonFunction::from_value(cx, args.value_or_undefined(0));
-				let reject = IonFunction::from_value(cx, args.value_or_undefined(1));
+				let resolve = IonFunction::from_value(args.value_or_undefined(0));
+				let reject = IonFunction::from_value(args.value_or_undefined(1));
 				if resolve.is_some() && reject.is_some() {
 					match executor(cx, resolve.unwrap(), reject.unwrap()) {
 						Ok(()) => true as u8,
@@ -119,7 +119,6 @@ impl IonPromise {
 		if IonPromise::is_promise_raw(cx, obj) {
 			Some(IonPromise { obj })
 		} else {
-			throw_type_error(cx, "Object cannot be converted to Promise");
 			None
 		}
 	}

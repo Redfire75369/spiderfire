@@ -44,7 +44,6 @@ impl IonDate {
 		if IonDate::is_date_raw(cx, obj) {
 			Some(IonDate { obj })
 		} else {
-			throw_type_error(cx, "Object cannot be converted to Date");
 			None
 		}
 	}

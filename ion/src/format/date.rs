@@ -6,12 +6,12 @@
 
 use colored::Colorize;
 
-use crate::format::config::Config;
+use crate::format::config::FormatConfig;
 use crate::IonContext;
 use crate::objects::date::IonDate;
 
 /// Formats an [IonDate] to a [String] using the given configuration options
-pub fn format_date(cx: IonContext, cfg: Config, date: IonDate) -> String {
+pub fn format_date(cx: IonContext, cfg: FormatConfig, date: IonDate) -> String {
 	unsafe {
 		if let Some(date) = date.to_date(cx) {
 			date.to_string().color(cfg.colors.date).to_string()

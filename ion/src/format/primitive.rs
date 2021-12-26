@@ -8,12 +8,12 @@ use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::Value;
 
-use crate::format::config::Config;
+use crate::format::config::FormatConfig;
 use crate::IonContext;
 
 /// Formats a primitive values to a [String] using the given configuration options
 /// Supported types are `boolean`, `number`, `string`, `null` and `undefined`
-pub fn format_primitive(cx: IonContext, cfg: Config, value: Value) -> String {
+pub fn format_primitive(cx: IonContext, cfg: FormatConfig, value: Value) -> String {
 	let colors = cfg.colors;
 
 	if value.is_boolean() {

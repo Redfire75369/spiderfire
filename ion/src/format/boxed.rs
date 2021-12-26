@@ -6,14 +6,14 @@
 
 use mozjs::jsapi::{ESClass, Unbox};
 
-use crate::format::config::Config;
+use crate::format::config::FormatConfig;
 use crate::format::primitive::format_primitive;
 use crate::IonContext;
 use crate::objects::object::{IonObject, IonRawObject};
 
 /// Formats a boxed object to a [String] using the given configuration options
 /// Supported types are `Boolean`, `Number`, `String` and `BigInt`
-pub fn format_boxed(cx: IonContext, cfg: Config, object: IonRawObject, class: ESClass) -> String {
+pub fn format_boxed(cx: IonContext, cfg: FormatConfig, object: IonRawObject, class: ESClass) -> String {
 	rooted!(in(cx) let robj = object);
 	rooted!(in(cx) let mut unboxed = IonObject::new(cx).to_value());
 

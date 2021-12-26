@@ -6,7 +6,7 @@
 
 use mozjs::jsapi::Value;
 
-use crate::format::config::Config;
+use crate::format::config::FormatConfig;
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
 use crate::IonContext;
@@ -24,7 +24,7 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 /// Formats a [Value] to a [String] using the given configuration options
-pub fn format_value(cx: IonContext, cfg: Config, value: Value) -> String {
+pub fn format_value(cx: IonContext, cfg: FormatConfig, value: Value) -> String {
 	if !value.is_object() {
 		format_primitive(cx, cfg, value)
 	} else {

@@ -51,11 +51,10 @@ impl IonFunction {
 	/// Creates a new [IonFunction] from an [IonRawObject].
 	///
 	/// Returns [None] if the object is not a function.
-	pub unsafe fn from_object(cx: IonContext, obj: IonRawObject) -> Option<IonFunction> {
+	pub unsafe fn from_object(obj: IonRawObject) -> Option<IonFunction> {
 		if IonFunction::is_function_raw(obj) {
 			Some(IonFunction { fun: JS_GetObjectFunction(obj) })
 		} else {
-			throw_type_error(cx, "Object cannot be converted to Function");
 			None
 		}
 	}
@@ -63,9 +62,9 @@ impl IonFunction {
 	/// Creates a new [IonFunction] from an [IonRawObject].
 	///
 	/// Returns [None] if the object is not a function.
-	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonFunction> {
+	pub unsafe fn from_value(val: Value) -> Option<IonFunction> {
 		if val.is_object() {
-			IonFunction::from_object(cx, val.to_object())
+			IonFunction::from_object(val.to_object())
 		} else {
 			None
 		}
@@ -185,7 +184,7 @@ impl FromJSValConvertible for IonFunction {
 		}
 
 		AssertSameCompartment(cx, value.to_object());
-		if let Some(fun) = IonFunction::from_object(cx, value.to_object()) {
+		if let Some(fun) = IonFunction::from_object(value.to_object()) {
 			Ok(ConversionResult::Success(fun))
 		} else {
 			Err(())

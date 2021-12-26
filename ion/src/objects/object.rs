@@ -4,12 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::result::Result;
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::glue::RUST_JSID_TO_STRING;
+use mozjs::glue::{RUST_JSID_IS_INT, RUST_JSID_IS_STRING, RUST_JSID_TO_INT, RUST_JSID_TO_STRING};
 use mozjs::jsapi::{
 	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
 	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer, Value,
@@ -24,6 +25,23 @@ use crate::IonContext;
 use crate::types::values::from_value;
 
 pub type IonRawObject = *mut JSObject;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub enum Key {
+	Int(i32),
+	String(String),
+	Void,
+}
+
+impl Display for Key {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			&Key::Int(ref int) => f.write_str(&int.to_string()),
+			&Key::String(ref string) => f.write_str(string),
+			&Key::Void => panic!("Cannot convert void key into string."),
+		}
+	}
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct IonObject {
@@ -168,7 +186,7 @@ impl IonObject {
 	}
 
 	/// Returns a [Vec] of the keys of the object
-	pub unsafe fn keys(&self, cx: IonContext, flags: Option<IteratorFlags>) -> Vec<String> {
+	pub unsafe fn keys(&self, cx: IonContext, flags: Option<IteratorFlags>) -> Vec<Key> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = IdVector::new(cx);
 		rooted!(in(cx) let obj = self.obj);
@@ -176,7 +194,13 @@ impl IonObject {
 		ids.iter()
 			.map(|id| {
 				rooted!(in(cx) let id = *id);
-				jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into()))
+				if RUST_JSID_IS_INT(id.handle().into()) {
+					Key::Int(RUST_JSID_TO_INT(id.handle().into()))
+				} else if RUST_JSID_IS_STRING(id.handle().into()) {
+					Key::String(jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into())))
+				} else {
+					Key::Void
+				}
 			})
 			.collect()
 	}

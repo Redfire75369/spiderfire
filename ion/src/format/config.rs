@@ -5,27 +5,34 @@
  */
 
 use colored::Color;
+use derivative::Derivative;
 
-/// Configuration options for formatting
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Config {
+#[derive(Clone, Copy, Debug, Derivative)]
+#[derivative(Default)]
+pub struct FormatConfig {
 	pub colors: ColorConfig,
 	pub depth: u16,
 	pub indentation: u16,
+	#[derivative(Default(value = "true"))]
+	pub multiline: bool,
 	pub quoted: bool,
 }
 
-impl Config {
-	pub fn depth(self, depth: u16) -> Config {
-		Config { depth, ..self }
+impl FormatConfig {
+	pub fn depth(self, depth: u16) -> FormatConfig {
+		FormatConfig { depth, ..self }
 	}
 
-	pub fn indentation(self, indentation: u16) -> Config {
-		Config { indentation, ..self }
+	pub fn indentation(self, indentation: u16) -> FormatConfig {
+		FormatConfig { indentation, ..self }
 	}
 
-	pub fn quoted(self, quoted: bool) -> Config {
-		Config { quoted, ..self }
+	pub fn multiline(self, multiline: bool) -> FormatConfig {
+		FormatConfig { multiline, ..self }
+	}
+
+	pub fn quoted(self, quoted: bool) -> FormatConfig {
+		FormatConfig { quoted, ..self }
 	}
 }
 
@@ -57,8 +64,7 @@ impl Default for ColorConfig {
 }
 
 impl ColorConfig {
-	#[allow(dead_code)]
-	fn no_color() -> ColorConfig {
+	pub fn no_color() -> ColorConfig {
 		ColorConfig {
 			boolean: Color::White,
 			number: Color::White,

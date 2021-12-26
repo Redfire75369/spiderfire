@@ -14,7 +14,7 @@ use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
 use crate::format::class::format_class_object;
-use crate::format::config::Config;
+use crate::format::config::FormatConfig;
 use crate::format::date::format_date;
 use crate::format::function::format_function;
 use crate::functions::function::IonFunction;
@@ -24,7 +24,7 @@ use crate::objects::date::IonDate;
 use crate::objects::object::IonObject;
 
 /// Formats an object to a [String] using the given configuration options
-pub fn format_object(cx: IonContext, cfg: Config, value: Value) -> String {
+pub fn format_object(cx: IonContext, cfg: FormatConfig, value: Value) -> String {
 	assert!(value.is_object());
 	let object = value.to_object();
 	rooted!(in(cx) let robj = object);
@@ -41,7 +41,7 @@ pub fn format_object(cx: IonContext, cfg: Config, value: Value) -> String {
 			Array => format_array(cx, cfg, IonArray::from(cx, object).unwrap()),
 			Object => format_object_raw(cx, cfg, IonObject::from(object)),
 			Date => format_date(cx, cfg, IonDate::from(cx, object).unwrap()),
-			Function => format_function(cx, cfg, IonFunction::from_object(cx, object).unwrap()),
+			Function => format_function(cx, cfg, IonFunction::from_object(object).unwrap()),
 			Other => format_class_object(cx, cfg, IonObject::from(object)),
 			_ => {
 				rooted!(in(cx) let rval = ObjectValue(object));
@@ -51,27 +51,26 @@ pub fn format_object(cx: IonContext, cfg: Config, value: Value) -> String {
 	}
 }
 
-pub fn format_object_raw(cx: IonContext, cfg: Config, object: IonObject) -> String {
+pub fn format_object_raw(cx: IonContext, cfg: FormatConfig, object: IonObject) -> String {
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
 		unsafe {
-			let mut keys = object.keys(cx, Some(IteratorFlags::empty()));
+			let keys = object.keys(cx, Some(IteratorFlags::empty()));
 			let length = keys.len();
-			keys.sort();
 
 			if length == 0 {
 				"{}".color(color).to_string()
-			} else {
+			} else if cfg.multiline {
 				let mut string = format!("{{{}", NEWLINE).color(color).to_string();
 
 				let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 				let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 				for i in 0..length {
 					let key = keys[i].clone();
-					let value = object.get(cx, &key).unwrap();
+					let value = object.get(cx, &key.to_string()).unwrap();
 					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 					string.push_str(&inner_indent);
-					string.push_str(&format!("{}: {}", key.color(color), value_string));
+					string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
 
 					if i != length - 1 {
 						string.push_str(&format!(",{}", NEWLINE).color(color).to_string());
@@ -82,6 +81,29 @@ pub fn format_object_raw(cx: IonContext, cfg: Config, object: IonObject) -> Stri
 
 				string.push_str(&outer_indent);
 				string.push_str(&"}".color(color).to_string());
+				string
+			} else {
+				let mut string = "{ ".color(color).to_string();
+				let len = length.clamp(0, 3);
+				for i in 0..len {
+					let key = keys[i].clone();
+					let value = object.get(cx, &key.to_string()).unwrap();
+					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+					string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
+
+					if i != len - 1 {
+						string.push_str(&", ".color(color).to_string());
+					}
+				}
+
+				let remaining = length - len;
+				if remaining == 1 {
+					string.push_str(&", ... 1 more item ".color(color).to_string());
+				} else if remaining > 1 {
+					string.push_str(&format!(", ... {} more items ", remaining).color(color).to_string());
+				}
+				string.push_str(&"}".color(color).to_string());
+
 				string
 			}
 		}

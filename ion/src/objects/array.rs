@@ -58,7 +58,6 @@ impl IonArray {
 		if IonArray::is_array_raw(cx, obj) {
 			Some(IonArray { obj })
 		} else {
-			throw_type_error(cx, "Object cannot be converted to Array");
 			None
 		}
 	}
@@ -156,8 +155,7 @@ impl IonArray {
 	}
 
 	/// Deletes the [Value] at the given index.
-	#[allow(dead_code)]
-	unsafe fn delete(&mut self, cx: IonContext, index: u32) -> bool {
+	pub unsafe fn delete(&mut self, cx: IonContext, index: u32) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		JS_DeleteElement1(cx, robj.handle().into(), index)
 	}
