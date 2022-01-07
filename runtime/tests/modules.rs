@@ -19,7 +19,8 @@ const SCRIPT: &str = include_str!("scripts/module-import.js");
 fn modules() {
 	CONFIG.set(Config::default().log_level(LogLevel::Debug)).unwrap();
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().modules().build(engine.handle());
+	let builder = RuntimeBuilder::<()>::new().modules();
+	let rt = builder.build(engine.handle());
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
 	assert!(IonModule::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).is_ok())

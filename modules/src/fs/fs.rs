@@ -17,9 +17,7 @@ use ion::error::IonError;
 use ion::flags::PropertyFlags;
 use ion::IonContext;
 use ion::objects::object::{IonObject, IonRawObject};
-use runtime::modules::IonModule;
-
-const FS_SOURCE: &str = include_str!("fs.js");
+use runtime::modules::Module;
 
 #[js_fn]
 async unsafe fn readBinary(cx: IonContext, path_str: String) -> Result<IonRawObject, ()> {
@@ -415,23 +413,24 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-/*
- * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
- * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
- */
-pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = "______fsInternal______";
-	rooted!(in(cx) let fs_module = JS_NewPlainObject(cx));
-	rooted!(in(cx) let sync = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, fs_module.handle().into(), ASYNC_FUNCTIONS.as_ptr())
-		&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
-	{
-		if IonObject::from(fs_module.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
-			&& global.define_as(cx, internal_key, fs_module.get(), PropertyFlags::CONSTANT)
+#[derive(Default)]
+pub struct FileSystem;
+
+impl Module for FileSystem {
+	const NAME: &'static str = "fs";
+	const SOURCE: &'static str = include_str!("fs.js");
+
+	unsafe fn module(cx: IonContext) -> Option<IonObject> {
+		rooted!(in(cx) let fs = JS_NewPlainObject(cx));
+		rooted!(in(cx) let sync = JS_NewPlainObject(cx));
+
+		if JS_DefineFunctions(cx, fs.handle().into(), ASYNC_FUNCTIONS.as_ptr())
+			&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
 		{
-			let module = IonModule::compile(cx, "fs", None, FS_SOURCE).unwrap();
-			return module.register("fs");
+			if IonObject::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED) {
+				return Some(IonObject::from(fs.get()));
+			}
 		}
+		None
 	}
-	false
 }

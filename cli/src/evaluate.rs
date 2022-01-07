@@ -31,7 +31,11 @@ pub fn eval_inline(rt: &Runtime, source: &str) {
 
 pub fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().macrotask_queue().microtask_queue().build(engine.handle());
+	let rt = RuntimeBuilder::<Modules>::new()
+		.macrotask_queue()
+		.microtask_queue()
+		.standard_modules()
+		.build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
 		let result = IonScript::compile_and_evaluate(rt.cx(), &filename, &script);

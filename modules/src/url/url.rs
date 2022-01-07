@@ -23,9 +23,7 @@ use ion::functions::arguments::Arguments;
 use ion::IonContext;
 use ion::objects::class_reserved_slots;
 use ion::objects::object::IonObject;
-use runtime::modules::IonModule;
-
-const URL_SOURCE: &str = include_str!("url.js");
+use runtime::modules::Module;
 
 unsafe fn get_url(cx: IonContext, this: IonObject) -> Url {
 	let mut value = NullValue();
@@ -319,27 +317,32 @@ static URL_CLASS: JSClass = JSClass {
 
 const FUNCTIONS: &[JSFunctionSpec] = &[function_spec!(domainToASCII, 0), function_spec!(domainToUnicode, 0), JSFunctionSpec::ZERO];
 
-pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = "______urlInternal______";
-	rooted!(in(cx) let url_module = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, url_module.handle().into(), FUNCTIONS.as_ptr()) {
-		let class = JS_InitClass(
-			cx,
-			url_module.handle().into(),
-			HandleObject::null(),
-			&URL_CLASS,
-			Some(constructor),
-			1,
-			PROPERTIES.as_ptr() as *const _,
-			METHODS.as_ptr() as *const _,
-			ptr::null_mut(),
-			ptr::null_mut(),
-		);
+#[derive(Default)]
+pub struct UrlM;
 
-		if !class.is_null() && global.define_as(cx, internal_key, url_module.get(), PropertyFlags::CONSTANT) {
-			let module = IonModule::compile(cx, "url", None, URL_SOURCE).unwrap();
-			return module.register("url");
+impl Module for UrlM {
+	const NAME: &'static str = "url";
+	const SOURCE: &'static str = include_str!("url.js");
+
+	unsafe fn module(cx: IonContext) -> Option<IonObject> {
+		rooted!(in(cx) let url = JS_NewPlainObject(cx));
+		if JS_DefineFunctions(cx, url.handle().into(), FUNCTIONS.as_ptr()) {
+			let class = JS_InitClass(
+				cx,
+				url.handle().into(),
+				HandleObject::null(),
+				&URL_CLASS,
+				Some(constructor),
+				1,
+				PROPERTIES.as_ptr() as *const _,
+				METHODS.as_ptr() as *const _,
+				ptr::null_mut(),
+				ptr::null_mut(),
+			);
+			if !class.is_null() {
+				return Some(IonObject::from(url.get()));
+			}
 		}
+		None
 	}
-	false
 }

@@ -18,6 +18,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs_sys::jsapi::JS::GetPromiseResult;
 
 use crate::{IonContext, IonResult};
 use crate::functions::arguments::Arguments;
@@ -143,6 +144,11 @@ impl IonPromise {
 	pub unsafe fn get_state(&self, cx: IonContext) -> PromiseState {
 		rooted!(in(cx) let robj = self.obj);
 		GetPromiseState(robj.handle().into())
+	}
+
+	pub unsafe fn result(&self, cx: IonContext) -> Value {
+		rooted!(in(cx) let robj = self.obj);
+		GetPromiseResult(robj.handle().into())
 	}
 
 	pub unsafe fn add_reactions(&mut self, cx: IonContext, on_fulfilled: Option<IonFunction>, on_rejected: Option<IonFunction>) -> bool {

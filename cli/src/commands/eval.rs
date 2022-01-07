@@ -6,12 +6,17 @@
 
 use mozjs::rust::JSEngine;
 
+use modules::Modules;
 use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
 pub fn eval_source(source: &str) {
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().microtask_queue().build(engine.handle());
+	let rt = RuntimeBuilder::<Modules>::new()
+		.microtask_queue()
+		.macrotask_queue()
+		.standard_modules()
+		.build(engine.handle());
 	eval_inline(&rt, source);
 }

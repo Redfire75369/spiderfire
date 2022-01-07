@@ -17,11 +17,7 @@ use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::macrotasks::init_macrotask_queue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
-use crate::modules::init_module_loaders;
-
-pub trait StandardModules {
-	fn init(cx: IonContext, global: IonObject) -> bool;
-}
+use crate::modules::{init_module_loaders, StandardModules};
 
 pub struct Runtime {
 	cx: IonContext,
@@ -55,27 +51,32 @@ pub struct RuntimeBuilder<T: Default> {
 	_modules: PhantomData<T>,
 }
 
-impl<T: Default> RuntimeBuilder<T> {
-	pub fn new() -> RuntimeBuilder<T> {
+impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
+	pub fn new() -> RuntimeBuilder<Std> {
 		RuntimeBuilder::default()
 	}
 
-	pub fn macrotask_queue(&mut self) -> &mut RuntimeBuilder<T> {
+	pub fn macrotask_queue(mut self) -> RuntimeBuilder<Std> {
 		self.macrotask_queue = true;
 		self
 	}
 
-	pub fn microtask_queue(&mut self) -> &mut RuntimeBuilder<T> {
+	pub fn microtask_queue(mut self) -> RuntimeBuilder<Std> {
 		self.microtask_queue = true;
 		self
 	}
 
-	pub fn modules(&mut self) -> &mut RuntimeBuilder<T> {
+	pub fn modules(mut self) -> RuntimeBuilder<Std> {
 		self.modules = true;
 		self
 	}
 
-	fn build_internal(&mut self, engine: JSEngineHandle) -> Runtime {
+	pub fn standard_modules(mut self) -> RuntimeBuilder<Std> {
+		self.standard_modules = true;
+		self
+	}
+
+	pub fn build(self, engine: JSEngineHandle) -> Runtime {
 		let runtime = RustRuntime::new(engine);
 		let cx = runtime.cx();
 		let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
@@ -83,7 +84,7 @@ impl<T: Default> RuntimeBuilder<T> {
 
 		let global = unsafe { JS_NewGlobalObject(cx, &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 		let realm = JSAutoRealm::new(cx, global);
-		let global = IonObject::from(global);
+		let mut global = IonObject::from(global);
 
 		init_globals(cx, global);
 
@@ -100,27 +101,14 @@ impl<T: Default> RuntimeBuilder<T> {
 			init_module_loaders(cx);
 		}
 
-		Runtime { cx, rt: runtime, global, realm }
-	}
-}
-
-impl RuntimeBuilder<()> {
-	pub fn build(&mut self, engine: JSEngineHandle) -> Runtime {
-		self.build_internal(engine)
-	}
-}
-
-impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
-	pub fn standard_modules(&mut self) -> &mut RuntimeBuilder<Std> {
-		self.standard_modules = self.modules;
-		self
-	}
-
-	pub fn build(&mut self, engine: JSEngineHandle) -> Runtime {
-		let rt = self.build_internal(engine);
 		if self.standard_modules {
-			Std::init(rt.cx(), rt.global());
+			if self.modules {
+				Std::init(cx, &mut global);
+			} else {
+				Std::init_globals(cx, &mut global);
+			}
 		}
-		rt
+
+		Runtime { cx, rt: runtime, global, realm }
 	}
 }

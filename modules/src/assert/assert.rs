@@ -8,12 +8,9 @@ use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, J
 
 use ion::{IonContext, IonResult};
 use ion::error::IonError;
-use ion::flags::PropertyFlags;
 use ion::functions::function::IonFunction;
 use ion::objects::object::IonObject;
-use runtime::modules::IonModule;
-
-const ASSERT_SOURCE: &str = include_str!("assert.js");
+use runtime::modules::Module;
 
 fn assert_internal(message: Option<String>) -> IonResult<()> {
 	Err(IonError::Error(match message {
@@ -69,18 +66,19 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-/*
- * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
- * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
- */
-pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = "______assertInternal______";
-	rooted!(in(cx) let assert_module = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, assert_module.handle().into(), FUNCTIONS.as_ptr()) {
-		if global.define_as(cx, internal_key, assert_module.get(), PropertyFlags::CONSTANT) {
-			let module = IonModule::compile(cx, "assert", None, ASSERT_SOURCE).unwrap();
-			return module.register("assert");
+#[derive(Default)]
+pub struct Assert;
+
+impl Module for Assert {
+	const NAME: &'static str = "assert";
+	const SOURCE: &'static str = include_str!("assert.js");
+
+	unsafe fn module(cx: IonContext) -> Option<IonObject> {
+		rooted!(in(cx) let assert = JS_NewPlainObject(cx));
+		if JS_DefineFunctions(cx, assert.handle().into(), FUNCTIONS.as_ptr()) {
+			Some(IonObject::from(assert.get()))
+		} else {
+			None
 		}
 	}
-	false
 }

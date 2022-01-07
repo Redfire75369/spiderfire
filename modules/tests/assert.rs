@@ -8,10 +8,8 @@ use std::path::Path;
 
 use mozjs::rust::JSEngine;
 
-use ion::IonContext;
-use ion::objects::object::IonObject;
-use modules::assert;
-use runtime::{Runtime, RuntimeBuilder, StandardModules};
+use modules::Assert;
+use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::modules::IonModule;
 
@@ -20,20 +18,11 @@ const EQUALS: (&str, &str) = ("equals", include_str!("scripts/assert/equals.js")
 const THROWS: (&str, &str) = ("throws", include_str!("scripts/assert/throws.js"));
 const FAIL: (&str, &str) = ("fail", include_str!("scripts/assert/fail.js"));
 
-#[derive(Default)]
-struct AssertModule;
-
-impl StandardModules for AssertModule {
-	fn init(cx: IonContext, global: IonObject) -> bool {
-		unsafe { assert::init(cx, global) }
-	}
-}
-
 #[test]
 fn assert() {
 	CONFIG.set(Config::default().log_level(LogLevel::Debug)).unwrap();
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<AssertModule>::new().modules().standard_modules().build(engine.handle());
+	let rt = RuntimeBuilder::<Assert>::new().modules().standard_modules().build(engine.handle());
 
 	eval_module(&rt, OK);
 	eval_module(&rt, EQUALS);

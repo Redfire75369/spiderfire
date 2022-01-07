@@ -12,9 +12,7 @@ use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::flags::PropertyFlags;
 use ion::objects::object::IonObject;
-use runtime::modules::IonModule;
-
-const PATH_SOURCE: &str = include_str!("path.js");
+use runtime::modules::Module;
 
 #[cfg(windows)]
 const SEPARATOR: &str = "\\";
@@ -125,22 +123,22 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-/*
- * TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
- * TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
- */
-pub unsafe fn init(cx: IonContext, mut global: IonObject) -> bool {
-	let internal_key = "______pathInternal______";
-	rooted!(in(cx) let path_module = JS_NewPlainObject(cx));
-	if JS_DefineFunctions(cx, path_module.handle().into(), FUNCTIONS.as_ptr()) {
-		if IonObject::from(path_module.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
-			&& IonObject::from(path_module.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
-		{
-			if global.define_as(cx, internal_key, path_module.get(), PropertyFlags::CONSTANT) {
-				let module = IonModule::compile(cx, "path", None, PATH_SOURCE).unwrap();
-				return module.register("path");
+#[derive(Default)]
+pub struct PathM;
+
+impl Module for PathM {
+	const NAME: &'static str = "path";
+	const SOURCE: &'static str = include_str!("path.js");
+
+	unsafe fn module(cx: IonContext) -> Option<IonObject> {
+		rooted!(in(cx) let path = JS_NewPlainObject(cx));
+		if JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr()) {
+			if IonObject::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
+				&& IonObject::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
+			{
+				return Some(IonObject::from(path.get()));
 			}
 		}
+		None
 	}
-	false
 }

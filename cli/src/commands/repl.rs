@@ -9,13 +9,18 @@ use rustyline::{Config, Editor};
 use rustyline::config::Builder;
 use rustyline::error::ReadlineError;
 
+use modules::Modules;
 use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
 pub fn start_repl() {
 	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().macrotask_queue().microtask_queue().build(engine.handle());
+	let rt = RuntimeBuilder::<Modules>::new()
+		.macrotask_queue()
+		.microtask_queue()
+		.standard_modules()
+		.build(engine.handle());
 
 	let mut repl = Editor::<()>::with_config(rustyline_config());
 	let mut terminate: u8 = 0;
@@ -66,13 +71,17 @@ pub fn start_repl() {
 			}
 		}
 
-		if input == "exit" || terminate > 1 {
+		if input == "exit" {
 			break;
 		}
 
 		if !input.is_empty() {
 			terminate = 0;
 			eval_inline(&rt, &input);
+		}
+
+		if terminate > 1 {
+			break;
 		}
 	}
 }
