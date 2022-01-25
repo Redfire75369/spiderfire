@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use structopt::StructOpt;
+use clap::Parser;
 
 use runtime::config::{Config, CONFIG, LogLevel};
 
@@ -14,42 +14,42 @@ use crate::commands::eval;
 mod commands;
 pub mod evaluate;
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 #[structopt(name = "spiderfire", about = "JavaScript Runtime")]
 struct Cli {
-	#[structopt(subcommand)]
+	#[clap(subcommand)]
 	command: Option<Command>,
 }
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub enum Command {
-	#[structopt(about = "Evaluates a line of JavaScript")]
+	#[clap(about = "Evaluates a line of JavaScript")]
 	Eval {
-		#[structopt(required(true), about = "Line of JavaScript to be evaluated")]
+		#[clap(help = "Line of JavaScript to be evaluated", required(true))]
 		source: String,
 	},
 
-	#[structopt(about = "Starts a JavaScript Shell")]
+	#[clap(about = "Starts a JavaScript Shell")]
 	Repl,
 
-	#[structopt(about = "Runs a JavaScript file")]
+	#[clap(about = "Runs a JavaScript file")]
 	Run {
-		#[structopt(about = "The JavaScript file to run, Default: 'main.js'", required(false), default_value = "main.js")]
+		#[clap(help = "The JavaScript file to run, Default: 'main.js'", required(false), default_value = "main.js")]
 		path: String,
 
-		#[structopt(about = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "ERROR")]
+		#[clap(help = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "ERROR")]
 		log_level: String,
 
-		#[structopt(about = "Sets logging level to DEBUG", short, long)]
+		#[clap(help = "Sets logging level to DEBUG", short, long)]
 		debug: bool,
 
-		#[structopt(about = "Disables ES Modules Features", short, long)]
+		#[clap(help = "Disables ES Modules Features", short, long)]
 		script: bool,
 	},
 }
 
 fn main() {
-	let args = Cli::from_args();
+	let args = Cli::parse();
 
 	#[cfg(windows)]
 	{

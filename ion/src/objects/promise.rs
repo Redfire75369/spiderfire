@@ -13,12 +13,11 @@ use libffi::high::arity3::ClosureMut3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{
-	AddPromiseReactions, AssertSameCompartment, GetPromiseID, GetPromiseState, HandleObject, IsPromiseObject, JSTracer, NewPromiseObject,
-	PromiseState, RejectPromise, ResolvePromise, Value,
+	AddPromiseReactions, AssertSameCompartment, GetPromiseID, GetPromiseResult, GetPromiseState, HandleObject, IsPromiseObject, JSTracer,
+	NewPromiseObject, PromiseState, RejectPromise, ResolvePromise, Value,
 };
 use mozjs::jsval::{ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
-use mozjs_sys::jsapi::JS::GetPromiseResult;
 
 use crate::{IonContext, IonResult};
 use crate::functions::arguments::Arguments;
