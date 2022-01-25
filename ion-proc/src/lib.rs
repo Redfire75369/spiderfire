@@ -4,24 +4,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#[macro_use]
+extern crate quote;
+#[macro_use]
+extern crate syn;
+
 use proc_macro::TokenStream;
 
-use quote::quote;
+use quote::ToTokens;
+use syn::ItemFn;
+
+use crate::function::impl_js_fn;
+
+mod function;
 
 #[proc_macro_attribute]
-pub fn js_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
-	let item = proc_macro2::TokenStream::from(item);
-	let new = quote! {
-		js_fn_m!(#item);
-	};
-	TokenStream::from(new)
-}
+pub fn js_fn(_attr: TokenStream, stream: TokenStream) -> TokenStream {
+	let function = parse_macro_input!(stream as ItemFn);
 
-#[proc_macro_attribute]
-pub fn js_fn_raw(_attr: TokenStream, item: TokenStream) -> TokenStream {
-	let item = proc_macro2::TokenStream::from(item);
-	let new = quote! {
-		js_fn_raw_m!(#item);
-	};
-	TokenStream::from(new)
+	match impl_js_fn(function) {
+		Ok(function) => TokenStream::from(function.to_token_stream()),
+		Err(error) => TokenStream::from(error.to_compile_error()),
+	}
 }

@@ -6,8 +6,9 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-quote = "1.0"
-proc-macro2 = "1.0"
+quote = "1.0.14"
+proc-macro2 = "1.0.36"
+syn = { version = "1.0.85", features = ["clone-impls", "full"] }
 
 [lib]
 proc-macro = true

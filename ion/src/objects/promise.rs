@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::future::Future;
 use std::mem::transmute;
 use std::ops::Deref;
 
 use futures::executor::block_on;
-use futures::Future;
 use libffi::high::arity3::ClosureMut3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;

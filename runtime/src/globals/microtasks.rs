@@ -6,10 +6,10 @@
 
 use mozjs::jsapi::JSFunctionSpec;
 
+use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::flags::PropertyFlags;
 use ion::functions::function::IonFunction;
-use ion::IonContext;
 use ion::objects::object::IonObject;
 
 use crate::event_loop::EVENT_LOOP;

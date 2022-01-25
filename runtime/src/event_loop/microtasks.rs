@@ -78,7 +78,7 @@ impl MicrotaskQueue {
 		self.draining.set(true);
 		let mut result = Ok(());
 
-		while let Some(microtask) = self.queue.borrow_mut().pop_front() {
+		while let Some(microtask) = self.front() {
 			let run = microtask.run(cx);
 			if run.is_err() {
 				result = run;
@@ -88,6 +88,10 @@ impl MicrotaskQueue {
 		self.draining.set(false);
 		unsafe { JobQueueIsEmpty(cx) };
 		result
+	}
+
+	fn front(&self) -> Option<Microtask> {
+		self.queue.borrow_mut().pop_front()
 	}
 }
 

@@ -17,10 +17,10 @@ use mozjs::jsapi::{
 use mozjs::jsval::NullValue;
 use url::Url;
 
+use ion::{IonContext, IonResult};
 use ion::error::IonError;
 use ion::flags::PropertyFlags;
 use ion::functions::arguments::Arguments;
-use ion::IonContext;
 use ion::objects::class_reserved_slots;
 use ion::objects::object::IonObject;
 use runtime::modules::Module;

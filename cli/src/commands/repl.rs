@@ -44,7 +44,7 @@ pub fn start_repl() {
 				}
 			}
 
-			if terminate == 1 {
+			if terminate == 1 && line.trim().is_empty() {
 				println!("Press Ctrl+C again to exit.");
 				break;
 			} else if terminate > 1 {
