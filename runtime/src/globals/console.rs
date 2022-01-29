@@ -53,8 +53,7 @@ fn print_indent(is_stderr: bool) {
 
 fn print_args(cx: IonContext, args: Vec<Value>, stderr: bool) {
 	let indents = get_indents();
-	for i in 0..args.len() {
-		let value = args[i];
+	for value in args.into_iter() {
 		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
 		if !stderr {
 			print!("{} ", string);
@@ -125,7 +124,7 @@ fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>
 				return Ok(());
 			}
 
-			if values.len() == 0 {
+			if values.is_empty() {
 				print_indent(true);
 				eprintln!("Assertion Failed");
 				return Ok(());
@@ -351,10 +350,10 @@ unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> Io
 
 	fn combine_keys(indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<Key> {
 		let mut indexes: Vec<i32> = indexes.into_iter().collect();
-		indexes.sort();
+		indexes.sort_unstable();
 
-		let mut keys: IndexSet<Key> = indexes.into_iter().map(|index| Key::Int(index)).collect();
-		keys.extend(headers.into_iter().map(|header| Key::String(header)));
+		let mut keys: IndexSet<Key> = indexes.into_iter().map(Key::Int).collect();
+		keys.extend(headers.into_iter().map(Key::String));
 		keys
 	}
 
@@ -435,11 +434,9 @@ unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> Io
 		}
 
 		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
-	} else {
-		if Config::global().log_level >= LogLevel::Info {
-			print_indent(true);
-			println!("{}", format_value(cx, FormatConfig::default().indentation(indents), data));
-		}
+	} else if Config::global().log_level >= LogLevel::Info {
+		print_indent(true);
+		println!("{}", format_value(cx, FormatConfig::default().indentation(indents), data));
 	}
 
 	Ok(())

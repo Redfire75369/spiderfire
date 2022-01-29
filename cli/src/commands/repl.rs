@@ -43,16 +43,17 @@ pub fn start_repl() {
 					Err(error) => terminate += handle_error(error),
 				}
 			}
+			line = line.trim().to_owned();
 
-			if terminate == 1 && line.trim().is_empty() {
+			if terminate == 1 && line.is_empty() {
 				println!("Press Ctrl+C again to exit.");
 				break;
 			} else if terminate > 1 {
 				break;
 			}
 
-			let mut chars = line.chars();
-			while let Some(ch) = chars.next() {
+			let chars = line.chars();
+			for ch in chars {
 				match ch {
 					'(' => multiline.0 += 1,
 					')' => multiline.0 -= 1,
@@ -64,7 +65,7 @@ pub fn start_repl() {
 				}
 			}
 
-			input = (input + "\n" + &line.trim()).trim().to_owned();
+			input = (input + "\n" + &line).trim().to_owned();
 			lines += 1;
 			if multiline.0 <= 0 && multiline.1 <= 0 && multiline.2 <= 0 {
 				break;

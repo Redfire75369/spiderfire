@@ -37,7 +37,7 @@ impl Runtime {
 		self.global
 	}
 
-	pub fn run_event_loop(&self) -> Result<(), ()> {
+	pub fn run_event_loop(&self) -> bool {
 		EVENT_LOOP.with(|event_loop| (*event_loop.borrow()).run(self.cx))
 	}
 }

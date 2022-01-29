@@ -91,6 +91,7 @@ impl IonArray {
 	}
 
 	/// Returns the length of an [IonArray].
+	#[allow(clippy::len_without_is_empty)]
 	pub unsafe fn len(&self, cx: IonContext) -> u32 {
 		rooted!(in(cx) let robj = self.obj);
 		let mut length = 0;

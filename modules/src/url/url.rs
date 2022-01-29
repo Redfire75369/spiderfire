@@ -5,6 +5,7 @@
  */
 
 use std::ptr;
+use std::cmp::Ordering;
 
 use idna::{domain_to_ascii, domain_to_unicode};
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
@@ -147,20 +148,20 @@ unsafe fn set_host(cx: IonContext, #[this] this: IonObject, host: Option<String>
 	let mut url = get_url(cx, this);
 
 	if let Some(host) = host {
-		let segments: Vec<&str> = host.split(":").collect();
-		let (host, port) = if segments.len() > 2 {
-			return Err(IonError::Error(String::from("Invalid Host")));
-		} else if segments.len() == 2 {
-			let port = match segments[1].parse::<u16>() {
-				Ok(port) => port,
-				Err(error) => return Err(IonError::Error(error.to_string())),
-			};
-			(segments[0], Some(port))
-		} else {
-			(segments[0], None)
+		let segments: Vec<&str> = host.split(':').collect();
+		let (host, port) = match segments.len().cmp(&2) {
+			Ordering::Less => (segments[0], None),
+			Ordering::Greater => return Err(IonError::Error(String::from("Invalid Host"))),
+			Ordering::Equal => {
+				let port = match segments[1].parse::<u16>() {
+					Ok(port) => port,
+					Err(error) => return Err(IonError::Error(error.to_string())),
+				};
+				(segments[0], Some(port))
+			}
 		};
 
-		if let Err(error) = url.set_host(Some(&host)) {
+		if let Err(error) = url.set_host(Some(host)) {
 			return Err(IonError::Error(error.to_string()));
 		}
 

@@ -23,11 +23,11 @@ fn extract_params(function: &ItemFn) -> syn::Result<(Vec<Stmt>, usize)> {
 			if param.is_normal() {
 				nargs += 1;
 			}
-			Ok(param.to_statement(&mut index))
+			Ok(param.into_statement(&mut index))
 		})
 		.collect::<syn::Result<_>>()?;
 
-	return Ok((statements, nargs));
+	Ok((statements, nargs))
 }
 
 pub(crate) fn impl_inner_fn(function: &ItemFn) -> syn::Result<ItemFn> {

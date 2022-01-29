@@ -6,4 +6,4 @@
 
 pub use fs::*;
 
-pub mod fs;
+mod fs;

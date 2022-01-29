@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cmp::Ordering;
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, Value};
@@ -65,18 +66,16 @@ pub fn format_object_raw(cx: IonContext, cfg: FormatConfig, object: IonObject) -
 
 				let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 				let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
-				for i in 0..length {
-					let key = keys[i].clone();
+				for (i, key) in keys.into_iter().enumerate().take(length) {
 					let value = object.get(cx, &key.to_string()).unwrap();
 					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 					string.push_str(&inner_indent);
 					string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
 
 					if i != length - 1 {
-						string.push_str(&format!(",{}", NEWLINE).color(color).to_string());
-					} else {
-						string.push_str(NEWLINE);
+						string.push_str(&",".color(color).to_string());
 					}
+					string.push_str(NEWLINE);
 				}
 
 				string.push_str(&outer_indent);
@@ -85,8 +84,7 @@ pub fn format_object_raw(cx: IonContext, cfg: FormatConfig, object: IonObject) -
 			} else {
 				let mut string = "{ ".color(color).to_string();
 				let len = length.clamp(0, 3);
-				for i in 0..len {
-					let key = keys[i].clone();
+				for (i, key) in keys.into_iter().enumerate().take(len) {
 					let value = object.get(cx, &key.to_string()).unwrap();
 					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 					string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
@@ -97,10 +95,10 @@ pub fn format_object_raw(cx: IonContext, cfg: FormatConfig, object: IonObject) -
 				}
 
 				let remaining = length - len;
-				if remaining == 1 {
-					string.push_str(&", ... 1 more item ".color(color).to_string());
-				} else if remaining > 1 {
-					string.push_str(&format!(", ... {} more items ", remaining).color(color).to_string());
+				match remaining.cmp(&1) {
+					Ordering::Equal => string.push_str(&"... 1 more item ".color(color).to_string()),
+					Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color).to_string()),
+					_ => (),
 				}
 				string.push_str(&"}".color(color).to_string());
 

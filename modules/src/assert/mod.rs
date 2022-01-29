@@ -6,4 +6,4 @@
 
 pub use assert::*;
 
-pub mod assert;
+mod assert;

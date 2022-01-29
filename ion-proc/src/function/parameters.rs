@@ -37,9 +37,9 @@ impl Parameter {
 				}
 
 				if vararg {
-					Ok(Parameter::VarArgs(arg.clone(), Box::new(convert.unwrap_or(parse_quote!(())))))
+					Ok(Parameter::VarArgs(arg.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
 				} else {
-					Ok(Parameter::Normal(arg.clone(), Box::new(convert.unwrap_or(parse_quote!(())))))
+					Ok(Parameter::Normal(arg.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
 				}
 			};
 		}
@@ -47,7 +47,7 @@ impl Parameter {
 		Err(Error::new(arg.span(), "Received Self"))
 	}
 
-	pub(crate) fn to_statement(self, index: &mut usize) -> Stmt {
+	pub(crate) fn into_statement(self, index: &mut usize) -> Stmt {
 		let krate = quote!(::ion);
 		use Parameter::*;
 		match self {
@@ -80,11 +80,7 @@ impl Parameter {
 	}
 
 	pub(crate) fn is_normal(&self) -> bool {
-		use Parameter::*;
-		match self {
-			Normal(..) => true,
-			_ => false,
-		}
+		matches!(self, Parameter::Normal(..))
 	}
 }
 

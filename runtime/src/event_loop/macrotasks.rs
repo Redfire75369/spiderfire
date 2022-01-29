@@ -74,7 +74,7 @@ pub struct MacrotaskQueue {
 }
 
 impl Macrotask {
-	pub fn run(&self, cx: IonContext) -> Result<(), ()> {
+	pub fn run(&self, cx: IonContext) -> bool {
 		let (callback, args) = match self {
 			Macrotask::Timer(timer) => (timer.callback, timer.arguments.clone()),
 			Macrotask::User(user) => (user.callback, Vec::new()),
@@ -84,24 +84,24 @@ impl Macrotask {
 			if let Err(report) = callback.call_with_vec(cx, IonObject::global(cx), args) {
 				match report {
 					Some(report) => report.print(),
-					None => return Err(()),
+					None => return false,
 				}
 			}
 		}
-		Ok(())
+		true
 	}
 
 	fn remaining(&self) -> Duration {
-		match self {
-			&Macrotask::Timer(ref timer) => timer.scheduled + timer.duration - Utc::now(),
-			&Macrotask::User(ref user) => user.scheduled - Utc::now(),
+		match *self {
+			Macrotask::Timer(ref timer) => timer.scheduled + timer.duration - Utc::now(),
+			Macrotask::User(ref user) => user.scheduled - Utc::now(),
 		}
 	}
 }
 
 impl MacrotaskQueue {
 	pub fn enqueue(&self, mut macrotask: Macrotask, id: Option<u32>) -> u32 {
-		let index = id.unwrap_or(self.latest.get().map(|l| l + 1).unwrap_or(0));
+		let index = id.unwrap_or_else(|| self.latest.get().map(|l| l + 1).unwrap_or(0));
 		let mut macrotasks = self.map.borrow_mut();
 
 		let next = self.next.get().map(|next| (*macrotasks).get(&next)).flatten();

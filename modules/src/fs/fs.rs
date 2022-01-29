@@ -26,10 +26,10 @@ async unsafe fn readBinary(cx: IonContext, path_str: String) -> Result<IonRawObj
 	if path.is_file() {
 		if let Ok(bytes) = async_fs::read(&path).await {
 			rooted!(in(cx) let mut array = JS_NewPlainObject(cx));
-			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok() {
-				if Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok() {
-					return Ok(array.get());
-				}
+			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
+				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
+			{
+				return Ok(array.get());
 			}
 		}
 	}
@@ -43,10 +43,10 @@ unsafe fn readBinarySync(cx: IonContext, path_str: String) -> IonResult<IonRawOb
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
 			rooted!(in(cx) let mut array = JS_NewPlainObject(cx));
-			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok() {
-				if !Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok() {
-					return Err(IonError::Error(String::from("Unable to create Uint8Array")));
-				}
+			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
+				&& !Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
+			{
+				return Err(IonError::Error(String::from("Unable to create Uint8Array")));
 			}
 			Ok(array.get())
 		} else {
@@ -426,10 +426,9 @@ impl Module for FileSystem {
 
 		if JS_DefineFunctions(cx, fs.handle().into(), ASYNC_FUNCTIONS.as_ptr())
 			&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
+			&& IonObject::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			if IonObject::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED) {
-				return Some(IonObject::from(fs.get()));
-			}
+			return Some(IonObject::from(fs.get()));
 		}
 		None
 	}

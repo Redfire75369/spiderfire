@@ -53,16 +53,15 @@ impl IonPromise {
 				let args = Arguments::new(argc, vp);
 				let resolve = IonFunction::from_value(args.value_or_undefined(0));
 				let reject = IonFunction::from_value(args.value_or_undefined(1));
-				if resolve.is_some() && reject.is_some() {
-					match executor(cx, resolve.unwrap(), reject.unwrap()) {
+				match (resolve, reject) {
+					(Some(resolve), Some(reject)) => match executor(cx, resolve, reject) {
 						Ok(()) => true as u8,
 						Err(error) => {
 							error.throw(cx);
 							false as u8
 						}
-					}
-				} else {
-					false as u8
+					},
+					_ => false as u8,
 				}
 			};
 			let closure = ClosureMut3::new(&mut native);
@@ -95,17 +94,15 @@ impl IonPromise {
 						Ok(v) => {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
-							match resolve.call_with_vec(cx, null, vec![value.get()]) {
-								Err(Some(error)) => error.print(),
-								_ => (),
+							if let Err(Some(error)) = resolve.call_with_vec(cx, null, vec![value.get()]) {
+								error.print();
 							}
 						}
 						Err(v) => {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
-							match reject.call_with_vec(cx, null, vec![value.get()]) {
-								Err(Some(error)) => error.print(),
-								_ => (),
+							if let Err(Some(error)) = reject.call_with_vec(cx, null, vec![value.get()]) {
+								error.print();
 							}
 						}
 					}

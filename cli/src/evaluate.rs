@@ -24,7 +24,7 @@ pub fn eval_inline(rt: &Runtime, source: &str) {
 		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
 		Err(report) => eprintln!("{}", report),
 	}
-	if rt.run_event_loop().is_err() {
+	if !rt.run_event_loop() {
 		eprintln!("Unknown error occurred while executing microtask.");
 	}
 }
@@ -44,7 +44,7 @@ pub fn eval_script(path: &Path) {
 			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
 			Err(report) => eprintln!("{}", report),
 		}
-		if rt.run_event_loop().is_err() {
+		if !rt.run_event_loop() {
 			eprintln!("Unknown error occurred while executing microtask.");
 		}
 	}
@@ -65,7 +65,7 @@ pub fn eval_module(path: &Path) {
 		if let Err(report) = result {
 			eprintln!("{}", report);
 		}
-		if rt.run_event_loop().is_err() {
+		if !rt.run_event_loop() {
 			eprintln!("Unknown error occurred while executing microtask.");
 		}
 	}

@@ -24,17 +24,17 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
-	pub fn run(&self, cx: IonContext) -> Result<(), ()> {
+	pub fn run(&self, cx: IonContext) -> bool {
 		if self.macrotasks.is_none() && self.microtasks.is_none() {
-			return Ok(());
+			return true;
 		}
 
-		let mut result = Ok(());
+		let mut result = true;
 
 		if let Some(microtasks) = self.microtasks.clone() {
 			let run = microtasks.run_jobs(cx);
-			if run.is_err() {
-				result = run;
+			if !run {
+				result = false;
 			}
 		}
 
@@ -46,8 +46,8 @@ impl EventLoop {
 					drop(macrotask_map);
 					if let Some(macrotask) = macrotask {
 						let run = macrotask.run(cx);
-						if run.is_err() {
-							result = Err(());
+						if !run {
+							result = false;
 						}
 
 						if let Entry::Occupied(mut entry) = macrotasks.map.borrow_mut().entry(next) {
@@ -65,8 +65,8 @@ impl EventLoop {
 
 				if let Some(microtasks) = self.microtasks.clone() {
 					let run = microtasks.run_jobs(cx);
-					if run.is_err() {
-						result = run;
+					if !run {
+						result = false;
 					}
 				}
 			}

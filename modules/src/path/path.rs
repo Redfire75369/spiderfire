@@ -132,12 +132,11 @@ impl Module for PathM {
 
 	unsafe fn module(cx: IonContext) -> Option<IonObject> {
 		rooted!(in(cx) let path = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr()) {
-			if IonObject::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
-				&& IonObject::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
-			{
-				return Some(IonObject::from(path.get()));
-			}
+		if JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr())
+			&& IonObject::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
+			&& IonObject::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
+		{
+			return Some(IonObject::from(path.get()));
 		}
 		None
 	}

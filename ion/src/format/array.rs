@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cmp::Ordering;
 use colored::Colorize;
 
 use crate::format::{format_value, INDENT, NEWLINE};
@@ -28,25 +29,23 @@ pub fn format_array(cx: IonContext, cfg: FormatConfig, array: IonArray) -> Strin
 
 				let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 				let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
-				for i in 0..len {
-					let value = vec[i];
+				for (i, value) in vec.into_iter().enumerate().take(len) {
 					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 					string.push_str(&inner_indent);
 					string.push_str(&value_string);
 
 					if i != length - 1 {
-						string.push_str(&format!(",{}", NEWLINE).color(color).to_string());
-					} else {
-						string.push_str(NEWLINE);
+						string.push_str(&",".color(color).to_string());
 					}
+					string.push_str(NEWLINE);
 				}
 
 				if remaining > 0 {
 					string.push_str(&inner_indent);
-					if remaining == 1 {
-						string.push_str(&"... 1 more item".color(color).to_string());
-					} else if remaining > 1 {
-						string.push_str(&format!("... {} more items", remaining).color(color).to_string());
+					match remaining.cmp(&1) {
+						Ordering::Equal => string.push_str(&"... 1 more item".color(color).to_string()),
+						Ordering::Greater => string.push_str(&format!("... {} more items", remaining).color(color).to_string()),
+						_ => (),
 					}
 				}
 
@@ -57,8 +56,7 @@ pub fn format_array(cx: IonContext, cfg: FormatConfig, array: IonArray) -> Strin
 				let mut string = "[ ".color(color).to_string();
 				let len = length.clamp(0, 3);
 
-				for i in 0..len {
-					let value = vec[i];
+				for (i, value) in vec.into_iter().enumerate().take(len) {
 					let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 					string.push_str(&value_string);
 
@@ -68,10 +66,10 @@ pub fn format_array(cx: IonContext, cfg: FormatConfig, array: IonArray) -> Strin
 				}
 
 				let remaining = length - len;
-				if remaining == 1 {
-					string.push_str(&", ... 1 more item ".color(color).to_string());
-				} else if remaining > 1 {
-					string.push_str(&format!(", ... {} more items ", remaining).color(color).to_string());
+				match remaining.cmp(&1) {
+					Ordering::Equal => string.push_str(&"... 1 more item ".color(color).to_string()),
+					Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color).to_string()),
+					_ => (),
 				}
 				string.push_str(&"]".color(color).to_string());
 

@@ -34,7 +34,7 @@ pub struct MicrotaskQueue {
 }
 
 impl Microtask {
-	pub fn run(&self, cx: IonContext) -> Result<(), ()> {
+	pub fn run(&self, cx: IonContext) -> bool {
 		match self {
 			Microtask::Promise(promise) => unsafe {
 				rooted!(in(cx) let promise = promise.to_value());
@@ -44,7 +44,7 @@ impl Microtask {
 				if !Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
 					match Exception::new(cx) {
 						Some(e) => ErrorReport::new(e).print(),
-						None => return Err(()),
+						None => return false,
 					}
 				}
 			},
@@ -52,13 +52,13 @@ impl Microtask {
 				if let Err(report) = callback.call_with_vec(cx, IonObject::global(cx), Vec::new()) {
 					match report {
 						Some(report) => report.print(),
-						None => return Err(()),
+						None => return false,
 					}
 				}
 			},
 			_ => (),
 		}
-		Ok(())
+		true
 	}
 }
 
@@ -70,18 +70,18 @@ impl MicrotaskQueue {
 		unsafe { JobQueueMayNotBeEmpty(cx) }
 	}
 
-	pub fn run_jobs(&self, cx: IonContext) -> Result<(), ()> {
+	pub fn run_jobs(&self, cx: IonContext) -> bool {
 		if self.draining.get() {
-			return Ok(());
+			return true;
 		}
 
 		self.draining.set(true);
-		let mut result = Ok(());
+		let mut result = true;
 
 		while let Some(microtask) = self.front() {
 			let run = microtask.run(cx);
-			if run.is_err() {
-				result = run;
+			if !run {
+				result = false;
 			}
 		}
 

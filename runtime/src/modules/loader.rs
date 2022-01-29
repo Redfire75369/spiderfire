@@ -160,8 +160,6 @@ impl IonModule {
 	pub fn resolve(cx: IonContext, specifier: &str, data: ModuleData) -> Option<IonModule> {
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
 			Path::new(data.path.as_ref().unwrap()).parent().unwrap().join(specifier)
-		} else if specifier.starts_with('/') {
-			Path::new(specifier).to_path_buf()
 		} else {
 			Path::new(specifier).to_path_buf()
 		};
