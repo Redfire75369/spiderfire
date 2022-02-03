@@ -14,3 +14,7 @@ This project is licensed under the Mozilla Public License 2.0. The full text of 
 ## Build
 
 For instructions on building Spiderfire, refer [here](contribution/build.md).
+
+## Quick start
+
+For a quick guide to get started refer [here](contribution/quick-start.md)
