@@ -7,9 +7,9 @@
 
 # Spiderfire
 
-Spiderfire is a javascript runtime built with Mozilla's SpiderMonkey engine and Rust.
+Spiderfire is a Javascript runtime built with Mozilla's SpiderMonkey engine and Rust.
 
-Spiderfire aims to disrupt the server-side javascript runtime environment.
+Spiderfire aims to disrupt the server-side Javascript runtime environment.
 
 ## Licensing
 
@@ -19,6 +19,6 @@ This project is licensed under the Mozilla Public License 2.0. The full text of 
 
 For instructions on building Spiderfire, refer [here](contribution/build.md).
 
-## Quick start
+## Quick Start
 
-For a quick guide to get started refer [here](contribution/quick-start.md)
+For a quick guide to get started, refer [here](docs/quick-start.md).
