@@ -4,6 +4,41 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod eval;
-pub mod repl;
-pub mod run;
+mod eval;
+mod repl;
+mod run;
+
+use runtime::config::{CONFIG, Config, LogLevel};
+use crate::Command;
+
+pub fn handle_command(command: Option<Command>) {
+	match command {
+		Some(Command::Eval { source }) => {
+			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
+			eval::eval_source(&source);
+		}
+
+		Some(Command::Run { path, log_level, debug, script }) => {
+			let log_level = if debug {
+				LogLevel::Debug
+			} else {
+				match log_level.to_uppercase().as_str() {
+					"NONE" => LogLevel::None,
+					"INFO" => LogLevel::Info,
+					"WARN" => LogLevel::Warn,
+					"ERROR" => LogLevel::Error,
+					"DEBUG" => LogLevel::Debug,
+					_ => panic!("Invalid Logging Level"),
+				}
+			};
+
+			CONFIG.set(Config::default().log_level(log_level).script(script)).unwrap();
+			run::run(&path);
+		}
+
+		Some(Command::Repl) | None => {
+			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
+			repl::start_repl();
+		}
+	}
+}

@@ -4,15 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#[macro_use]
+extern crate rustyline_derive;
+
 use clap::Parser;
-
-use runtime::config::{Config, CONFIG, LogLevel};
-
-use crate::commands::{repl, run};
-use crate::commands::eval;
+use crate::commands::handle_command;
 
 mod commands;
-pub mod evaluate;
+mod evaluate;
+mod repl;
 
 #[derive(Parser)]
 #[structopt(name = "spiderfire", about = "JavaScript Runtime")]
@@ -56,33 +56,5 @@ fn main() {
 		colored::control::set_virtual_terminal(true).unwrap();
 	}
 
-	match args.command {
-		Some(Command::Eval { source }) => {
-			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
-			eval::eval_source(&source);
-		}
-
-		Some(Command::Run { path, log_level, debug, script }) => {
-			let log_level = if debug {
-				LogLevel::Debug
-			} else {
-				match log_level.to_uppercase().as_str() {
-					"NONE" => LogLevel::None,
-					"INFO" => LogLevel::Info,
-					"WARN" => LogLevel::Warn,
-					"ERROR" => LogLevel::Error,
-					"DEBUG" => LogLevel::Debug,
-					_ => panic!("Invalid Logging Level"),
-				}
-			};
-
-			CONFIG.set(Config::default().log_level(log_level).script(script)).unwrap();
-			run::run(&path);
-		}
-
-		Some(Command::Repl) | None => {
-			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
-			repl::start_repl();
-		}
-	}
+	handle_command(args.command);
 }

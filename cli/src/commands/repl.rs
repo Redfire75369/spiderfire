@@ -5,14 +5,14 @@
  */
 
 use mozjs::rust::JSEngine;
-use rustyline::{Config, Editor};
-use rustyline::config::Builder;
+use rustyline::Editor;
 use rustyline::error::ReadlineError;
 
 use modules::Modules;
 use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
+use crate::repl::{ReplHelper, rustyline_config};
 
 pub fn start_repl() {
 	let engine = JSEngine::init().unwrap();
@@ -22,66 +22,33 @@ pub fn start_repl() {
 		.standard_modules()
 		.build(engine.handle());
 
-	let mut repl = Editor::<()>::with_config(rustyline_config());
+	let mut repl = Editor::with_config(rustyline_config());
+	repl.set_helper(Some(ReplHelper));
 	let mut terminate: u8 = 0;
 
 	loop {
 		let mut input = String::new();
-		let mut lines = 0;
-		let mut multiline: (i16, i16, i16) = (0, 0, 0); // (), [], {}
-		loop {
-			let mut line = String::new();
 
-			if lines == 0 {
-				match repl.readline("> ") {
-					Ok(input) => line = input,
-					Err(error) => terminate += handle_error(error),
-				}
-			} else {
-				match repl.readline("") {
-					Ok(input) => line = input,
-					Err(error) => terminate += handle_error(error),
-				}
-			}
-			line = line.trim().to_owned();
-
-			if terminate == 1 && line.is_empty() {
-				println!("Press Ctrl+C again to exit.");
-				break;
-			} else if terminate > 1 {
-				break;
-			}
-
-			let chars = line.chars();
-			for ch in chars {
-				match ch {
-					'(' => multiline.0 += 1,
-					')' => multiline.0 -= 1,
-					'[' => multiline.1 += 1,
-					']' => multiline.1 -= 1,
-					'{' => multiline.2 += 1,
-					'}' => multiline.2 -= 1,
-					_ => (),
-				}
-			}
-
-			input = (input + "\n" + &line).trim().to_owned();
-			lines += 1;
-			if multiline.0 <= 0 && multiline.1 <= 0 && multiline.2 <= 0 {
-				break;
-			}
+		match repl.readline("> ") {
+			Ok(i) => input = String::from(i.trim()),
+			Err(error) => terminate += handle_error(error),
 		}
 
-		if input == "exit" {
+		repl.add_history_entry(&input);
+
+		if terminate == 1 && input.is_empty() {
+			println!("Press Ctrl+C again to exit.");
+			continue;
+		} else if terminate > 1 {
 			break;
 		}
 
-		if !input.is_empty() {
+		if !input.is_empty() && input != "exit" {
 			terminate = 0;
 			eval_inline(&rt, &input);
 		}
 
-		if terminate > 1 {
+		if terminate > 1 || input == "exit" {
 			break;
 		}
 	}
@@ -93,9 +60,4 @@ fn handle_error(error: ReadlineError) -> u8 {
 		ReadlineError::Eof => 2,
 		_ => 0,
 	}
-}
-
-fn rustyline_config() -> Config {
-	let builder = Builder::new();
-	builder.tab_stop(4).build()
 }
