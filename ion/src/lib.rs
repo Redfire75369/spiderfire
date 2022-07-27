@@ -9,21 +9,27 @@ extern crate bitflags;
 #[macro_use]
 extern crate mozjs;
 
+use std::result::Result as Result2;
+
 use mozjs::jsapi::JSContext;
 
+pub use error::Error;
+pub use exception::*;
+pub use functions::*;
 pub use ion_proc::*;
+pub use objects::*;
+pub use value::Value;
 
-use crate::error::IonError;
-
-pub mod error;
-pub mod exception;
+mod error;
+mod exception;
 pub mod flags;
 pub mod format;
-pub mod functions;
-pub mod objects;
+mod functions;
+mod objects;
 pub mod script;
 pub mod spec;
 pub mod types;
+mod value;
 
-pub type IonContext = *mut JSContext;
-pub type IonResult<T> = Result<T, IonError>;
+pub type Context = *mut JSContext;
+pub type Result<T> = Result2<T, Error>;

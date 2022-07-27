@@ -10,20 +10,19 @@ use std::ffi::c_void;
 use std::rc::Rc;
 
 use mozjs::glue::{CreateJobQueue, JobQueueTraps};
-use mozjs::jsapi::{Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, SetJobQueue, UndefinedHandleValue};
+use mozjs::jsapi::{
+	Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSObject, SetJobQueue, UndefinedHandleValue,
+};
 use mozjs::jsval::UndefinedValue;
 
-use ion::exception::{ErrorReport, Exception};
-use ion::functions::function::IonFunction;
-use ion::IonContext;
-use ion::objects::object::{IonObject, IonRawObject};
+use ion::{Context, ErrorReport, Exception, Function, Object};
 
 use crate::event_loop::EVENT_LOOP;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Microtask {
-	Promise(IonObject),
-	User(IonFunction),
+	Promise(Object),
+	User(Function),
 	None,
 }
 
@@ -34,7 +33,7 @@ pub struct MicrotaskQueue {
 }
 
 impl Microtask {
-	pub fn run(&self, cx: IonContext) -> bool {
+	pub fn run(&self, cx: Context) -> bool {
 		match self {
 			Microtask::Promise(promise) => unsafe {
 				rooted!(in(cx) let promise = promise.to_value());
@@ -48,14 +47,14 @@ impl Microtask {
 					}
 				}
 			},
-			Microtask::User(callback) => unsafe {
-				if let Err(report) = callback.call_with_vec(cx, IonObject::global(cx), Vec::new()) {
+			Microtask::User(callback) => {
+				if let Err(report) = callback.call(cx, Object::global(cx), Vec::new()) {
 					match report {
 						Some(report) => report.print(),
 						None => return false,
 					}
 				}
-			},
+			}
 			_ => (),
 		}
 		true
@@ -63,14 +62,14 @@ impl Microtask {
 }
 
 impl MicrotaskQueue {
-	pub fn enqueue(&self, cx: IonContext, microtask: Microtask) {
+	pub fn enqueue(&self, cx: Context, microtask: Microtask) {
 		{
 			self.queue.borrow_mut().push_back(microtask);
 		}
 		unsafe { JobQueueMayNotBeEmpty(cx) }
 	}
 
-	pub fn run_jobs(&self, cx: IonContext) -> bool {
+	pub fn run_jobs(&self, cx: Context) -> bool {
 		if self.draining.get() {
 			return true;
 		}
@@ -95,16 +94,17 @@ impl MicrotaskQueue {
 	}
 }
 
-unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: IonContext) -> IonRawObject {
+unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: Context) -> *mut JSObject {
 	CurrentGlobalOrNull(cx)
 }
 
 unsafe extern "C" fn enqueue_promise_job(
-	extra: *const c_void, cx: IonContext, _promise: Handle<IonRawObject>, job: Handle<IonRawObject>, _: Handle<IonRawObject>, _: Handle<IonRawObject>,
+	extra: *const c_void, cx: Context, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
+	_: Handle<*mut JSObject>,
 ) -> bool {
 	let queue = &*(extra as *const MicrotaskQueue);
 	if !job.is_null() {
-		queue.enqueue(cx, Microtask::Promise(IonObject::from(job.get())))
+		queue.enqueue(cx, Microtask::Promise(Object::from(job.get())))
 	} else {
 		queue.enqueue(cx, Microtask::None)
 	};
@@ -122,7 +122,7 @@ static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
 	empty: Some(empty),
 };
 
-pub(crate) fn init_microtask_queue(cx: IonContext) -> Rc<MicrotaskQueue> {
+pub(crate) fn init_microtask_queue(cx: Context) -> Rc<MicrotaskQueue> {
 	let microtask_queue = Rc::new(MicrotaskQueue::default());
 	unsafe {
 		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, &*microtask_queue as *const _ as *const c_void);

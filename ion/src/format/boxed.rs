@@ -4,18 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{ESClass, Unbox};
+use mozjs::jsapi::{ESClass, JSObject, Unbox};
 
-use crate::format::config::FormatConfig;
+use crate::{Context, Object};
+use crate::format::Config;
 use crate::format::primitive::format_primitive;
-use crate::IonContext;
-use crate::objects::object::{IonObject, IonRawObject};
 
-/// Formats a boxed object to a [String] using the given configuration options
-/// Supported types are `Boolean`, `Number`, `String` and `BigInt`
-pub fn format_boxed(cx: IonContext, cfg: FormatConfig, object: IonRawObject, class: ESClass) -> String {
+/// Formats a boxed primitive ([Object]) as a [String] using the given [Config].
+/// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt`.
+///
+/// ### Unimplemented
+/// - Support for `BigInt`
+pub fn format_boxed(cx: Context, cfg: Config, object: *mut JSObject, class: ESClass) -> String {
 	rooted!(in(cx) let robj = object);
-	rooted!(in(cx) let mut unboxed = IonObject::new(cx).to_value());
+	rooted!(in(cx) let mut unboxed = Object::new(cx).to_value());
 
 	unsafe {
 		if Unbox(cx, robj.handle().into(), unboxed.handle_mut().into()) {

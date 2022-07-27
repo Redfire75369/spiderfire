@@ -8,6 +8,7 @@
 extern crate rustyline_derive;
 
 use clap::Parser;
+
 use crate::commands::handle_command;
 
 mod commands;

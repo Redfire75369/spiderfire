@@ -6,7 +6,7 @@
 
 use mozjs::rust::JSEngine;
 
-use ion::script::IonScript;
+use ion::script::Script;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::RuntimeBuilder;
 
@@ -19,5 +19,5 @@ fn console() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
-	assert!(IonScript::compile_and_evaluate(rt.cx(), FILE_NAME, SCRIPT).is_ok())
+	assert!(Script::compile_and_evaluate(rt.cx(), FILE_NAME, SCRIPT).is_ok())
 }

@@ -11,8 +11,7 @@ extern crate ion;
 #[macro_use]
 extern crate mozjs;
 
-use ion::IonContext;
-use ion::objects::object::IonObject;
+use ion::{Context, Object};
 use runtime::modules::{init_global_module, init_module, StandardModules};
 
 pub use crate::assert::Assert;
@@ -29,21 +28,17 @@ mod url;
 pub struct Modules;
 
 impl StandardModules for Modules {
-	fn init(cx: IonContext, global: &mut IonObject) -> bool {
-		unsafe {
-			init_module::<Assert>(cx, global)
-				&& init_module::<FileSystem>(cx, global)
-				&& init_module::<PathM>(cx, global)
-				&& init_module::<UrlM>(cx, global)
-		}
+	fn init(cx: Context, global: &mut Object) -> bool {
+		init_module::<Assert>(cx, global)
+			&& init_module::<FileSystem>(cx, global)
+			&& init_module::<PathM>(cx, global)
+			&& init_module::<UrlM>(cx, global)
 	}
 
-	fn init_globals(cx: IonContext, global: &mut IonObject) -> bool {
-		unsafe {
-			init_global_module::<Assert>(cx, global)
-				&& init_global_module::<FileSystem>(cx, global)
-				&& init_global_module::<PathM>(cx, global)
-				&& init_global_module::<UrlM>(cx, global)
-		}
+	fn init_globals(cx: Context, global: &mut Object) -> bool {
+		init_global_module::<Assert>(cx, global)
+			&& init_global_module::<FileSystem>(cx, global)
+			&& init_global_module::<PathM>(cx, global)
+			&& init_global_module::<UrlM>(cx, global)
 	}
 }

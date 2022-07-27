@@ -10,7 +10,7 @@ use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 
 use crate::flags::PropertyFlags;
 
-/// Creates a function spec with the given native function, number of arguments and flags.
+/// Creates a [JSFunctionSpec] with the given native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },

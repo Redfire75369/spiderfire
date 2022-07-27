@@ -4,21 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::IonContext;
-use ion::objects::object::IonObject;
+use ion::{Context, Object};
 
 pub mod console;
 pub mod microtasks;
 pub mod timers;
 
-pub fn init_globals(cx: IonContext, global: IonObject) -> bool {
-	unsafe { console::define(cx, global) }
+pub fn init_globals(cx: Context, global: Object) -> bool {
+	console::define(cx, global)
 }
 
-pub fn init_timers(cx: IonContext, global: IonObject) -> bool {
-	unsafe { timers::define(cx, global) }
+pub fn init_timers(cx: Context, global: Object) -> bool {
+	timers::define(cx, global)
 }
 
-pub fn init_microtasks(cx: IonContext, global: IonObject) -> bool {
-	unsafe { microtasks::define(cx, global) }
+pub fn init_microtasks(cx: Context, global: Object) -> bool {
+	microtasks::define(cx, global)
 }

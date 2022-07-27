@@ -5,100 +5,93 @@
  */
 
 use std::ops::Deref;
-use std::result::Result;
 
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
-use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSTracer, NewDateObject, ObjectIsDate, Value};
-use mozjs::jsval::ObjectValue;
+use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, JSTracer, NewDateObject, ObjectIsDate};
+use mozjs::jsval::{JSVal, ObjectValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
-use crate::IonContext;
-use crate::objects::object::IonRawObject;
+use crate::Context;
 
 #[derive(Clone, Copy, Debug)]
-pub struct IonDate {
-	obj: IonRawObject,
+pub struct Date {
+	obj: *mut JSObject,
 }
 
-impl IonDate {
-	/// Returns the wrapped [IonRawObject].
-	pub unsafe fn raw(&self) -> IonRawObject {
-		self.obj
+impl Date {
+	/// Creates a new [Date] with the current time.
+	pub fn new(cx: Context) -> Date {
+		Date::from_date(cx, Utc::now())
 	}
 
-	/// Creates a new [IonDate] with the current time.
-	pub unsafe fn new(cx: IonContext) -> IonDate {
-		IonDate::from_date(cx, Utc::now())
+	/// Creates a new [Date] with the given time.
+	pub fn from_date(cx: Context, time: DateTime<Utc>) -> Date {
+		Date::from(cx, unsafe { NewDateObject(cx, ClippedTime { t: time.timestamp_millis() as f64 }) }).unwrap()
 	}
 
-	/// Creates a new [IonDate] with the given time.
-	pub unsafe fn from_date(cx: IonContext, time: DateTime<Utc>) -> IonDate {
-		IonDate::from(cx, NewDateObject(cx, ClippedTime { t: time.timestamp_millis() as f64 })).unwrap()
-	}
-
-	/// Creates an [IonDate] from an [IonRawObject].
-	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonDate> {
-		if IonDate::is_date_raw(cx, obj) {
-			Some(IonDate { obj })
+	/// Creates a [Date] from a [*mut JSObject].
+	pub fn from(cx: Context, obj: *mut JSObject) -> Option<Date> {
+		if Date::is_date_raw(cx, obj) {
+			Some(Date { obj })
 		} else {
 			None
 		}
 	}
 
-	/// Creates an [IonDate] from a [Value].
-	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonDate> {
+	/// Creates a [Date] from a [JSVal].
+	pub fn from_value(cx: Context, val: JSVal) -> Option<Date> {
 		if val.is_object() {
-			IonDate::from(cx, val.to_object())
+			Date::from(cx, val.to_object())
 		} else {
 			None
 		}
 	}
 
-	/// Converts an [IonDate] to a [Value].
-	pub fn to_value(&self) -> Value {
+	/// Converts a [Date] to a [JSVal].
+	pub fn to_value(&self) -> JSVal {
 		ObjectValue(self.obj)
 	}
 
-	/// Checks if a date is a valid date.
-	pub unsafe fn is_valid(&self, cx: IonContext) -> bool {
+	/// Checks if the [Date] is a valid date.
+	pub fn is_valid(&self, cx: Context) -> bool {
 		rooted!(in(cx) let obj = self.obj);
 		let mut is_valid = true;
-		return DateIsValid(cx, obj.handle().into(), &mut is_valid) && is_valid;
+		(unsafe { DateIsValid(cx, obj.handle().into(), &mut is_valid) }) && is_valid
 	}
 
-	/// Converts a date to a [DateTime].
-	pub unsafe fn to_date(&self, cx: IonContext) -> Option<DateTime<Utc>> {
+	/// Converts the [Date] to a [DateTime].
+	pub fn to_date(&self, cx: Context) -> Option<DateTime<Utc>> {
 		rooted!(in(cx) let obj = self.obj);
 		let mut milliseconds: f64 = f64::MAX;
-		if !DateGetMsecSinceEpoch(cx, obj.handle().into(), &mut milliseconds) || milliseconds == f64::MAX {
+		if !unsafe { DateGetMsecSinceEpoch(cx, obj.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
 			None
 		} else {
 			Some(Utc.timestamp_millis(milliseconds as i64))
 		}
 	}
 
-	/// Checks if an [IonRawObject] is a date.
-	pub unsafe fn is_date_raw(cx: IonContext, obj: IonRawObject) -> bool {
+	/// Checks if a [*mut JSObject] is a date.
+	pub fn is_date_raw(cx: Context, obj: *mut JSObject) -> bool {
 		rooted!(in(cx) let mut robj = obj);
 		let mut is_date = false;
-		ObjectIsDate(cx, robj.handle_mut().into(), &mut is_date) && is_date
+		(unsafe { ObjectIsDate(cx, robj.handle_mut().into(), &mut is_date) }) && is_date
 	}
 }
 
-impl FromJSValConvertible for IonDate {
+impl FromJSValConvertible for Date {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: IonContext, value: HandleValue, _option: ()) -> Result<ConversionResult<IonDate>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Date>, ()> {
 		if !value.is_object() {
-			throw_type_error(cx, "Value is not an object");
+			throw_type_error(cx, "JSVal is not an object");
 			return Err(());
 		}
 
 		AssertSameCompartment(cx, value.to_object());
-		if let Some(date) = IonDate::from(cx, value.to_object()) {
+		if let Some(date) = Date::from(cx, value.to_object()) {
 			Ok(ConversionResult::Success(date))
 		} else {
 			Err(())
@@ -106,23 +99,23 @@ impl FromJSValConvertible for IonDate {
 	}
 }
 
-impl ToJSValConvertible for IonDate {
+impl ToJSValConvertible for Date {
 	#[inline]
-	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
 		rval.set(self.to_value());
 		maybe_wrap_object_value(cx, rval);
 	}
 }
 
-impl Deref for IonDate {
-	type Target = IonRawObject;
+impl Deref for Date {
+	type Target = *mut JSObject;
 
 	fn deref(&self) -> &Self::Target {
 		&self.obj
 	}
 }
 
-unsafe impl CustomTrace for IonDate {
+unsafe impl CustomTrace for Date {
 	fn trace(&self, tracer: *mut JSTracer) {
 		self.obj.trace(tracer)
 	}

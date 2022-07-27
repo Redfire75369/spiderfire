@@ -9,7 +9,7 @@ use std::path::Path;
 use mozjs::rust::JSEngine;
 
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::modules::IonModule;
+use runtime::modules::Module;
 use runtime::RuntimeBuilder;
 
 const FILE_NAME: &str = "module-import.js";
@@ -23,5 +23,5 @@ fn modules() {
 	let rt = builder.build(engine.handle());
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
-	assert!(IonModule::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).is_ok())
+	assert!(Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).is_ok())
 }

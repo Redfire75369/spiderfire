@@ -13,46 +13,43 @@ use libffi::high::arity3::ClosureMut3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{
-	AddPromiseReactions, AssertSameCompartment, GetPromiseID, GetPromiseResult, GetPromiseState, HandleObject, IsPromiseObject, JSTracer,
-	NewPromiseObject, PromiseState, RejectPromise, ResolvePromise, Value,
+	AddPromiseReactions, AssertSameCompartment, GetPromiseID, GetPromiseResult, GetPromiseState, HandleObject, IsPromiseObject, JSObject, JSTracer,
+	NewPromiseObject, PromiseState, RejectPromise, ResolvePromise,
 };
-use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::jsval::{JSVal, ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
-use crate::{IonContext, IonResult};
-use crate::functions::arguments::Arguments;
-use crate::functions::function::IonFunction;
-use crate::objects::object::{IonObject, IonRawObject};
+use crate::{Arguments, Context, Function, Object};
+use crate::flags::PropertyFlags;
 
 #[derive(Clone, Copy, Debug)]
-pub struct IonPromise {
-	obj: IonRawObject,
+pub struct Promise {
+	obj: *mut JSObject,
 }
 
-impl IonPromise {
-	/// Returns the wrapped [IonRawObject].
-	pub fn raw(&self) -> IonRawObject {
-		self.obj
-	}
-
-	pub fn new(cx: IonContext) -> IonPromise {
+impl Promise {
+	/// Creates a new [Promise] which resolves immediately and returns void.
+	pub fn new(cx: Context) -> Promise {
 		unsafe {
-			IonPromise {
+			Promise {
 				obj: NewPromiseObject(cx, HandleObject::null()),
 			}
 		}
 	}
 
-	/// Creates a new promise with an executor
-	pub fn new_with_executor<F>(cx: IonContext, mut executor: F) -> Option<IonPromise>
+	/// Creates a new [Promise] with an executor.
+	///
+	/// The executor is a function that takes in two functions, `resolve` and `reject`.
+	/// `resolve` and `reject` can be called with a [JSVal] to resolve or reject the promise with the given [JSVal].
+	pub fn new_with_executor<F>(cx: Context, mut executor: F) -> Option<Promise>
 	where
-		F: FnMut(IonContext, IonFunction, IonFunction) -> IonResult<()>,
+		F: FnMut(Context, Function, Function) -> crate::Result<()>,
 	{
 		unsafe {
-			let mut native = |cx: IonContext, argc: u32, vp: *mut Value| {
+			let mut native = |cx: Context, argc: u32, vp: *mut JSVal| {
 				let args = Arguments::new(argc, vp);
-				let resolve = IonFunction::from_value(args.value_or_undefined(0));
-				let reject = IonFunction::from_value(args.value_or_undefined(1));
+				let resolve = Function::from_value(args.value_or_undefined(0));
+				let reject = Function::from_value(args.value_or_undefined(1));
 				match (resolve, reject) {
 					(Some(resolve), Some(reject)) => match executor(cx, resolve, reject) {
 						Ok(()) => true as u8,
@@ -65,28 +62,31 @@ impl IonPromise {
 				}
 			};
 			let closure = ClosureMut3::new(&mut native);
-			let fn_ptr = transmute::<_, &unsafe extern "C" fn(IonContext, u32, *mut Value) -> bool>(closure.code_ptr());
-			let function = IonFunction::new(cx, "executor", Some(*fn_ptr), 2, 0);
+			let fn_ptr = transmute::<_, &unsafe extern "C" fn(Context, u32, *mut JSVal) -> bool>(closure.code_ptr());
+			let function = Function::new(cx, "executor", Some(*fn_ptr), 2, PropertyFlags::empty());
 			rooted!(in(cx) let executor = function.to_object());
 			let promise = NewPromiseObject(cx, executor.handle().into());
 			if !promise.is_null() {
-				Some(IonPromise { obj: promise })
+				Some(Promise { obj: promise })
 			} else {
 				None
 			}
 		}
 	}
 
-	/// Creates a promise with a [Future]
-	pub fn new_with_future<F, Output, Error>(cx: IonContext, future: F) -> Option<IonPromise>
+	/// Creates a new [Promise] with a [Future].
+	///
+	/// If the future returns an [Ok], the promise is resolved with the [JSVal] contained within.
+	/// If the future returns an [Err], the promise is rejected with the [JSVal] contained within.
+	pub fn new_with_future<F, Output, Error>(cx: Context, future: F) -> Option<Promise>
 	where
 		F: Future<Output = Result<Output, Error>>,
 		Output: ToJSValConvertible,
 		Error: ToJSValConvertible,
 	{
 		let mut future = Some(future);
-		let null = IonObject::from(HandleObject::null().get());
-		IonPromise::new_with_executor(cx, |cx, resolve, reject| {
+		let null = Object::from(HandleObject::null().get());
+		Promise::new_with_executor(cx, |cx, resolve, reject| {
 			block_on(async {
 				unsafe {
 					let future = future.take().unwrap();
@@ -94,14 +94,14 @@ impl IonPromise {
 						Ok(v) => {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
-							if let Err(Some(error)) = resolve.call_with_vec(cx, null, vec![value.get()]) {
+							if let Err(Some(error)) = resolve.call(cx, null, vec![value.get()]) {
 								error.print();
 							}
 						}
 						Err(v) => {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
-							if let Err(Some(error)) = reject.call_with_vec(cx, null, vec![value.get()]) {
+							if let Err(Some(error)) = reject.call(cx, null, vec![value.get()]) {
 								error.print();
 							}
 						}
@@ -112,84 +112,97 @@ impl IonPromise {
 		})
 	}
 
-	pub unsafe fn from(cx: IonContext, obj: IonRawObject) -> Option<IonPromise> {
-		if IonPromise::is_promise_raw(cx, obj) {
-			Some(IonPromise { obj })
+	/// Creates a [Promise] from a [*mut JSObject].
+	pub fn from(cx: Context, obj: *mut JSObject) -> Option<Promise> {
+		if Promise::is_promise_raw(cx, obj) {
+			Some(Promise { obj })
 		} else {
 			None
 		}
 	}
 
-	pub unsafe fn from_value(cx: IonContext, val: Value) -> Option<IonPromise> {
+	/// Creaes a [Promise] from a [JSVal].
+	pub fn from_value(cx: Context, val: JSVal) -> Option<Promise> {
 		if val.is_object() {
-			IonPromise::from(cx, val.to_object())
+			Promise::from(cx, val.to_object())
 		} else {
 			None
 		}
 	}
 
-	pub fn to_value(&self) -> Value {
+	/// Converts the [Promise] to a [JSVal].
+	pub fn to_value(&self) -> JSVal {
 		ObjectValue(self.obj)
 	}
 
-	pub unsafe fn get_id(&self, cx: IonContext) -> u64 {
+	/// Returns the ID of the [Promise].
+	pub fn get_id(&self, cx: Context) -> u64 {
 		rooted!(in(cx) let robj = self.obj);
-		GetPromiseID(robj.handle().into())
+		unsafe { GetPromiseID(robj.handle().into()) }
 	}
 
-	pub unsafe fn get_state(&self, cx: IonContext) -> PromiseState {
+	/// Returns the state of the [Promise].
+	///
+	/// The state can be `Pending`, `Fulfilled` (Resolved) and `Rejected`.
+	pub fn get_state(&self, cx: Context) -> PromiseState {
 		rooted!(in(cx) let robj = self.obj);
-		GetPromiseState(robj.handle().into())
+		unsafe { GetPromiseState(robj.handle().into()) }
 	}
 
-	pub unsafe fn result(&self, cx: IonContext) -> Value {
+	/// Returns the result of the [Promise.
+	pub fn result(&self, cx: Context) -> JSVal {
 		rooted!(in(cx) let robj = self.obj);
-		GetPromiseResult(robj.handle().into())
+		unsafe { GetPromiseResult(robj.handle().into()) }
 	}
 
-	pub unsafe fn add_reactions(&mut self, cx: IonContext, on_fulfilled: Option<IonFunction>, on_rejected: Option<IonFunction>) -> bool {
-		let null = HandleObject::null();
+	/// Adds Reactions to the [Promise]
+	/// `on_resolved` is similar to calling `.then()` on a promise.
+	/// `on_rejected` is similar to calling `.catch()` on a promise.
+	pub fn add_reactions(&mut self, cx: Context, on_resolved: Option<Function>, on_rejected: Option<Function>) -> bool {
 		rooted!(in(cx) let robj = self.obj);
-		rooted!(in(cx) let mut fulfilled = null.get());
-		rooted!(in(cx) let mut rejected = null.get());
-		if let Some(on_fulfilled) = on_fulfilled {
-			fulfilled.set(on_fulfilled.to_object());
+		rooted!(in(cx) let mut resolved = *Object::null());
+		rooted!(in(cx) let mut rejected = *Object::null());
+		if let Some(on_resolved) = on_resolved {
+			resolved.set(on_resolved.to_object());
 		}
 		if let Some(on_rejected) = on_rejected {
 			rejected.set(on_rejected.to_object());
 		}
-		AddPromiseReactions(cx, robj.handle().into(), fulfilled.handle().into(), rejected.handle().into())
+		unsafe { AddPromiseReactions(cx, robj.handle().into(), resolved.handle().into(), rejected.handle().into()) }
 	}
 
-	pub unsafe fn resolve(&self, cx: IonContext, val: Value) -> bool {
+	/// Resolves the [Promise] with the given [JSVal].
+	pub fn resolve(&self, cx: Context, val: JSVal) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		rooted!(in(cx) let rval = val);
-		ResolvePromise(cx, robj.handle().into(), rval.handle().into())
+		unsafe { ResolvePromise(cx, robj.handle().into(), rval.handle().into()) }
 	}
 
-	pub unsafe fn reject(&self, cx: IonContext, val: Value) -> bool {
+	/// Rejects the [Promise] with the given [JSVal].
+	pub fn reject(&self, cx: Context, val: JSVal) -> bool {
 		rooted!(in(cx) let robj = self.obj);
 		rooted!(in(cx) let rval = val);
-		RejectPromise(cx, robj.handle().into(), rval.handle().into())
+		unsafe { RejectPromise(cx, robj.handle().into(), rval.handle().into()) }
 	}
 
-	pub unsafe fn is_promise_raw(cx: IonContext, obj: IonRawObject) -> bool {
+	/// Checks if a [*mut JSObject] is a promise.
+	pub fn is_promise_raw(cx: Context, obj: *mut JSObject) -> bool {
 		rooted!(in(cx) let mut robj = obj);
-		IsPromiseObject(robj.handle().into())
+		unsafe { IsPromiseObject(robj.handle().into()) }
 	}
 }
 
-impl FromJSValConvertible for IonPromise {
+impl FromJSValConvertible for Promise {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: IonContext, value: HandleValue, _option: ()) -> Result<ConversionResult<IonPromise>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Promise>, ()> {
 		if !value.is_object() {
-			throw_type_error(cx, "Value is not an object");
+			throw_type_error(cx, "JSVal is not an object");
 			return Err(());
 		}
 
 		AssertSameCompartment(cx, value.to_object());
-		if let Some(promise) = IonPromise::from(cx, value.to_object()) {
+		if let Some(promise) = Promise::from(cx, value.to_object()) {
 			Ok(ConversionResult::Success(promise))
 		} else {
 			Err(())
@@ -197,23 +210,23 @@ impl FromJSValConvertible for IonPromise {
 	}
 }
 
-impl ToJSValConvertible for IonPromise {
+impl ToJSValConvertible for Promise {
 	#[inline]
-	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
 		rval.set(self.to_value());
 		maybe_wrap_object_value(cx, rval);
 	}
 }
 
-impl Deref for IonPromise {
-	type Target = IonRawObject;
+impl Deref for Promise {
+	type Target = *mut JSObject;
 
 	fn deref(&self) -> &Self::Target {
 		&self.obj
 	}
 }
 
-unsafe impl CustomTrace for IonPromise {
+unsafe impl CustomTrace for Promise {
 	fn trace(&self, tracer: *mut JSTracer) {
 		self.obj.trace(tracer)
 	}

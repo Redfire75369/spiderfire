@@ -6,34 +6,31 @@
 
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
+use ion::{Context, Error, Function, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::functions::function::IonFunction;
-use ion::objects::object::IonObject;
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::microtasks::Microtask;
 
 #[js_fn]
-fn queueMicrotask(cx: IonContext, callback: IonFunction) -> IonResult<()> {
+fn queueMicrotask(cx: Context, callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
 		if let Some(queue) = (*event_loop.borrow()).microtasks.clone() {
 			queue.enqueue(cx, Microtask::User(callback));
 			Ok(())
 		} else {
-			Err(IonError::Error(String::from("Microtask Queue has not been initialised.")))
+			Err(Error::Error(String::from("Microtask Queue has not been initialised.")))
 		}
 	})
 }
 
 const FUNCTION: JSFunctionSpec = function_spec!(queueMicrotask, 0);
 
-pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
+pub fn define(cx: Context, mut global: Object) -> bool {
 	global.define_as(
 		cx,
 		"queueMicrotask",
-		IonFunction::from_spec(cx, &FUNCTION),
+		Function::from_spec(cx, &FUNCTION),
 		PropertyFlags::CONSTANT_ENUMERATED,
 	)
 }

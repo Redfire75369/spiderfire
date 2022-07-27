@@ -23,3 +23,13 @@ debugmozjs = ["mozjs/debugmozjs"]
 [lib]
 test = false
 doctest = false
+
+[[test]]
+name = "array"
+path = "tests/objects/array.rs"
+[[test]]
+name = "date"
+path = "tests/objects/date.rs"
+[[test]]
+name = "object"
+path = "tests/objects/object.rs"

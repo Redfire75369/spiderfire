@@ -4,44 +4,39 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ptr;
 use std::cmp::Ordering;
+use std::ptr;
 
 use idna::{domain_to_ascii, domain_to_unicode};
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
 use mozjs::conversions::ConversionBehavior::EnforceRange;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	HandleObject, JS_DefineFunctions, JS_InitClass, JS_NewObjectForConstructor, JS_NewPlainObject, JS_SetReservedSlot, JSClass, JSFunctionSpec,
-	JSPropertySpec, Value,
+	HandleObject, JS_DefineFunctions, JS_InitClass, JS_NewObjectForConstructor, JS_SetReservedSlot, JSClass, JSFunctionSpec, JSPropertySpec,
 };
-use mozjs::jsval::NullValue;
+use mozjs::jsval::{JSVal, NullValue};
 use url::Url;
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
+use ion::{Arguments, class_reserved_slots, Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::functions::arguments::Arguments;
-use ion::objects::class_reserved_slots;
-use ion::objects::object::IonObject;
-use runtime::modules::Module;
+use runtime::modules::NativeModule;
 
-unsafe fn get_url(cx: IonContext, this: IonObject) -> Url {
+unsafe fn get_url(cx: Context, this: Object) -> Url {
 	let mut value = NullValue();
-	JS_GetReservedSlot(this.raw(), 0, &mut value);
+	JS_GetReservedSlot(*this, 0, &mut value);
 	Url::parse(&jsstr_to_string(cx, value.to_string())).unwrap()
 }
 
-unsafe fn set_url(cx: IonContext, this: IonObject, url: Url) {
+unsafe fn set_url(cx: Context, this: Object, url: Url) {
 	rooted!(in(cx) let mut string = NullValue());
 	url.to_string().to_jsval(cx, string.handle_mut());
-	JS_SetReservedSlot(this.raw(), 0, &string.get());
+	JS_SetReservedSlot(*this, 0, &string.get());
 }
 
 #[js_fn]
-unsafe fn constructor(cx: IonContext, args: &Arguments, input: String, base: Option<String>) -> IonResult<IonObject> {
+unsafe fn constructor(cx: Context, args: &Arguments, input: String, base: Option<String>) -> Result<Object> {
 	if !args.is_constructing() {
-		return Err(IonError::Error(String::from("This constructor must be called with \"new\".")));
+		return Err(Error::Error(String::from("This constructor must be called with \"new\".")));
 	}
 	let options = Url::options();
 	let base = base.as_ref().map(|base| Url::parse(base).ok()).flatten();
@@ -49,28 +44,28 @@ unsafe fn constructor(cx: IonContext, args: &Arguments, input: String, base: Opt
 	match options.parse(&input) {
 		Ok(url) => {
 			rooted!(in(cx) let this = JS_NewObjectForConstructor(cx, &URL_CLASS, &args.call_args()));
-			set_url(cx, IonObject::from(this.get()), url);
-			Ok(IonObject::from(this.get()))
+			set_url(cx, Object::from(this.get()), url);
+			Ok(Object::from(this.get()))
 		}
-		Err(error) => Err(IonError::Error(error.to_string())),
+		Err(error) => Err(Error::Error(error.to_string())),
 	}
 }
 
 #[js_fn]
-unsafe fn href(#[this] this: IonObject) -> IonResult<Value> {
+unsafe fn href(#[this] this: Object) -> Result<JSVal> {
 	let mut value = NullValue();
-	JS_GetReservedSlot(this.raw(), 0, &mut value);
+	JS_GetReservedSlot(*this, 0, &mut value);
 	Ok(value)
 }
 
 #[js_fn]
-unsafe fn protocol(cx: IonContext, #[this] this: IonObject) -> IonResult<String> {
+unsafe fn protocol(cx: Context, #[this] this: Object) -> Result<String> {
 	let url = get_url(cx, this);
 	Ok(format!("{}:", url.scheme()))
 }
 
 #[js_fn]
-unsafe fn host(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<String>> {
+unsafe fn host(cx: Context, #[this] this: Object) -> Result<Option<String>> {
 	let url = get_url(cx, this);
 	let host = url.host_str().map(|host| {
 		if let Some(port) = url.port() {
@@ -83,86 +78,86 @@ unsafe fn host(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<Stri
 }
 
 #[js_fn]
-unsafe fn hostname(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<String>> {
+unsafe fn hostname(cx: Context, #[this] this: Object) -> Result<Option<String>> {
 	let url = get_url(cx, this);
 	Ok(url.host_str().map(String::from))
 }
 
 #[js_fn]
-unsafe fn port(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<u16>> {
+unsafe fn port(cx: Context, #[this] this: Object) -> Result<Option<u16>> {
 	let url = get_url(cx, this);
 	Ok(url.port_or_known_default())
 }
 
 #[js_fn]
-unsafe fn path(cx: IonContext, #[this] this: IonObject) -> IonResult<String> {
+unsafe fn path(cx: Context, #[this] this: Object) -> Result<String> {
 	let url = get_url(cx, this);
 	Ok(String::from(url.path()))
 }
 
 #[js_fn]
-unsafe fn username(cx: IonContext, #[this] this: IonObject) -> IonResult<String> {
+unsafe fn username(cx: Context, #[this] this: Object) -> Result<String> {
 	let url = get_url(cx, this);
 	Ok(String::from(url.username()))
 }
 
 #[js_fn]
-unsafe fn password(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<String>> {
+unsafe fn password(cx: Context, #[this] this: Object) -> Result<Option<String>> {
 	let url = get_url(cx, this);
 	Ok(url.password().map(String::from))
 }
 
 #[js_fn]
-unsafe fn search(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<String>> {
+unsafe fn search(cx: Context, #[this] this: Object) -> Result<Option<String>> {
 	let url = get_url(cx, this);
 	Ok(url.query().map(String::from))
 }
 
 #[js_fn]
-unsafe fn hash(cx: IonContext, #[this] this: IonObject) -> IonResult<Option<String>> {
+unsafe fn hash(cx: Context, #[this] this: Object) -> Result<Option<String>> {
 	let url = get_url(cx, this);
 	Ok(url.fragment().map(String::from))
 }
 
 #[js_fn]
-unsafe fn set_href(cx: IonContext, #[this] this: IonObject, input: String) -> IonResult<()> {
+unsafe fn set_href(cx: Context, #[this] this: Object, input: String) -> Result<()> {
 	match Url::parse(&input) {
 		Ok(url) => {
 			set_url(cx, this, url);
 			Ok(())
 		}
-		Err(error) => Err(IonError::Error(error.to_string())),
+		Err(error) => Err(Error::Error(error.to_string())),
 	}
 }
 
 #[js_fn]
-unsafe fn set_protocol(cx: IonContext, #[this] this: IonObject, protocol: String) -> IonResult<()> {
+unsafe fn set_protocol(cx: Context, #[this] this: Object, protocol: String) -> Result<()> {
 	let mut url = get_url(cx, this);
-	let result = url.set_scheme(&protocol).map_err(|_| IonError::Error(String::from("Invalid Protocol")));
+	let result = url.set_scheme(&protocol).map_err(|_| Error::Error(String::from("Invalid Protocol")));
 	set_url(cx, this, url);
 	result
 }
 
 #[js_fn]
-unsafe fn set_host(cx: IonContext, #[this] this: IonObject, host: Option<String>) -> IonResult<()> {
+unsafe fn set_host(cx: Context, #[this] this: Object, host: Option<String>) -> Result<()> {
 	let mut url = get_url(cx, this);
 
 	if let Some(host) = host {
 		let segments: Vec<&str> = host.split(':').collect();
 		let (host, port) = match segments.len().cmp(&2) {
 			Ordering::Less => (segments[0], None),
-			Ordering::Greater => return Err(IonError::Error(String::from("Invalid Host"))),
+			Ordering::Greater => return Err(Error::Error(String::from("Invalid Host"))),
 			Ordering::Equal => {
 				let port = match segments[1].parse::<u16>() {
 					Ok(port) => port,
-					Err(error) => return Err(IonError::Error(error.to_string())),
+					Err(error) => return Err(Error::Error(error.to_string())),
 				};
 				(segments[0], Some(port))
 			}
 		};
 
 		if let Err(error) = url.set_host(Some(host)) {
-			return Err(IonError::Error(error.to_string()));
+			return Err(Error::Error(error.to_string()));
 		}
 
 		let _ = url.set_port(port);
@@ -176,15 +171,15 @@ unsafe fn set_host(cx: IonContext, #[this] this: IonObject, host: Option<String>
 }
 
 #[js_fn]
-unsafe fn set_hostname(cx: IonContext, #[this] this: IonObject, hostname: Option<String>) -> IonResult<()> {
+unsafe fn set_hostname(cx: Context, #[this] this: Object, hostname: Option<String>) -> Result<()> {
 	let mut url = get_url(cx, this);
-	let result = url.set_host(hostname.as_deref()).map_err(|error| IonError::Error(error.to_string()));
+	let result = url.set_host(hostname.as_deref()).map_err(|error| Error::Error(error.to_string()));
 	set_url(cx, this, url);
 	result
 }
 
 #[js_fn]
-unsafe fn set_port(cx: IonContext, #[this] this: IonObject, #[convert(EnforceRange)] port: Option<u16>) -> IonResult<()> {
+unsafe fn set_port(cx: Context, #[this] this: Object, #[convert(EnforceRange)] port: Option<u16>) -> Result<()> {
 	let mut url = get_url(cx, this);
 	let _ = url.set_port(port);
 	set_url(cx, this, url);
@@ -192,7 +187,7 @@ unsafe fn set_port(cx: IonContext, #[this] this: IonObject, #[convert(EnforceRan
 }
 
 #[js_fn]
-unsafe fn set_path(cx: IonContext, #[this] this: IonObject, input: String) -> IonResult<()> {
+unsafe fn set_path(cx: Context, #[this] this: Object, input: String) -> Result<()> {
 	let mut url = get_url(cx, this);
 	url.set_path(&input);
 	set_url(cx, this, url);
@@ -200,7 +195,7 @@ unsafe fn set_path(cx: IonContext, #[this] this: IonObject, input: String) -> Io
 }
 
 #[js_fn]
-unsafe fn set_username(cx: IonContext, #[this] this: IonObject, input: String) -> IonResult<()> {
+unsafe fn set_username(cx: Context, #[this] this: Object, input: String) -> Result<()> {
 	let mut url = get_url(cx, this);
 	let _ = url.set_username(&input);
 	set_url(cx, this, url);
@@ -208,7 +203,7 @@ unsafe fn set_username(cx: IonContext, #[this] this: IonObject, input: String) -
 }
 
 #[js_fn]
-unsafe fn set_password(cx: IonContext, #[this] this: IonObject, input: Option<String>) -> IonResult<()> {
+unsafe fn set_password(cx: Context, #[this] this: Object, input: Option<String>) -> Result<()> {
 	let mut url = get_url(cx, this);
 	let _ = url.set_password(input.as_deref());
 	set_url(cx, this, url);
@@ -216,7 +211,7 @@ unsafe fn set_password(cx: IonContext, #[this] this: IonObject, input: Option<St
 }
 
 #[js_fn]
-unsafe fn set_search(cx: IonContext, #[this] this: IonObject, input: Option<String>) -> IonResult<()> {
+unsafe fn set_search(cx: Context, #[this] this: Object, input: Option<String>) -> Result<()> {
 	let mut url = get_url(cx, this);
 	url.set_query(input.as_deref());
 	set_url(cx, this, url);
@@ -224,7 +219,7 @@ unsafe fn set_search(cx: IonContext, #[this] this: IonObject, input: Option<Stri
 }
 
 #[js_fn]
-unsafe fn set_hash(cx: IonContext, #[this] this: IonObject, input: Option<String>) -> IonResult<()> {
+unsafe fn set_hash(cx: Context, #[this] this: Object, input: Option<String>) -> Result<()> {
 	let mut url = get_url(cx, this);
 	url.set_fragment(input.as_deref());
 	set_url(cx, this, url);
@@ -232,27 +227,27 @@ unsafe fn set_hash(cx: IonContext, #[this] this: IonObject, input: Option<String
 }
 
 #[js_fn]
-unsafe fn origin(cx: IonContext, #[this] this: IonObject) -> IonResult<String> {
+unsafe fn origin(cx: Context, #[this] this: Object) -> Result<String> {
 	let url = get_url(cx, this);
 	Ok(url.origin().ascii_serialization())
 }
 
 #[js_fn]
-unsafe fn toString(#[this] this: IonObject) -> IonResult<Value> {
+unsafe fn toString(#[this] this: Object) -> Result<JSVal> {
 	let mut value = NullValue();
-	JS_GetReservedSlot(this.raw(), 0, &mut value);
+	JS_GetReservedSlot(*this, 0, &mut value);
 	Ok(value)
 }
 
 #[js_fn]
-unsafe fn toJSON(#[this] this: IonObject) -> IonResult<Value> {
+unsafe fn toJSON(#[this] this: Object) -> Result<JSVal> {
 	let mut value = NullValue();
-	JS_GetReservedSlot(this.raw(), 0, &mut value);
+	JS_GetReservedSlot(*this, 0, &mut value);
 	Ok(value)
 }
 
 #[js_fn]
-unsafe fn format(cx: IonContext, #[this] this: IonObject, options: Option<IonObject>) -> IonResult<String> {
+unsafe fn format(cx: Context, #[this] this: Object, options: Option<Object>) -> Result<String> {
 	let mut url = get_url(cx, this);
 
 	let auth = options.map(|options| options.get_as::<bool>(cx, "auth", ())).flatten().unwrap_or(true);
@@ -276,12 +271,12 @@ unsafe fn format(cx: IonContext, #[this] this: IonObject, options: Option<IonObj
 }
 
 #[js_fn]
-fn domainToASCII(domain: String) -> IonResult<String> {
-	domain_to_ascii(&domain).map_err(|error| IonError::Error(error.to_string()))
+fn domainToASCII(domain: String) -> Result<String> {
+	domain_to_ascii(&domain).map_err(|error| Error::Error(error.to_string()))
 }
 
 #[js_fn]
-fn domainToUnicode(domain: String) -> IonResult<String> {
+fn domainToUnicode(domain: String) -> Result<String> {
 	Ok(domain_to_unicode(&domain).0)
 }
 
@@ -321,27 +316,29 @@ const FUNCTIONS: &[JSFunctionSpec] = &[function_spec!(domainToASCII, 0), functio
 #[derive(Default)]
 pub struct UrlM;
 
-impl Module for UrlM {
+impl NativeModule for UrlM {
 	const NAME: &'static str = "url";
 	const SOURCE: &'static str = include_str!("url.js");
 
-	unsafe fn module(cx: IonContext) -> Option<IonObject> {
-		rooted!(in(cx) let url = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, url.handle().into(), FUNCTIONS.as_ptr()) {
-			let class = JS_InitClass(
-				cx,
-				url.handle().into(),
-				HandleObject::null(),
-				&URL_CLASS,
-				Some(constructor),
-				1,
-				PROPERTIES.as_ptr() as *const _,
-				METHODS.as_ptr() as *const _,
-				ptr::null_mut(),
-				ptr::null_mut(),
-			);
+	fn module(cx: Context) -> Option<Object> {
+		rooted!(in(cx) let url = *Object::new(cx));
+		if unsafe { JS_DefineFunctions(cx, url.handle().into(), FUNCTIONS.as_ptr()) } {
+			let class = unsafe {
+				JS_InitClass(
+					cx,
+					url.handle().into(),
+					HandleObject::null(),
+					&URL_CLASS,
+					Some(constructor),
+					1,
+					PROPERTIES.as_ptr() as *const _,
+					METHODS.as_ptr() as *const _,
+					ptr::null_mut(),
+					ptr::null_mut(),
+				)
+			};
 			if !class.is_null() {
-				return Some(IonObject::from(url.get()));
+				return Some(Object::from(url.get()));
 			}
 		}
 		None

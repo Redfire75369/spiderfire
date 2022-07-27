@@ -32,15 +32,15 @@ pub(crate) fn impl_js_fn(function: ItemFn) -> syn::Result<TokenStream> {
 	outer.sig.asyncness = None;
 	outer.sig.unsafety = Some(parse_quote!(unsafe));
 	let outer_params: [FnArg; 3] = [
-		parse_quote!(cx: #krate::IonContext),
+		parse_quote!(cx: #krate::Context),
 		parse_quote!(argc: ::core::primitive::u32),
-		parse_quote!(vp: *mut ::mozjs::jsapi::Value),
+		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
 	];
 	outer.sig.inputs = Punctuated::<_, _>::from_iter(outer_params);
 	outer.sig.output = parse_quote!(-> ::core::primitive::bool);
 
 	let body = quote!({
-		let args = #krate::functions::arguments::Arguments::new(argc, vp);
+		let args = #krate::Arguments::new(argc, vp);
 
 		#inner
 
@@ -61,11 +61,11 @@ pub(crate) fn impl_js_fn(function: ItemFn) -> syn::Result<TokenStream> {
 				}
 				Err(unwind_error) => {
 					if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-						#krate::error::IonError::Error(unwind.clone()).throw(cx);
+						#krate::Error::Error(unwind.clone()).throw(cx);
 					} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-						#krate::error::IonError::Error(String::from(*unwind)).throw(cx);
+						#krate::Error::Error(String::from(*unwind)).throw(cx);
 					} else {
-						#krate::error::IonError::Error(String::from("Unknown Panic Occurred")).throw(cx);
+						#krate::Error::Error(String::from("Unknown Panic Occurred")).throw(cx);
 						::std::mem::forget(unwind_error);
 					}
 					false

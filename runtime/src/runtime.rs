@@ -10,8 +10,7 @@ use std::ptr;
 use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_GLOBAL_CLASS};
 
-use ion::IonContext;
-use ion::objects::object::IonObject;
+use ion::{Context, Object};
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::macrotasks::init_macrotask_queue;
@@ -20,8 +19,8 @@ use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::{init_module_loaders, StandardModules};
 
 pub struct Runtime {
-	cx: IonContext,
-	global: IonObject,
+	cx: Context,
+	global: Object,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
 	#[allow(dead_code)]
@@ -29,11 +28,11 @@ pub struct Runtime {
 }
 
 impl Runtime {
-	pub fn cx(&self) -> IonContext {
+	pub fn cx(&self) -> Context {
 		self.cx
 	}
 
-	pub fn global(&self) -> IonObject {
+	pub fn global(&self) -> Object {
 		self.global
 	}
 
@@ -84,7 +83,7 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 
 		let global = unsafe { JS_NewGlobalObject(cx, &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 		let realm = JSAutoRealm::new(cx, global);
-		let mut global = IonObject::from(global);
+		let mut global = Object::from(global);
 
 		init_globals(cx, global);
 

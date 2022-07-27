@@ -10,22 +10,20 @@ use std::os;
 use std::path::Path;
 
 use futures_lite::stream::StreamExt;
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
+use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, JSObject};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
+use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::objects::object::{IonObject, IonRawObject};
-use runtime::modules::Module;
+use runtime::modules::NativeModule;
 
 #[js_fn]
-async unsafe fn readBinary(cx: IonContext, path_str: String) -> Result<IonRawObject, ()> {
+async unsafe fn readBinary(cx: Context, path_str: String) -> Result<*mut JSObject, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(bytes) = async_fs::read(&path).await {
-			rooted!(in(cx) let mut array = JS_NewPlainObject(cx));
+			rooted!(in(cx) let mut array = *Object::new(cx));
 			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
 				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
 			{
@@ -37,23 +35,23 @@ async unsafe fn readBinary(cx: IonContext, path_str: String) -> Result<IonRawObj
 }
 
 #[js_fn]
-unsafe fn readBinarySync(cx: IonContext, path_str: String) -> IonResult<IonRawObject> {
+unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<*mut JSObject> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
-			rooted!(in(cx) let mut array = JS_NewPlainObject(cx));
+			rooted!(in(cx) let mut array = *Object::new(cx));
 			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
 				&& !Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
 			{
-				return Err(IonError::Error(String::from("Unable to create Uint8Array")));
+				return Err(Error::Error(String::from("Unable to create Uint8Array")));
 			}
 			Ok(array.get())
 		} else {
-			Err(IonError::Error(format!("Could not read file: {}", path_str)))
+			Err(Error::Error(format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(IonError::Error(format!("File {} does not exist", path_str)))
+		Err(Error::Error(format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -73,17 +71,17 @@ async fn readString(path_str: String) -> Result<String, ()> {
 }
 
 #[js_fn]
-fn readStringSync(path_str: String) -> IonResult<String> {
+fn readStringSync(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(str) = fs::read_to_string(&path) {
 			Ok(str)
 		} else {
-			Err(IonError::Error(format!("Could not read file: {}", path_str)))
+			Err(Error::Error(format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(IonError::Error(format!("File {} does not exist", path_str)))
+		Err(Error::Error(format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -107,7 +105,7 @@ async fn readDir(path_str: String) -> Result<Vec<String>, ()> {
 }
 
 #[js_fn]
-fn readDirSync(path_str: String) -> IonResult<Vec<String>> {
+fn readDirSync(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -121,7 +119,7 @@ fn readDirSync(path_str: String) -> IonResult<Vec<String>> {
 			Ok(Vec::new())
 		}
 	} else {
-		Err(IonError::Error(format!("Directory {} does not exist", path_str)))
+		Err(Error::Error(format!("Directory {} does not exist", path_str)))
 	}
 }
 
@@ -137,13 +135,13 @@ async fn write(path_str: String, contents: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn writeSync(path_str: String, contents: String) -> IonResult<bool> {
+fn writeSync(path_str: String, contents: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_dir() {
 		Ok(fs::write(path, contents).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is a directory", path_str)))
+		Err(Error::Error(format!("Path {} is a directory", path_str)))
 	}
 }
 
@@ -159,13 +157,13 @@ async fn createDir(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn createDirSync(path_str: String) -> IonResult<bool> {
+fn createDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
 		Ok(fs::create_dir(path).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is a file", path_str)))
+		Err(Error::Error(format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -181,13 +179,13 @@ async fn createDirRecursive(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn createDirRecursiveSync(path_str: String) -> IonResult<bool> {
+fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
 		Ok(fs::create_dir_all(path).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is a file", path_str)))
+		Err(Error::Error(format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -203,13 +201,13 @@ async fn removeFile(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn removeFileSync(path_str: String) -> IonResult<bool> {
+fn removeFileSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is not a file", path_str)))
+		Err(Error::Error(format!("Path {} is not a file", path_str)))
 	}
 }
 
@@ -225,13 +223,13 @@ async fn removeDir(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn removeDirSync(path_str: String) -> IonResult<bool> {
+fn removeDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is not a directory", path_str)))
+		Err(Error::Error(format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -247,13 +245,13 @@ async fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn removeDirRecursiveSync(path_str: String) -> IonResult<bool> {
+fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
 		Ok(fs::remove_dir_all(path).is_ok())
 	} else {
-		Err(IonError::Error(format!("Path {} is not a directory", path_str)))
+		Err(Error::Error(format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -270,14 +268,14 @@ async fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn copySync(from_str: String, to_str: String) -> IonResult<bool> {
+fn copySync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::copy(from, to).is_ok())
 	} else {
-		Err(IonError::None)
+		Err(Error::None)
 	}
 }
 
@@ -294,14 +292,14 @@ async fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn renameSync(from_str: String, to_str: String) -> IonResult<bool> {
+fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::rename(from, to).is_ok())
 	} else {
-		Err(IonError::None)
+		Err(Error::None)
 	}
 }
 
@@ -331,7 +329,7 @@ async fn softLink(original_str: String, link_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn softLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
+fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -351,7 +349,7 @@ fn softLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
 			}
 		}
 	} else {
-		Err(IonError::Error(String::from("Link already exists")))
+		Err(Error::Error(String::from("Link already exists")))
 	}
 }
 
@@ -368,14 +366,14 @@ async fn hardLink(original_str: String, link_str: String) -> Result<bool, ()> {
 }
 
 #[js_fn]
-fn hardLinkSync(original_str: String, link_str: String) -> IonResult<bool> {
+fn hardLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
 	if !link.exists() {
 		Ok(fs::hard_link(original, link).is_ok())
 	} else {
-		Err(IonError::Error(String::from("Link already exists")))
+		Err(Error::Error(String::from("Link already exists")))
 	}
 }
 
@@ -416,19 +414,19 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 #[derive(Default)]
 pub struct FileSystem;
 
-impl Module for FileSystem {
+impl NativeModule for FileSystem {
 	const NAME: &'static str = "fs";
 	const SOURCE: &'static str = include_str!("fs.js");
 
-	unsafe fn module(cx: IonContext) -> Option<IonObject> {
-		rooted!(in(cx) let fs = JS_NewPlainObject(cx));
-		rooted!(in(cx) let sync = JS_NewPlainObject(cx));
+	fn module(cx: Context) -> Option<Object> {
+		rooted!(in(cx) let fs = *Object::new(cx));
+		rooted!(in(cx) let sync = *Object::new(cx));
 
-		if JS_DefineFunctions(cx, fs.handle().into(), ASYNC_FUNCTIONS.as_ptr())
-			&& JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr())
-			&& IonObject::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
+		if unsafe { JS_DefineFunctions(cx, fs.handle().into(), ASYNC_FUNCTIONS.as_ptr()) }
+			&& unsafe { JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr()) }
+			&& Object::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			return Some(IonObject::from(fs.get()));
+			return Some(Object::from(fs.get()));
 		}
 		None
 	}

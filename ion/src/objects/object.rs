@@ -6,25 +6,20 @@
 
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::result::Result;
 
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::glue::{RUST_JSID_IS_INT, RUST_JSID_IS_STRING, RUST_JSID_TO_INT, RUST_JSID_TO_STRING};
 use mozjs::jsapi::{
 	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
-	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer, Value,
+	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer,
 };
-use mozjs::jsval::{ObjectValue, UndefinedValue};
+use mozjs::jsval::{JSVal, NullValue, ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
 
-use crate::exception::Exception;
+use crate::{Context, Exception, Function, NativeFunction};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::functions::function::{IonFunction, IonNativeFunction};
-use crate::IonContext;
 use crate::types::values::from_value;
-
-pub type IonRawObject = *mut JSObject;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Key {
@@ -44,47 +39,47 @@ impl Display for Key {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct IonObject {
-	obj: IonRawObject,
+pub struct Object {
+	obj: *mut JSObject,
 }
 
-impl IonObject {
-	/// Returns the wrapped [IonRawObject].
-	pub fn raw(&self) -> IonRawObject {
-		self.obj
+impl Object {
+	/// Creates an empty [Object].
+	pub fn new(cx: Context) -> Object {
+		unsafe { Object::from(JS_NewPlainObject(cx)) }
 	}
 
-	/// Creates an empty [IonObject].
-	pub fn new(cx: IonContext) -> IonObject {
-		unsafe { IonObject::from(JS_NewPlainObject(cx)) }
+	/// Creates a `null` [Object].
+	pub fn null() -> Object {
+		Object::from(NullValue().to_object())
 	}
 
-	/// Creates an [IonObject] from an [IonRawObject].
-	pub fn from(obj: IonRawObject) -> IonObject {
-		IonObject { obj }
+	/// Creates an [Object] from a [*mut JSObject].
+	pub fn from(obj: *mut JSObject) -> Object {
+		Object { obj }
 	}
 
-	/// Creates an [IonObject] from a [Value].
-	pub fn from_value(val: Value) -> Option<IonObject> {
+	/// Creates an [Object] from a [JSVal].
+	pub fn from_value(val: JSVal) -> Option<Object> {
 		if val.is_object() {
-			Some(IonObject::from(val.to_object()))
+			Some(Object::from(val.to_object()))
 		} else {
 			None
 		}
 	}
 
-	/// Converts an [IonObject] to a [Value].
-	pub fn to_value(&self) -> Value {
+	/// Converts an [Object] to a [JSVal].
+	pub fn to_value(&self) -> JSVal {
 		ObjectValue(self.obj)
 	}
 
-	/// Checks if an object has the given key.
-	pub unsafe fn has(&self, cx: IonContext, key: &str) -> bool {
+	/// Checks if the [Object] has a value at the given key.
+	pub fn has(&self, cx: Context, key: &str) -> bool {
 		let key = format!("{}\0", key);
 		let mut found = false;
 		rooted!(in(cx) let obj = self.obj);
 
-		if JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
+		if unsafe { JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -92,12 +87,14 @@ impl IonObject {
 		}
 	}
 
-	pub unsafe fn has_own(&self, cx: IonContext, key: &str) -> bool {
+	/// Checks if the [Object] has its own value at the given key.
+	/// An object owns its properties if they are not inherited from a prototype.
+	pub fn has_own(&self, cx: Context, key: &str) -> bool {
 		let key = format!("{}\0", key);
 		let mut found = false;
 		rooted!(in(cx) let obj = self.obj);
 
-		if JS_HasOwnProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) {
+		if unsafe { JS_HasOwnProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -105,142 +102,160 @@ impl IonObject {
 		}
 	}
 
-	/// Gets the value at the given key.
-	///
-	/// Returns [None] if the object does not contain the key.
-	pub unsafe fn get(&self, cx: IonContext, key: &str) -> Option<Value> {
+	/// Gets the [JSVal] at the given key of the [Object].
+	/// Returns [None] if there is no value at the given key.
+	pub fn get(&self, cx: Context, key: &str) -> Option<JSVal> {
 		let key = format!("{}\0", key);
 		if self.has(cx, &key) {
 			rooted!(in(cx) let obj = self.obj);
-			rooted!(in(cx) let mut rval: Value);
-			JS_GetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle_mut().into());
+			rooted!(in(cx) let mut rval = UndefinedValue());
+			unsafe { JS_GetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle_mut().into()) };
 			Some(rval.get())
 		} else {
 			None
 		}
 	}
 
-	/// Gets the value at the given key as a Rust type.
-	///
+	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub unsafe fn get_as<T: FromJSValConvertible>(&self, cx: IonContext, key: &str, config: T::Config) -> Option<T> {
+	pub fn get_as<T: FromJSValConvertible>(&self, cx: Context, key: &str, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
 		opt.map(|val| from_value(cx, val, config)).flatten()
 	}
 
-	/// Sets the value with the given key.
-	pub unsafe fn set(&mut self, cx: IonContext, key: &str, value: Value) -> bool {
+	/// Sets the [JSVal] at the given key of the [Object].
+	/// Returns `false` if the property cannot be set.
+	pub fn set(&mut self, cx: Context, key: &str, value: JSVal) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		rooted!(in(cx) let rval = value);
-		JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into())
+		unsafe { JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into()) }
 	}
 
-	pub unsafe fn set_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: &str, value: T) -> bool {
+	/// Sets the Rust type at the given key of the [Object].
+	/// Returns `false` if the property cannot be set.
+	pub fn set_as<T: ToJSValConvertible>(&mut self, cx: Context, key: &str, value: T) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut val = UndefinedValue());
-		value.to_jsval(cx, val.handle_mut());
+		unsafe {
+			value.to_jsval(cx, val.handle_mut());
+		}
 		self.set(cx, &key, val.get())
 	}
 
-	/// Defines the value with the given key with the given attributes.
-	pub unsafe fn define(&mut self, cx: IonContext, key: &str, value: Value, attrs: PropertyFlags) -> bool {
+	/// Defines the [JSVal] at the given key of the [Object] with the given attributes.
+	/// Returns `false` if the property cannot be defined.
+	pub fn define(&mut self, cx: Context, key: &str, value: JSVal, attrs: PropertyFlags) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
 		rooted!(in(cx) let rval = value);
-		JS_DefineProperty(
-			cx,
-			obj.handle().into(),
-			key.as_ptr() as *const i8,
-			rval.handle().into(),
-			attrs.bits() as u32,
-		)
+		unsafe {
+			JS_DefineProperty(
+				cx,
+				obj.handle().into(),
+				key.as_ptr() as *const i8,
+				rval.handle().into(),
+				attrs.bits() as u32,
+			)
+		}
 	}
 
-	pub unsafe fn define_as<T: ToJSValConvertible>(&mut self, cx: IonContext, key: &str, value: T, attrs: PropertyFlags) -> bool {
+	/// Defines the Rust type at the given key of the [Object] with the given attributes.
+	/// Returns `false` if the property cannot be defined.
+	pub fn define_as<T: ToJSValConvertible>(&mut self, cx: Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let mut val = UndefinedValue());
-		value.to_jsval(cx, val.handle_mut());
+		unsafe {
+			value.to_jsval(cx, val.handle_mut());
+		}
 		self.define(cx, &key, val.get(), attrs)
 	}
 
-	/// Defines a method with the given name, and the given number of arguments and attributes.
-	pub unsafe fn define_method(&mut self, cx: IonContext, name: &str, method: IonNativeFunction, nargs: u32, attrs: PropertyFlags) -> IonFunction {
+	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].
+	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
+	pub fn define_method(&mut self, cx: Context, name: &str, method: NativeFunction, nargs: u32, attrs: PropertyFlags) -> Function {
 		let name = format!("{}\0", name);
 		rooted!(in(cx) let mut obj = self.obj);
-		IonFunction::from(JS_DefineFunction(
-			cx,
-			obj.handle().into(),
-			name.as_ptr() as *const i8,
-			Some(method),
-			nargs,
-			attrs.bits() as u32,
-		))
+		Function::from(unsafe {
+			JS_DefineFunction(
+				cx,
+				obj.handle().into(),
+				name.as_ptr() as *const i8,
+				Some(method),
+				nargs,
+				attrs.bits() as u32,
+			)
+		})
 	}
 
-	/// Deletes the value at the given key.
-	pub unsafe fn delete(&self, cx: IonContext, key: &str) -> bool {
+	/// Deletes the [JSVal] at the given index.
+	/// Returns `false` if the element cannot be deleted.
+	pub fn delete(&self, cx: Context, key: &str) -> bool {
 		let key = format!("{}\0", key);
 		rooted!(in(cx) let obj = self.obj);
-		JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8)
+		unsafe { JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8) }
 	}
 
-	/// Returns a [Vec] of the keys of the object
-	pub unsafe fn keys(&self, cx: IonContext, flags: Option<IteratorFlags>) -> Vec<Key> {
+	/// Returns a [Vec] of the keys of the [Object].
+	/// Each [Key] can be a [String], integer or void.
+	pub fn keys(&self, cx: Context, flags: Option<IteratorFlags>) -> Vec<Key> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
-		let mut ids = IdVector::new(cx);
+		let mut ids = unsafe { IdVector::new(cx) };
 		rooted!(in(cx) let obj = self.obj);
-		GetPropertyKeys(cx, obj.handle().into(), flags.bits(), ids.handle_mut());
+		unsafe { GetPropertyKeys(cx, obj.handle().into(), flags.bits(), ids.handle_mut()) };
 		ids.iter()
 			.map(|id| {
 				rooted!(in(cx) let id = *id);
-				if RUST_JSID_IS_INT(id.handle().into()) {
-					Key::Int(RUST_JSID_TO_INT(id.handle().into()))
-				} else if RUST_JSID_IS_STRING(id.handle().into()) {
-					Key::String(jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into())))
-				} else {
-					Key::Void
+				unsafe {
+					if RUST_JSID_IS_INT(id.handle().into()) {
+						Key::Int(RUST_JSID_TO_INT(id.handle().into()))
+					} else if RUST_JSID_IS_STRING(id.handle().into()) {
+						Key::String(jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into())))
+					} else {
+						Key::Void
+					}
 				}
 			})
 			.collect()
 	}
 
-	pub unsafe fn global(cx: IonContext) -> IonObject {
-		IonObject::from(CurrentGlobalOrNull(cx))
+	/// Returns the current global [Object] or `null` if one has not been initialised yet.
+	pub fn global(cx: Context) -> Object {
+		unsafe { Object::from(CurrentGlobalOrNull(cx)) }
 	}
 }
 
-impl FromJSValConvertible for IonObject {
+impl FromJSValConvertible for Object {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: IonContext, value: HandleValue, _option: ()) -> Result<ConversionResult<IonObject>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Object>, ()> {
 		if !value.is_object() {
-			throw_type_error(cx, "Value is not an object");
+			throw_type_error(cx, "JSVal is not an object");
 			return Err(());
 		}
 
 		AssertSameCompartment(cx, value.to_object());
-		Ok(ConversionResult::Success(IonObject::from(value.to_object())))
+		Ok(ConversionResult::Success(Object::from(value.to_object())))
 	}
 }
 
-impl ToJSValConvertible for IonObject {
+impl ToJSValConvertible for Object {
 	#[inline]
-	unsafe fn to_jsval(&self, cx: IonContext, mut rval: MutableHandleValue) {
-		rval.set(ObjectValue(self.raw()));
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
+		rval.set(ObjectValue(**self));
 		maybe_wrap_object_value(cx, rval);
 	}
 }
 
-impl Deref for IonObject {
-	type Target = IonRawObject;
+impl Deref for Object {
+	type Target = *mut JSObject;
 
 	fn deref(&self) -> &Self::Target {
 		&self.obj
 	}
 }
 
-unsafe impl CustomTrace for IonObject {
+unsafe impl CustomTrace for Object {
 	fn trace(&self, tracer: *mut JSTracer) {
 		self.obj.trace(tracer)
 	}

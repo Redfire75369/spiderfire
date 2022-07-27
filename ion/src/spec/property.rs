@@ -11,6 +11,7 @@ use mozjs::jsapi::{
 
 use crate::flags::PropertyFlags;
 
+/// Creates a [JSPropertySpec] with a getter, setter and attributes.
 pub const fn create_property_spec_accessor(
 	name: &'static str, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
 ) -> JSPropertySpec {
@@ -27,6 +28,7 @@ pub const fn create_property_spec_accessor(
 	}
 }
 
+/// Creates a [JSPropertySpec] with a string and attributes.
 pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -41,6 +43,7 @@ pub const fn create_property_spec_string(name: &'static str, string: &'static st
 	}
 }
 
+/// Creates a [JSPropertySpec] with an integer and attributes.
 pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -55,6 +58,7 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: Prope
 	}
 }
 
+/// Creates a [JSPropertySpec] with a double and attributes.
 pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },

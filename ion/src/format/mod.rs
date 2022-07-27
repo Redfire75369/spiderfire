@@ -4,17 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::Value;
+use mozjs::jsval::JSVal;
 
-use crate::format::config::FormatConfig;
+pub use config::Config;
+
+use crate::Context;
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
-use crate::IonContext;
 
 pub mod array;
 pub mod boxed;
 pub mod class;
-pub mod config;
+mod config;
 pub mod date;
 pub mod function;
 pub mod object;
@@ -23,11 +24,11 @@ pub mod primitive;
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
-/// Formats a [Value] to a [String] using the given configuration options
-pub fn format_value(cx: IonContext, cfg: FormatConfig, value: Value) -> String {
+/// Formats a [JSVal] as a [String] with the given [Config].
+pub fn format_value(cx: Context, cfg: Config, value: JSVal) -> String {
 	if !value.is_object() {
 		format_primitive(cx, cfg, value)
 	} else {
-		format_object(cx, cfg, value)
+		format_object(cx, cfg, value.to_object())
 	}
 }

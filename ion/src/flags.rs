@@ -10,9 +10,14 @@ use mozjs::jsapi::{
 };
 
 bitflags! {
+	/// Represents the flags of properties on an [Object](crate::Object)
 	pub struct PropertyFlags: u16 {
+		/// Prevents enumeration through `Object.keys()`, `for...in` and other functions.
+		/// See [Enumerability of Properties](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties#traversing_object_properties) for more information
 		const ENUMERATE = JSPROP_ENUMERATE as u16;
+		/// Prevents reassignment of the property.
 		const READ_ONLY = JSPROP_READONLY as u16;
+		/// Prevents deletion and attribute modification of the property.
 		const PERMANENT = JSPROP_PERMANENT as u16;
 		const RESOLVING = JSPROP_RESOLVING as u16;
 
@@ -22,12 +27,19 @@ bitflags! {
 }
 
 bitflags! {
+	/// Represents the flags when iterating over an [Object](crate::Object).
 	pub struct IteratorFlags: u32 {
+		/// Allows iterating over private properties.
 		const PRIVATE = JSITER_PRIVATE;
+		/// Disallows iterating over inherited properties.
 		const OWN_ONLY = JSITER_OWNONLY;
+		/// Allows iteration over non-enumerable properties.
 		const HIDDEN = JSITER_HIDDEN;
+		/// Allows iteration over symbol keys.
 		const SYMBOLS = JSITER_SYMBOLS;
+		/// Disallows iteration over string keys.
 		const SYMBOLS_ONLY = JSITER_SYMBOLSONLY;
+		/// Iteration over async iterable objects and async generators.
 		const FOR_AWAIT_OF = JSITER_FORAWAITOF;
 	}
 }

@@ -9,14 +9,14 @@ use std::ffi::CStr;
 use colored::Colorize;
 use mozjs::rust::get_object_class;
 
-use crate::format::config::FormatConfig;
+use crate::{Context, Object};
+use crate::format::Config;
 use crate::format::object::format_object_raw;
-use crate::IonContext;
-use crate::objects::object::IonObject;
 
-pub unsafe fn format_class_object(cx: IonContext, cfg: FormatConfig, object: IonObject) -> String {
-	let class = get_object_class(object.raw());
-	let name = CStr::from_ptr((*class).name).to_str().unwrap();
+/// Formats an [Object], along with the name of its constructor, as a [String] with the given [Config].
+pub fn format_class_object(cx: Context, cfg: Config, object: Object) -> String {
+	let class = unsafe { get_object_class(*object) };
+	let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
 
 	let string = format_object_raw(cx, cfg, object);
 	format!("{} {}", name.color(cfg.colors.object), string)

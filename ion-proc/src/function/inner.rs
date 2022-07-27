@@ -39,21 +39,18 @@ pub(crate) fn impl_inner_fn(function: &ItemFn) -> syn::Result<ItemFn> {
 
 	inner.sig.asyncness = None;
 	inner.sig.ident = Ident::new("native_fn", function.sig.ident.span());
-	let inner_params: [FnArg; 2] = [
-		parse_quote!(cx: #krate::IonContext),
-		parse_quote!(args: &#krate::functions::arguments::Arguments),
-	];
+	let inner_params: [FnArg; 2] = [parse_quote!(cx: #krate::Context), parse_quote!(args: &#krate::Arguments)];
 	inner.sig.inputs = Punctuated::from_iter(inner_params);
 
 	if is_async {
-		inner.sig.output = parse_quote!(-> #krate::IonResult<#krate::objects::promise::IonPromise>);
+		inner.sig.output = parse_quote!(-> #krate::Result<#krate::Promise>);
 	}
 
 	let fn_name = function.sig.ident.to_string();
 	let input_body = impl_inner_body(is_async, function.clone().block);
 	let inner_body = parse_quote!({
 		if args.len() < #nargs {
-			return Err(#krate::error::IonError::Error(::std::format!("{}() requires at least {} {}", #fn_name,
+			return Err(#krate::Error::Error(::std::format!("{}() requires at least {} {}", #fn_name,
 				#nargs, if #nargs == 1 { "argument" } else { "arguments" })));
 		}
 
@@ -79,10 +76,10 @@ fn impl_async_body(body: Box<Block>) -> TokenStream {
 	quote! {
 		let future = async #body;
 
-		if let Some(promise) = #krate::objects::promise::IonPromise::new_with_future(cx, future) {
+		if let Some(promise) = #krate::Promise::new_with_future(cx, future) {
 			Ok(promise)
 		} else {
-			Err(#krate::error::IonError::None)
+			Err(#krate::Error::None)
 		}
 	}
 }

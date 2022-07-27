@@ -6,16 +6,15 @@
 
 use mozjs::conversions::ConversionResult::Success;
 use mozjs::conversions::FromJSValConvertible;
-use mozjs::jsapi::Value;
+use mozjs::jsval::JSVal;
 
-use crate::IonContext;
+use crate::Context;
 
-/// Converts a [Value] to a Rust type.
-///
+/// Converts a [JSVal] to a Rust type.
 /// Returns [None] if the conversion fails.
-pub unsafe fn from_value<T: FromJSValConvertible>(cx: IonContext, value: Value, config: T::Config) -> Option<T> {
+pub fn from_value<T: FromJSValConvertible>(cx: Context, value: JSVal, config: T::Config) -> Option<T> {
 	rooted!(in(cx) let rooted_val = value);
-	if let Ok(Success(v)) = T::from_jsval(cx, rooted_val.handle(), config) {
+	if let Ok(Success(v)) = unsafe { T::from_jsval(cx, rooted_val.handle(), config) } {
 		Some(v)
 	} else {
 		None

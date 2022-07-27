@@ -18,7 +18,7 @@ pub(crate) enum Parameter {
 impl Parameter {
 	pub(crate) fn from_arg(arg: &FnArg) -> syn::Result<Parameter> {
 		if let FnArg::Typed(arg) = arg {
-			return if arg.ty == parse_quote!(IonContext) {
+			return if arg.ty == parse_quote!(Context) {
 				Ok(Parameter::Context(arg.clone()))
 			} else if arg.ty == parse_quote!(&Arguments) {
 				Ok(Parameter::Arguments(arg.clone()))
@@ -62,7 +62,7 @@ impl Parameter {
 				let unwrapped = unwrap_param(parse_quote!(#id + #index), pat.clone(), ty.clone(), parse_quote!(handle), conversion);
 				parse_quote! {
 					let #pat: #ty = args.range_handles(#index..(args.len() + 1)).iter().enumerate().map(|(index, handle)| #unwrapped)
-						.collect::<#krate::IonResult<_>>()?;
+						.collect::<#krate::Result<_>>()?;
 				}
 			}
 			Normal(PatType { pat, ty, .. }, conversion) => {
@@ -90,7 +90,7 @@ fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handle: Box<Expr
 		if let Some(value) = unsafe { #krate::types::values::from_value(cx, #handle.get(), #conversion) } {
 			Ok(value)
 		} else {
-			Err(#krate::error::IonError::TypeError(::std::format!(
+			Err(#krate::Error::TypeError(::std::format!(
 				"Failed to convert argument {} at index {}, to {}",
 				::std::stringify!(#pat),
 				#index,

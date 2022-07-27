@@ -11,7 +11,7 @@ use mozjs::rust::JSEngine;
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::modules::IonModule;
+use runtime::modules::Module;
 
 const OK: (&str, &str) = ("ok", include_str!("scripts/assert/ok.js"));
 const EQUALS: (&str, &str) = ("equals", include_str!("scripts/assert/equals.js"));
@@ -36,7 +36,7 @@ pub fn eval_module(rt: &Runtime, test: (&str, &str)) {
 	let path = format!("./tests/scripts/assert/{}.js", test);
 	let error = format!("Assertion Failed: assert.{}", test);
 
-	let module = IonModule::compile(rt.cx(), &filename, Some(Path::new(&path)), script);
+	let module = Module::compile(rt.cx(), &filename, Some(Path::new(&path)), script);
 	assert!(module.is_err(), "No exception was thrown in: {}", filename);
 	let report = module.unwrap_err();
 	assert_eq!(report.inner().exception.message, error, "{}: {}", filename, report.inner());

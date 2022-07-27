@@ -6,13 +6,11 @@
 
 use std::path::{Path, PathBuf};
 
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec};
+use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec};
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
+use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::objects::object::IonObject;
-use runtime::modules::Module;
+use runtime::modules::NativeModule;
 
 #[cfg(windows)]
 const SEPARATOR: &str = "\\";
@@ -25,7 +23,7 @@ const DELIMITER: &str = ";";
 const DELIMITER: &str = ":";
 
 #[js_fn]
-fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
+fn join(#[varargs] segments: Vec<String>) -> Result<String> {
 	let mut path = PathBuf::new();
 	for segment in segments {
 		path.push(segment);
@@ -35,74 +33,74 @@ fn join(#[varargs] segments: Vec<String>) -> IonResult<String> {
 }
 
 #[js_fn]
-fn stripPrefix(path: String, prefix: String) -> IonResult<String> {
+fn stripPrefix(path: String, prefix: String) -> Result<String> {
 	let path = Path::new(&path);
 
 	if let Ok(path) = path.strip_prefix(&prefix) {
 		Ok(String::from(path.to_str().unwrap()))
 	} else {
-		Err(IonError::Error(String::from("Failed to strip prefix from path.")))
+		Err(Error::Error(String::from("Failed to strip prefix from path.")))
 	}
 }
 
 #[js_fn]
-fn fileStem(path: String) -> IonResult<Option<String>> {
+fn fileStem(path: String) -> Result<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.file_stem().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-fn parent(path: String) -> IonResult<Option<String>> {
+fn parent(path: String) -> Result<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.parent().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-fn fileName(path: String) -> IonResult<Option<String>> {
+fn fileName(path: String) -> Result<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.file_name().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-fn extension(path: String) -> IonResult<Option<String>> {
+fn extension(path: String) -> Result<Option<String>> {
 	let path = Path::new(&path);
 	Ok(path.extension().map(|s| String::from(s.to_str().unwrap())))
 }
 
 #[js_fn]
-fn withFileName(path: String, file_name: String) -> IonResult<String> {
+fn withFileName(path: String, file_name: String) -> Result<String> {
 	let path = Path::new(&path);
 	Ok(String::from(path.with_file_name(&file_name).to_str().unwrap()))
 }
 
 #[js_fn]
-fn withExtension(path: String, extension: String) -> IonResult<String> {
+fn withExtension(path: String, extension: String) -> Result<String> {
 	let path = Path::new(&path);
 	Ok(String::from(path.with_extension(&extension).to_str().unwrap()))
 }
 
 #[js_fn]
-fn isAbsolute(path: String) -> IonResult<bool> {
+fn isAbsolute(path: String) -> Result<bool> {
 	Ok(Path::new(&path).is_absolute())
 }
 
 #[js_fn]
-fn isRelative(path: String) -> IonResult<bool> {
+fn isRelative(path: String) -> Result<bool> {
 	Ok(Path::new(&path).is_relative())
 }
 
 #[js_fn]
-fn hasRoot(path: String) -> IonResult<bool> {
+fn hasRoot(path: String) -> Result<bool> {
 	Ok(Path::new(&path).has_root())
 }
 
 #[js_fn]
-fn startsWith(path: String, prefix: String) -> IonResult<bool> {
+fn startsWith(path: String, prefix: String) -> Result<bool> {
 	Ok(Path::new(&path).starts_with(&prefix))
 }
 
 #[js_fn]
-fn endsWith(path: String, prefix: String) -> IonResult<bool> {
+fn endsWith(path: String, prefix: String) -> Result<bool> {
 	Ok(Path::new(&path).ends_with(&prefix))
 }
 
@@ -126,17 +124,17 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 #[derive(Default)]
 pub struct PathM;
 
-impl Module for PathM {
+impl NativeModule for PathM {
 	const NAME: &'static str = "path";
 	const SOURCE: &'static str = include_str!("path.js");
 
-	unsafe fn module(cx: IonContext) -> Option<IonObject> {
-		rooted!(in(cx) let path = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr())
-			&& IonObject::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
-			&& IonObject::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
+	fn module(cx: Context) -> Option<Object> {
+		rooted!(in(cx) let path = *Object::new(cx));
+		if unsafe { JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr()) }
+			&& Object::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
+			&& Object::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			return Some(IonObject::from(path.get()));
+			return Some(Object::from(path.get()));
 		}
 		None
 	}

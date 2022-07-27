@@ -6,10 +6,17 @@
 
 use indent::indent_by;
 
-use crate::format::config::FormatConfig;
-use crate::functions::function::IonFunction;
-use crate::IonContext;
+use crate::{Context, Function};
+use crate::format::Config;
 
-pub unsafe fn format_function(cx: IonContext, cfg: FormatConfig, function: IonFunction) -> String {
+/// Formats a [Function] as a [String], using the given [Config].
+///
+/// ### Format
+/// ```js
+/// function <#name>(<#arguments, ...>) {
+///   <#body>
+/// }
+/// ```
+pub fn format_function(cx: Context, cfg: Config, function: Function) -> String {
 	indent_by((2 * (cfg.indentation + cfg.depth)) as usize, &function.to_string(cx))
 }

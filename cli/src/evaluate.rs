@@ -10,18 +10,18 @@ use std::path::Path;
 
 use mozjs::rust::JSEngine;
 
-use ion::format::config::FormatConfig;
+use ion::format::Config;
 use ion::format::format_value;
-use ion::script::IonScript;
+use ion::script::Script;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
-use runtime::modules::IonModule;
+use runtime::modules::Module;
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
-	let result = IonScript::compile_and_evaluate(rt.cx(), "inline.js", source);
+	let result = Script::compile_and_evaluate(rt.cx(), "inline.js", source);
 
 	match result {
-		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
+		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 		Err(report) => eprintln!("{}", report),
 	}
 	if !rt.run_event_loop() {
@@ -38,10 +38,10 @@ pub fn eval_script(path: &Path) {
 		.build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
-		let result = IonScript::compile_and_evaluate(rt.cx(), &filename, &script);
+		let result = Script::compile_and_evaluate(rt.cx(), &filename, &script);
 
 		match result {
-			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
+			Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
 			Err(report) => eprintln!("{}", report),
 		}
 		if !rt.run_event_loop() {
@@ -60,7 +60,7 @@ pub fn eval_module(path: &Path) {
 		.build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
-		let result = IonModule::compile(rt.cx(), &filename, Some(path), &script);
+		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
 		if let Err(report) = result {
 			eprintln!("{}", report);

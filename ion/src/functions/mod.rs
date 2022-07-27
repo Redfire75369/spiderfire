@@ -4,5 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod arguments;
-pub mod function;
+pub use arguments::Arguments;
+pub use function::{Function, NativeFunction};
+
+mod arguments;
+mod function;

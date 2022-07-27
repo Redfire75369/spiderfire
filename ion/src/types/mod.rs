@@ -4,20 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::Value;
+use mozjs::jsval::JSVal;
 
-use crate::IonContext;
-use crate::objects::array::IonArray;
-use crate::objects::date::IonDate;
+use crate::{Array, Context, Date};
 
 pub mod values;
 
-/// Checks if a [Value] is an array.
-pub fn is_array(cx: IonContext, value: Value) -> bool {
-	value.is_object() && unsafe { IonArray::is_array_raw(cx, value.to_object()) }
+/// Checks if a [JSVal] is an array.
+pub fn is_array(cx: Context, value: JSVal) -> bool {
+	value.is_object() && Array::is_array_raw(cx, value.to_object())
 }
 
-/// Checks if a [Value] is a date.
-pub fn is_date(cx: IonContext, value: Value) -> bool {
-	value.is_object() && unsafe { IonDate::is_date_raw(cx, value.to_object()) }
+/// Checks if a [JSVal] is a date.
+pub fn is_date(cx: Context, value: JSVal) -> bool {
+	value.is_object() && Date::is_date_raw(cx, value.to_object())
 }

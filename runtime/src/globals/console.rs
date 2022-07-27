@@ -10,18 +10,17 @@ use std::collections::hash_map::{Entry, HashMap};
 use chrono::{DateTime, offset::Utc};
 use indent::indent_all_by;
 use indexmap::IndexSet;
-use mozjs::jsapi::{JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, StackFormat, Value};
-use mozjs::jsval::ObjectValue;
+use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, StackFormat};
+use mozjs::jsval::{JSVal, ObjectValue};
 use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{IonContext, IonResult};
+use ion::{Context, Key, Object, Result};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
-use ion::format::config::FormatConfig;
+use ion::format::Config as FormatConfig;
 use ion::format::primitive::format_primitive;
-use ion::objects::object::{IonObject, Key};
 
 use crate::config::{Config, LogLevel};
 
@@ -51,7 +50,7 @@ fn print_indent(is_stderr: bool) {
 	});
 }
 
-fn print_args(cx: IonContext, args: Vec<Value>, stderr: bool) {
+fn print_args(cx: Context, args: Vec<JSVal>, stderr: bool) {
 	let indents = get_indents();
 	for value in args.into_iter() {
 		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
@@ -73,7 +72,7 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn log(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -84,7 +83,7 @@ fn log(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn warn(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -95,7 +94,7 @@ fn warn(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn error(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -106,7 +105,7 @@ fn error(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn debug(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -117,7 +116,7 @@ fn debug(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -151,7 +150,7 @@ fn assert(cx: IonContext, assertion: Option<bool>, #[varargs] values: Vec<Value>
 }
 
 #[js_fn]
-fn clear() -> IonResult<()> {
+fn clear() -> Result<()> {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
 	});
@@ -163,7 +162,7 @@ fn clear() -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -184,7 +183,7 @@ unsafe fn trace(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> 
 }
 
 #[js_fn]
-fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn group(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
@@ -199,7 +198,7 @@ fn group(cx: IonContext, #[varargs] values: Vec<Value>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn groupEnd() -> IonResult<()> {
+fn groupEnd() -> Result<()> {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
@@ -209,7 +208,7 @@ fn groupEnd() -> IonResult<()> {
 }
 
 #[js_fn]
-fn count(label: Option<String>) -> IonResult<()> {
+fn count(label: Option<String>) -> Result<()> {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -235,7 +234,7 @@ fn count(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn countReset(label: Option<String>) -> IonResult<()> {
+fn countReset(label: Option<String>) -> Result<()> {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -256,7 +255,7 @@ fn countReset(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn time(label: Option<String>) -> IonResult<()> {
+fn time(label: Option<String>) -> Result<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -277,7 +276,7 @@ fn time(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>) -> IonResult<()> {
+fn timeLog(cx: Context, label: Option<String>, #[varargs] values: Vec<JSVal>) -> Result<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -305,7 +304,7 @@ fn timeLog(cx: IonContext, label: Option<String>, #[varargs] values: Vec<Value>)
 }
 
 #[js_fn]
-fn timeEnd(label: Option<String>) -> IonResult<()> {
+fn timeEnd(label: Option<String>) -> Result<()> {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -332,7 +331,7 @@ fn timeEnd(label: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> IonResult<()> {
+unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) -> Result<()> {
 	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -358,7 +357,7 @@ unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> Io
 	}
 
 	let indents = get_indents();
-	if let Some(object) = IonObject::from_value(data) {
+	if let Some(object) = Object::from_value(data) {
 		let (rows, columns, has_values) = if let Some(columns) = columns {
 			let rows = object.keys(cx, None);
 			let mut keys = IndexSet::<Key>::new();
@@ -379,7 +378,7 @@ unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> Io
 
 			for row in rows.iter() {
 				let value = object.get(cx, &row.to_string()).unwrap();
-				if let Some(object) = IonObject::from_value(value) {
+				if let Some(object) = Object::from_value(value) {
 					let obj_keys = object.keys(cx, None);
 					keys.extend(obj_keys);
 				} else {
@@ -408,7 +407,7 @@ unsafe fn table(cx: IonContext, data: Value, columns: Option<Vec<String>>) -> Io
 			let value = object.get(cx, &row.to_string()).unwrap();
 			let mut table_row = vec![TableCell::new_with_alignment(row.to_string(), 1, Alignment::Center)];
 
-			if let Some(object) = IonObject::from_value(value) {
+			if let Some(object) = Object::from_value(value) {
 				for column in columns.iter() {
 					if let Some(value) = object.get(cx, &column.to_string()) {
 						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), value);
@@ -465,8 +464,8 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub unsafe fn define(cx: IonContext, mut global: IonObject) -> bool {
-	rooted!(in(cx) let console = JS_NewPlainObject(cx));
-	return JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr())
+pub fn define(cx: Context, mut global: Object) -> bool {
+	rooted!(in(cx) let console = *Object::new(cx));
+	return unsafe { JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr()) }
 		&& global.define(cx, "console", ObjectValue(console.get()), PropertyFlags::CONSTANT_ENUMERATED);
 }

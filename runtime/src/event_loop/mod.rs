@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 
-use ion::IonContext;
+use ion::Context;
 
 use crate::event_loop::macrotasks::{Macrotask, MacrotaskQueue};
 use crate::event_loop::microtasks::MicrotaskQueue;
@@ -24,7 +24,7 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
-	pub fn run(&self, cx: IonContext) -> bool {
+	pub fn run(&self, cx: Context) -> bool {
 		if self.macrotasks.is_none() && self.microtasks.is_none() {
 			return true;
 		}

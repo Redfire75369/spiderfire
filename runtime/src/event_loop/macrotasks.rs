@@ -9,18 +9,16 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use chrono::{DateTime, Duration, Utc};
-use mozjs::jsapi::Value;
+use mozjs::jsval::JSVal;
 
-use ion::functions::function::IonFunction;
-use ion::IonContext;
-use ion::objects::object::IonObject;
+use ion::{Context, Function, Object};
 
 use crate::event_loop::EVENT_LOOP;
 
 #[derive(Clone, Debug)]
 pub struct TimerMacrotask {
-	callback: IonFunction,
-	arguments: Vec<Value>,
+	callback: Function,
+	arguments: Vec<JSVal>,
 	repeat: bool,
 	scheduled: DateTime<Utc>,
 	duration: Duration,
@@ -28,7 +26,7 @@ pub struct TimerMacrotask {
 }
 
 impl TimerMacrotask {
-	pub fn new(callback: IonFunction, arguments: Vec<Value>, repeat: bool, duration: Duration) -> TimerMacrotask {
+	pub fn new(callback: Function, arguments: Vec<JSVal>, repeat: bool, duration: Duration) -> TimerMacrotask {
 		TimerMacrotask {
 			callback,
 			arguments,
@@ -49,12 +47,12 @@ impl TimerMacrotask {
 
 #[derive(Clone, Debug)]
 pub struct UserMacrotask {
-	callback: IonFunction,
+	callback: Function,
 	scheduled: DateTime<Utc>,
 }
 
 impl UserMacrotask {
-	pub fn new(callback: IonFunction) -> UserMacrotask {
+	pub fn new(callback: Function) -> UserMacrotask {
 		UserMacrotask { callback, scheduled: Utc::now() }
 	}
 }
@@ -74,18 +72,16 @@ pub struct MacrotaskQueue {
 }
 
 impl Macrotask {
-	pub fn run(&self, cx: IonContext) -> bool {
+	pub fn run(&self, cx: Context) -> bool {
 		let (callback, args) = match self {
 			Macrotask::Timer(timer) => (timer.callback, timer.arguments.clone()),
 			Macrotask::User(user) => (user.callback, Vec::new()),
 		};
 
-		unsafe {
-			if let Err(report) = callback.call_with_vec(cx, IonObject::global(cx), args) {
-				match report {
-					Some(report) => report.print(),
-					None => return false,
-				}
+		if let Err(report) = callback.call(cx, Object::global(cx), args) {
+			match report {
+				Some(report) => report.print(),
+				None => return false,
 			}
 		}
 		true

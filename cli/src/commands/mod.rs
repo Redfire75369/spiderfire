@@ -4,12 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use runtime::config::{CONFIG, Config, LogLevel};
+
+use crate::Command;
+
 mod eval;
 mod repl;
 mod run;
-
-use runtime::config::{CONFIG, Config, LogLevel};
-use crate::Command;
 
 pub fn handle_command(command: Option<Command>) {
 	match command {

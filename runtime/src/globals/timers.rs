@@ -6,12 +6,10 @@
 
 use chrono::Duration;
 use mozjs::conversions::ConversionBehavior::{Clamp, EnforceRange};
-use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, Value};
+use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec};
+use mozjs::jsval::JSVal;
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
-use ion::functions::function::IonFunction;
-use ion::objects::object::IonObject;
+use ion::{Context, Error, Function, Object, Result};
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
@@ -19,7 +17,7 @@ use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
 const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;
 
-fn set_timer(callback: IonFunction, duration: Option<i32>, arguments: Vec<Value>, repeat: bool) -> IonResult<u32> {
+fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool) -> Result<u32> {
 	EVENT_LOOP.with(|event_loop| {
 		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
 			let nesting = queue.nesting();
@@ -29,19 +27,19 @@ fn set_timer(callback: IonFunction, duration: Option<i32>, arguments: Vec<Value>
 			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
 			Ok((*queue).enqueue(Macrotask::Timer(timer), None))
 		} else {
-			Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+			Err(Error::Error(String::from("Macrotask Queue has not been initialised.")))
 		}
 	})
 }
 
-fn clear_timer(id: Option<u32>) -> IonResult<()> {
+fn clear_timer(id: Option<u32>) -> Result<()> {
 	if let Some(id) = id {
 		EVENT_LOOP.with(|event_loop| {
 			if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
 				queue.remove(id);
 				Ok(())
 			} else {
-				Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+				Err(Error::Error(String::from("Macrotask Queue has not been initialised.")))
 			}
 		})
 	} else {
@@ -50,33 +48,33 @@ fn clear_timer(id: Option<u32>) -> IonResult<()> {
 }
 
 #[js_fn]
-fn setTimeout(callback: IonFunction, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
+fn setTimeout(callback: Function, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<JSVal>) -> Result<u32> {
 	set_timer(callback, duration, arguments, false)
 }
 
 #[js_fn]
-fn setInterval(callback: IonFunction, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<Value>) -> IonResult<u32> {
+fn setInterval(callback: Function, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<JSVal>) -> Result<u32> {
 	set_timer(callback, duration, arguments, true)
 }
 
 #[js_fn]
-fn clearTimeout(#[convert(EnforceRange)] id: Option<u32>) -> IonResult<()> {
+fn clearTimeout(#[convert(EnforceRange)] id: Option<u32>) -> Result<()> {
 	clear_timer(id)
 }
 
 #[js_fn]
-fn clearInterval(#[convert(EnforceRange)] id: Option<u32>) -> IonResult<()> {
+fn clearInterval(#[convert(EnforceRange)] id: Option<u32>) -> Result<()> {
 	clear_timer(id)
 }
 
 #[js_fn]
-fn queueMacrotask(callback: IonFunction) -> IonResult<()> {
+fn queueMacrotask(callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
 		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
 			queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
 			Ok(())
 		} else {
-			Err(IonError::Error(String::from("Macrotask Queue has not been initialised.")))
+			Err(Error::Error(String::from("Macrotask Queue has not been initialised.")))
 		}
 	})
 }
@@ -90,7 +88,7 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub unsafe fn define(cx: IonContext, global: IonObject) -> bool {
-	rooted!(in(cx) let global = global.raw());
-	JS_DefineFunctions(cx, global.handle().into(), FUNCTIONS.as_ptr())
+pub fn define(cx: Context, global: Object) -> bool {
+	rooted!(in(cx) let global = *global);
+	unsafe { JS_DefineFunctions(cx, global.handle().into(), FUNCTIONS.as_ptr()) }
 }

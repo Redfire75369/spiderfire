@@ -10,8 +10,7 @@ use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, StackFormat};
 use mozjs::jsval::UndefinedValue;
 
-use crate::IonContext;
-use crate::objects::object::IonObject;
+use crate::{Context, Object};
 
 #[derive(Clone, Debug)]
 pub struct Exception {
@@ -29,14 +28,13 @@ pub struct ErrorReport {
 
 impl Exception {
 	/// Gets an exception from the runtime.
-	///
-	/// Returns [None] is no exception is pending.
-	pub fn new(cx: IonContext) -> Option<Exception> {
+	/// Returns [None] if there is no pending exception.
+	pub fn new(cx: Context) -> Option<Exception> {
 		unsafe {
 			if JS_IsExceptionPending(cx) {
 				rooted!(in(cx) let mut exception = UndefinedValue());
 				if JS_GetPendingException(cx, exception.handle_mut().into()) {
-					let exception = IonObject::from(exception.to_object());
+					let exception = Object::from(exception.to_object());
 					Exception::clear(cx);
 
 					let message = exception.get_as::<String>(cx, "message", ()).unwrap();
@@ -55,8 +53,8 @@ impl Exception {
 	}
 
 	/// Clears all exceptions within the runtime.
-	pub unsafe fn clear(cx: IonContext) {
-		JS_ClearPendingException(cx);
+	pub fn clear(cx: Context) {
+		unsafe { JS_ClearPendingException(cx) };
 	}
 
 	/// Formats the exception as an error message.
@@ -79,7 +77,7 @@ impl ErrorReport {
 	}
 
 	/// Creates a new [ErrorReport] with the given [Exception] and the current stack.
-	pub fn new_with_stack(cx: IonContext, exception: Exception) -> ErrorReport {
+	pub fn new_with_stack(cx: Context, exception: Exception) -> ErrorReport {
 		unsafe {
 			capture_stack!(in(cx) let stack);
 			let stack = stack.unwrap().as_string(None, StackFormat::SpiderMonkey);

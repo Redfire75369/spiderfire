@@ -4,23 +4,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JS_NewPlainObject, JSFunctionSpec, SameValue, Value};
+use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JSFunctionSpec, SameValue};
+use mozjs::jsval::JSVal;
 
-use ion::{IonContext, IonResult};
-use ion::error::IonError;
-use ion::functions::function::IonFunction;
-use ion::objects::object::IonObject;
-use runtime::modules::Module;
+use ion::{Context, Error, Function, Object, Result};
+use runtime::modules::NativeModule;
 
-fn assert_internal(message: Option<String>) -> IonResult<()> {
-	Err(IonError::Error(match message {
+fn assert_internal(message: Option<String>) -> Result<()> {
+	Err(Error::Error(match message {
 		Some(msg) => format!("Assertion Failed: {}", msg),
 		None => String::from("Assertion Failed"),
 	}))
 }
 
 #[js_fn]
-fn ok(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
+fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 	if let Some(true) = assertion {
 		Ok(())
 	} else {
@@ -29,7 +27,7 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> IonResult<()> {
 }
 
 #[js_fn]
-unsafe fn equals(cx: IonContext, actual: Value, expected: Value, message: Option<String>) -> IonResult<()> {
+unsafe fn equals(cx: Context, actual: JSVal, expected: JSVal, message: Option<String>) -> Result<()> {
 	let mut same = false;
 	rooted!(in(cx) let actual = actual);
 	rooted!(in(cx) let expected = expected);
@@ -40,13 +38,13 @@ unsafe fn equals(cx: IonContext, actual: Value, expected: Value, message: Option
 			assert_internal(message)
 		}
 	} else {
-		Err(IonError::None)
+		Err(Error::None)
 	}
 }
 
 #[js_fn]
-unsafe fn throws(cx: IonContext, func: IonFunction, message: Option<String>) -> IonResult<()> {
-	if func.call_with_vec(cx, IonObject::from(CurrentGlobalOrNull(cx)), Vec::new()).is_err() {
+unsafe fn throws(cx: Context, func: Function, message: Option<String>) -> Result<()> {
+	if func.call(cx, Object::from(CurrentGlobalOrNull(cx)), Vec::new()).is_err() {
 		assert_internal(message)
 	} else {
 		Ok(())
@@ -54,7 +52,7 @@ unsafe fn throws(cx: IonContext, func: IonFunction, message: Option<String>) -> 
 }
 
 #[js_fn]
-fn fail(message: Option<String>) -> IonResult<()> {
+fn fail(message: Option<String>) -> Result<()> {
 	assert_internal(message)
 }
 
@@ -69,14 +67,14 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 #[derive(Default)]
 pub struct Assert;
 
-impl Module for Assert {
+impl NativeModule for Assert {
 	const NAME: &'static str = "assert";
 	const SOURCE: &'static str = include_str!("assert.js");
 
-	unsafe fn module(cx: IonContext) -> Option<IonObject> {
-		rooted!(in(cx) let assert = JS_NewPlainObject(cx));
-		if JS_DefineFunctions(cx, assert.handle().into(), FUNCTIONS.as_ptr()) {
-			Some(IonObject::from(assert.get()))
+	fn module(cx: Context) -> Option<Object> {
+		rooted!(in(cx) let assert = *Object::new(cx));
+		if unsafe { JS_DefineFunctions(cx, assert.handle().into(), FUNCTIONS.as_ptr()) } {
+			Some(Object::from(assert.get()))
 		} else {
 			None
 		}

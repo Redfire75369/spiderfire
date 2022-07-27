@@ -14,18 +14,16 @@ use std::path::Path;
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, Handle, JS_GetRuntime, JS_ReportErrorUTF8, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
-	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook, Value,
+	CompileModule, Handle, JS_GetRuntime, JS_ReportErrorUTF8, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
+	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
-use mozjs::jsval::UndefinedValue;
+use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 use url::Url;
 
-use ion::exception::{ErrorReport, Exception};
-use ion::IonContext;
-use ion::objects::object::{IonObject, IonRawObject};
+use ion::{Context, ErrorReport, Exception, Object};
 
-thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, IonModule>> = RefCell::new(HashMap::new()));
+thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module >> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug)]
 pub enum ModuleError {
@@ -60,17 +58,17 @@ pub struct ModuleData {
 }
 
 #[derive(Clone, Debug)]
-pub struct IonModule {
-	module: IonObject,
+pub struct Module {
+	module: Object,
 	#[allow(dead_code)]
 	data: ModuleData,
 }
 
 impl ModuleData {
-	fn from_module(cx: IonContext, module: Handle<Value>) -> Option<ModuleData> {
+	fn from_module(cx: Context, module: Handle<JSVal>) -> Option<ModuleData> {
 		if module.get().is_object() {
-			let obj = IonObject::from(module.get().to_object());
-			let path = unsafe { obj.get_as::<String>(cx, "path", ()) };
+			let obj = Object::from(module.get().to_object());
+			let path = obj.get_as::<String>(cx, "path", ());
 
 			Some(ModuleData { path })
 		} else {
@@ -78,8 +76,8 @@ impl ModuleData {
 		}
 	}
 
-	pub unsafe fn to_object(&self, cx: IonContext) -> IonObject {
-		let mut data = IonObject::new(cx);
+	pub fn to_object(&self, cx: Context) -> Object {
+		let mut data = Object::new(cx);
 
 		if let Some(path) = self.path.as_ref() {
 			data.set_as(cx, "path", path);
@@ -91,8 +89,8 @@ impl ModuleData {
 	}
 }
 
-impl IonModule {
-	pub fn compile(cx: IonContext, filename: &str, path: Option<&Path>, script: &str) -> Result<IonModule, ModuleError> {
+impl Module {
+	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<Module, ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
@@ -107,7 +105,7 @@ impl IonModule {
 				};
 				SetModulePrivate(module, &data.to_object(cx).to_value());
 
-				let module = IonModule { module: IonObject::from(module), data };
+				let module = Module { module: Object::from(module), data };
 
 				if let Err(exception) = module.instantiate(cx) {
 					return Err(ModuleError::Instantiation(ErrorReport::new(exception)));
@@ -125,19 +123,19 @@ impl IonModule {
 		}
 	}
 
-	pub unsafe fn instantiate(&self, cx: IonContext) -> Result<(), Exception> {
-		rooted!(in(cx) let rooted_module = self.module.raw());
-		if ModuleInstantiate(cx, rooted_module.handle().into()) {
+	pub fn instantiate(&self, cx: Context) -> Result<(), Exception> {
+		rooted!(in(cx) let rooted_module = *self.module);
+		if unsafe { ModuleInstantiate(cx, rooted_module.handle().into()) } {
 			Ok(())
 		} else {
 			Err(Exception::new(cx).unwrap())
 		}
 	}
 
-	pub unsafe fn evaluate(&self, cx: IonContext) -> Result<Value, Exception> {
-		rooted!(in(cx) let rooted_module = self.module.raw());
+	pub fn evaluate(&self, cx: Context) -> Result<JSVal, Exception> {
+		rooted!(in(cx) let rooted_module = *self.module);
 		rooted!(in(cx) let mut rval = UndefinedValue());
-		if ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) {
+		if unsafe { ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
 			Err(Exception::new(cx).unwrap())
@@ -157,7 +155,7 @@ impl IonModule {
 		})
 	}
 
-	pub fn resolve(cx: IonContext, specifier: &str, data: ModuleData) -> Option<IonModule> {
+	pub fn resolve(cx: Context, specifier: &str, data: ModuleData) -> Option<Module> {
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
 			Path::new(data.path.as_ref().unwrap()).parent().unwrap().join(specifier)
 		} else {
@@ -176,7 +174,7 @@ impl IonModule {
 
 		module.or_else(|| {
 			if let Ok(script) = read_to_string(&path) {
-				let module = IonModule::compile(cx, specifier, Some(path.as_path()), &script);
+				let module = Module::compile(cx, specifier, Some(path.as_path()), &script);
 				if let Ok(module) = module {
 					module.clone().register(path.to_str().unwrap());
 					Some(module)
@@ -196,21 +194,21 @@ impl IonModule {
 	}
 }
 
-pub unsafe extern "C" fn resolve_module(cx: IonContext, private_data: Handle<Value>, specifier: Handle<*mut JSString>) -> IonRawObject {
+pub unsafe extern "C" fn resolve_module(cx: Context, private_data: Handle<JSVal>, specifier: Handle<*mut JSString>) -> *mut JSObject {
 	let specifier = jsstr_to_string(cx, specifier.get());
 	let data = ModuleData::from_module(cx, private_data).unwrap();
 
-	IonModule::resolve(cx, &specifier, data)
-		.map(|module| module.module.raw())
+	Module::resolve(cx, &specifier, data)
+		.map(|module| *module.module)
 		.unwrap_or(ptr::null_mut())
 }
 
-pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Value>, meta: Handle<IonRawObject>) -> bool {
+pub unsafe extern "C" fn module_metadata(cx: Context, private_data: Handle<JSVal>, meta: Handle<*mut JSObject>) -> bool {
 	let data = ModuleData::from_module(cx, private_data).unwrap();
 
 	if let Some(path) = data.path.as_ref() {
 		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
-		let mut meta = IonObject::from(meta.get());
+		let mut meta = Object::from(meta.get());
 		if !meta.set_as(cx, "url", String::from(url.as_str())) {
 			return false;
 		}
@@ -219,7 +217,7 @@ pub unsafe extern "C" fn module_metadata(cx: IonContext, private_data: Handle<Va
 	true
 }
 
-pub fn init_module_loaders(cx: IonContext) {
+pub fn init_module_loaders(cx: Context) {
 	unsafe {
 		SetModuleResolveHook(JS_GetRuntime(cx), Some(resolve_module));
 		SetModuleMetadataHook(JS_GetRuntime(cx), Some(module_metadata));

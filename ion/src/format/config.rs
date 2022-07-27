@@ -7,9 +7,10 @@
 use colored::Color;
 use derivative::Derivative;
 
+/// Configuration Object for formatting values
 #[derive(Clone, Copy, Debug, Derivative)]
 #[derivative(Default)]
-pub struct FormatConfig {
+pub struct Config {
 	pub colors: ColorConfig,
 	pub depth: u16,
 	pub indentation: u16,
@@ -18,24 +19,25 @@ pub struct FormatConfig {
 	pub quoted: bool,
 }
 
-impl FormatConfig {
-	pub fn depth(self, depth: u16) -> FormatConfig {
-		FormatConfig { depth, ..self }
+impl Config {
+	pub fn depth(self, depth: u16) -> Config {
+		Config { depth, ..self }
 	}
 
-	pub fn indentation(self, indentation: u16) -> FormatConfig {
-		FormatConfig { indentation, ..self }
+	pub fn indentation(self, indentation: u16) -> Config {
+		Config { indentation, ..self }
 	}
 
-	pub fn multiline(self, multiline: bool) -> FormatConfig {
-		FormatConfig { multiline, ..self }
+	pub fn multiline(self, multiline: bool) -> Config {
+		Config { multiline, ..self }
 	}
 
-	pub fn quoted(self, quoted: bool) -> FormatConfig {
-		FormatConfig { quoted, ..self }
+	pub fn quoted(self, quoted: bool) -> Config {
+		Config { quoted, ..self }
 	}
 }
 
+/// Configuration Object for the colours used when formatting values as specific types.
 #[derive(Clone, Copy, Debug)]
 pub struct ColorConfig {
 	pub boolean: Color,
@@ -64,7 +66,8 @@ impl Default for ColorConfig {
 }
 
 impl ColorConfig {
-	pub fn no_color() -> ColorConfig {
+	/// Returns [ColorConfig] where all formatted strings are white.
+	pub fn white() -> ColorConfig {
 		ColorConfig {
 			boolean: Color::White,
 			number: Color::White,
