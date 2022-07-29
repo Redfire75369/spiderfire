@@ -25,7 +25,7 @@ use ion::{Context, ErrorReport, Exception, Object};
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module >> = RefCell::new(HashMap::new()));
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ModuleError {
 	Compilation(ErrorReport),
 	Instantiation(ErrorReport),

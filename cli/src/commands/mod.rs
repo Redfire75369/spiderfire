@@ -6,14 +6,24 @@
 
 use runtime::config::{CONFIG, Config, LogLevel};
 
+use crate::cache::clear_cache;
 use crate::Command;
 
+mod cache;
 mod eval;
 mod repl;
 mod run;
 
 pub fn handle_command(command: Option<Command>) {
 	match command {
+		Some(Command::Cache { clear }) => {
+			if !clear {
+				cache::cache_statistics();
+			} else {
+				clear_cache();
+			}
+		}
+
 		Some(Command::Eval { source }) => {
 			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
 			eval::eval_source(&source);

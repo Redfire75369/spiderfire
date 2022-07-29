@@ -12,7 +12,7 @@ use mozjs::jsval::UndefinedValue;
 
 use crate::{Context, Object};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Exception {
 	pub message: String,
 	pub filename: String,
@@ -20,7 +20,7 @@ pub struct Exception {
 	pub column: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ErrorReport {
 	pub exception: Exception,
 	pub stack: Option<String>,

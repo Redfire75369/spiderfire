@@ -23,7 +23,7 @@ impl Arguments {
 	/// Creates new [Arguments] from raw argument,
 	pub fn new(argc: u32, vp: *mut JSVal) -> Arguments {
 		let call_args = unsafe { CallArgs::from_vp(vp, argc) };
-		let values = (0..(argc + 1)).map(|i| call_args.get(i)).collect();
+		let values = (0..argc).map(|i| call_args.get(i)).collect();
 		let this = call_args.thisv();
 		let rval = call_args.rval();
 

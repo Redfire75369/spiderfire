@@ -6,9 +6,9 @@
 
 use mozjs::rust::JSEngine;
 
-use ion::script::Script;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::RuntimeBuilder;
+use runtime::script::Script;
 
 const FILE_NAME: &str = "console.js";
 const SCRIPT: &str = include_str!("scripts/console.js");
@@ -19,5 +19,5 @@ fn console() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
-	assert!(Script::compile_and_evaluate(rt.cx(), FILE_NAME, SCRIPT).is_ok())
+	assert_eq!(Ok(()), Script::compile_and_evaluate(rt.cx(), FILE_NAME, SCRIPT).map(|_| ()));
 }

@@ -23,5 +23,5 @@ fn modules() {
 	let rt = builder.build(engine.handle());
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
-	assert!(Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).is_ok())
+	assert_eq!(Ok(()), Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT).map(|_| ()));
 }

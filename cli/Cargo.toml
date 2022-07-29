@@ -6,14 +6,19 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
+base64-url = "1.4.13"
 colored = "2.0.0"
 clap = { version = "3.1.6", features = ["derive"] }
+dirs = "4.0.0"
 ion = { path = "../ion" }
+lazy_static = "1.4.0"
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
+os_str_bytes = "6.2.0"
 runtime = { path = "../runtime" }
 rustyline = "9.1.2"
 rustyline-derive = "0.6.0"
+sha3 = "0.10.1"
 
 [features]
 debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]

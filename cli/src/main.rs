@@ -5,12 +5,15 @@
  */
 
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate rustyline_derive;
 
 use clap::Parser;
 
 use crate::commands::handle_command;
 
+mod cache;
 mod commands;
 mod evaluate;
 mod repl;
@@ -24,6 +27,12 @@ struct Cli {
 
 #[derive(Parser)]
 pub enum Command {
+	#[clap(about = "Prints Cache Statistics")]
+	Cache {
+		#[clap(help = "Clears the Cache", short, long)]
+		clear: bool,
+	},
+
 	#[clap(about = "Evaluates a line of JavaScript")]
 	Eval {
 		#[clap(help = "Line of JavaScript to be evaluated", required(true))]

@@ -12,10 +12,12 @@ use mozjs::rust::JSEngine;
 
 use ion::format::Config;
 use ion::format::format_value;
-use ion::script::Script;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::modules::Module;
+use runtime::script::Script;
+
+use crate::cache::{CacheMiss, check_cache, save_in_cache};
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), "inline.js", source);
@@ -38,6 +40,12 @@ pub fn eval_script(path: &Path) {
 		.build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
+		let script = match check_cache(path, &script) {
+			Ok(script) => script,
+			Err(CacheMiss::Partial(cache_path, hash)) => save_in_cache(path, &script, Some(cache_path), hash).unwrap_or_else(|| script),
+			Err(CacheMiss::None) => save_in_cache(path, &script, None, None).unwrap_or_else(|| script),
+			Err(CacheMiss::NoCache) => script,
+		};
 		let result = Script::compile_and_evaluate(rt.cx(), &filename, &script);
 
 		match result {

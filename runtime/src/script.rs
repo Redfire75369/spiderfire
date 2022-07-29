@@ -8,7 +8,7 @@ use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use crate::{Context, ErrorReport, Exception};
+use ion::{Context, ErrorReport, Exception};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Script {

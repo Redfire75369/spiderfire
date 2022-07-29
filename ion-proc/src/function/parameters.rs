@@ -7,6 +7,7 @@
 use syn::{Error, Expr, FnArg, Pat, PatType, Stmt, Type};
 use syn::spanned::Spanned;
 
+#[derive(Debug)]
 pub(crate) enum Parameter {
 	Context(PatType),
 	Arguments(PatType),
@@ -80,7 +81,16 @@ impl Parameter {
 	}
 
 	pub(crate) fn is_normal(&self) -> bool {
-		matches!(self, Parameter::Normal(..))
+		if let Parameter::Normal(ty, _) = self {
+			if let &Type::Path(ref ty) = &*ty.ty {
+				if let Some(last) = ty.path.segments.last() {
+					if last.ident != "Option" {
+						return true;
+					}
+				}
+			}
+		}
+		false
 	}
 }
 

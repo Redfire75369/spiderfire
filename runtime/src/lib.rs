@@ -18,3 +18,5 @@ pub mod event_loop;
 pub mod globals;
 pub mod modules;
 pub mod runtime;
+pub mod script;
+pub mod typescript;

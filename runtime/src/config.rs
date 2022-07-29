@@ -34,6 +34,7 @@ impl LogLevel {
 pub struct Config {
 	pub log_level: LogLevel,
 	pub script: bool,
+	pub typescript: bool,
 }
 
 impl Config {
@@ -43,6 +44,10 @@ impl Config {
 
 	pub fn script(self, script: bool) -> Config {
 		Config { script, ..self }
+	}
+
+	pub fn typescript(self, typescript: bool) -> Config {
+		Config { typescript, ..self }
 	}
 
 	pub fn global() -> &'static Config {
@@ -55,6 +60,7 @@ impl Default for Config {
 		Config {
 			log_level: LogLevel::Error,
 			script: false,
+			typescript: true,
 		}
 	}
 }

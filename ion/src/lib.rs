@@ -26,7 +26,6 @@ pub mod flags;
 pub mod format;
 mod functions;
 mod objects;
-pub mod script;
 pub mod spec;
 pub mod types;
 mod value;
