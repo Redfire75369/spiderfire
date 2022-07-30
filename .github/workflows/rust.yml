@@ -4,8 +4,6 @@ on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
-  SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
-  SCCACHE_VERSION: v0.3.0
   SHELL: /bin/bash
 
 jobs:
@@ -66,6 +64,9 @@ jobs:
 
       - name: Install Dependencies on Linux
         if: matrix.id == 'linux'
+        env:
+          SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
+          SCCACHE_VERSION: v0.3.0
         run: |
           sudo apt install autoconf2.13 clang llvm -y
           SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
