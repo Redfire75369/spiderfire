@@ -25,6 +25,7 @@ jobs:
             id: linux
             sccache-path: /home/runner/.cache/sccache
     env:
+      CCACHE: sccache
       SCCACHE_CACHE_SIZE: 3G
       SCCACHE_DIR: ${{ matrix.sccache-path }}
 
@@ -53,7 +54,7 @@ jobs:
         if: matrix.id == 'linux'
         env:
           SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
-          SCCACHE_VERSION: v0.2.15
+          SCCACHE_VERSION: v0.3.0
         run: |
           sudo apt install autoconf2.13 clang llvm -y
           SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
@@ -81,7 +82,6 @@ jobs:
           restore-keys: |
             cargo-${{ matrix.id }}-
       - name: Cache sccache Cache
-        if: matrix.id == 'macos' || matrix.id == 'linux'
         uses: actions/cache@v2
         with:
           path: ${{ matrix.sccache-path }}
@@ -90,7 +90,6 @@ jobs:
             sccache-${{ matrix.id }}-
 
       - name: Start sccache Server
-        if: matrix.id == 'macos' || matrix.id == 'linux'
         run: sccache --start-server
 
       - name: Build POSIX
@@ -98,7 +97,6 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-          CCACHE: sccache
           RUSTC_WRAPPER: sccache
         run: |
           cargo build --release -vv
@@ -125,7 +123,6 @@ jobs:
           rename .\target\release\cli.exe spiderfire.exe
 
       - name: Stop sccache Server
-        if: matrix.id == 'macos' || matrix.id == 'linux'
         run: |
           sccache --show-stats
           sccache --stop-server || true
