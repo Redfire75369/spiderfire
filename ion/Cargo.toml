@@ -16,9 +16,12 @@ ion-proc = { path = "../ion-proc" }
 libffi = "3.0.0"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "4cd3f5b81f4c363c039631bf870e61a00c983f63" }
+sourcemap = { version = "6.0.2", optional = true }
 
 [features]
+default = ["sourcemap"]
 debugmozjs = ["mozjs/debugmozjs"]
+sourcemap = ["dep:sourcemap"]
 
 [lib]
 test = false

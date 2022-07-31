@@ -16,7 +16,7 @@ use crate::event_loop::microtasks::MicrotaskQueue;
 pub mod macrotasks;
 pub mod microtasks;
 
-thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop {macrotasks: None,microtasks: None}));
+thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop { macrotasks: None, microtasks: None }));
 
 pub struct EventLoop {
 	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,

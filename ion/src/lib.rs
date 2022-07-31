@@ -29,6 +29,7 @@ mod objects;
 pub mod spec;
 pub mod types;
 mod value;
+mod utils;
 
 pub type Context = *mut JSContext;
 pub type Result<T> = Result2<T, Error>;

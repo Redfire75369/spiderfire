@@ -9,15 +9,12 @@ use std::path::{Path, PathBuf};
 
 use base64_url::encode;
 use dirs::home_dir;
+use dunce::canonicalize;
 use os_str_bytes::OsStrBytes;
 use sha3::{Digest, Sha3_512};
 
 use runtime::config::Config;
 use runtime::typescript::compile_typescript;
-
-lazy_static! {
-	pub static ref CACHE_DIR: Option<PathBuf> = home_dir().map(|path| path.join(".spiderfire").join("cache"));
-}
 
 pub enum CacheMiss {
 	Partial(PathBuf, Option<String>),
@@ -26,8 +23,8 @@ pub enum CacheMiss {
 }
 
 pub fn check_cache(path: &Path, source: &str) -> Result<String, CacheMiss> {
-	let canonical = path.canonicalize().unwrap();
-	let folder_path = canonical.parent().unwrap();
+	let folder_path = canonicalize(path).unwrap();
+	let folder_path = folder_path.parent().unwrap();
 	let folder_name = path.parent().unwrap().file_name().unwrap().to_str().unwrap();
 	let source_file = path.file_stem().unwrap().to_str().unwrap();
 	let extension = path.extension().unwrap().to_str().unwrap();
@@ -39,7 +36,7 @@ pub fn check_cache(path: &Path, source: &str) -> Result<String, CacheMiss> {
 	let file_path = format!("{}.js", source_file);
 	let hash_path = format!("{}.{}.sha512", source_file, extension);
 
-	if let Some(cache_dir) = &*CACHE_DIR {
+	if let Some(cache_dir) = cache_dir() {
 		let cache_path = cache_dir.join(&folder_path);
 		if cache_path.is_dir() {
 			if cache_path.join(&hash_path).exists() {
@@ -62,7 +59,7 @@ pub fn check_cache(path: &Path, source: &str) -> Result<String, CacheMiss> {
 }
 
 pub fn save_in_cache(path: &Path, source: &str, cache_path: Option<PathBuf>, file_hash: Option<String>) -> Option<String> {
-	if let Some(cache_dir) = &*CACHE_DIR {
+	if let Some(cache_dir) = cache_dir() {
 		if Config::global().typescript {
 			let cache_path = cache_path.unwrap_or_else(|| {
 				let canonical = path.canonicalize().unwrap();
@@ -95,7 +92,7 @@ pub fn save_in_cache(path: &Path, source: &str, cache_path: Option<PathBuf>, fil
 }
 
 pub fn clear_cache() {
-	if let Some(cache_dir) = &*CACHE_DIR {
+	if let Some(cache_dir) = cache_dir() {
 		for entry in read_dir(&cache_dir).unwrap() {
 			if let Ok(entry) = entry {
 				remove_dir_all(entry.path()).unwrap();
@@ -103,6 +100,10 @@ pub fn clear_cache() {
 		}
 		create_dir_all(&cache_dir).unwrap();
 	}
+}
+
+pub fn cache_dir() -> Option<PathBuf> {
+	home_dir().map(|path| path.join(".spiderfire/cache"))
 }
 
 fn hash<T: AsRef<[u8]>>(bytes: T) -> String {

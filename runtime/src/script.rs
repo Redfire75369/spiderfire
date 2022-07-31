@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::path::Path;
 use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -18,10 +19,10 @@ pub struct Script {
 impl Script {
 	/// Compiles a script with a given filename and returns the compiled script.
 	/// Returns [Err] when script compilation fails.
-	pub fn compile(cx: Context, filename: &str, script: &str) -> Result<Script, Exception> {
+	pub fn compile(cx: Context, path: &Path, script: &str) -> Result<Script, Exception> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
-		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
+		let options = unsafe { CompileOptionsWrapper::new(cx, path.to_str().unwrap(), 1) };
 
 		let script = unsafe { Compile(cx, options.ptr, &mut source) };
 		rooted!(in(cx) let rooted_script = script);
@@ -48,8 +49,8 @@ impl Script {
 
 	/// Compiles and evaluates a script with a given filename, and returns its return value.
 	/// Returns [Err] when script compilation fails or an exception occurs during script evaluation.
-	pub fn compile_and_evaluate(cx: Context, filename: &str, script: &str) -> Result<JSVal, ErrorReport> {
-		match Script::compile(cx, filename, script) {
+	pub fn compile_and_evaluate(cx: Context, path: &Path, script: &str) -> Result<JSVal, ErrorReport> {
+		match Script::compile(cx, path, script) {
 			Ok(s) => match s.evaluate(cx) {
 				Ok(v) => Ok(v),
 				Err(e) => Err(e),

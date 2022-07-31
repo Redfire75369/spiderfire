@@ -16,7 +16,7 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Key, Object, Result};
+use ion::{Context, Key, Object, Result, parse_stack, format_stack};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
@@ -171,12 +171,10 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 
 		capture_stack!(in(cx) let stack);
 		let stack = stack.unwrap();
-		println!(
-			"{}",
-			&stack
-				.as_string(Some(((get_indents() + 1) * 2) as usize), StackFormat::SpiderMonkey)
-				.unwrap()
-		);
+		let stack = parse_stack(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap());
+
+		let indents = ((get_indents() + 1) * 2) as usize;
+		println!("{}", &indent_all_by(indents, &format_stack(&stack)));
 	}
 
 	Ok(())

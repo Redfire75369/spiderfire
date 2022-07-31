@@ -23,7 +23,7 @@ use url::Url;
 
 use ion::{Context, ErrorReport, Exception, Object};
 
-thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module >> = RefCell::new(HashMap::new()));
+thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module>> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModuleError {
@@ -93,6 +93,7 @@ impl Module {
 	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<Module, ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
+		let filename = path.map(Path::to_str).flatten().unwrap_or(filename);
 		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
 
 		let module = unsafe { CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };

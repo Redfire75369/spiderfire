@@ -95,14 +95,14 @@ impl Promise {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
 							if let Err(Some(error)) = resolve.call(cx, null, vec![value.get()]) {
-								error.print();
+								println!("{}", error);
 							}
 						}
 						Err(v) => {
 							rooted!(in(cx) let mut value = UndefinedValue());
 							v.to_jsval(cx, value.handle_mut());
 							if let Err(Some(error)) = reject.call(cx, null, vec![value.get()]) {
-								error.print();
+								println!("{}", error);
 							}
 						}
 					}

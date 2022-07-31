@@ -42,7 +42,7 @@ impl Microtask {
 
 				if !Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
 					match Exception::new(cx) {
-						Some(e) => ErrorReport::new(e).print(),
+						Some(e) => println!("{}", ErrorReport::new(e)),
 						None => return false,
 					}
 				}
@@ -50,7 +50,7 @@ impl Microtask {
 			Microtask::User(callback) => {
 				if let Err(report) = callback.call(cx, Object::global(cx), Vec::new()) {
 					match report {
-						Some(report) => report.print(),
+						Some(report) => println!("{}", report),
 						None => return false,
 					}
 				}

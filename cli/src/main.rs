@@ -5,8 +5,6 @@
  */
 
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate rustyline_derive;
 
 use clap::Parser;

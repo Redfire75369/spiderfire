@@ -367,8 +367,8 @@ dependencies = [
  "clap",
  "colored",
  "dirs",
+ "dunce",
  "ion",
- "lazy_static",
  "modules",
  "mozjs",
  "os_str_bytes",
@@ -975,6 +975,7 @@ dependencies = [
  "libffi",
  "mozjs",
  "mozjs_sys",
+ "sourcemap",
 ]
 
 [[package]]

@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::path::Path;
+
 use mozjs::rust::JSEngine;
 
 use runtime::config::{Config, CONFIG, LogLevel};
@@ -19,5 +21,5 @@ fn console() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
-	assert_eq!(Ok(()), Script::compile_and_evaluate(rt.cx(), FILE_NAME, SCRIPT).map(|_| ()));
+	assert_eq!(Ok(()), Script::compile_and_evaluate(rt.cx(), &Path::new(FILE_NAME), SCRIPT).map(|_| ()));
 }

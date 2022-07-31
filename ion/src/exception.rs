@@ -9,13 +9,25 @@ use std::fmt::{Display, Formatter};
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, StackFormat};
 use mozjs::jsval::UndefinedValue;
+#[cfg(feature = "sourcemap")]
+use sourcemap::SourceMap;
 
 use crate::{Context, Object};
+use crate::format::NEWLINE;
+use crate::utils::normalise_path;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Exception {
 	pub message: String,
-	pub filename: String,
+	pub file: String,
+	pub lineno: u32,
+	pub column: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StackRecord {
+	pub function: Option<String>,
+	pub file: String,
 	pub lineno: u32,
 	pub column: u32,
 }
@@ -23,7 +35,7 @@ pub struct Exception {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ErrorReport {
 	pub exception: Exception,
-	pub stack: Option<String>,
+	pub stack: Option<Vec<StackRecord>>,
 }
 
 impl Exception {
@@ -42,7 +54,7 @@ impl Exception {
 					let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
 					let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
 
-					Some(Exception { message, filename, lineno, column })
+					Some(Exception { message, file: filename, lineno, column })
 				} else {
 					None
 				}
@@ -59,13 +71,23 @@ impl Exception {
 
 	/// Formats the exception as an error message.
 	pub fn format(&self) -> String {
-		if !self.filename.is_empty() && self.lineno != 0 && self.column != 0 {
+		if !self.file.is_empty() && self.lineno != 0 && self.column != 0 {
 			format!(
 				"Uncaught exception at {}:{}:{} - {}",
-				self.filename, self.lineno, self.column, self.message
+				self.file, self.lineno, self.column, self.message
 			)
 		} else {
 			format!("Uncaught exception - {}", self.message)
+		}
+	}
+}
+
+impl StackRecord {
+	#[cfg(feature = "sourcemap")]
+	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
+		if let Some(token) = sourcemap.lookup_token(self.lineno, self.column) {
+			self.lineno = token.get_src_line();
+			self.column = token.get_src_col();
 		}
 	}
 }
@@ -78,29 +100,75 @@ impl ErrorReport {
 
 	/// Creates a new [ErrorReport] with the given [Exception] and the current stack.
 	pub fn new_with_stack(cx: Context, exception: Exception) -> ErrorReport {
-		unsafe {
+		let stack = unsafe {
 			capture_stack!(in(cx) let stack);
-			let stack = stack.unwrap().as_string(None, StackFormat::SpiderMonkey);
-			ErrorReport { exception, stack }
+			let stack = stack;
+			stack.map(|s| parse_stack(&s.as_string(None, StackFormat::SpiderMonkey).unwrap()))
+		};
+		ErrorReport { exception, stack }
+	}
+
+	#[cfg(feature = "sourcemap")]
+	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
+		if let Some(token) = sourcemap.lookup_token(self.exception.lineno, self.exception.column) {
+			self.exception.lineno = token.get_src_line();
+			self.exception.column = token.get_src_col();
+		}
+		if let Some(ref mut stack) = self.stack {
+			for record in stack {
+				record.transform_with_sourcemap(sourcemap);
+			}
 		}
 	}
+}
 
-	pub fn stack(&self) -> Option<&String> {
-		self.stack.as_ref()
-	}
-
-	/// Prints a formatted error message.
-	pub fn print(&self) {
-		println!("{}", self);
+impl Display for StackRecord {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&self.function.as_deref().unwrap_or(""))?;
+		f.write_str("@")?;
+		f.write_str(&self.file)?;
+		f.write_str(":")?;
+		f.write_str(&self.lineno.to_string())?;
+		f.write_str(":")?;
+		f.write_str(&self.column.to_string())?;
+		Ok(())
 	}
 }
 
 impl Display for ErrorReport {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		f.write_str(&self.exception.format())?;
-		if let Some(stack) = self.stack() {
-			f.write_str(&format!("\n{}", stack))?;
+		if let Some(ref stack) = self.stack {
+			f.write_str(NEWLINE)?;
+			f.write_str(&format_stack(stack))?;
 		}
 		Ok(())
 	}
+}
+
+pub fn parse_stack(string: &str) -> Vec<StackRecord> {
+	let mut stack = Vec::new();
+	for line in string.lines() {
+		let (function, line) = line.split_once("@").unwrap();
+		let (line, column) = line.rsplit_once(":").unwrap();
+		let (file, lineno) = line.rsplit_once(":").unwrap();
+
+		let function = if function.is_empty() { None } else { Some(String::from(function)) };
+		stack.push(StackRecord {
+			function,
+			file: String::from(normalise_path(file).to_str().unwrap()),
+			lineno: lineno.parse().unwrap(),
+			column: column.parse().unwrap(),
+		});
+	}
+	stack
+}
+
+pub fn format_stack(stack: &[StackRecord]) -> String {
+	let mut string = String::from("");
+	for record in stack {
+		string.push_str(&record.to_string());
+		string.push_str(NEWLINE);
+	}
+	string
 }

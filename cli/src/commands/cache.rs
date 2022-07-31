@@ -7,13 +7,13 @@
 use std::fs::{create_dir_all, metadata, read_dir};
 use std::path::PathBuf;
 
-use crate::cache::CACHE_DIR;
+use crate::cache::cache_dir;
 
 pub fn cache_statistics() {
-	if let Some(cache_dir) = &*CACHE_DIR {
-		create_dir_all(cache_dir).unwrap();
+	if let Some(cache_dir) = cache_dir() {
+		create_dir_all(&cache_dir).unwrap();
 		println!("Location: {}", cache_dir.display());
-		println!("Size: {}", format_size(cache_size(cache_dir)));
+		println!("Size: {}", format_size(cache_size(&cache_dir)));
 	} else {
 		println!("No Cache Found");
 	}

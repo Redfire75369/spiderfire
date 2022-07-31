@@ -26,7 +26,7 @@ term-table = "1.3.2"
 url = "2.2.2"
 
 [features]
-debugmozjs = ["mozjs/debugmozjs", "ion/debugmozjs"]
+debugmozjs = ["ion/debugmozjs"]
 
 [lib]
 test = false

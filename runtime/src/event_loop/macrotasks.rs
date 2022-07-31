@@ -80,7 +80,7 @@ impl Macrotask {
 
 		if let Err(report) = callback.call(cx, Object::global(cx), args) {
 			match report {
-				Some(report) => report.print(),
+				Some(report) => println!("{}", report),
 				None => return false,
 			}
 		}

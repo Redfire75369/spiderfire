@@ -20,7 +20,7 @@ use runtime::script::Script;
 use crate::cache::{CacheMiss, check_cache, save_in_cache};
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
-	let result = Script::compile_and_evaluate(rt.cx(), "inline.js", source);
+	let result = Script::compile_and_evaluate(rt.cx(), &Path::new("inline.js"), source);
 
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
@@ -39,14 +39,14 @@ pub fn eval_script(path: &Path) {
 		.standard_modules()
 		.build(engine.handle());
 
-	if let Some((script, filename)) = read_script(path) {
+	if let Some((script, _)) = read_script(path) {
 		let script = match check_cache(path, &script) {
 			Ok(script) => script,
 			Err(CacheMiss::Partial(cache_path, hash)) => save_in_cache(path, &script, Some(cache_path), hash).unwrap_or_else(|| script),
 			Err(CacheMiss::None) => save_in_cache(path, &script, None, None).unwrap_or_else(|| script),
 			Err(CacheMiss::NoCache) => script,
 		};
-		let result = Script::compile_and_evaluate(rt.cx(), &filename, &script);
+		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
 
 		match result {
 			Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
