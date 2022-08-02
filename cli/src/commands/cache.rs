@@ -4,34 +4,35 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fs::{create_dir_all, metadata, read_dir};
-use std::path::PathBuf;
+use std::fs::{metadata, read_dir};
+use std::io;
+use std::path::Path;
 
-use crate::cache::cache_dir;
+use runtime::cache::Cache;
 
 pub fn cache_statistics() {
-	if let Some(cache_dir) = cache_dir() {
-		create_dir_all(&cache_dir).unwrap();
-		println!("Location: {}", cache_dir.display());
-		println!("Size: {}", format_size(cache_size(&cache_dir)));
+	if let Some(cache) = Cache::new() {
+		println!("Location: {}", cache.dir().display());
+		match cache_size(cache.dir()) {
+			Ok(size) => println!("Size: {}", format_size(size)),
+			Err(err) => eprintln!("Error while Calculating Size: {}", err),
+		}
 	} else {
 		println!("No Cache Found");
 	}
 }
 
-fn cache_size(folder: &PathBuf) -> u64 {
-	let mut size: u64 = 0;
-	let metadata = metadata(folder).unwrap();
+fn cache_size(folder: &Path) -> io::Result<u64> {
+	let mut size = 0;
+	let metadata = metadata(folder)?;
 	if metadata.is_dir() {
-		for entry in read_dir(folder).unwrap() {
-			if let Ok(entry) = entry {
-				size += cache_size(&entry.path());
-			}
+		for entry in read_dir(folder)? {
+			size += cache_size(&entry?.path())?;
 		}
 	} else {
 		size += metadata.len();
 	}
-	size
+	Ok(size)
 }
 
 const PREFIXES: [&str; 6] = ["", "Ki", "Mi", "Gi", "Ti", "Pi"];

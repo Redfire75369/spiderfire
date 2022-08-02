@@ -13,6 +13,7 @@ extern crate mozjs;
 
 pub use crate::runtime::*;
 
+pub mod cache;
 pub mod config;
 pub mod event_loop;
 pub mod globals;

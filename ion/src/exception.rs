@@ -72,10 +72,7 @@ impl Exception {
 	/// Formats the exception as an error message.
 	pub fn format(&self) -> String {
 		if !self.file.is_empty() && self.lineno != 0 && self.column != 0 {
-			format!(
-				"Uncaught exception at {}:{}:{} - {}",
-				self.file, self.lineno, self.column, self.message
-			)
+			format!("Uncaught exception at {}:{}:{} - {}", self.file, self.lineno, self.column, self.message)
 		} else {
 			format!("Uncaught exception - {}", self.message)
 		}
@@ -85,9 +82,9 @@ impl Exception {
 impl StackRecord {
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
-		if let Some(token) = sourcemap.lookup_token(self.lineno, self.column) {
-			self.lineno = token.get_src_line();
-			self.column = token.get_src_col();
+		if let Some(token) = sourcemap.lookup_token(self.lineno - 1, self.column - 1) {
+			self.lineno = token.get_src_line() + 1;
+			self.column = token.get_src_col() + 1;
 		}
 	}
 }
@@ -110,9 +107,9 @@ impl ErrorReport {
 
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
-		if let Some(token) = sourcemap.lookup_token(self.exception.lineno, self.exception.column) {
-			self.exception.lineno = token.get_src_line();
-			self.exception.column = token.get_src_col();
+		if let Some(token) = sourcemap.lookup_token(self.exception.lineno - 1, self.exception.column - 1) {
+			self.exception.lineno = token.get_src_line() + 1;
+			self.exception.column = token.get_src_col() + 1;
 		}
 		if let Some(ref mut stack) = self.stack {
 			for record in stack {

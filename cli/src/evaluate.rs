@@ -4,26 +4,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::OsStr;
 use std::fs::read_to_string;
 use std::io::ErrorKind;
 use std::path::Path;
 
 use mozjs::rust::JSEngine;
+use sourcemap::SourceMap;
 
-use ion::format::Config;
+use ion::format::Config as FormatConfig;
 use ion::format::format_value;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
+use runtime::cache::locate_in_cache;
+use runtime::config::Config;
 use runtime::modules::Module;
 use runtime::script::Script;
-
-use crate::cache::{CacheMiss, check_cache, save_in_cache};
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), &Path::new("inline.js"), source);
 
 	match result {
-		Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
+		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
 		Err(report) => eprintln!("{}", report),
 	}
 	if !rt.run_event_loop() {
@@ -40,17 +42,17 @@ pub fn eval_script(path: &Path) {
 		.build(engine.handle());
 
 	if let Some((script, _)) = read_script(path) {
-		let script = match check_cache(path, &script) {
-			Ok(script) => script,
-			Err(CacheMiss::Partial(cache_path, hash)) => save_in_cache(path, &script, Some(cache_path), hash).unwrap_or_else(|| script),
-			Err(CacheMiss::None) => save_in_cache(path, &script, None, None).unwrap_or_else(|| script),
-			Err(CacheMiss::NoCache) => script,
-		};
+		let (script, sourcemap) = cache(path, script);
 		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
 
 		match result {
-			Ok(v) => println!("{}", format_value(rt.cx(), Config::default().quoted(true), v)),
-			Err(report) => eprintln!("{}", report),
+			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
+			Err(mut report) => {
+				if let Some(sourcemap) = sourcemap {
+					report.transform_with_sourcemap(&sourcemap);
+				}
+				eprintln!("{}", report);
+			}
 		}
 		if !rt.run_event_loop() {
 			eprintln!("Unknown error occurred while executing microtask.");
@@ -68,10 +70,14 @@ pub fn eval_module(path: &Path) {
 		.build(engine.handle());
 
 	if let Some((script, filename)) = read_script(path) {
+		let (script, sourcemap) = cache(path, script);
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
-		if let Err(report) = result {
-			eprintln!("{}", report);
+		if let Err(mut error) = result {
+			if let Some(sourcemap) = sourcemap {
+				error.inner_mut().transform_with_sourcemap(&sourcemap);
+			}
+			eprintln!("{}", error);
 		}
 		if !rt.run_event_loop() {
 			eprintln!("Unknown error occurred while executing microtask.");
@@ -95,4 +101,13 @@ fn read_script(path: &Path) -> Option<(String, String)> {
 			None
 		}
 	}
+}
+
+fn cache(path: &Path, script: String) -> (String, Option<SourceMap>) {
+	let is_typescript = Config::global().typescript && path.extension() == Some(OsStr::new("ts"));
+	is_typescript
+		.then(|| locate_in_cache(path, &script))
+		.flatten()
+		.map(|(s, sm)| (s, Some(sm)))
+		.unwrap_or_else(|| (script, None))
 }

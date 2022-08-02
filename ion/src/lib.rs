@@ -28,8 +28,8 @@ mod functions;
 mod objects;
 pub mod spec;
 pub mod types;
-mod value;
 mod utils;
+mod value;
 
 pub type Context = *mut JSContext;
 pub type Result<T> = Result2<T, Error>;

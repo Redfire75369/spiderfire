@@ -7,6 +7,7 @@
 use std::{fmt, ptr};
 use std::cell::RefCell;
 use std::collections::hash_map::{Entry, HashMap};
+use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
@@ -23,6 +24,9 @@ use url::Url;
 
 use ion::{Context, ErrorReport, Exception, Object};
 
+use crate::cache::locate_in_cache;
+use crate::config::Config;
+
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module>> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug, PartialEq)]
@@ -33,11 +37,19 @@ pub enum ModuleError {
 }
 
 impl ModuleError {
-	pub fn inner(&self) -> ErrorReport {
+	pub fn inner(&self) -> &ErrorReport {
 		match self {
-			ModuleError::Compilation(report) => report.clone(),
-			ModuleError::Instantiation(report) => report.clone(),
-			ModuleError::Evaluation(report) => report.clone(),
+			ModuleError::Compilation(report) => report,
+			ModuleError::Instantiation(report) => report,
+			ModuleError::Evaluation(report) => report,
+		}
+	}
+
+	pub fn inner_mut(&mut self) -> &mut ErrorReport {
+		match self {
+			ModuleError::Compilation(report) => report,
+			ModuleError::Instantiation(report) => report,
+			ModuleError::Evaluation(report) => report,
 		}
 	}
 }
@@ -175,7 +187,15 @@ impl Module {
 
 		module.or_else(|| {
 			if let Ok(script) = read_to_string(&path) {
+				let is_typescript = Config::global().typescript && path.extension() == Some(OsStr::new("ts"));
+				let script = is_typescript
+					.then(|| locate_in_cache(&path, &script))
+					.flatten()
+					.map(|(s, _)| s)
+					.unwrap_or_else(|| script);
+
 				let module = Module::compile(cx, specifier, Some(path.as_path()), &script);
+
 				if let Ok(module) = module {
 					module.clone().register(path.to_str().unwrap());
 					Some(module)

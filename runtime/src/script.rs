@@ -5,6 +5,7 @@
  */
 
 use std::path::Path;
+
 use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};

@@ -363,19 +363,16 @@ dependencies = [
 name = "cli"
 version = "0.1.0"
 dependencies = [
- "base64-url",
  "clap",
  "colored",
- "dirs",
  "dunce",
  "ion",
  "modules",
  "mozjs",
- "os_str_bytes",
  "runtime",
  "rustyline",
  "rustyline-derive",
- "sha3",
+ "sourcemap",
 ]
 
 [[package]]
@@ -1768,21 +1765,21 @@ checksum = "4389f1d5789befaf6029ebd9f7dac4af7f7e3d61b69d4f30e2ac02b57e7712b0"
 name = "runtime"
 version = "0.1.0"
 dependencies = [
+ "base64-url",
  "chrono",
  "closure",
+ "dirs",
  "dunce",
  "indent",
  "indexmap",
  "ion",
  "mozjs",
  "once_cell",
+ "os_str_bytes",
+ "sha3",
+ "sourcemap",
  "swc",
  "swc_common",
- "swc_ecma_codegen",
- "swc_ecma_parser",
- "swc_ecma_transforms_base",
- "swc_ecma_transforms_typescript",
- "swc_ecma_visit",
  "swc_ecmascript",
  "term-table",
  "url",
@@ -2689,8 +2686,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c96e447b71b8d44d2100c9a07a116c2337e4ed66691e096b7c5fe0a6c72c8ba0"
 dependencies = [
  "swc_ecma_ast",
+ "swc_ecma_codegen",
  "swc_ecma_parser",
  "swc_ecma_transforms",
+ "swc_ecma_visit",
 ]
 
 [[package]]

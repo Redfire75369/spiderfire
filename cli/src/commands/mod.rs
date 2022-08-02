@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use runtime::cache::Cache;
 use runtime::config::{CONFIG, Config, LogLevel};
 
-use crate::cache::clear_cache;
 use crate::Command;
 
 mod cache;
@@ -20,7 +20,11 @@ pub fn handle_command(command: Option<Command>) {
 			if !clear {
 				cache::cache_statistics();
 			} else {
-				clear_cache();
+				Cache::new().map(|cache| {
+					if let Err(err) = cache.clear() {
+						eprintln!("{}", err);
+					}
+				});
 			}
 		}
 

@@ -4,53 +4,53 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use std::string::FromUtf8Error;
 
-use swc::common::{FileName, GLOBALS, Globals, Mark, SourceMap};
+use sourcemap::SourceMap;
+use swc::common::{BytePos, FileName, GLOBALS, Globals, LineCol, Mark, SourceMap as SwcSourceMap};
 use swc::common::comments::{Comments, SingleThreadedComments};
 use swc::common::errors::{ColorConfig, Handler};
 use swc::common::input::StringInput;
 use swc::common::sync::Lrc;
-use swc_ecma_codegen::{Config as CodegenConfig, Emitter};
-use swc_ecma_codegen::text_writer::JsWriter;
-use swc_ecma_parser::{Capturing, Parser};
-use swc_ecma_parser::lexer::Lexer;
-use swc_ecma_parser::Syntax;
-use swc_ecma_transforms_base::fixer::fixer;
-use swc_ecma_transforms_base::hygiene::hygiene;
-use swc_ecma_transforms_base::resolver;
-use swc_ecma_transforms_typescript::strip;
-use swc_ecma_visit::FoldWith;
 use swc_ecmascript::ast::EsVersion;
+use swc_ecmascript::codegen::{Config as CodegenConfig, Emitter};
+use swc_ecmascript::codegen::text_writer::JsWriter;
+use swc_ecmascript::parser::{Capturing, Parser};
+use swc_ecmascript::parser::lexer::Lexer;
+use swc_ecmascript::parser::Syntax;
+use swc_ecmascript::transforms::fixer::fixer;
+use swc_ecmascript::transforms::hygiene::hygiene;
+use swc_ecmascript::transforms::resolver;
+use swc_ecmascript::transforms::typescript::strip;
+use swc_ecmascript::visit::FoldWith;
 
 use crate::config::Config;
 
-pub fn compile_typescript(filename: &str, source: &str) -> String {
-	if Config::global().typescript {
-		if !Config::global().script {
-			compile_typescript_module(filename, source)
-		} else {
-			compile_typescript_script(filename, source)
-		}
+pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
+	if !Config::global().script {
+		compile_typescript_module(filename, source)
 	} else {
-		String::from(source)
+		compile_typescript_script(filename, source)
 	}
 }
 
-pub fn compile_typescript_script(filename: &str, source: &str) -> String {
+pub fn compile_typescript_script(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
 	let name = FileName::Real(PathBuf::from(filename));
 
-	let source_map: Lrc<SourceMap> = Default::default();
+	let source_map: Lrc<SwcSourceMap> = Default::default();
 	let file = source_map.new_source_file(name, String::from(source));
 	let input = StringInput::from(&*file);
 
 	let comments = SingleThreadedComments::default();
 	let (handler, mut parser) = initialise_parser(source_map.clone(), &comments, input);
 
-	let script = parser
-		.parse_script()
-		.map_err(|e| e.into_diagnostic(&handler).emit())
-		.expect("Script parse failure");
+	let script = parser.parse_script().map_err(|e| {
+		e.into_diagnostic(&handler).emit();
+		Error::Parse
+	})?;
 
 	let globals = Globals::default();
 	let script = GLOBALS.set(&globals, || {
@@ -64,26 +64,29 @@ pub fn compile_typescript_script(filename: &str, source: &str) -> String {
 	});
 
 	let mut buffer = Vec::new();
-	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer);
-	emitter.emit_script(&script).expect("Script emission failure");
+	let mut mappings = Vec::new();
+	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
+	emitter.emit_script(&script).map_err(|_| Error::Emission)?;
 
-	String::from_utf8(buffer).expect("Emitted script contains invalid UTF-8")
+	let sourcemap = source_map.build_source_map(&mut mappings);
+
+	Ok((String::from_utf8(buffer)?, sourcemap))
 }
 
-pub fn compile_typescript_module(filename: &str, source: &str) -> String {
+pub fn compile_typescript_module(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
 	let name = FileName::Real(PathBuf::from(filename));
 
-	let source_map: Lrc<SourceMap> = Default::default();
+	let source_map: Lrc<SwcSourceMap> = Default::default();
 	let file = source_map.new_source_file(name, String::from(source));
 	let input = StringInput::from(&*file);
 
 	let comments = SingleThreadedComments::default();
 	let (handler, mut parser) = initialise_parser(source_map.clone(), &comments, input);
 
-	let module = parser
-		.parse_module()
-		.map_err(|e| e.into_diagnostic(&handler).emit())
-		.expect("Module parse failure");
+	let module = parser.parse_module().map_err(|e| {
+		e.into_diagnostic(&handler).emit();
+		Error::Parse
+	})?;
 
 	let globals = Globals::default();
 	let module = GLOBALS.set(&globals, || {
@@ -97,14 +100,17 @@ pub fn compile_typescript_module(filename: &str, source: &str) -> String {
 	});
 
 	let mut buffer = Vec::new();
-	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer);
-	emitter.emit_module(&module).expect("Module emission failure");
+	let mut mappings = Vec::new();
+	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
+	emitter.emit_module(&module).map_err(|_| Error::Emission)?;
 
-	String::from_utf8(buffer).expect("Emitted module contains invalid UTF-8")
+	let sourcemap = source_map.build_source_map(&mut mappings);
+
+	Ok((String::from_utf8(buffer)?, sourcemap))
 }
 
 fn initialise_parser<'a>(
-	source_map: Lrc<SourceMap>, comments: &'a dyn Comments, input: StringInput<'a>,
+	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, input: StringInput<'a>,
 ) -> (Handler, Parser<Capturing<Lexer<'a, StringInput<'a>>>>) {
 	let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(source_map.clone()));
 	let lexer = Lexer::new(Syntax::Typescript(Default::default()), EsVersion::Es2022, input, Some(comments));
@@ -119,8 +125,8 @@ fn initialise_parser<'a>(
 }
 
 fn initialise_emitter<'a>(
-	source_map: Lrc<SourceMap>, comments: &'a dyn Comments, buffer: &'a mut Vec<u8>,
-) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SourceMap> {
+	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, buffer: &'a mut Vec<u8>, mappings: &'a mut Vec<(BytePos, LineCol)>,
+) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
 		cfg: CodegenConfig {
 			target: EsVersion::Es2022,
@@ -129,6 +135,28 @@ fn initialise_emitter<'a>(
 		},
 		cm: source_map.clone(),
 		comments: Some(comments),
-		wr: JsWriter::new(source_map, "\n", buffer, None),
+		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),
+	}
+}
+
+#[derive(Debug)]
+pub enum Error {
+	Parse,
+	Emission,
+	FromUtf8(FromUtf8Error),
+}
+
+impl From<FromUtf8Error> for Error {
+	fn from(err: FromUtf8Error) -> Error {
+		Error::FromUtf8(err)
+	}
+}
+
+impl Display for Error {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			Error::FromUtf8(err) => f.write_str(&err.to_string()),
+			_ => Ok(()),
+		}
 	}
 }

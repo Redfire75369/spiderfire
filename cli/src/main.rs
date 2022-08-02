@@ -11,7 +11,6 @@ use clap::Parser;
 
 use crate::commands::handle_command;
 
-mod cache;
 mod commands;
 mod evaluate;
 mod repl;

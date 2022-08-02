@@ -15,12 +15,12 @@ pub(crate) fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
 			Component::ParentDir => {
 				let len = buf.components().count();
 				if len == 0 || buf.components().all(|c| matches!(c, Component::ParentDir)) {
-				    buf.push("..");
+					buf.push("..");
 				} else {
-				    buf.pop();
+					buf.pop();
 				}
-			},
-			Component::CurDir => {},
+			}
+			Component::CurDir => {}
 			segment => buf.push(segment),
 		}
 	}

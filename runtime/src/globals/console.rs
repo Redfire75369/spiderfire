@@ -21,6 +21,7 @@ use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
 use ion::format::primitive::format_primitive;
+use crate::cache::find_sourcemap;
 
 use crate::config::{Config, LogLevel};
 
@@ -171,9 +172,15 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 
 		capture_stack!(in(cx) let stack);
 		let stack = stack.unwrap();
-		let stack = parse_stack(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap());
-
+		let mut stack = parse_stack(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap());
 		let indents = ((get_indents() + 1) * 2) as usize;
+
+		for record in &mut stack {
+			if let Some(sourcemap) = find_sourcemap(&record.file) {
+				record.transform_with_sourcemap(&sourcemap);
+			}
+		}
+
 		println!("{}", &indent_all_by(indents, &format_stack(&stack)));
 	}
 
