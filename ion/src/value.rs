@@ -44,7 +44,7 @@ impl Value {
 	/// Creates a [Value] from a [String].
 	pub fn string(cx: Context, str: String) -> Value {
 		rooted!(in(cx) let mut val = *Value::undefined());
-		unsafe { str.to_jsval(cx, val.handle_mut().into()) };
+		unsafe { str.to_jsval(cx, val.handle_mut()) };
 		Value::from_raw(val.get())
 	}
 

@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{CurrentGlobalOrNull, JS_DefineFunctions, JSFunctionSpec, SameValue};
+use mozjs::jsapi::{CurrentGlobalOrNull, JSFunctionSpec, SameValue};
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, Function, Object, Result};
@@ -72,11 +72,10 @@ impl NativeModule for Assert {
 	const SOURCE: &'static str = include_str!("assert.js");
 
 	fn module(cx: Context) -> Option<Object> {
-		rooted!(in(cx) let assert = *Object::new(cx));
-		if unsafe { JS_DefineFunctions(cx, assert.handle().into(), FUNCTIONS.as_ptr()) } {
-			Some(Object::from(assert.get()))
-		} else {
-			None
+		let mut assert = Object::new(cx);
+		if assert.define_methods(cx, FUNCTIONS) {
+			return Some(assert);
 		}
+		None
 	}
 }

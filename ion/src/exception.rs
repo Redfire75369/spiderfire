@@ -121,7 +121,7 @@ impl ErrorReport {
 
 impl Display for StackRecord {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		f.write_str(&self.function.as_deref().unwrap_or(""))?;
+		f.write_str(self.function.as_deref().unwrap_or(""))?;
 		f.write_str("@")?;
 		f.write_str(&self.file)?;
 		f.write_str(":")?;
@@ -146,9 +146,9 @@ impl Display for ErrorReport {
 pub fn parse_stack(string: &str) -> Vec<StackRecord> {
 	let mut stack = Vec::new();
 	for line in string.lines() {
-		let (function, line) = line.split_once("@").unwrap();
-		let (line, column) = line.rsplit_once(":").unwrap();
-		let (file, lineno) = line.rsplit_once(":").unwrap();
+		let (function, line) = line.split_once('@').unwrap();
+		let (line, column) = line.rsplit_once(':').unwrap();
+		let (file, lineno) = line.rsplit_once(':').unwrap();
 
 		let function = if function.is_empty() { None } else { Some(String::from(function)) };
 		stack.push(StackRecord {

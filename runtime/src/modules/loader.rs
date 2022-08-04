@@ -25,6 +25,7 @@ use url::Url;
 use ion::{Context, ErrorReport, Exception, Object};
 
 use crate::cache::locate_in_cache;
+use crate::cache::map::save_sourcemap;
 use crate::config::Config;
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module>> = RefCell::new(HashMap::new()));
@@ -105,7 +106,7 @@ impl Module {
 	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<Module, ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
-		let filename = path.map(Path::to_str).flatten().unwrap_or(filename);
+		let filename = path.and_then(Path::to_str).unwrap_or(filename);
 		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
 
 		let module = unsafe { CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };
@@ -114,7 +115,7 @@ impl Module {
 		unsafe {
 			if !rooted_module.is_null() {
 				let data = ModuleData {
-					path: path.map(Path::to_str).flatten().map(String::from),
+					path: path.and_then(Path::to_str).map(String::from),
 				};
 				SetModulePrivate(module, &data.to_object(cx).to_value());
 
@@ -188,11 +189,14 @@ impl Module {
 		module.or_else(|| {
 			if let Ok(script) = read_to_string(&path) {
 				let is_typescript = Config::global().typescript && path.extension() == Some(OsStr::new("ts"));
-				let script = is_typescript
+				let (script, sourcemap) = is_typescript
 					.then(|| locate_in_cache(&path, &script))
 					.flatten()
-					.map(|(s, _)| s)
-					.unwrap_or_else(|| script);
+					.map(|(s, sm)| (s, Some(sm)))
+					.unwrap_or_else(|| (script, None));
+				if let Some(sourcemap) = sourcemap {
+					save_sourcemap(&path, sourcemap);
+				}
 
 				let module = Module::compile(cx, specifier, Some(path.as_path()), &script);
 

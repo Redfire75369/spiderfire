@@ -19,12 +19,10 @@ pub fn handle_command(command: Option<Command>) {
 		Some(Command::Cache { clear }) => {
 			if !clear {
 				cache::cache_statistics();
-			} else {
-				Cache::new().map(|cache| {
-					if let Err(err) = cache.clear() {
-						eprintln!("{}", err);
-					}
-				});
+			} else if let Some(cache) = Cache::new() {
+				if let Err(err) = cache.clear() {
+					eprintln!("{}", err);
+				}
 			}
 		}
 

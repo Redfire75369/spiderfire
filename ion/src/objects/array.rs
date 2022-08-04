@@ -121,7 +121,7 @@ impl Array {
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
 	pub fn get_as<T: FromJSValConvertible>(&self, cx: Context, index: u32, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, index);
-		opt.map(|val| from_value(cx, val, config)).flatten()
+		opt.and_then(|val| from_value(cx, val, config))
 	}
 
 	/// Sets the [JSVal] at the given index of the [Array].

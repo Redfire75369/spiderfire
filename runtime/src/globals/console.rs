@@ -16,13 +16,13 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Key, Object, Result, parse_stack, format_stack};
+use ion::{Context, format_stack, Key, Object, parse_stack, Result};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
 use ion::format::primitive::format_primitive;
-use crate::cache::find_sourcemap;
 
+use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";

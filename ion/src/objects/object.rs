@@ -11,8 +11,8 @@ use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string
 use mozjs::error::throw_type_error;
 use mozjs::glue::{RUST_JSID_IS_INT, RUST_JSID_IS_STRING, RUST_JSID_TO_INT, RUST_JSID_TO_STRING};
 use mozjs::jsapi::{
-	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
-	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSObject, JSTracer,
+	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineFunctions, JS_DefineProperty, JS_DeleteProperty1,
+	JS_GetProperty, JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSFunctionSpec, JSObject, JSTracer,
 };
 use mozjs::jsval::{JSVal, NullValue, ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
@@ -120,7 +120,7 @@ impl Object {
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub fn get_as<T: FromJSValConvertible>(&self, cx: Context, key: &str, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
-		opt.map(|val| from_value(cx, val, config)).flatten()
+		opt.and_then(|val| from_value(cx, val, config))
 	}
 
 	/// Sets the [JSVal] at the given key of the [Object].
@@ -186,6 +186,14 @@ impl Object {
 				attrs.bits() as u32,
 			)
 		})
+	}
+
+	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
+	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
+	/// They can be created through [function_spec](crate::spec::function_spec).
+	pub fn define_methods(&mut self, cx: Context, methods: &[JSFunctionSpec]) -> bool {
+		rooted!(in(cx) let mut obj = self.obj);
+		unsafe { JS_DefineFunctions(cx, obj.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Deletes the [JSVal] at the given index.

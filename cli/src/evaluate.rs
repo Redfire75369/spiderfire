@@ -17,12 +17,13 @@ use ion::format::format_value;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
+use runtime::cache::map::save_sourcemap;
 use runtime::config::Config;
 use runtime::modules::Module;
 use runtime::script::Script;
 
 pub fn eval_inline(rt: &Runtime, source: &str) {
-	let result = Script::compile_and_evaluate(rt.cx(), &Path::new("inline.js"), source);
+	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);
 
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
@@ -43,6 +44,9 @@ pub fn eval_script(path: &Path) {
 
 	if let Some((script, _)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
+		if let Some(sourcemap) = sourcemap.clone() {
+			save_sourcemap(&path, sourcemap);
+		}
 		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
 
 		match result {
@@ -71,6 +75,9 @@ pub fn eval_module(path: &Path) {
 
 	if let Some((script, filename)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
+		if let Some(sourcemap) = sourcemap.clone() {
+			save_sourcemap(&path, sourcemap);
+		}
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
 		if let Err(mut error) = result {

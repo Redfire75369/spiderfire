@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec};
+use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
@@ -129,12 +129,12 @@ impl NativeModule for PathM {
 	const SOURCE: &'static str = include_str!("path.js");
 
 	fn module(cx: Context) -> Option<Object> {
-		rooted!(in(cx) let path = *Object::new(cx));
-		if unsafe { JS_DefineFunctions(cx, path.handle().into(), FUNCTIONS.as_ptr()) }
-			&& Object::from(path.get()).define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
-			&& Object::from(path.get()).define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
+		let mut path = Object::new(cx);
+		if path.define_methods(cx, FUNCTIONS)
+			&& path.define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
+			&& path.define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			return Some(Object::from(path.get()));
+			return Some(path);
 		}
 		None
 	}

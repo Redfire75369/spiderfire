@@ -50,7 +50,7 @@ impl Cache {
 	pub fn find_folder<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf, Error> {
 		let canonical = canonicalize(path)?;
 		let folder = canonical.parent().ok_or(Error::Other)?;
-		let folder_name = folder.file_name().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
+		let folder_name = folder.file_name().and_then(OsStr::to_str).ok_or(Error::Other)?;
 
 		let hash = hash(folder.to_raw_bytes(), Some(16));
 		let folder = self.dir.join(format!("{}-{}", folder_name, hash));
@@ -59,8 +59,8 @@ impl Cache {
 
 	pub fn check_cache<P: AsRef<Path>>(&self, path: P, folder: &Path, source: &str) -> Result<(String, SourceMap), Error> {
 		let path = path.as_ref();
-		let source_file = path.file_stem().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
-		let extension = path.extension().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
+		let source_file = path.file_stem().and_then(OsStr::to_str).ok_or(Error::Other)?;
+		let extension = path.extension().and_then(OsStr::to_str).ok_or(Error::Other)?;
 
 		let source_hash = hash(source, None);
 		let destination_file = folder.join(source_file).with_extension("js");
@@ -101,9 +101,9 @@ impl Cache {
 	) -> Result<(String, SourceMap), Error> {
 		let path = path.as_ref();
 		if Config::global().typescript && path.extension() == Some(OsStr::new("ts")) {
-			let source_name = path.file_name().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
-			let source_file = path.file_stem().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
-			let extension = path.extension().map(OsStr::to_str).flatten().ok_or(Error::Other)?;
+			let source_name = path.file_name().and_then(OsStr::to_str).ok_or(Error::Other)?;
+			let source_file = path.file_stem().and_then(OsStr::to_str).ok_or(Error::Other)?;
+			let extension = path.extension().and_then(OsStr::to_str).ok_or(Error::Other)?;
 
 			let source_hash = source_hash.map(String::from).unwrap_or_else(|| hash(source, None));
 			let destination_file = folder.join(source_file).with_extension("js");

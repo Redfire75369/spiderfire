@@ -10,7 +10,7 @@ use std::os;
 use std::path::Path;
 
 use futures_lite::stream::StreamExt;
-use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, JSObject};
+use mozjs::jsapi::{JSFunctionSpec, JSObject};
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use ion::{Context, Error, Object, Result};
@@ -41,8 +41,8 @@ unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<*mut JSObject>
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
 			rooted!(in(cx) let mut array = *Object::new(cx));
-			if !Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
-				&& !Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
+			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_err()
+				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_err()
 			{
 				return Err(Error::Error(String::from("Unable to create Uint8Array")));
 			}
@@ -419,14 +419,14 @@ impl NativeModule for FileSystem {
 	const SOURCE: &'static str = include_str!("fs.js");
 
 	fn module(cx: Context) -> Option<Object> {
-		rooted!(in(cx) let fs = *Object::new(cx));
-		rooted!(in(cx) let sync = *Object::new(cx));
+		let mut fs = Object::new(cx);
+		let mut sync = Object::new(cx);
 
-		if unsafe { JS_DefineFunctions(cx, fs.handle().into(), ASYNC_FUNCTIONS.as_ptr()) }
-			&& unsafe { JS_DefineFunctions(cx, sync.handle().into(), SYNC_FUNCTIONS.as_ptr()) }
-			&& Object::from(fs.get()).define_as(cx, "sync", sync.get(), PropertyFlags::CONSTANT_ENUMERATED)
+		if fs.define_methods(cx, ASYNC_FUNCTIONS)
+			&& sync.define_methods(cx, SYNC_FUNCTIONS)
+			&& fs.define(cx, "sync", sync.to_value(), PropertyFlags::CONSTANT_ENUMERATED)
 		{
-			return Some(Object::from(fs.get()));
+			return Some(fs);
 		}
 		None
 	}

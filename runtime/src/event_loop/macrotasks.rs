@@ -100,7 +100,7 @@ impl MacrotaskQueue {
 		let index = id.unwrap_or_else(|| self.latest.get().map(|l| l + 1).unwrap_or(0));
 		let mut macrotasks = self.map.borrow_mut();
 
-		let next = self.next.get().map(|next| (*macrotasks).get(&next)).flatten();
+		let next = self.next.get().and_then(|next| (*macrotasks).get(&next));
 		if let Some(next) = next {
 			if macrotask.remaining() < next.remaining() {
 				self.set_next(index, &macrotask);

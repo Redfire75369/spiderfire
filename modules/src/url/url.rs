@@ -11,9 +11,7 @@ use idna::{domain_to_ascii, domain_to_unicode};
 use mozjs::conversions::{jsstr_to_string, ToJSValConvertible};
 use mozjs::conversions::ConversionBehavior::EnforceRange;
 use mozjs::glue::JS_GetReservedSlot;
-use mozjs::jsapi::{
-	HandleObject, JS_DefineFunctions, JS_InitClass, JS_NewObjectForConstructor, JS_SetReservedSlot, JSClass, JSFunctionSpec, JSPropertySpec,
-};
+use mozjs::jsapi::{HandleObject, JS_InitClass, JS_NewObjectForConstructor, JS_SetReservedSlot, JSClass, JSFunctionSpec, JSPropertySpec};
 use mozjs::jsval::{JSVal, NullValue};
 use url::Url;
 
@@ -39,7 +37,7 @@ unsafe fn constructor(cx: Context, args: &Arguments, input: String, base: Option
 		return Err(Error::Error(String::from("This constructor must be called with \"new\".")));
 	}
 	let options = Url::options();
-	let base = base.as_ref().map(|base| Url::parse(base).ok()).flatten();
+	let base = base.as_ref().and_then(|base| Url::parse(base).ok());
 	options.base_url(base.as_ref());
 	match options.parse(&input) {
 		Ok(url) => {
@@ -250,12 +248,11 @@ unsafe fn toJSON(#[this] this: Object) -> Result<JSVal> {
 unsafe fn format(cx: Context, #[this] this: Object, options: Option<Object>) -> Result<String> {
 	let mut url = get_url(cx, this);
 
-	let auth = options.map(|options| options.get_as::<bool>(cx, "auth", ())).flatten().unwrap_or(true);
+	let auth = options.and_then(|options| options.get_as::<bool>(cx, "auth", ())).unwrap_or(true);
 	let fragment = options
-		.map(|options| options.get_as::<bool>(cx, "fragment", ()))
-		.flatten()
+		.and_then(|options| options.get_as::<bool>(cx, "fragment", ()))
 		.unwrap_or(true);
-	let search = options.map(|options| options.get_as::<bool>(cx, "search", ())).flatten().unwrap_or(true);
+	let search = options.and_then(|options| options.get_as::<bool>(cx, "search", ())).unwrap_or(true);
 
 	if !auth {
 		let _ = url.set_username("");
@@ -321,12 +318,13 @@ impl NativeModule for UrlM {
 	const SOURCE: &'static str = include_str!("url.js");
 
 	fn module(cx: Context) -> Option<Object> {
-		rooted!(in(cx) let url = *Object::new(cx));
-		if unsafe { JS_DefineFunctions(cx, url.handle().into(), FUNCTIONS.as_ptr()) } {
+		let mut url = Object::new(cx);
+		if url.define_methods(cx, FUNCTIONS) {
+			rooted!(in(cx) let urlr = *url);
 			let class = unsafe {
 				JS_InitClass(
 					cx,
-					url.handle().into(),
+					urlr.handle().into(),
 					HandleObject::null(),
 					&URL_CLASS,
 					Some(constructor),
@@ -338,7 +336,7 @@ impl NativeModule for UrlM {
 				)
 			};
 			if !class.is_null() {
-				return Some(Object::from(url.get()));
+				return Some(url);
 			}
 		}
 		None
