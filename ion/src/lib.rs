@@ -13,6 +13,7 @@ use std::result::Result as Result2;
 
 use mozjs::jsapi::JSContext;
 
+pub use class::ClassInitialiser;
 pub use error::Error;
 pub use exception::*;
 pub use functions::*;
@@ -20,6 +21,7 @@ pub use ion_proc::*;
 pub use objects::*;
 pub use value::Value;
 
+mod class;
 mod error;
 mod exception;
 pub mod flags;

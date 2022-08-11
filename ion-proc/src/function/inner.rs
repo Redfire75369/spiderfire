@@ -6,14 +6,17 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Block, FnArg, ItemFn, Stmt};
+use syn::{Block, FnArg, ItemFn, Pat, Stmt};
 use syn::punctuated::Punctuated;
 
 use crate::function::parameters::Parameter;
 
-fn extract_params(function: &ItemFn) -> syn::Result<(Vec<Stmt>, usize)> {
-	let mut nargs = 0;
+fn extract_params(function: &ItemFn, class: bool) -> syn::Result<(Vec<Stmt>, usize, Option<Ident>)> {
 	let mut index = 0;
+
+	let mut nargs = 0;
+	let mut this: Option<Ident> = None;
+
 	let statements: Vec<_> = function
 		.sig
 		.inputs
@@ -22,20 +25,29 @@ fn extract_params(function: &ItemFn) -> syn::Result<(Vec<Stmt>, usize)> {
 			let param = Parameter::from_arg(arg)?;
 			if param.is_normal() {
 				nargs += 1;
+			} else if let Parameter::This(pat) = &param {
+				if let Pat::Ident(ident) = &*pat.pat {
+					this = Some(ident.ident.clone());
+				}
 			}
-			Ok(param.into_statement(&mut index))
+
+			if !class {
+				Ok(param.into_statement(&mut index))
+			} else {
+				Ok(param.into_class_statement(&mut index))
+			}
 		})
 		.collect::<syn::Result<_>>()?;
 
-	Ok((statements, nargs))
+	Ok((statements, nargs, this))
 }
 
-pub(crate) fn impl_inner_fn(function: &ItemFn) -> syn::Result<ItemFn> {
+pub(crate) fn impl_inner_fn<I: InnerBody>(function: &ItemFn, class: bool) -> syn::Result<(ItemFn, usize, Option<Ident>)> {
 	let krate = quote!(::ion);
 	let mut inner = function.clone();
 
 	let is_async = function.sig.asyncness.is_some();
-	let (params, nargs) = extract_params(function)?;
+	let (params, nargs, this) = extract_params(function, class)?;
 
 	inner.sig.asyncness = None;
 	inner.sig.ident = Ident::new("native_fn", function.sig.ident.span());
@@ -47,7 +59,7 @@ pub(crate) fn impl_inner_fn(function: &ItemFn) -> syn::Result<ItemFn> {
 	}
 
 	let fn_name = function.sig.ident.to_string();
-	let input_body = impl_inner_body(is_async, function.clone().block);
+	let input_body = I::impl_inner(function.clone().block, this.clone(), is_async);
 	let inner_body = parse_quote!({
 		if args.len() < #nargs {
 			return Err(#krate::Error::Error(::std::format!("{}() requires at least {} {}", #fn_name,
@@ -60,26 +72,30 @@ pub(crate) fn impl_inner_fn(function: &ItemFn) -> syn::Result<ItemFn> {
 	});
 	inner.block = Box::new(inner_body);
 
-	Ok(inner)
+	Ok((inner, nargs, this))
 }
 
-fn impl_inner_body(is_async: bool, body: Box<Block>) -> TokenStream {
-	if !is_async {
-		body.into_token_stream()
-	} else {
-		impl_async_body(body)
-	}
+pub trait InnerBody {
+	fn impl_inner(body: Box<Block>, this: Option<Ident>, is_async: bool) -> TokenStream;
 }
 
-fn impl_async_body(body: Box<Block>) -> TokenStream {
-	let krate = quote!(::ion);
-	quote! {
-		let future = async #body;
+pub(crate) struct DefaultInnerBody;
 
-		if let Some(promise) = #krate::Promise::new_with_future(cx, future) {
-			Ok(promise)
+impl InnerBody for DefaultInnerBody {
+	fn impl_inner(body: Box<Block>, _: Option<Ident>, is_async: bool) -> TokenStream {
+		if !is_async {
+			body.into_token_stream()
 		} else {
-			Err(#krate::Error::None)
+			let krate = quote!(::ion);
+			quote! {
+				let future = async #body;
+
+				if let Some(promise) = #krate::Promise::new_with_future(cx, future) {
+					Ok(promise)
+				} else {
+					Err(#krate::Error::None)
+				}
+			}
 		}
 	}
 }

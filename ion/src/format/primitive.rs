@@ -39,6 +39,8 @@ pub fn format_primitive(cx: Context, cfg: Config, value: JSVal) -> String {
 		"null".color(colors.null).to_string()
 	} else if value.is_undefined() {
 		"undefined".color(colors.undefined).to_string()
+	} else if value.is_magic() {
+		"<magic>".color(colors.boolean).to_string()
 	} else {
 		unreachable!("Internal Error: Expected Primitive")
 	}

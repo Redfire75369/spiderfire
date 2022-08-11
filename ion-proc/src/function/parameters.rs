@@ -7,6 +7,8 @@
 use syn::{Error, Expr, FnArg, Pat, PatType, Stmt, Type};
 use syn::spanned::Spanned;
 
+use crate::utils::type_ends_with;
+
 #[derive(Debug)]
 pub(crate) enum Parameter {
 	Context(PatType),
@@ -80,21 +82,39 @@ impl Parameter {
 		}
 	}
 
+	pub(crate) fn into_class_statement(self, index: &mut usize) -> Stmt {
+		use Parameter::*;
+
+		let krate = quote!(::ion);
+		match self {
+			This(PatType { pat, ty: ref_ty, .. }) => {
+				let ty = if let Type::Reference(ty) = &*ref_ty {
+					ty.elem.clone()
+				} else {
+					ref_ty.clone()
+				};
+				parse_quote!(
+					let #pat: #ref_ty = {
+						use #krate::ClassInitialiser;
+						<#ty>::get_private(cx, args.this().to_object(), Some(args))
+					};
+				)
+			}
+			param => param.into_statement(index),
+		}
+	}
+
 	pub(crate) fn is_normal(&self) -> bool {
 		if let Parameter::Normal(ty, _) = self {
-			if let &Type::Path(ref ty) = &*ty.ty {
-				if let Some(last) = ty.path.segments.last() {
-					if last.ident != "Option" {
-						return true;
-					}
-				}
+			if let Type::Path(ty) = &*ty.ty {
+				return type_ends_with(ty, "Option");
 			}
 		}
 		false
 	}
 }
 
-fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handle: Box<Expr>, conversion: Box<Expr>) -> Expr {
+pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handle: Box<Expr>, conversion: Box<Expr>) -> Expr {
 	let krate = quote!(::ion);
 	parse_quote! {
 		if let Some(value) = unsafe { #krate::types::values::from_value(cx, #handle.get(), #conversion) } {
