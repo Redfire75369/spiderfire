@@ -249,9 +249,7 @@ unsafe fn format(cx: Context, #[this] this: Object, options: Option<Object>) -> 
 	let mut url = get_url(cx, this);
 
 	let auth = options.and_then(|options| options.get_as::<bool>(cx, "auth", ())).unwrap_or(true);
-	let fragment = options
-		.and_then(|options| options.get_as::<bool>(cx, "fragment", ()))
-		.unwrap_or(true);
+	let fragment = options.and_then(|options| options.get_as::<bool>(cx, "fragment", ())).unwrap_or(true);
 	let search = options.and_then(|options| options.get_as::<bool>(cx, "search", ())).unwrap_or(true);
 
 	if !auth {

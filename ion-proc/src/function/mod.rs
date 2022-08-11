@@ -6,74 +6,89 @@
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Abi, Error, FnArg, ItemFn};
+use syn::{Abi, Error, FnArg, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
-use crate::function::inner::impl_inner_fn;
+use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
 
-mod inner;
-mod parameters;
+pub(crate) mod inner;
+pub(crate) mod parameters;
 
-pub(crate) fn impl_js_fn(function: ItemFn) -> syn::Result<TokenStream> {
+pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<TokenStream> {
 	let krate = quote!(::ion);
-	let mut outer = function.clone();
+	let (inner, _, _) = impl_inner_fn::<DefaultInnerBody>(&function, false)?;
 
-	match &function.sig.abi {
-		Some(Abi { name: None, .. }) => {}
-		None => outer.sig.abi = Some(parse_quote!(extern "C")),
-		Some(Abi { name: Some(abi), .. }) if abi.value() == "C" => {}
-		Some(Abi { name: Some(non_c_abi), .. }) => return Err(Error::new_spanned(non_c_abi, "Expected C ABI")),
-	}
+	function.attrs = Vec::new();
+	check_abi(&mut function)?;
+	set_signature(&mut function)?;
+	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
-	let inner = impl_inner_fn(&function)?;
+	let error_handler = error_handler();
 
-	outer.attrs.push(parse_quote!(#[allow(non_snake_case)]));
-
-	outer.sig.asyncness = None;
-	outer.sig.unsafety = Some(parse_quote!(unsafe));
-	let outer_params: [FnArg; 3] = [
-		parse_quote!(cx: #krate::Context),
-		parse_quote!(argc: ::core::primitive::u32),
-		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
-	];
-	outer.sig.inputs = Punctuated::<_, _>::from_iter(outer_params);
-	outer.sig.output = parse_quote!(-> ::core::primitive::bool);
-
-	let body = quote!({
+	let body = parse_quote!({
 		let args = #krate::Arguments::new(argc, vp);
 
 		#inner
 
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| native_fn(cx, &args)));
 
-		{
-			use ::std::prelude::v1::*;
+		#error_handler
+	});
+	function.block = Box::new(body);
 
-			match result {
-				Ok(Ok(v)) => {
-					use ::mozjs::conversions::ToJSValConvertible;
-					v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
-					true
-				},
-				Ok(Err(error)) => {
-					error.throw(cx);
-					false
+	Ok(function.into_token_stream())
+}
+
+pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {
+	match &function.sig.abi {
+		Some(Abi { name: None, .. }) => {}
+		None => function.sig.abi = Some(parse_quote!(extern "C")),
+		Some(Abi { name: Some(abi), .. }) if abi.value() == "C" => {}
+		Some(Abi { name: Some(non_c_abi), .. }) => return Err(Error::new_spanned(non_c_abi, "Expected C ABI")),
+	}
+	Ok(())
+}
+
+pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
+	let krate = quote!(::ion);
+	function.sig.asyncness = None;
+	function.sig.unsafety = Some(parse_quote!(unsafe));
+	let params: [FnArg; 3] = [
+		parse_quote!(cx: #krate::Context),
+		parse_quote!(argc: ::core::primitive::u32),
+		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
+	];
+	function.sig.inputs = Punctuated::<_, _>::from_iter(params);
+	function.sig.output = parse_quote!(-> ::core::primitive::bool);
+	Ok(())
+}
+
+pub(crate) fn error_handler() -> TokenStream {
+	let krate = quote!(::ion);
+	quote!({
+		use ::std::prelude::v1::*;
+
+		match result {
+			Ok(Ok(v)) => {
+				use ::mozjs::conversions::ToJSValConvertible;
+				v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
+				true
+			},
+			Ok(Err(error)) => {
+				error.throw(cx);
+				false
+			}
+			Err(unwind_error) => {
+				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
+					#krate::Error::Error(unwind.clone()).throw(cx);
+				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
+					#krate::Error::Error(String::from(*unwind)).throw(cx);
+				} else {
+					#krate::Error::Error(String::from("Unknown Panic Occurred")).throw(cx);
+					::std::mem::forget(unwind_error);
 				}
-				Err(unwind_error) => {
-					if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-						#krate::Error::Error(unwind.clone()).throw(cx);
-					} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-						#krate::Error::Error(String::from(*unwind)).throw(cx);
-					} else {
-						#krate::Error::Error(String::from("Unknown Panic Occurred")).throw(cx);
-						::std::mem::forget(unwind_error);
-					}
-					false
-				}
+				false
 			}
 		}
-	});
-	outer.block = parse_quote!(#body);
-
-	Ok(outer.into_token_stream())
+	})
 }
