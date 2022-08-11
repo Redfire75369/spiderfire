@@ -28,10 +28,10 @@ impl Parameter {
 			} else {
 				let mut convert = None;
 				let mut vararg = false;
-				for attr in arg.attrs.clone() {
-					if attr == parse_quote!(#[this]) {
+				for attr in &arg.attrs {
+					if attr == &parse_quote!(#[this]) {
 						return Ok(Parameter::This(arg.clone()));
-					} else if attr == parse_quote!(#[varargs]) {
+					} else if attr == &parse_quote!(#[varargs]) {
 						vararg = true;
 					} else if attr.path == parse_quote!(convert) {
 						let convert_ty: Expr = attr.parse_args()?;
@@ -40,9 +40,9 @@ impl Parameter {
 				}
 
 				if vararg {
-					Ok(Parameter::VarArgs(arg.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
+					Ok(Parameter::VarArgs(arg.clone(), Box::new(convert.unwrap_or(parse_quote!(())))))
 				} else {
-					Ok(Parameter::Normal(arg.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
+					Ok(Parameter::Normal(arg.clone(), Box::new(convert.unwrap_or(parse_quote!(())))))
 				}
 			};
 		}

@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use proc_macro2::Ident;
 use syn::{ItemFn, ItemImpl, ItemStatic, ItemStruct, LitStr};
 
-use crate::class::Accessor;
-use crate::class::property::{accessor_to_spec, Property};
+use crate::class::accessor::Accessor;
+use crate::class::property::Property;
 
 pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
 	let krate = quote!(::ion);
@@ -57,7 +57,9 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 	};
 
 	let mut specs: Vec<_> = properties.into_iter().map(|property| property.to_spec(class.clone())).collect();
-	accessors.iter().for_each(|(name, accessor)| specs.push(accessor_to_spec(accessor, name)));
+	accessors
+		.iter()
+		.for_each(|(name, accessor)| specs.push(accessor.to_spec(Ident::new(name, class.span()))));
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
 

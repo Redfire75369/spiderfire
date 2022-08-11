@@ -11,7 +11,7 @@ use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse, Result, Visibility};
 use syn::spanned::Spanned;
 
-use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor};
+use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::impl_method;
 use crate::class::property::Property;
@@ -22,8 +22,6 @@ pub(crate) mod constructor;
 pub(crate) mod method;
 pub(crate) mod property;
 pub(crate) mod statics;
-
-pub(crate) type Accessor = (Option<ItemFn>, Option<ItemFn>);
 
 pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
 	let content = &mut module.content.as_mut().unwrap().1;
@@ -146,7 +144,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
 	if class.is_none() {
 		return Err(Error::new(module.span(), "Expected Struct within Module"));
 	}
-	let class = class.unwrap();
+	let mut class = class.unwrap();
+
+	insert_property_accessors(&mut accessors, &mut class)?;
 
 	if constructor.is_none() {
 		return Err(Error::new(module.span(), "Expected Constructor within Module"));
