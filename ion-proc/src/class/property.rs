@@ -6,9 +6,7 @@
 
 use proc_macro2::{Ident, TokenStream};
 use syn::{ImplItemConst, LitStr, Type};
-use syn::spanned::Spanned;
 
-use crate::class::Accessor;
 use crate::utils::type_ends_with;
 
 #[derive(Clone, Debug)]
@@ -59,34 +57,5 @@ impl Property {
 				quote!(#krate::spec::create_property_spec_string(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 		}
-	}
-}
-
-pub(crate) fn accessor_to_spec(accessor: &Accessor, name: &str) -> TokenStream {
-	let krate = quote!(::ion);
-	let (getter, setter) = accessor;
-	if let Some(getter) = getter {
-		let getter = getter.sig.ident.clone();
-		let name = LitStr::new(&name.to_string(), name.span());
-		if let Some(setter) = setter {
-			let setter = setter.sig.ident.clone();
-			quote!(#krate::property_spec_getter_setter!(#getter, #setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-		} else {
-			quote!(#krate::property_spec_getter!(#getter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-		}
-	} else if let Some(setter) = setter {
-		let setter = setter.sig.ident.clone();
-		let name = LitStr::new(&name.to_string(), name.span());
-		quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-	} else {
-		let name = LitStr::new(&format!("{}\0", name.to_string()), name.span());
-		quote!(
-			#krate::spec::create_property_spec_accessor(
-				::std::concat!(#name, "\0"),
-				::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-				::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-				#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
-			)
-		)
 	}
 }
