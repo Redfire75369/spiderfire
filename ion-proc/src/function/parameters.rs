@@ -107,7 +107,7 @@ impl Parameter {
 	pub(crate) fn is_normal(&self) -> bool {
 		if let Parameter::Normal(ty, _) = self {
 			if let Type::Path(ty) = &*ty.ty {
-				return type_ends_with(ty, "Option");
+				return !type_ends_with(ty, "Option");
 			}
 		}
 		false

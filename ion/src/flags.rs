@@ -12,7 +12,7 @@ use mozjs::jsapi::{
 bitflags! {
 	/// Represents the flags of properties on an [Object](crate::Object)
 	pub struct PropertyFlags: u16 {
-		/// Prevents enumeration through `Object.keys()`, `for...in` and other functions.
+		/// Allows enumeration through `Object.keys()`, `for...in` and other functions.
 		/// See [Enumerability of Properties](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties#traversing_object_properties) for more information
 		const ENUMERATE = JSPROP_ENUMERATE as u16;
 		/// Prevents reassignment of the property.

@@ -4,37 +4,46 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Ident, TokenStream};
+use std::collections::HashMap;
+
+use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Error, ImplItem, Item, ItemFn, ItemMod, ItemStatic, ItemStruct, LitStr, parse, Result, Visibility};
+use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse, Result, Visibility};
 use syn::spanned::Spanned;
 
+use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::impl_method;
 use crate::class::property::Property;
+use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
 
+pub(crate) mod accessor;
 pub(crate) mod constructor;
 pub(crate) mod method;
 pub(crate) mod property;
+pub(crate) mod statics;
+
+pub(crate) type Accessor = (Option<ItemFn>, Option<ItemFn>);
 
 pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
-	let krate = quote!(::ion);
 	let content = &mut module.content.as_mut().unwrap().1;
 
-	let mut object = None;
+	let mut class = None;
 	let mut constructor = None;
 	let mut regular_impl = None;
 	let mut methods = Vec::new();
 	let mut static_methods = Vec::new();
+	let mut accessors = HashMap::new();
 	let mut static_properties = Vec::new();
+	let mut static_accessors = HashMap::new();
 
 	let mut content_to_remove = Vec::new();
 	for (i, item) in content.iter().enumerate() {
 		content_to_remove.push(i);
 		match item {
-			Item::Struct(str) if object.is_none() => object = Some(str.clone()),
-			Item::Impl(imp) => {
-				let object = object.as_ref().map(|o| {
+			Item::Struct(str) if class.is_none() => class = Some(str.clone()),
+			Item::Impl(imp) if regular_impl.is_none() => {
+				let object = class.as_ref().map(|o| {
 					let ident = o.ident.clone();
 					parse_quote!(#ident)
 				});
@@ -47,20 +56,51 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
 						match item {
 							ImplItem::Method(method) => {
 								let mut method: ItemFn = parse(method.to_token_stream().into())?;
-								let mut constructor_index = None;
+								let mut indices = (None, None, None);
+
 								for (i, attr) in method.attrs.iter().enumerate() {
 									if attr == &parse_quote!(#[constructor]) {
-										constructor_index = Some(i);
+										indices.0 = Some(i);
+									} else if attr == &parse_quote!(#[get]) {
+										indices.1 = Some(i);
+									} else if attr == &parse_quote!(#[set]) {
+										indices.2 = Some(i);
 									}
 								}
 
-								if let Some(index) = constructor_index {
+								if let Some(index) = indices.0 {
 									method.attrs.remove(index);
 									constructor = Some(impl_constructor(method.clone())?);
 									continue;
 								}
 
-								let (method, nargs, this) = impl_method(method.clone())?;
+								if let Some(index) = indices.1 {
+									method.attrs.remove(index);
+									let name = get_accessor_name(&method.sig.ident, false);
+									let (getter, has_this) = impl_accessor(&method, false)?;
+
+									if has_this {
+										insert_accessor(&mut accessors, name, Some(getter), None);
+									} else {
+										insert_accessor(&mut static_accessors, name, Some(getter), None);
+									}
+									continue;
+								}
+
+								if let Some(index) = indices.2 {
+									method.attrs.remove(index);
+									let name = get_accessor_name(&method.sig.ident, true);
+									let (setter, has_this) = impl_accessor(&method, true)?;
+
+									if has_this {
+										insert_accessor(&mut accessors, name, None, Some(setter));
+									} else {
+										insert_accessor(&mut static_accessors, name, None, Some(setter));
+									}
+									continue;
+								}
+
+								let (method, nargs, this) = impl_method(method.clone(), |_| Ok(()))?;
 
 								if this.is_some() {
 									methods.push((method, nargs));
@@ -103,138 +143,53 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
 		content.remove(index);
 	}
 
-	if object.is_none() {
+	if class.is_none() {
 		return Err(Error::new(module.span(), "Expected Struct within Module"));
 	}
-	let object = object.unwrap();
+	let class = class.unwrap();
 
 	if constructor.is_none() {
 		return Err(Error::new(module.span(), "Expected Constructor within Module"));
 	}
+	let regular_impl = regular_impl.unwrap();
 	let (constructor, constructor_nargs) = constructor.unwrap();
-	let constructor_ident = constructor.sig.ident.clone();
-	let constructor_nargs = constructor_nargs as u32;
 
-	let class = js_class(&object);
-	let class_name = object.ident.clone();
+	let class_spec = class_spec(&class);
 
-	let methods_array = js_methods(&methods, false);
-	let static_methods_array = js_methods(&static_methods, true);
-	let static_properties_array = js_properties(static_properties, true, &class_name);
+	let method_specs = methods_to_specs(&methods, false);
+	let static_method_specs = methods_to_specs(&static_methods, true);
+	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
+	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
+
+	let class_initialiser = class_initialiser(class.ident.clone(), (constructor.sig.ident.clone(), constructor_nargs as u32));
 
 	let methods: Vec<_> = methods.into_iter().map(|(m, _)| m).collect();
 	let static_methods: Vec<_> = static_methods.into_iter().map(|(m, _)| m).collect();
+	let accessors = flatten_accessors(accessors);
+	let static_accessors: Vec<_> = flatten_accessors(static_accessors);
 
-	let class_initialiser = parse_quote!(
-		impl #krate::ClassInitialiser for #class_name {
-			fn class() -> &'static ::mozjs::jsapi::JSClass {
-				&CLASS
-			}
-
-			fn constructor() -> (::ion::NativeFunction, u32) {
-				(#constructor_ident, #constructor_nargs)
-			}
-
-			fn functions() -> &'static [::mozjs::jsapi::JSFunctionSpec] {
-				&FUNCTIONS
-			}
-
-			fn static_functions() -> &'static [::mozjs::jsapi::JSFunctionSpec] {
-				&STATIC_FUNCTIONS
-			}
-
-			fn static_properties() -> &'static [::mozjs::jsapi::JSPropertySpec] {
-				&STATIC_PROPERTIES
-			}
-		}
-	);
-
-	content.push(Item::Struct(object));
-	if let Some(regular_impl) = regular_impl {
-		content.push(Item::Impl(regular_impl));
-	}
+	content.push(Item::Struct(class));
+	content.push(Item::Impl(regular_impl));
 	content.push(Item::Fn(constructor));
 	for method in methods {
 		content.push(Item::Fn(method));
 	}
+	for accessor in accessors {
+		content.push(Item::Fn(accessor));
+	}
 	for method in static_methods {
 		content.push(Item::Fn(method));
 	}
-	content.push(Item::Static(class));
-	content.push(Item::Static(methods_array));
-	content.push(Item::Static(static_methods_array));
-	content.push(Item::Static(static_properties_array));
+	for accessor in static_accessors {
+		content.push(Item::Fn(accessor));
+	}
+
+	content.push(Item::Static(class_spec));
+	content.push(Item::Static(method_specs));
+	content.push(Item::Static(property_specs));
+	content.push(Item::Static(static_method_specs));
+	content.push(Item::Static(static_property_specs));
 	content.push(Item::Impl(class_initialiser));
 
 	Ok(module.to_token_stream())
-}
-
-pub(crate) fn js_class(object: &ItemStruct) -> ItemStatic {
-	let krate = quote!(::ion);
-	let name = format!("{}\0", object.ident);
-	let name = LitStr::new(&name, object.ident.span());
-
-	parse_quote!(
-		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
-			name: #name.as_ptr() as *const i8,
-			flags: #krate::class_reserved_slots(0),
-			cOps: ::std::ptr::null_mut(),
-			spec: ::std::ptr::null_mut(),
-			ext: ::std::ptr::null_mut(),
-			oOps: ::std::ptr::null_mut(),
-		};
-	)
-}
-
-pub(crate) fn js_methods(methods: &[(ItemFn, usize)], stat: bool) -> ItemStatic {
-	let krate = quote!(::ion);
-	let ident: Ident = if stat { parse_quote!(STATIC_FUNCTIONS) } else { parse_quote!(FUNCTIONS) };
-	let specs: Vec<_> = methods
-		.into_iter()
-		.map(|(method, nargs)| {
-			let name = LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span());
-			let ident = method.sig.ident.clone();
-			let nargs = *nargs as u16;
-			quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
-		})
-		.collect();
-
-	if specs.is_empty() {
-		parse_quote!(
-			static #ident: &[::mozjs::jsapi::JSFunctionSpec] = &[
-				::mozjs::jsapi::JSFunctionSpec::ZERO,
-			];
-		)
-	} else {
-		parse_quote!(
-			static #ident: &[::mozjs::jsapi::JSFunctionSpec] = &[
-				#(#specs),*,
-				::mozjs::jsapi::JSFunctionSpec::ZERO,
-			];
-		)
-	}
-}
-
-pub(crate) fn js_properties(properties: Vec<Property>, stat: bool, class: &Ident) -> ItemStatic {
-	let ident: Ident = if stat {
-		parse_quote!(STATIC_PROPERTIES)
-	} else {
-		parse_quote!(PROPERTIES)
-	};
-
-	let specs: Vec<_> = properties.into_iter().map(|property| property.into_spec(class.clone())).collect();
-	if specs.is_empty() {
-		parse_quote!(
-			static #ident: &[::mozjs::jsapi::JSPropertySpec] = &[
-				::mozjs::jsapi::JSPropertySpec::ZERO,
-			];
-		)
-	} else {
-		parse_quote!(
-			static #ident: &[::mozjs::jsapi::JSPropertySpec] = &[
-				#(#specs),*,
-				::mozjs::jsapi::JSPropertySpec::ZERO,
-			];
-		)
-	}
 }
