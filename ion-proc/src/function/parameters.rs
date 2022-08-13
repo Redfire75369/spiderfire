@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{Error, Expr, FnArg, Pat, PatType, Stmt, Type};
+use quote::ToTokens;
+use syn::{Error, Expr, FnArg, LitStr, Pat, PatType, Stmt, Type};
 use syn::spanned::Spanned;
-
-use crate::utils::type_ends_with;
 
 #[derive(Debug)]
 pub(crate) enum Parameter {
@@ -103,29 +102,22 @@ impl Parameter {
 			param => param.into_statement(index),
 		}
 	}
-
-	pub(crate) fn is_normal(&self) -> bool {
-		if let Parameter::Normal(ty, _) = self {
-			if let Type::Path(ty) = &*ty.ty {
-				return !type_ends_with(ty, "Option");
-			}
-		}
-		false
-	}
 }
 
 pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handle: Box<Expr>, conversion: Box<Expr>) -> Expr {
 	let krate = quote!(::ion);
+	let error_msg = format!(
+		"Failed to convert argument {} at index {}, to {}",
+		pat.to_token_stream(),
+		index.to_token_stream(),
+		ty.to_token_stream()
+	);
+	let error = LitStr::new(&error_msg, pat.span());
 	parse_quote! {
 		if let Some(value) = unsafe { #krate::types::values::from_value(cx, #handle.get(), #conversion) } {
 			Ok(value)
 		} else {
-			Err(#krate::Error::TypeError(::std::format!(
-				"Failed to convert argument {} at index {}, to {}",
-				::std::stringify!(#pat),
-				#index,
-				::std::stringify!(#ty)
-			)))
+			Err(#krate::Error::Error(String::from(#error)))
 		}
 	}
 }
