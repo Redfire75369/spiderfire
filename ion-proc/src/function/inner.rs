@@ -6,12 +6,13 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Block, FnArg, ItemFn, Pat, Stmt};
+use syn::{Block, FnArg, ItemFn, LitStr, Pat, Stmt, Type};
 use syn::punctuated::Punctuated;
 
 use crate::function::parameters::Parameter;
+use crate::utils::type_ends_with;
 
-fn extract_params(function: &ItemFn, class: bool) -> syn::Result<(Vec<Stmt>, usize, Option<Ident>)> {
+pub(crate) fn extract_params(function: &ItemFn, class: bool) -> syn::Result<(Vec<Stmt>, usize, Option<Ident>)> {
 	let mut index = 0;
 
 	let mut nargs = 0;
@@ -23,12 +24,20 @@ fn extract_params(function: &ItemFn, class: bool) -> syn::Result<(Vec<Stmt>, usi
 		.iter()
 		.map(|arg| {
 			let param = Parameter::from_arg(arg)?;
-			if param.is_normal() {
-				nargs += 1;
-			} else if let Parameter::This(pat) = &param {
-				if let Pat::Ident(ident) = &*pat.pat {
-					this = Some(ident.ident.clone());
+			match &param {
+				Parameter::Normal(ty, _) => {
+					if let Type::Path(ty) = &*ty.ty {
+						if !type_ends_with(ty, "Option") {
+							nargs += 1;
+						}
+					}
 				}
+				Parameter::This(pat) => {
+					if let Pat::Ident(ident) = &*pat.pat {
+						this = Some(ident.ident.clone());
+					}
+				}
+				_ => {}
 			}
 
 			if !class {
@@ -58,12 +67,17 @@ pub(crate) fn impl_inner_fn<I: InnerBody>(function: &ItemFn, class: bool) -> syn
 		inner.sig.output = parse_quote!(-> #krate::Result<#krate::Promise>);
 	}
 
-	let fn_name = function.sig.ident.to_string();
 	let input_body = I::impl_inner(function.clone().block, this.clone(), is_async);
+	let error_msg = format!(
+		"{}() requires at least {} {}",
+		function.sig.ident,
+		nargs,
+		if nargs == 1 { "argument" } else { "arguments" }
+	);
+	let error = LitStr::new(&error_msg, function.sig.ident.span());
 	let inner_body = parse_quote!({
 		if args.len() < #nargs {
-			return Err(#krate::Error::Error(::std::format!("{}() requires at least {} {}", #fn_name,
-				#nargs, if #nargs == 1 { "argument" } else { "arguments" })));
+			return Err(#krate::Error::Error(::std::string::String::from(#error)));
 		}
 
 		#(#params)*

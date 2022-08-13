@@ -8,9 +8,10 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use proc_macro2::{Ident, TokenStream};
-use syn::{Error, Expr, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Visibility};
+use syn::{Error, Expr, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
 
 use crate::class::method::impl_method;
+use crate::function::parameters::Parameter;
 
 #[derive(Debug)]
 pub(crate) struct Accessor(Option<ItemFn>, Option<ItemFn>);
@@ -107,7 +108,19 @@ pub(crate) fn impl_accessor(method: &ItemFn, is_setter: bool) -> Result<(ItemFn,
 		format!("Expected Getter to have {} arguments", expected_args)
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
-	impl_method(method.clone(), |nargs| (nargs == expected_args).then(|| ()).ok_or(error)).map(|(method, _, this)| (method, this.is_some()))
+	let (accessor, _, this) = impl_method(method.clone(), |sig| {
+		let params: Vec<_> = sig.inputs.iter().map(|arg| Parameter::from_arg(arg)).collect::<Result<_>>()?;
+		let nargs = params.into_iter().fold(0, |mut acc, param| {
+			if let Parameter::Normal(ty, _) = &param {
+				if let Type::Path(_) = &*ty.ty {
+					acc += 1;
+				}
+			}
+			acc
+		});
+		(nargs == expected_args).then(|| ()).ok_or(error)
+	})?;
+	Ok((accessor, this.is_some()))
 }
 
 pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<ItemFn>, setter: Option<ItemFn>) {

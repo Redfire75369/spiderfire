@@ -5,16 +5,16 @@
  */
 
 use proc_macro2::Ident;
-use syn::{ItemFn, Result};
+use syn::{ItemFn, Result, Signature};
 
 use crate::function::{check_abi, error_handler, set_signature};
 use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
 
-pub(crate) fn impl_method<F: FnOnce(usize) -> Result<()>>(mut method: ItemFn, predicate: F) -> Result<(ItemFn, usize, Option<Ident>)> {
+pub(crate) fn impl_method<F: FnOnce(&Signature) -> Result<()>>(mut method: ItemFn, predicate: F) -> Result<(ItemFn, usize, Option<Ident>)> {
 	let krate = quote!(::ion);
 	let (inner, nargs, this) = impl_inner_fn::<DefaultInnerBody>(&method, true)?;
 
-	predicate(nargs).and_then(|_| {
+	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
 		set_signature(&mut method)?;
 		method.attrs.push(parse_quote!(#[allow(non_snake_case)]));
