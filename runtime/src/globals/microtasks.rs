@@ -19,7 +19,7 @@ fn queueMicrotask(cx: Context, callback: Function) -> Result<()> {
 			queue.enqueue(cx, Microtask::User(callback));
 			Ok(())
 		} else {
-			Err(Error::Error(String::from("Microtask Queue has not been initialised.")))
+			Err(Error::new("Microtask Queue has not been initialised."))
 		}
 	})
 }

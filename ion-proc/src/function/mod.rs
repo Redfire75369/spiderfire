@@ -16,7 +16,7 @@ pub(crate) mod parameters;
 
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<TokenStream> {
 	let krate = quote!(::ion);
-	let (inner, _, _) = impl_inner_fn::<DefaultInnerBody>(&function, false)?;
+	let (inner, _, _) = impl_inner_fn::<DefaultInnerBody>(function.clone(), false)?;
 
 	function.attrs = Vec::new();
 	check_abi(&mut function)?;
@@ -80,11 +80,11 @@ pub(crate) fn error_handler() -> TokenStream {
 			}
 			Err(unwind_error) => {
 				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::Error(unwind.clone()).throw(cx);
+					#krate::Error::new(unwind).throw(cx);
 				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::Error(String::from(*unwind)).throw(cx);
+					#krate::Error::new(*unwind).throw(cx);
 				} else {
-					#krate::Error::Error(String::from("Unknown Panic Occurred")).throw(cx);
+					#krate::Error::new("Unknown Panic Occurred").throw(cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

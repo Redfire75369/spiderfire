@@ -4,11 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fmt, ptr};
+use std::ptr;
 use std::cell::RefCell;
 use std::collections::hash_map::{Entry, HashMap};
 use std::ffi::OsStr;
-use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::path::Path;
 
@@ -27,43 +26,9 @@ use ion::{Context, ErrorReport, Exception, Object};
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;
 use crate::config::Config;
+use crate::modules::{ModuleError, ModuleErrorKind};
 
 thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module>> = RefCell::new(HashMap::new()));
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ModuleError {
-	Compilation(ErrorReport),
-	Instantiation(ErrorReport),
-	Evaluation(ErrorReport),
-}
-
-impl ModuleError {
-	pub fn inner(&self) -> &ErrorReport {
-		match self {
-			ModuleError::Compilation(report) => report,
-			ModuleError::Instantiation(report) => report,
-			ModuleError::Evaluation(report) => report,
-		}
-	}
-
-	pub fn inner_mut(&mut self) -> &mut ErrorReport {
-		match self {
-			ModuleError::Compilation(report) => report,
-			ModuleError::Instantiation(report) => report,
-			ModuleError::Evaluation(report) => report,
-		}
-	}
-}
-
-impl Display for ModuleError {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			ModuleError::Compilation(report) => write!(f, "Module Compilation Error\n{}", report),
-			ModuleError::Instantiation(report) => write!(f, "Module Instantiation Error\n{}", report),
-			ModuleError::Evaluation(report) => write!(f, "Module Evaluation Error\n{}", report),
-		}
-	}
-}
 
 #[derive(Clone, Debug)]
 pub struct ModuleData {
@@ -122,17 +87,17 @@ impl Module {
 				let module = Module { module: Object::from(module), data };
 
 				if let Err(exception) = module.instantiate(cx) {
-					return Err(ModuleError::Instantiation(ErrorReport::new(exception)));
+					return Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Instantiation));
 				}
 
 				if let Err(exception) = module.evaluate(cx) {
-					return Err(ModuleError::Evaluation(ErrorReport::new(exception)));
+					return Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Evaluation));
 				}
 
 				Ok(module)
 			} else {
 				let exception = Exception::new(cx).unwrap();
-				Err(ModuleError::Compilation(ErrorReport::new(exception)))
+				Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Compilation))
 			}
 		}
 	}

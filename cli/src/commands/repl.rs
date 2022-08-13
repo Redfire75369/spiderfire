@@ -22,7 +22,13 @@ pub fn start_repl() {
 		.standard_modules()
 		.build(engine.handle());
 
-	let mut repl = Editor::with_config(rustyline_config());
+	let mut repl = match Editor::with_config(rustyline_config()) {
+		Ok(repl) => repl,
+		Err(err) => {
+			eprintln!("{}", err);
+			return;
+		}
+	};
 	repl.set_helper(Some(ReplHelper));
 	let mut terminate: u8 = 0;
 

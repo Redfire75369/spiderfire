@@ -117,7 +117,7 @@ pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handl
 		if let Some(value) = unsafe { #krate::types::values::from_value(cx, #handle.get(), #conversion) } {
 			Ok(value)
 		} else {
-			Err(#krate::Error::Error(String::from(#error)))
+			Err(#krate::Error::new(#error))
 		}
 	}
 }

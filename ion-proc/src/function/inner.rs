@@ -51,42 +51,52 @@ pub(crate) fn extract_params(function: &ItemFn, class: bool) -> syn::Result<(Vec
 	Ok((statements, nargs, this))
 }
 
-pub(crate) fn impl_inner_fn<I: InnerBody>(function: &ItemFn, class: bool) -> syn::Result<(ItemFn, usize, Option<Ident>)> {
+pub(crate) fn impl_inner_fn<I: InnerBody>(mut function: ItemFn, class: bool) -> syn::Result<(ItemFn, usize, Option<Ident>)> {
 	let krate = quote!(::ion);
-	let mut inner = function.clone();
 
 	let is_async = function.sig.asyncness.is_some();
-	let (params, nargs, this) = extract_params(function, class)?;
+	let (params, nargs, this) = extract_params(&function, class)?;
+	let input_body = I::impl_inner(function.clone().block, this.clone(), is_async);
 
-	inner.sig.asyncness = None;
-	inner.sig.ident = Ident::new("native_fn", function.sig.ident.span());
+	let ident = function.sig.ident.clone();
+
+	function.sig.asyncness = None;
+	function.sig.ident = Ident::new("native_fn", function.sig.ident.span());
 	let inner_params: [FnArg; 2] = [parse_quote!(cx: #krate::Context), parse_quote!(args: &#krate::Arguments)];
-	inner.sig.inputs = Punctuated::from_iter(inner_params);
+	function.sig.inputs = Punctuated::from_iter(inner_params);
 
 	if is_async {
-		inner.sig.output = parse_quote!(-> #krate::Result<#krate::Promise>);
+		function.sig.output = parse_quote!(-> #krate::Result<#krate::Promise>);
 	}
 
-	let input_body = I::impl_inner(function.clone().block, this.clone(), is_async);
 	let error_msg = format!(
 		"{}() requires at least {} {}",
-		function.sig.ident,
+		ident,
 		nargs,
 		if nargs == 1 { "argument" } else { "arguments" }
 	);
-	let error = LitStr::new(&error_msg, function.sig.ident.span());
-	let inner_body = parse_quote!({
-		if args.len() < #nargs {
-			return Err(#krate::Error::Error(::std::string::String::from(#error)));
-		}
+	let error = LitStr::new(&error_msg, ident.span());
+
+	let args_check = if nargs == 0 {
+		TokenStream::new()
+	} else {
+		quote!(
+			if args.len() < #nargs {
+				return Err(#krate::Error::new(#error));
+			}
+		)
+	};
+
+	let body = parse_quote!({
+		#args_check
 
 		#(#params)*
 
 		#input_body
 	});
-	inner.block = Box::new(inner_body);
+	function.block = Box::new(body);
 
-	Ok((inner, nargs, this))
+	Ok((function, nargs, this))
 }
 
 pub trait InnerBody {
@@ -107,7 +117,7 @@ impl InnerBody for DefaultInnerBody {
 				if let Some(promise) = #krate::Promise::new_with_future(cx, future) {
 					Ok(promise)
 				} else {
-					Err(#krate::Error::None)
+					Err(#krate::Error::new("Failed to create Promise"))
 				}
 			}
 		}

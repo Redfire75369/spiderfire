@@ -44,14 +44,14 @@ unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<*mut JSObject>
 			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_err()
 				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_err()
 			{
-				return Err(Error::Error(String::from("Unable to create Uint8Array")));
+				return Err(Error::new("Unable to create Uint8Array"));
 			}
 			Ok(array.get())
 		} else {
-			Err(Error::Error(format!("Could not read file: {}", path_str)))
+			Err(Error::new(&format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(Error::Error(format!("File {} does not exist", path_str)))
+		Err(Error::new(&format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -78,10 +78,10 @@ fn readStringSync(path_str: String) -> Result<String> {
 		if let Ok(str) = fs::read_to_string(&path) {
 			Ok(str)
 		} else {
-			Err(Error::Error(format!("Could not read file: {}", path_str)))
+			Err(Error::new(&format!("Could not read file: {}", path_str)))
 		}
 	} else {
-		Err(Error::Error(format!("File {} does not exist", path_str)))
+		Err(Error::new(&format!("File {} does not exist", path_str)))
 	}
 }
 
@@ -119,7 +119,7 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 			Ok(Vec::new())
 		}
 	} else {
-		Err(Error::Error(format!("Directory {} does not exist", path_str)))
+		Err(Error::new(&format!("Directory {} does not exist", path_str)))
 	}
 }
 
@@ -141,7 +141,7 @@ fn writeSync(path_str: String, contents: String) -> Result<bool> {
 	if !path.is_dir() {
 		Ok(fs::write(path, contents).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is a directory", path_str)))
+		Err(Error::new(&format!("Path {} is a directory", path_str)))
 	}
 }
 
@@ -163,7 +163,7 @@ fn createDirSync(path_str: String) -> Result<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir(path).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is a file", path_str)))
+		Err(Error::new(&format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -185,7 +185,7 @@ fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir_all(path).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is a file", path_str)))
+		Err(Error::new(&format!("Path {} is a file", path_str)))
 	}
 }
 
@@ -207,7 +207,7 @@ fn removeFileSync(path_str: String) -> Result<bool> {
 	if path.is_file() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is not a file", path_str)))
+		Err(Error::new(&format!("Path {} is not a file", path_str)))
 	}
 }
 
@@ -229,7 +229,7 @@ fn removeDirSync(path_str: String) -> Result<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is not a directory", path_str)))
+		Err(Error::new(&format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -251,7 +251,7 @@ fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_dir_all(path).is_ok())
 	} else {
-		Err(Error::Error(format!("Path {} is not a directory", path_str)))
+		Err(Error::new(&format!("Path {} is not a directory", path_str)))
 	}
 }
 
@@ -275,7 +275,7 @@ fn copySync(from_str: String, to_str: String) -> Result<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::copy(from, to).is_ok())
 	} else {
-		Err(Error::None)
+		Err(Error::new(""))
 	}
 }
 
@@ -299,7 +299,7 @@ fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::rename(from, to).is_ok())
 	} else {
-		Err(Error::None)
+		Err(Error::new(""))
 	}
 }
 
@@ -349,7 +349,7 @@ fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 			}
 		}
 	} else {
-		Err(Error::Error(String::from("Link already exists")))
+		Err(Error::new("Link already exists"))
 	}
 }
 
@@ -373,7 +373,7 @@ fn hardLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	if !link.exists() {
 		Ok(fs::hard_link(original, link).is_ok())
 	} else {
-		Err(Error::Error(String::from("Link already exists")))
+		Err(Error::new("Link already exists"))
 	}
 }
 

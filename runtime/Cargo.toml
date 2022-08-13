@@ -7,21 +7,21 @@ license = "MPL-2.0"
 
 [dependencies]
 base64-url = "1.4.13"
-chrono = "0.4.19"
+chrono = "0.4.21"
 closure = "0.3.0"
 dirs = "4.0.0"
 dunce = "1.0.2"
 ion = { path = "../ion", features = ["sourcemap"] }
 indent = "0.1.1"
-indexmap = "1.8.0"
+indexmap = "1.9.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
-once_cell = "1.10.0"
+once_cell = "1.13.0"
 os_str_bytes = "6.2.0"
-sha3 = "0.10.1"
+sha3 = "0.10.2"
 sourcemap = "6.0.2"
-swc = "0.212.0"
-swc_common = { version = "0.26.0", features = ["tty-emitter"] }
-swc_ecmascript = { version = "0.186.0", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
+swc_core = { version = "0.7.3", features = ["common"] }
+swc_common = { version = "0.27.6", features = ["sourcemap", "tty-emitter"] }
+swc_ecmascript = { version = "0.189.2", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
 term-table = "1.3.2"
 url = "2.2.2"
 

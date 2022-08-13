@@ -10,11 +10,11 @@ use std::path::PathBuf;
 use std::string::FromUtf8Error;
 
 use sourcemap::SourceMap;
-use swc::common::{BytePos, FileName, GLOBALS, Globals, LineCol, Mark, SourceMap as SwcSourceMap};
-use swc::common::comments::{Comments, SingleThreadedComments};
-use swc::common::errors::{ColorConfig, Handler};
-use swc::common::input::StringInput;
-use swc::common::sync::Lrc;
+use swc_core::common::{BytePos, FileName, GLOBALS, Globals, LineCol, Mark, SourceMap as SwcSourceMap};
+use swc_core::common::comments::{Comments, SingleThreadedComments};
+use swc_core::common::errors::{ColorConfig, Handler};
+use swc_core::common::input::StringInput;
+use swc_core::common::sync::Lrc;
 use swc_ecmascript::ast::EsVersion;
 use swc_ecmascript::codegen::{Config as CodegenConfig, Emitter};
 use swc_ecmascript::codegen::text_writer::JsWriter;

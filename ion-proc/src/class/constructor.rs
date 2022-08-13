@@ -12,7 +12,7 @@ use crate::function::inner::{DefaultInnerBody, impl_inner_fn, InnerBody};
 
 pub(crate) fn impl_constructor(mut constructor: ItemFn) -> Result<(ItemFn, usize)> {
 	let krate = quote!(::ion);
-	let (mut inner, nargs, _) = impl_inner_fn::<ClassConstructorInnerBody>(&constructor, true)?;
+	let (mut inner, nargs, _) = impl_inner_fn::<ClassConstructorInnerBody>(constructor.clone(), true)?;
 
 	inner.sig.output = parse_quote!(-> #krate::Result<()>);
 
@@ -26,7 +26,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn) -> Result<(ItemFn, usize
 		let args = #krate::Arguments::new(argc, vp);
 
 		if !args.is_constructing() {
-			#krate::Error::Error(String::from("Constructor must be called with \"new\".")).throw(cx);
+			#krate::Error::new("Constructor must be called with \"new\".").throw(cx);
 			return false;
 		}
 
@@ -76,11 +76,11 @@ pub(crate) fn error_handler() -> TokenStream {
 			}
 			Err(unwind_error) => {
 				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::Error(unwind.clone()).throw(cx);
+					#krate::Error::new(unwind).throw(cx);
 				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::Error(String::from(*unwind)).throw(cx);
+					#krate::Error::new(*unwind).throw(cx);
 				} else {
-					#krate::Error::Error(String::from("Unknown Panic Occurred")).throw(cx);
+					#krate::Error::new("Unknown Panic Occurred").throw(cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

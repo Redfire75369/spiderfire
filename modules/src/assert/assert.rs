@@ -11,10 +11,11 @@ use ion::{Context, Error, Function, Object, Result};
 use runtime::modules::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {
-	Err(Error::Error(match message {
+	let error = match message {
 		Some(msg) => format!("Assertion Failed: {}", msg),
 		None => String::from("Assertion Failed"),
-	}))
+	};
+	Err(Error::new(&error))
 }
 
 #[js_fn]
@@ -38,7 +39,7 @@ unsafe fn equals(cx: Context, actual: JSVal, expected: JSVal, message: Option<St
 			assert_internal(message)
 		}
 	} else {
-		Err(Error::None)
+		Err(Error::new(""))
 	}
 }
 

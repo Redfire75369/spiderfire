@@ -82,7 +82,7 @@ pub fn eval_module(path: &Path) {
 
 		if let Err(mut error) = result {
 			if let Some(sourcemap) = sourcemap {
-				error.inner_mut().transform_with_sourcemap(&sourcemap);
+				error.report.transform_with_sourcemap(&sourcemap);
 			}
 			eprintln!("{}", error);
 		}

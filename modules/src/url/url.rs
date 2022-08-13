@@ -30,7 +30,7 @@ mod class {
 			let options = Url::options();
 			let base = base.as_ref().and_then(|base| Url::parse(base).ok());
 			options.base_url(base.as_ref());
-			options.parse(&input).map_err(|error| Error::Error(error.to_string()))
+			options.parse(&input).map_err(|error| Error::new(&error.to_string()))
 		}
 
 		fn origin(#[this] this: &URL) -> Result<String> {
@@ -45,7 +45,6 @@ mod class {
 			Ok(this.url.to_string())
 		}
 
-		// TODO: Add Error Bubbling (Replace `let _ = {...}`)
 		fn format(#[this] this: &URL, options: Option<Object>) -> Result<String> {
 			let mut url = this.url.clone();
 
@@ -54,7 +53,7 @@ mod class {
 			let search = options.and_then(|options| options.get_as::<bool>(cx, "search", ())).unwrap_or(true);
 
 			if !auth {
-				let _ = url.set_username("");
+				url.set_username("").map_err(|_| Error::new("Invalid URL"))?;
 			}
 			if !fragment {
 				url.set_fragment(None);
@@ -78,7 +77,7 @@ mod class {
 					this.url = url;
 					Ok(())
 				}
-				Err(error) => Err(Error::Error(error.to_string())),
+				Err(error) => Err(Error::new(&error.to_string())),
 			}
 		}
 
@@ -89,7 +88,7 @@ mod class {
 
 		#[set]
 		fn set_protocol(#[this] this: &mut URL, protocol: String) -> Result<()> {
-			this.url.set_scheme(&protocol).map_err(|_| Error::Error(String::from("Invalid Protocol")))
+			this.url.set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol"))
 		}
 
 		#[get]
@@ -110,25 +109,23 @@ mod class {
 			if let Some(host) = host {
 				let segments: Vec<&str> = host.split(':').collect();
 				let (host, port) = match segments.len().cmp(&2) {
-					Ordering::Less => (segments[0], None),
-					Ordering::Greater => return Err(Error::Error(String::from("Invalid Host"))),
+					Ordering::Less => Ok((segments[0], None)),
+					Ordering::Greater => Err(Error::new("Invalid Host")),
 					Ordering::Equal => {
 						let port = match segments[1].parse::<u16>() {
-							Ok(port) => port,
-							Err(error) => return Err(Error::Error(error.to_string())),
-						};
-						(segments[0], Some(port))
+							Ok(port) => Ok(port),
+							Err(error) => Err(Error::new(&error.to_string())),
+						}?;
+						Ok((segments[0], Some(port)))
 					}
-				};
+				}?;
 
-				if let Err(error) = this.url.set_host(Some(host)) {
-					return Err(Error::Error(error.to_string()));
-				}
+				this.url.set_host(Some(host))?;
 
-				let _ = this.url.set_port(port);
+				this.url.set_port(port).map_err(|_| Error::new("Invalid URL"))?;
 			} else {
-				let _ = this.url.set_host(None);
-				let _ = this.url.set_port(None);
+				this.url.set_host(None)?;
+				this.url.set_port(None).map_err(|_| Error::new("Invalid URL"))?;
 			}
 			Ok(())
 		}
@@ -140,7 +137,7 @@ mod class {
 
 		#[set]
 		fn set_hostname(#[this] this: &mut URL, hostname: Option<String>) -> Result<()> {
-			this.url.set_host(hostname.as_deref()).map_err(|error| Error::Error(error.to_string()))
+			this.url.set_host(hostname.as_deref()).map_err(|error| Error::new(&error.to_string()))
 		}
 
 		#[get]
@@ -150,7 +147,7 @@ mod class {
 
 		#[set]
 		fn set_port(#[this] this: &mut URL, #[convert(EnforceRange)] port: Option<u16>) -> Result<()> {
-			this.url.set_port(port).map_err(|_| Error::Error(String::from("Invalid Port")))
+			this.url.set_port(port).map_err(|_| Error::new("Invalid Port"))
 		}
 
 		#[get]
@@ -171,7 +168,7 @@ mod class {
 
 		#[set]
 		fn set_username(#[this] this: &mut URL, username: String) -> Result<()> {
-			this.url.set_username(&username).map_err(|_| Error::Error(String::from("Invalid URL")))
+			this.url.set_username(&username).map_err(|_| Error::new("Invalid URL"))
 		}
 
 		#[get]
@@ -181,9 +178,7 @@ mod class {
 
 		#[set]
 		fn set_password(#[this] this: &mut URL, password: Option<String>) -> Result<()> {
-			this.url
-				.set_password(password.as_deref())
-				.map_err(|_| Error::Error(String::from("Invalid URL")))
+			this.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL"))
 		}
 
 		#[get]
@@ -212,7 +207,7 @@ mod class {
 
 #[js_fn]
 fn domainToASCII(domain: String) -> Result<String> {
-	domain_to_ascii(&domain).map_err(|error| Error::Error(error.to_string()))
+	domain_to_ascii(&domain).map_err(|error| Error::new(&error.to_string()))
 }
 
 #[js_fn]

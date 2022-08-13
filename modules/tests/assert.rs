@@ -39,5 +39,5 @@ pub fn eval_module(rt: &Runtime, test: (&str, &str)) {
 	let module = Module::compile(rt.cx(), &filename, Some(Path::new(&path)), script);
 	assert!(module.is_err(), "No exception was thrown in: {}", filename);
 	let report = module.unwrap_err();
-	assert_eq!(report.inner().exception.message, error, "{}: {}", filename, report.inner());
+	assert_eq!(report.report.exception.message, error, "{}: {}", filename, report.report);
 }

@@ -12,7 +12,7 @@ use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
 
 pub(crate) fn impl_method<F: FnOnce(&Signature) -> Result<()>>(mut method: ItemFn, predicate: F) -> Result<(ItemFn, usize, Option<Ident>)> {
 	let krate = quote!(::ion);
-	let (inner, nargs, this) = impl_inner_fn::<DefaultInnerBody>(&method, true)?;
+	let (inner, nargs, this) = impl_inner_fn::<DefaultInnerBody>(method.clone(), true)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
