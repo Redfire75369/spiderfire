@@ -4,9 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use proc_macro2::Ident;
 use quote::ToTokens;
 use syn::{Error, Expr, FnArg, LitStr, Pat, PatType, Stmt, Type};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+
+use crate::utils::type_ends_with;
 
 #[derive(Debug)]
 pub(crate) enum Parameter {
@@ -120,4 +124,41 @@ pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handl
 			Err(#krate::Error::new(#error))
 		}
 	}
+}
+
+pub(crate) fn extract_params(params: &Punctuated<FnArg, Token![,]>, class: bool) -> syn::Result<(Vec<Stmt>, usize, Option<Ident>)> {
+	let mut index = 0;
+
+	let mut nargs = 0;
+	let mut this: Option<Ident> = None;
+
+	let statements: Vec<_> = params
+		.iter()
+		.map(|arg| {
+			let param = Parameter::from_arg(arg)?;
+			match &param {
+				Parameter::Normal(ty, _) => {
+					if let Type::Path(ty) = &*ty.ty {
+						if !type_ends_with(ty, "Option") {
+							nargs += 1;
+						}
+					}
+				}
+				Parameter::This(pat) => {
+					if let Pat::Ident(ident) = &*pat.pat {
+						this = Some(ident.ident.clone());
+					}
+				}
+				_ => {}
+			}
+
+			if !class {
+				Ok(param.into_statement(&mut index))
+			} else {
+				Ok(param.into_class_statement(&mut index))
+			}
+		})
+		.collect::<syn::Result<_>>()?;
+
+	Ok((statements, nargs, this))
 }

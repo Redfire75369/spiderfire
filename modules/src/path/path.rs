@@ -23,13 +23,13 @@ const DELIMITER: &str = ";";
 const DELIMITER: &str = ":";
 
 #[js_fn]
-fn join(#[varargs] segments: Vec<String>) -> Result<String> {
+fn join(#[varargs] segments: Vec<String>) -> String {
 	let mut path = PathBuf::new();
 	for segment in segments {
 		path.push(segment);
 	}
 
-	Ok(String::from(path.to_str().unwrap()))
+	String::from(path.to_str().unwrap())
 }
 
 #[js_fn]
@@ -44,64 +44,64 @@ fn stripPrefix(path: String, prefix: String) -> Result<String> {
 }
 
 #[js_fn]
-fn fileStem(path: String) -> Result<Option<String>> {
+fn fileStem(path: String) -> Option<String> {
 	let path = Path::new(&path);
-	Ok(path.file_stem().map(|s| String::from(s.to_str().unwrap())))
+	path.file_stem().map(|s| String::from(s.to_str().unwrap()))
 }
 
 #[js_fn]
-fn parent(path: String) -> Result<Option<String>> {
+fn parent(path: String) -> Option<String> {
 	let path = Path::new(&path);
-	Ok(path.parent().map(|s| String::from(s.to_str().unwrap())))
+	path.parent().map(|s| String::from(s.to_str().unwrap()))
 }
 
 #[js_fn]
-fn fileName(path: String) -> Result<Option<String>> {
+fn fileName(path: String) -> Option<String> {
 	let path = Path::new(&path);
-	Ok(path.file_name().map(|s| String::from(s.to_str().unwrap())))
+	path.file_name().map(|s| String::from(s.to_str().unwrap()))
 }
 
 #[js_fn]
-fn extension(path: String) -> Result<Option<String>> {
+fn extension(path: String) -> Option<String> {
 	let path = Path::new(&path);
-	Ok(path.extension().map(|s| String::from(s.to_str().unwrap())))
+	path.extension().map(|s| String::from(s.to_str().unwrap()))
 }
 
 #[js_fn]
-fn withFileName(path: String, file_name: String) -> Result<String> {
+fn withFileName(path: String, file_name: String) -> String {
 	let path = Path::new(&path);
-	Ok(String::from(path.with_file_name(&file_name).to_str().unwrap()))
+	String::from(path.with_file_name(&file_name).to_str().unwrap())
 }
 
 #[js_fn]
-fn withExtension(path: String, extension: String) -> Result<String> {
+fn withExtension(path: String, extension: String) -> String {
 	let path = Path::new(&path);
-	Ok(String::from(path.with_extension(&extension).to_str().unwrap()))
+	String::from(path.with_extension(&extension).to_str().unwrap())
 }
 
 #[js_fn]
-fn isAbsolute(path: String) -> Result<bool> {
-	Ok(Path::new(&path).is_absolute())
+fn isAbsolute(path: String) -> bool {
+	Path::new(&path).is_absolute()
 }
 
 #[js_fn]
-fn isRelative(path: String) -> Result<bool> {
-	Ok(Path::new(&path).is_relative())
+fn isRelative(path: String) -> bool {
+	Path::new(&path).is_relative()
 }
 
 #[js_fn]
-fn hasRoot(path: String) -> Result<bool> {
-	Ok(Path::new(&path).has_root())
+fn hasRoot(path: String) -> bool {
+	Path::new(&path).has_root()
 }
 
 #[js_fn]
-fn startsWith(path: String, prefix: String) -> Result<bool> {
-	Ok(Path::new(&path).starts_with(&prefix))
+fn startsWith(path: String, prefix: String) -> bool {
+	Path::new(&path).starts_with(&prefix)
 }
 
 #[js_fn]
-fn endsWith(path: String, prefix: String) -> Result<bool> {
-	Ok(Path::new(&path).ends_with(&prefix))
+fn endsWith(path: String, prefix: String) -> bool {
+	Path::new(&path).ends_with(&prefix)
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[

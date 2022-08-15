@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Ident, TokenStream};
-use syn::{Block, ItemFn, Result};
+use proc_macro2::TokenStream;
+use syn::{Block, ItemFn, Result, Signature};
 
 use crate::function::{check_abi, set_signature};
 use crate::function::inner::{DefaultInnerBody, impl_inner_fn, InnerBody};
@@ -44,9 +44,9 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn) -> Result<(ItemFn, usize
 pub(crate) struct ClassConstructorInnerBody;
 
 impl InnerBody for ClassConstructorInnerBody {
-	fn impl_inner(body: Box<Block>, this: Option<Ident>, is_async: bool) -> TokenStream {
-		let body = DefaultInnerBody::impl_inner(body, this.clone(), is_async);
-		quote!(
+	fn impl_inner(body: Box<Block>, signature: &Signature) -> (TokenStream, bool) {
+		let (body, wrapped) = DefaultInnerBody::impl_inner(body, signature);
+		let body = quote!(
 			let result = #body;
 
 			use ::mozjs::conversions::ToJSValConvertible;
@@ -57,7 +57,8 @@ impl InnerBody for ClassConstructorInnerBody {
 				::mozjs::jsapi::SetPrivate(this.get(), Box::leak(b) as *mut _ as *mut ::std::ffi::c_void);
 				this.get().to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 			})
-		)
+		);
+		(body, wrapped)
 	}
 }
 

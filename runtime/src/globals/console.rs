@@ -16,7 +16,7 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, format_stack, Key, Object, parse_stack, Result};
+use ion::{Context, format_stack, Key, Object, parse_stack};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
@@ -73,61 +73,53 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn log(cx: Context, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values, false);
 		println!();
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn warn(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn warn(cx: Context, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values, true);
 		println!();
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn error(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn error(cx: Context, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values, true);
 		println!();
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn debug(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn debug(cx: Context, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values, false);
 		println!();
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
-				return Ok(());
+				return;
 			}
 
 			if values.is_empty() {
 				print_indent(true);
 				eprintln!("Assertion Failed");
-				return Ok(());
+				return;
 			}
 
 			if values[0].is_string() {
@@ -135,7 +127,7 @@ fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) -
 				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), values[0]));
 				print_args(cx, values[2..].to_vec(), true);
 				eprintln!();
-				return Ok(());
+				return;
 			}
 
 			print_indent(true);
@@ -146,24 +138,20 @@ fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) -
 			eprintln!("Assertion Failed:");
 		}
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn clear() -> Result<()> {
+fn clear() {
 	INDENTS.with(|indents| {
 		*indents.borrow_mut() = 0;
 	});
 
 	println!("{}", ANSI_CLEAR);
 	println!("{}", ANSI_CLEAR_SCREEN_DOWN);
-
-	Ok(())
 }
 
 #[js_fn]
-unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -183,12 +171,10 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 
 		println!("{}", &indent_all_by(indents, &format_stack(&stack)));
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn group(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn group(cx: Context, #[varargs] values: Vec<JSVal>) {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
@@ -198,22 +184,18 @@ fn group(cx: Context, #[varargs] values: Vec<JSVal>) -> Result<()> {
 		print_args(cx, values, false);
 		println!();
 	}
-
-	Ok(())
 }
 
 #[js_fn]
-fn groupEnd() -> Result<()> {
+fn groupEnd() {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).max(1) - 1;
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-fn count(label: Option<String>) -> Result<()> {
+fn count(label: Option<String>) {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -234,12 +216,10 @@ fn count(label: Option<String>) -> Result<()> {
 			}
 		}
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-fn countReset(label: Option<String>) -> Result<()> {
+fn countReset(label: Option<String>) {
 	let label = get_label(label);
 	COUNT_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -255,12 +235,10 @@ fn countReset(label: Option<String>) -> Result<()> {
 			}
 		}
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-fn time(label: Option<String>) -> Result<()> {
+fn time(label: Option<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -276,12 +254,10 @@ fn time(label: Option<String>) -> Result<()> {
 			}
 		}
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-fn timeLog(cx: Context, label: Option<String>, #[varargs] values: Vec<JSVal>) -> Result<()> {
+fn timeLog(cx: Context, label: Option<String>, #[varargs] values: Vec<JSVal>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -304,12 +280,10 @@ fn timeLog(cx: Context, label: Option<String>, #[varargs] values: Vec<JSVal>) ->
 			}
 		}
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-fn timeEnd(label: Option<String>) -> Result<()> {
+fn timeEnd(label: Option<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -331,12 +305,10 @@ fn timeEnd(label: Option<String>) -> Result<()> {
 			}
 		}
 	});
-
-	Ok(())
 }
 
 #[js_fn]
-unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) -> Result<()> {
+unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -442,8 +414,6 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) -> Resul
 		print_indent(true);
 		println!("{}", format_value(cx, FormatConfig::default().indentation(indents), data));
 	}
-
-	Ok(())
 }
 
 const METHODS: &[JSFunctionSpec] = &[

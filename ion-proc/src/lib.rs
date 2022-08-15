@@ -26,8 +26,8 @@ pub fn js_fn(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	let function = parse_macro_input!(stream as ItemFn);
 
 	match impl_js_fn(function) {
-		Ok(function) => TokenStream::from(function.to_token_stream()),
-		Err(error) => TokenStream::from(error.to_compile_error()),
+		Ok(function) => function.to_token_stream().into(),
+		Err(error) => error.to_compile_error().into(),
 	}
 }
 
@@ -40,7 +40,7 @@ pub fn js_class(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	}
 
 	match impl_js_class(module) {
-		Ok(function) => TokenStream::from(function.to_token_stream()),
-		Err(error) => TokenStream::from(error.to_compile_error()),
+		Ok(module) => module.to_token_stream().into(),
+		Err(error) => error.to_compile_error().into(),
 	}
 }

@@ -6,7 +6,6 @@
 
 use std::collections::HashMap;
 
-use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse, Result, Visibility};
 use syn::spanned::Spanned;
@@ -23,7 +22,7 @@ pub(crate) mod method;
 pub(crate) mod property;
 pub(crate) mod statics;
 
-pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
+pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let content = &mut module.content.as_mut().unwrap().1;
 
 	let mut class = None;
@@ -191,5 +190,5 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<TokenStream> {
 	content.push(Item::Static(static_property_specs));
 	content.push(Item::Impl(class_initialiser));
 
-	Ok(module.to_token_stream())
+	Ok(module)
 }

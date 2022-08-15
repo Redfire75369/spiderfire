@@ -5,7 +5,6 @@
  */
 
 use proc_macro2::TokenStream;
-use quote::ToTokens;
 use syn::{Abi, Error, FnArg, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
@@ -14,7 +13,7 @@ use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
 pub(crate) mod inner;
 pub(crate) mod parameters;
 
-pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<TokenStream> {
+pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let krate = quote!(::ion);
 	let (inner, _, _) = impl_inner_fn::<DefaultInnerBody>(function.clone(), false)?;
 
@@ -36,7 +35,7 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<TokenStream> {
 	});
 	function.block = Box::new(body);
 
-	Ok(function.into_token_stream())
+	Ok(function)
 }
 
 pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {

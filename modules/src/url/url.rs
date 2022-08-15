@@ -33,16 +33,16 @@ mod class {
 			options.parse(&input).map_err(|error| Error::new(&error.to_string()))
 		}
 
-		fn origin(#[this] this: &URL) -> Result<String> {
-			Ok(this.url.origin().ascii_serialization())
+		fn origin(#[this] this: &URL) -> String {
+			this.url.origin().ascii_serialization()
 		}
 
-		fn toString(#[this] this: &URL) -> Result<String> {
-			Ok(this.url.to_string())
+		fn toString(#[this] this: &URL) -> String {
+			this.url.to_string()
 		}
 
-		fn toJSON(#[this] this: &URL) -> Result<String> {
-			Ok(this.url.to_string())
+		fn toJSON(#[this] this: &URL) -> String {
+			this.url.to_string()
 		}
 
 		fn format(#[this] this: &URL, options: Option<Object>) -> Result<String> {
@@ -66,8 +66,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_href(#[this] this: &URL) -> Result<String> {
-			Ok(this.url.to_string())
+		fn get_href(#[this] this: &URL) -> String {
+			this.url.to_string()
 		}
 
 		#[set]
@@ -82,8 +82,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_protocol(#[this] this: &URL) -> Result<String> {
-			Ok(String::from(this.url.scheme()))
+		fn get_protocol(#[this] this: &URL) -> String {
+			String::from(this.url.scheme())
 		}
 
 		#[set]
@@ -92,18 +92,16 @@ mod class {
 		}
 
 		#[get]
-		fn get_host(#[this] this: &URL) -> Result<Option<String>> {
-			let host = this.url.host_str().map(|host| {
+		fn get_host(#[this] this: &URL) -> Option<String> {
+			this.url.host_str().map(|host| {
 				if let Some(port) = this.url.port() {
 					format!("{}:{}", host, port)
 				} else {
 					String::from(host)
 				}
-			});
-			Ok(host)
+			})
 		}
 
-		// TODO: Add Error Bubbling (Replace `let _ = {...}`)
 		#[set]
 		fn set_host(#[this] this: &mut URL, host: Option<String>) -> Result<()> {
 			if let Some(host) = host {
@@ -131,8 +129,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_hostname(#[this] this: &URL) -> Result<Option<String>> {
-			Ok(this.url.host_str().map(String::from))
+		fn get_hostname(#[this] this: &URL) -> Option<String> {
+			this.url.host_str().map(String::from)
 		}
 
 		#[set]
@@ -141,8 +139,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_port(#[this] this: &URL) -> Result<Option<u16>> {
-			Ok(this.url.port_or_known_default())
+		fn get_port(#[this] this: &URL) -> Option<u16> {
+			this.url.port_or_known_default()
 		}
 
 		#[set]
@@ -151,8 +149,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_path(#[this] this: &URL) -> Result<String> {
-			Ok(String::from(this.url.path()))
+		fn get_path(#[this] this: &URL) -> String {
+			String::from(this.url.path())
 		}
 
 		#[set]
@@ -162,8 +160,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_username(#[this] this: &URL) -> Result<String> {
-			Ok(String::from(this.url.username()))
+		fn get_username(#[this] this: &URL) -> String {
+			String::from(this.url.username())
 		}
 
 		#[set]
@@ -172,8 +170,8 @@ mod class {
 		}
 
 		#[get]
-		fn get_password(#[this] this: &URL) -> Result<Option<String>> {
-			Ok(this.url.password().map(String::from))
+		fn get_password(#[this] this: &URL) -> Option<String> {
+			this.url.password().map(String::from)
 		}
 
 		#[set]
@@ -182,25 +180,23 @@ mod class {
 		}
 
 		#[get]
-		fn get_search(#[this] this: &URL) -> Result<Option<String>> {
-			Ok(this.url.query().map(String::from))
+		fn get_search(#[this] this: &URL) -> Option<String> {
+			this.url.query().map(String::from)
 		}
 
 		#[set]
-		fn set_search(#[this] this: &mut URL, search: Option<String>) -> Result<()> {
+		fn set_search(#[this] this: &mut URL, search: Option<String>) {
 			this.url.set_query(search.as_deref());
-			Ok(())
 		}
 
 		#[get]
-		fn get_hash(#[this] this: &URL) -> Result<Option<String>> {
-			Ok(this.url.fragment().map(String::from))
+		fn get_hash(#[this] this: &URL) -> Option<String> {
+			this.url.fragment().map(String::from)
 		}
 
 		#[set]
-		fn set_hash(#[this] this: &mut URL, hash: Option<String>) -> Result<()> {
+		fn set_hash(#[this] this: &mut URL, hash: Option<String>) {
 			this.url.set_fragment(hash.as_deref());
-			Ok(())
 		}
 	}
 }
@@ -211,8 +207,8 @@ fn domainToASCII(domain: String) -> Result<String> {
 }
 
 #[js_fn]
-fn domainToUnicode(domain: String) -> Result<String> {
-	Ok(domain_to_unicode(&domain).0)
+fn domainToUnicode(domain: String) -> String {
+	domain_to_unicode(&domain).0
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[function_spec!(domainToASCII, 0), function_spec!(domainToUnicode, 0), JSFunctionSpec::ZERO];
