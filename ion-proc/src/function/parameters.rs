@@ -97,10 +97,7 @@ impl Parameter {
 					ref_ty.clone()
 				};
 				parse_quote!(
-					let #pat: #ref_ty = {
-						use #krate::ClassInitialiser;
-						<#ty>::get_private(cx, args.this().to_object(), Some(args))
-					};
+					let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::get_private(cx, #krate::Object::from(args.this().to_object()), Some(args));
 				)
 			}
 			param => param.into_statement(index),

@@ -4,12 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ptr;
 use std::cell::RefCell;
 use std::collections::hash_map::{Entry, HashMap};
 use std::ffi::OsStr;
 use std::fs::read_to_string;
 use std::path::Path;
+use std::ptr;
 
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;

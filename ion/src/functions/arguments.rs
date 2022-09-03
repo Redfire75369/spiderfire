@@ -15,7 +15,6 @@ pub struct Arguments {
 	values: Vec<Handle<JSVal>>,
 	this: Handle<JSVal>,
 	rval: MutableHandle<JSVal>,
-	#[allow(dead_code)]
 	call_args: CallArgs,
 }
 

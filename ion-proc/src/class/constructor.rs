@@ -54,7 +54,7 @@ impl InnerBody for ClassConstructorInnerBody {
 			result.map(|result| unsafe {
 				let b = ::std::boxed::Box::new(result);
 				::mozjs::rooted!(in(cx) let this = ::mozjs::jsapi::JS_NewObjectForConstructor(cx, &CLASS, &args.call_args()));
-				::mozjs::jsapi::SetPrivate(this.get(), Box::leak(b) as *mut _ as *mut ::std::ffi::c_void);
+				::mozjs::jsapi::SetPrivate(this.get(), Box::into_raw(b) as *mut ::std::ffi::c_void);
 				this.get().to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 			})
 		);

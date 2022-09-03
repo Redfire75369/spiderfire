@@ -24,9 +24,7 @@ async unsafe fn readBinary(cx: Context, path_str: String) -> Result<*mut JSObjec
 	if path.is_file() {
 		if let Ok(bytes) = async_fs::read(&path).await {
 			rooted!(in(cx) let mut array = *Object::new(cx));
-			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok()
-				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_ok()
-			{
+			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok() {
 				return Ok(array.get());
 			}
 		}

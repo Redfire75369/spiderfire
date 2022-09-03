@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Block, FnArg, ItemFn, LitStr, Type, Signature, ReturnType, PathArguments, GenericArgument};
+use syn::{Block, FnArg, GenericArgument, ItemFn, LitStr, PathArguments, ReturnType, Signature, Type};
 use syn::punctuated::Punctuated;
 
 use crate::function::parameters::extract_params;
@@ -109,8 +109,8 @@ impl InnerBody for DefaultInnerBody {
 	}
 }
 
-const PRIMITIVES: [&'static str; 17] = [
-	"()", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "String", "Object", "Array", "Date", "Promise",
+const PRIMITIVES: [&'static str; 18] = [
+	"()", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "String", "Object", "Array", "Date", "Promise", "JSVal",
 ];
 
 fn check_primitive(ty: &Type) -> bool {

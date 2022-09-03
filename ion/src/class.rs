@@ -7,10 +7,12 @@
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::ptr;
 
-use mozjs::jsapi::{JS_GetConstructor, JS_InitClass, JSClass, JSFunctionSpec, JSPropertySpec};
-use mozjs_sys::jsapi::{JS_GetInstancePrivate, JSObject};
+use mozjs::jsapi::{
+	Handle, JS_GetConstructor, JS_GetInstancePrivate, JS_InitClass, JS_NewObjectWithGivenProto, JSClass, JSFunctionSpec, JSPropertySpec, SetPrivate,
+};
 
 use crate::{Arguments, Context, Function, NativeFunction, Object};
 
@@ -92,12 +94,28 @@ pub trait ClassInitialiser {
 		})
 	}
 
-	fn get_private<'a>(cx: Context, obj: *mut JSObject, args: Option<&Arguments>) -> &'a mut Self
+	fn new_object(cx: Context, native: Self) -> Object
+	where
+		Self: Sized + 'static,
+	{
+		CLASS_INFOS.with(|infos| {
+			let infos = infos.borrow();
+			let info = (*infos).get(&TypeId::of::<Self>()).expect("Uninitialised Class");
+			let b = Box::new(native);
+			unsafe {
+				let obj = JS_NewObjectWithGivenProto(cx, Self::class(), Handle::from_marked_location(&*info.prototype));
+				SetPrivate(obj, Box::into_raw(b) as *mut c_void);
+				Object::from(obj)
+			}
+		})
+	}
+
+	fn get_private<'a>(cx: Context, obj: Object, args: Option<&Arguments>) -> &'a mut Self
 	where
 		Self: Sized,
 	{
 		unsafe {
-			rooted!(in(cx) let obj = obj);
+			rooted!(in(cx) let obj = *obj);
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
 			let ptr = JS_GetInstancePrivate(cx, obj.handle().into(), Self::class(), args) as *mut Self;
 			&mut *ptr

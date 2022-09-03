@@ -8,6 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 use mozjs::conversions::ToJSValConvertible;
 use mozjs::jsval::{BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, UInt32Value, UndefinedValue};
+use mozjs::rust::MutableHandleValue;
 
 use crate::Context;
 
@@ -56,6 +57,13 @@ impl Value {
 	/// Creates an `null` [Value].
 	pub fn null() -> Value {
 		Value::from_raw(NullValue())
+	}
+}
+
+impl ToJSValConvertible for Value {
+	#[inline]
+	unsafe fn to_jsval(&self, _: Context, mut rval: MutableHandleValue) {
+		rval.set(self.val);
 	}
 }
 
