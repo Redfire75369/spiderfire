@@ -6,14 +6,17 @@
 
 use std::marker::PhantomData;
 use std::ptr;
+use std::rc::Rc;
 
+use futures::task::AtomicWaker;
 use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_GLOBAL_CLASS};
 
-use ion::{Context, Object};
+use ion::{Context, ErrorReport, Object};
 
-use crate::event_loop::EVENT_LOOP;
-use crate::event_loop::macrotasks::init_macrotask_queue;
+use crate::event_loop::{EVENT_LOOP, EventLoop};
+use crate::event_loop::future::FutureQueue;
+use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::{init_module_loaders, StandardModules};
@@ -21,6 +24,7 @@ use crate::modules::{init_module_loaders, StandardModules};
 pub struct Runtime {
 	cx: Context,
 	global: Object,
+	event_loop: EventLoop,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
 	#[allow(dead_code)]
@@ -36,15 +40,15 @@ impl Runtime {
 		self.global
 	}
 
-	pub fn run_event_loop(&self) -> bool {
-		EVENT_LOOP.with(|event_loop| (*event_loop.borrow()).run(self.cx))
+	pub async fn run_event_loop(&self) -> Result<(), Option<ErrorReport>> {
+		self.event_loop.run_event_loop(self.cx).await
 	}
 }
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct RuntimeBuilder<T: Default> {
-	macrotask_queue: bool,
 	microtask_queue: bool,
+	macrotask_queue: bool,
 	modules: bool,
 	standard_modules: bool,
 	_modules: PhantomData<T>,
@@ -87,14 +91,29 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 
 		init_globals(cx, global);
 
+		let mut event_loop = EventLoop {
+			futures: None,
+			microtasks: None,
+			macrotasks: None,
+			waker: AtomicWaker::new(),
+		};
+
+		if self.microtask_queue {
+			event_loop.microtasks = Some(init_microtask_queue(cx));
+			init_microtasks(cx, global);
+			event_loop.futures = Some(Rc::new(FutureQueue::default()));
+		}
 		if self.macrotask_queue {
-			init_macrotask_queue();
+			event_loop.macrotasks = Some(Rc::new(MacrotaskQueue::default()));
 			init_timers(cx, global);
 		}
-		if self.microtask_queue {
-			init_microtask_queue(cx);
-			init_microtasks(cx, global);
-		}
+
+		EVENT_LOOP.with(|eloop| {
+			let mut eloop = eloop.borrow_mut();
+			(*eloop).microtasks = event_loop.microtasks.clone();
+			(*eloop).futures = event_loop.futures.clone();
+			(*eloop).macrotasks = event_loop.macrotasks.clone();
+		});
 
 		if self.modules {
 			init_module_loaders(cx);
@@ -108,6 +127,12 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 			}
 		}
 
-		Runtime { cx, rt: runtime, global, realm }
+		Runtime {
+			cx,
+			rt: runtime,
+			event_loop,
+			global,
+			realm,
+		}
 	}
 }

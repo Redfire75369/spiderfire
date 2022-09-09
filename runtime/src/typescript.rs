@@ -130,8 +130,9 @@ fn initialise_emitter<'a>(
 	Emitter {
 		cfg: CodegenConfig {
 			target: EsVersion::Es2022,
-			minify: false,
 			ascii_only: false,
+			minify: false,
+			omit_last_semi: false,
 		},
 		cm: source_map.clone(),
 		comments: Some(comments),

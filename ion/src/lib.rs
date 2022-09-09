@@ -30,7 +30,7 @@ mod functions;
 mod objects;
 pub mod spec;
 pub mod types;
-mod utils;
+pub mod utils;
 mod value;
 
 pub type Context = *mut JSContext;

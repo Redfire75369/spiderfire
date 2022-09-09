@@ -14,7 +14,7 @@ mod eval;
 mod repl;
 mod run;
 
-pub fn handle_command(command: Option<Command>) {
+pub async fn handle_command(command: Option<Command>) {
 	match command {
 		Some(Command::Cache { clear }) => {
 			if !clear {
@@ -28,7 +28,7 @@ pub fn handle_command(command: Option<Command>) {
 
 		Some(Command::Eval { source }) => {
 			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
-			eval::eval_source(&source);
+			eval::eval_source(&source).await;
 		}
 
 		Some(Command::Run { path, log_level, debug, script }) => {
@@ -46,12 +46,12 @@ pub fn handle_command(command: Option<Command>) {
 			};
 
 			CONFIG.set(Config::default().log_level(log_level).script(script)).unwrap();
-			run::run(&path);
+			run::run(&path).await;
 		}
 
 		Some(Command::Repl) | None => {
 			CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
-			repl::start_repl();
+			repl::start_repl().await;
 		}
 	}
 }

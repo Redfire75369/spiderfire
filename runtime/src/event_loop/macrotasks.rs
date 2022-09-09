@@ -5,15 +5,13 @@
  */
 
 use std::cell::{Cell, RefCell};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use chrono::{DateTime, Duration, Utc};
 use mozjs::jsval::JSVal;
 
-use ion::{Context, Function, Object};
-
-use crate::event_loop::EVENT_LOOP;
+use ion::{Context, ErrorReport, Function, Object};
 
 #[derive(Clone, Debug)]
 pub struct TimerMacrotask {
@@ -66,25 +64,19 @@ pub enum Macrotask {
 #[derive(Clone, Debug, Default)]
 pub struct MacrotaskQueue {
 	pub(crate) map: RefCell<HashMap<u32, Macrotask>>,
+	pub(crate) nesting: Cell<u8>,
 	next: Cell<Option<u32>>,
-	nesting: Cell<u8>,
 	latest: Cell<Option<u32>>,
 }
 
 impl Macrotask {
-	pub fn run(&self, cx: Context) -> bool {
+	pub fn run(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
 		let (callback, args) = match self {
 			Macrotask::Timer(timer) => (timer.callback, timer.arguments.clone()),
 			Macrotask::User(user) => (user.callback, Vec::new()),
 		};
 
-		if let Err(report) = callback.call(cx, Object::global(cx), args) {
-			match report {
-				Some(report) => println!("{}", report),
-				None => return false,
-			}
-		}
-		true
+		return callback.call(cx, Object::global(cx), args).map(|_| ());
 	}
 
 	fn remaining(&self) -> Duration {
@@ -96,11 +88,42 @@ impl Macrotask {
 }
 
 impl MacrotaskQueue {
+	pub fn run_all(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+		let mut is_empty = { self.map.borrow().is_empty() };
+
+		while !is_empty {
+			if let Some(next) = self.next.get() {
+				let macrotask = { self.map.borrow().get(&next).cloned() };
+				if let Some(macrotask) = macrotask {
+					macrotask.run(cx)?;
+
+					let mut queue = self.map.borrow_mut();
+					if let Entry::Occupied(mut entry) = queue.entry(next) {
+						let mut to_remove = true;
+						if let Macrotask::Timer(ref mut timer) = entry.get_mut() {
+							if timer.reset() {
+								to_remove = false;
+							}
+						}
+
+						if to_remove {
+							entry.remove();
+						}
+					}
+				}
+			}
+			self.find_next();
+			is_empty = self.map.borrow().is_empty();
+		}
+
+		Ok(())
+	}
+
 	pub fn enqueue(&self, mut macrotask: Macrotask, id: Option<u32>) -> u32 {
 		let index = id.unwrap_or_else(|| self.latest.get().map(|l| l + 1).unwrap_or(0));
-		let mut macrotasks = self.map.borrow_mut();
 
-		let next = self.next.get().and_then(|next| (*macrotasks).get(&next));
+		let mut queue = self.map.borrow_mut();
+		let next = self.next.get().and_then(|next| (*queue).get(&next));
 		if let Some(next) = next {
 			if macrotask.remaining() < next.remaining() {
 				self.set_next(index, &macrotask);
@@ -113,9 +136,9 @@ impl MacrotaskQueue {
 			self.nesting.set(self.nesting.get() + 1);
 			timer.nesting = self.nesting.get();
 		}
-		self.latest.set(Some(index));
 
-		macrotasks.insert(index, macrotask);
+		self.latest.set(Some(index));
+		queue.insert(index, macrotask);
 
 		index
 	}
@@ -124,16 +147,16 @@ impl MacrotaskQueue {
 		if self.map.borrow_mut().remove(&id).is_some() {
 			if let Some(next) = self.next.get() {
 				if next == id {
-					self.next.set(None)
+					self.next.set(None);
 				}
 			}
 		}
 	}
 
 	pub fn find_next(&self) {
-		let macrotasks = self.map.borrow_mut();
 		let mut next: Option<(u32, &Macrotask)> = None;
-		for (id, macrotask) in &*macrotasks {
+		let queue = self.map.borrow();
+		for (id, macrotask) in &*queue {
 			if let Some((_, next_macrotask)) = next {
 				if macrotask.remaining() < next_macrotask.remaining() {
 					next = Some((*id, macrotask));
@@ -147,21 +170,11 @@ impl MacrotaskQueue {
 
 	pub fn set_next(&self, index: u32, macrotask: &Macrotask) {
 		if macrotask.remaining() < Duration::zero() {
-			self.next.set(Some(index))
+			self.next.set(Some(index));
 		}
 	}
 
-	pub fn next(&self) -> Option<u32> {
-		self.next.get()
+	pub fn is_empty(&self) -> bool {
+		self.map.borrow().is_empty()
 	}
-
-	pub fn nesting(&self) -> u8 {
-		self.nesting.get()
-	}
-}
-
-pub(crate) fn init_macrotask_queue() -> Rc<MacrotaskQueue> {
-	let macrotask_queue = Rc::new(MacrotaskQueue::default());
-	EVENT_LOOP.with(closure!(clone macrotask_queue, |event_loop| (*event_loop.borrow_mut()).macrotasks = Some(macrotask_queue)));
-	macrotask_queue
 }

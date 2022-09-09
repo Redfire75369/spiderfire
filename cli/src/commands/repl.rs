@@ -14,7 +14,7 @@ use runtime::RuntimeBuilder;
 use crate::evaluate::eval_inline;
 use crate::repl::{ReplHelper, rustyline_config};
 
-pub fn start_repl() {
+pub async fn start_repl() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<Modules>::new()
 		.macrotask_queue()
@@ -51,7 +51,7 @@ pub fn start_repl() {
 
 		if !input.is_empty() && input != "exit" {
 			terminate = 0;
-			eval_inline(&rt, &input);
+			eval_inline(&rt, &input).await;
 		}
 
 		if terminate > 1 || input == "exit" {

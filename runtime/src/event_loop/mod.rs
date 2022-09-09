@@ -5,73 +5,73 @@
  */
 
 use std::cell::RefCell;
-use std::collections::hash_map::Entry;
 use std::rc::Rc;
+use std::task;
+use std::task::Poll;
 
-use ion::Context;
+use futures::future::poll_fn;
+use futures::task::AtomicWaker;
 
-use crate::event_loop::macrotasks::{Macrotask, MacrotaskQueue};
+use ion::{Context, ErrorReport};
+
+use crate::event_loop::future::FutureQueue;
+use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::MicrotaskQueue;
 
-pub mod macrotasks;
-pub mod microtasks;
+pub(crate) mod future;
+pub(crate) mod macrotasks;
+pub(crate) mod microtasks;
 
-thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop { macrotasks: None, microtasks: None }));
+thread_local! {
+	pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(
+		EventLoop {
+			futures: None,
+			microtasks: None,
+			macrotasks: None,
+			waker: AtomicWaker::new()
+		}
+	);
+}
 
 pub struct EventLoop {
-	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,
+	pub(crate) futures: Option<Rc<FutureQueue>>,
 	pub(crate) microtasks: Option<Rc<MicrotaskQueue>>,
+	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,
+	pub(crate) waker: AtomicWaker,
 }
 
 impl EventLoop {
-	pub fn run(&self, cx: Context) -> bool {
-		if self.macrotasks.is_none() && self.microtasks.is_none() {
-			return true;
+	pub async fn run_event_loop(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+		poll_fn(|wcx| self.poll_event_loop(cx, wcx)).await
+	}
+
+	fn poll_event_loop(&self, cx: Context, wcx: &mut task::Context) -> Poll<Result<(), Option<ErrorReport>>> {
+		{
+			self.waker.register(wcx.waker());
 		}
 
-		let mut result = true;
-
-		if let Some(microtasks) = self.microtasks.clone() {
-			let run = microtasks.run_jobs(cx);
-			if !run {
-				result = false;
-			}
+		if let Some(ref futures) = self.futures {
+			futures.run_futures(cx, wcx)?;
 		}
 
-		if let Some(macrotasks) = self.macrotasks.clone() {
-			while !macrotasks.map.borrow().is_empty() {
-				if let Some(next) = macrotasks.next() {
-					let macrotask_map = macrotasks.map.borrow();
-					let macrotask = macrotask_map.get(&next).cloned();
-					drop(macrotask_map);
-					if let Some(macrotask) = macrotask {
-						let run = macrotask.run(cx);
-						if !run {
-							result = false;
-						}
-
-						if let Entry::Occupied(mut entry) = macrotasks.map.borrow_mut().entry(next) {
-							if let Macrotask::Timer(ref mut timer) = entry.get_mut() {
-								if !timer.reset() {
-									entry.remove();
-								}
-							} else {
-								entry.remove();
-							}
-						}
-					}
-				}
-				macrotasks.find_next();
-
-				if let Some(microtasks) = self.microtasks.clone() {
-					let run = microtasks.run_jobs(cx);
-					if !run {
-						result = false;
-					}
-				}
-			}
+		if let Some(ref microtasks) = self.microtasks {
+			microtasks.run_jobs(cx)?;
 		}
 
-		result
+		if let Some(ref macrotasks) = self.macrotasks {
+			macrotasks.run_all(cx)?;
+		}
+
+		if self.is_empty() {
+			Poll::Ready(Ok(()))
+		} else {
+			Poll::Pending
+		}
+	}
+
+	fn is_empty(&self) -> bool {
+		self.microtasks.as_ref().map(|m| m.is_empty()).unwrap_or_default()
+			&& self.futures.as_ref().map(|f| f.is_empty()).unwrap_or_default()
+			&& self.macrotasks.as_ref().map(|m| m.is_empty()).unwrap_or_default()
 	}
 }

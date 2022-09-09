@@ -19,13 +19,12 @@ const MINIMUM_DELAY_NESTED: i32 = 4;
 
 fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool) -> Result<u32> {
 	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
-			let nesting = queue.nesting();
-			let minimum = if nesting > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
+		if let Some(queue) = (*event_loop.borrow_mut()).macrotasks.as_mut() {
+			let minimum = if queue.nesting.get() > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
 
 			let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
 			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
-			Ok((*queue).enqueue(Macrotask::Timer(timer), None))
+			Ok(queue.enqueue(Macrotask::Timer(timer), None))
 		} else {
 			Err(Error::new("Macrotask Queue has not been initialised."))
 		}
@@ -35,7 +34,7 @@ fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, r
 fn clear_timer(id: Option<u32>) -> Result<()> {
 	if let Some(id) = id {
 		EVENT_LOOP.with(|event_loop| {
-			if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
+			if let Some(queue) = (*event_loop.borrow_mut()).macrotasks.as_mut() {
 				queue.remove(id);
 				Ok(())
 			} else {
@@ -70,7 +69,7 @@ fn clearInterval(#[convert(EnforceRange)] id: Option<u32>) -> Result<()> {
 #[js_fn]
 fn queueMacrotask(callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = (*event_loop.borrow()).macrotasks.clone() {
+		if let Some(queue) = (*event_loop.borrow_mut()).macrotasks.as_mut() {
 			queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
 			Ok(())
 		} else {

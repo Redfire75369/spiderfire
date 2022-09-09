@@ -15,6 +15,7 @@ mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 runtime = { path = "../runtime" }
 rustyline = "10.0.0"
 rustyline-derive = "0.7.0"
+tokio = { version = "1.21.0", features = ["macros", "rt"] }
 sourcemap = "6.0.2"
 
 [features]

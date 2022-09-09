@@ -21,6 +21,7 @@ thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefC
 
 #[derive(Copy, Clone, Debug)]
 pub struct ClassInfo {
+	#[allow(dead_code)]
 	constructor: Function,
 	prototype: Object,
 }

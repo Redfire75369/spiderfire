@@ -11,12 +11,12 @@ use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
-pub fn eval_source(source: &str) {
+pub async fn eval_source(source: &str) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<Modules>::new()
 		.microtask_queue()
 		.macrotask_queue()
 		.standard_modules()
 		.build(engine.handle());
-	eval_inline(&rt, source);
+	eval_inline(&rt, source).await;
 }

@@ -22,19 +22,17 @@ use runtime::config::Config;
 use runtime::modules::Module;
 use runtime::script::Script;
 
-pub fn eval_inline(rt: &Runtime, source: &str) {
+pub async fn eval_inline(rt: &Runtime, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);
 
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
 		Err(report) => eprintln!("{}", report),
 	}
-	if !rt.run_event_loop() {
-		eprintln!("Unknown error occurred while executing microtask.");
-	}
+	run_event_loop(rt).await;
 }
 
-pub fn eval_script(path: &Path) {
+pub async fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<Modules>::new()
 		.macrotask_queue()
@@ -58,13 +56,11 @@ pub fn eval_script(path: &Path) {
 				eprintln!("{}", report);
 			}
 		}
-		if !rt.run_event_loop() {
-			eprintln!("Unknown error occurred while executing microtask.");
-		}
+		run_event_loop(&rt).await;
 	}
 }
 
-pub fn eval_module(path: &Path) {
+pub async fn eval_module(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<Modules>::new()
 		.macrotask_queue()
@@ -86,9 +82,7 @@ pub fn eval_module(path: &Path) {
 			}
 			eprintln!("{}", error);
 		}
-		if !rt.run_event_loop() {
-			eprintln!("Unknown error occurred while executing microtask.");
-		}
+		run_event_loop(&rt).await;
 	}
 }
 
@@ -106,6 +100,16 @@ fn read_script(path: &Path) -> Option<(String, String)> {
 				_ => eprintln!("{:?}", error),
 			}
 			None
+		}
+	}
+}
+
+async fn run_event_loop(rt: &Runtime) {
+	if let Err(e) = rt.run_event_loop().await {
+		if let Some(e) = e {
+			eprintln!("{}", e);
+		} else {
+			eprintln!("Unknown error occurred while executing microtask.");
 		}
 	}
 }

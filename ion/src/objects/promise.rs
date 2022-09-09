@@ -9,7 +9,7 @@ use std::mem::transmute;
 use std::ops::Deref;
 
 use futures::executor::block_on;
-use libffi::high::arity3::ClosureMut3;
+use libffi::high::ClosureOnce3;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
 use mozjs::error::throw_type_error;
 use mozjs::jsapi::{
@@ -41,12 +41,12 @@ impl Promise {
 	///
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [JSVal] to resolve or reject the promise with the given [JSVal].
-	pub fn new_with_executor<F>(cx: Context, mut executor: F) -> Option<Promise>
+	pub fn new_with_executor<F>(cx: Context, executor: F) -> Option<Promise>
 	where
-		F: FnMut(Context, Function, Function) -> crate::Result<()>,
+		F: FnOnce(Context, Function, Function) -> crate::Result<()> + 'static,
 	{
 		unsafe {
-			let mut native = |cx: Context, argc: u32, vp: *mut JSVal| {
+			let native = move |cx: Context, argc: u32, vp: *mut JSVal| {
 				let args = Arguments::new(argc, vp);
 				let resolve = Function::from_value(args.value_or_undefined(0));
 				let reject = Function::from_value(args.value_or_undefined(1));
@@ -61,7 +61,7 @@ impl Promise {
 					_ => false as u8,
 				}
 			};
-			let closure = ClosureMut3::new(&mut native);
+			let closure = ClosureOnce3::new(native);
 			let fn_ptr = transmute::<_, &unsafe extern "C" fn(Context, u32, *mut JSVal) -> bool>(closure.code_ptr());
 			let function = Function::new(cx, "executor", Some(*fn_ptr), 2, PropertyFlags::empty());
 			rooted!(in(cx) let executor = function.to_object());
@@ -80,13 +80,13 @@ impl Promise {
 	/// If the future returns an [Err], the promise is rejected with the [JSVal] contained within.
 	pub fn new_with_future<F, Output, Error>(cx: Context, future: F) -> Option<Promise>
 	where
-		F: Future<Output = Result<Output, Error>>,
-		Output: ToJSValConvertible,
-		Error: ToJSValConvertible,
+		F: Future<Output = Result<Output, Error>> + 'static,
+		Output: ToJSValConvertible + 'static,
+		Error: ToJSValConvertible + 'static,
 	{
 		let mut future = Some(future);
 		let null = Object::from(HandleObject::null().get());
-		Promise::new_with_executor(cx, |cx, resolve, reject| {
+		Promise::new_with_executor(cx, move |cx, resolve, reject| {
 			block_on(async {
 				unsafe {
 					let future = future.take().unwrap();

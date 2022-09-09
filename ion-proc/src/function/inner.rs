@@ -96,9 +96,9 @@ impl InnerBody for DefaultInnerBody {
 		} else {
 			let krate = quote!(::ion);
 			let body = quote!(
-				let future = async #body;
+				let future = async move #body;
 
-				if let Some(promise) = #krate::Promise::new_with_future(cx, future) {
+				if let Some(promise) = ::runtime::promise::future_to_promise(cx, future) {
 					Ok(promise)
 				} else {
 					Err(#krate::Error::new("Failed to create Promise"))

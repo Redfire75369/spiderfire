@@ -10,41 +10,32 @@ use std::os;
 use std::path::Path;
 
 use futures_lite::stream::StreamExt;
-use mozjs::jsapi::{JSFunctionSpec, JSObject};
-use mozjs::typedarray::{CreateWith, Uint8Array};
+use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
+use ion::utils::Uint8ArrayBuffer;
 use runtime::modules::NativeModule;
 
 #[js_fn]
-async unsafe fn readBinary(cx: Context, path_str: String) -> Result<*mut JSObject, ()> {
+async unsafe fn readBinary(cx: Context, path_str: String) -> Result<Uint8ArrayBuffer, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(bytes) = async_fs::read(&path).await {
-			rooted!(in(cx) let mut array = *Object::new(cx));
-			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_ok() {
-				return Ok(array.get());
-			}
+			return Ok(Uint8ArrayBuffer { buf: bytes });
 		}
 	}
 	Err(())
 }
 
 #[js_fn]
-unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<*mut JSObject> {
+unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<Uint8ArrayBuffer> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
-			rooted!(in(cx) let mut array = *Object::new(cx));
-			if Uint8Array::create(cx, CreateWith::Slice(bytes.as_slice()), array.handle_mut()).is_err()
-				&& Uint8Array::create(cx, CreateWith::Length(0), array.handle_mut()).is_err()
-			{
-				return Err(Error::new("Unable to create Uint8Array"));
-			}
-			Ok(array.get())
+			Ok(Uint8ArrayBuffer { buf: bytes })
 		} else {
 			Err(Error::new(&format!("Could not read file: {}", path_str)))
 		}

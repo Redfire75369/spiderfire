@@ -5,8 +5,6 @@
  */
 
 #[macro_use]
-extern crate closure;
-#[macro_use]
 extern crate ion;
 #[macro_use]
 extern crate mozjs;
@@ -18,6 +16,7 @@ pub mod config;
 pub mod event_loop;
 pub mod globals;
 pub mod modules;
+pub mod promise;
 pub mod runtime;
 pub mod script;
 pub mod typescript;

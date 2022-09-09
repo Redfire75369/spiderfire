@@ -55,7 +55,8 @@ pub enum Command {
 	},
 }
 
-fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
 	let args = Cli::parse();
 
 	#[cfg(windows)]
@@ -63,5 +64,5 @@ fn main() {
 		colored::control::set_virtual_terminal(true).unwrap();
 	}
 
-	handle_command(args.command);
+	handle_command(args.command).await;
 }
