@@ -12,13 +12,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macOS-11]
+        os: [windows-latest, ubuntu-latest, macOS-latest]
         rust: [stable, beta]
         include:
           - os: windows-latest
             id: windows
             sccache-path: C:\Users\runneradmin\Mozilla\sccache
-          - os: macOS-11
+          - os: macOS-latest
             id: macos
             sccache-path: /Users/runner/Library/Caches/Mozilla.sccache
           - os: ubuntu-latest

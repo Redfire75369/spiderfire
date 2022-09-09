@@ -9,8 +9,9 @@ use std::iter::Iterator;
 use std::os;
 use std::path::Path;
 
-use futures_lite::stream::StreamExt;
+use futures::stream::StreamExt;
 use mozjs::jsapi::JSFunctionSpec;
+use tokio_stream::wrappers::ReadDirStream;
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
@@ -22,7 +23,7 @@ async unsafe fn readBinary(cx: Context, path_str: String) -> Result<Uint8ArrayBu
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
-		if let Ok(bytes) = async_fs::read(&path).await {
+		if let Ok(bytes) = tokio::fs::read(&path).await {
 			return Ok(Uint8ArrayBuffer { buf: bytes });
 		}
 	}
@@ -49,7 +50,7 @@ async fn readString(path_str: String) -> Result<String, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
-		if let Ok(str) = async_fs::read_to_string(&path).await {
+		if let Ok(str) = tokio::fs::read_to_string(&path).await {
 			Ok(str)
 		} else {
 			Err(())
@@ -79,8 +80,8 @@ async fn readDir(path_str: String) -> Result<Vec<String>, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
-		if let Ok(dir) = async_fs::read_dir(path).await {
-			let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect().await;
+		if let Ok(dir) = tokio::fs::read_dir(path).await {
+			let entries: Vec<_> = ReadDirStream::new(dir).filter_map(|entry| async move { entry.ok() }).collect().await;
 			let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
 			str_entries.sort();
 
@@ -117,7 +118,7 @@ async fn write(path_str: String, contents: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_dir() {
-		Ok(async_fs::write(path, contents).await.is_ok())
+		Ok(tokio::fs::write(path, contents).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -139,7 +140,7 @@ async fn createDir(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
-		Ok(async_fs::create_dir(path).await.is_ok())
+		Ok(tokio::fs::create_dir(path).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -161,7 +162,7 @@ async fn createDirRecursive(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
-		Ok(async_fs::create_dir_all(path).await.is_ok())
+		Ok(tokio::fs::create_dir_all(path).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -183,7 +184,7 @@ async fn removeFile(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
-		Ok(async_fs::remove_file(path).await.is_ok())
+		Ok(tokio::fs::remove_file(path).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -227,7 +228,7 @@ async fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
-		Ok(async_fs::remove_dir_all(path).await.is_ok())
+		Ok(tokio::fs::remove_dir_all(path).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -250,7 +251,7 @@ async fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
 	let to = Path::new(&to_str);
 
 	if !from.is_dir() || !to.is_dir() {
-		Ok(async_fs::copy(from, to).await.is_ok())
+		Ok(tokio::fs::copy(from, to).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -274,7 +275,7 @@ async fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
 	let to = Path::new(&to_str);
 
 	if !from.is_dir() || !to.is_dir() {
-		Ok(async_fs::rename(from, to).await.is_ok())
+		Ok(tokio::fs::rename(from, to).await.is_ok())
 	} else {
 		Err(())
 	}
@@ -300,14 +301,14 @@ async fn softLink(original_str: String, link_str: String) -> Result<bool, ()> {
 	if !link.exists() {
 		#[cfg(target_family = "unix")]
 		{
-			Ok(async_fs::unix::symlink(original, link).await.is_ok())
+			Ok(tokio::fs::symlink(original, link).await.is_ok())
 		}
 		#[cfg(target_family = "windows")]
 		{
 			if original.is_file() {
-				Ok(async_fs::windows::symlink_file(original, link).await.is_ok())
+				Ok(tokio::fs::symlink_file(original, link).await.is_ok())
 			} else if original.is_dir() {
-				Ok(async_fs::windows::symlink_dir(original, link).await.is_ok())
+				Ok(tokio::fs::symlink_dir(original, link).await.is_ok())
 			} else {
 				Ok(false)
 			}
@@ -395,7 +396,7 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(removeDirRecursive, 1),
 	function_spec!(copy, 2),
 	function_spec!(rename, 2),
-	// function_spec!(softLink, 2),
+	function_spec!(softLink, 2),
 	function_spec!(hardLink, 2),
 	JSFunctionSpec::ZERO,
 ];
