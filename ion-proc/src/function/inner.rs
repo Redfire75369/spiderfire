@@ -81,7 +81,7 @@ impl InnerBody for DefaultInnerBody {
 
 			let wrapped = match output {
 				ReturnType::Default => true,
-				ReturnType::Type(_, ty) => check_primitive(&*ty),
+				ReturnType::Type(_, ty) => check_primitive(ty),
 			};
 
 			let body = if wrapped {
@@ -109,22 +109,20 @@ impl InnerBody for DefaultInnerBody {
 	}
 }
 
-const PRIMITIVES: [&'static str; 18] = [
+const PRIMITIVES: [&str; 18] = [
 	"()", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "String", "Object", "Array", "Date", "Promise", "JSVal",
 ];
 
 fn check_primitive(ty: &Type) -> bool {
-	PRIMITIVES.into_iter().any(|primitive| match &*ty {
+	PRIMITIVES.into_iter().any(|primitive| match ty {
 		Type::Path(ty) => {
 			if type_ends_with(ty, primitive) {
 				return true;
 			} else if type_ends_with(ty, "Option") || type_ends_with(ty, "Vec") {
 				if let Some(last) = ty.path.segments.last() {
 					if let PathArguments::AngleBracketed(args) = &last.arguments {
-						if let Some(first) = args.args.first() {
-							if let GenericArgument::Type(ty) = first {
-								return check_primitive(ty);
-							}
+						if let Some(GenericArgument::Type(ty)) = args.args.first() {
+							return check_primitive(ty);
 						}
 					}
 				}

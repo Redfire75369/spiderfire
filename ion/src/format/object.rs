@@ -5,6 +5,7 @@
  */
 
 use std::cmp::Ordering;
+use std::fmt::Write;
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
@@ -67,16 +68,16 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 				let value = object.get(cx, &key.to_string()).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
 				string.push_str(&inner_indent);
-				string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
+				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
 
 				if i != length - 1 {
-					string.push_str(&",".color(color).to_string());
+					string.push_str(&",".color(color));
 				}
 				string.push_str(NEWLINE);
 			}
 
 			string.push_str(&outer_indent);
-			string.push_str(&"}".color(color).to_string());
+			string.push_str(&"}".color(color));
 			string
 		} else {
 			let mut string = "{ ".color(color).to_string();
@@ -84,20 +85,20 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 			for (i, key) in keys.into_iter().enumerate().take(len) {
 				let value = object.get(cx, &key.to_string()).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
-				string.push_str(&format!("{}: {}", key.to_string().color(color), value_string));
+				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
 
 				if i != len - 1 {
-					string.push_str(&", ".color(color).to_string());
+					string.push_str(&", ".color(color));
 				}
 			}
 
 			let remaining = length - len;
 			match remaining.cmp(&1) {
-				Ordering::Equal => string.push_str(&"... 1 more item ".color(color).to_string()),
-				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color).to_string()),
+				Ordering::Equal => string.push_str(&"... 1 more item ".color(color)),
+				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color)),
 				_ => (),
 			}
-			string.push_str(&"}".color(color).to_string());
+			string.push_str(&"}".color(color));
 
 			string
 		}

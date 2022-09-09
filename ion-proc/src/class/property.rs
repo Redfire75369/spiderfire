@@ -20,9 +20,9 @@ impl Property {
 	pub(crate) fn from_const(con: &ImplItemConst) -> Option<Property> {
 		match &con.ty {
 			Type::Path(ty) => {
-				if type_ends_with(&ty, "i32") {
+				if type_ends_with(ty, "i32") {
 					Some(Property::Int32(con.ident.clone()))
-				} else if type_ends_with(&ty, "f64") {
+				} else if type_ends_with(ty, "f64") {
 					Some(Property::Double(con.ident.clone()))
 				} else {
 					None
@@ -30,7 +30,7 @@ impl Property {
 			}
 			Type::Reference(re) => {
 				if let Type::Path(ty) = &*re.elem {
-					if type_ends_with(&ty, "str") {
+					if type_ends_with(ty, "str") {
 						return Some(Property::String(con.ident.clone()));
 					}
 				}

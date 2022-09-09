@@ -16,7 +16,7 @@ use crate::{Context, Object};
 use crate::format::NEWLINE;
 use crate::utils::normalise_path;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Exception {
 	pub message: String,
 	pub file: String,
@@ -24,7 +24,7 @@ pub struct Exception {
 	pub column: u32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackRecord {
 	pub function: Option<String>,
 	pub file: String,
@@ -32,7 +32,7 @@ pub struct StackRecord {
 	pub column: u32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ErrorReport {
 	pub exception: Exception,
 	pub stack: Option<Vec<StackRecord>>,

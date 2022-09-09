@@ -32,7 +32,7 @@ pub(crate) fn methods_to_specs(methods: &[(ItemFn, usize)], stat: bool) -> ItemS
 	let krate = quote!(::ion);
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
-		.into_iter()
+		.iter()
 		.map(|(method, nargs)| {
 			let name = LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span());
 			let ident = method.sig.ident.clone();
@@ -56,7 +56,7 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 		parse_quote!(PROPERTIES)
 	};
 
-	let mut specs: Vec<_> = properties.into_iter().map(|property| property.to_spec(class.clone())).collect();
+	let mut specs: Vec<_> = properties.iter().map(|property| property.to_spec(class.clone())).collect();
 	accessors
 		.iter()
 		.for_each(|(name, accessor)| specs.push(accessor.to_spec(Ident::new(name, class.span()))));

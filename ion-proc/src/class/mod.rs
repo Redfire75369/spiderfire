@@ -108,7 +108,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 							ImplItem::Const(con) => {
 								impl_items_to_remove.pop();
 								if let Visibility::Public(_) = con.vis {
-									if let Some(property) = Property::from_const(&con) {
+									if let Some(property) = Property::from_const(con) {
 										static_properties.push(property);
 									}
 								}

@@ -35,7 +35,7 @@ impl Accessor {
 			if let Some(index) = index {
 				field.attrs.remove(index);
 			}
-			let convert = convert.unwrap_or(parse_quote!(()));
+			let convert = convert.unwrap_or_else(|| parse_quote!(()));
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
 			let setter_ident = Ident::new(&format!("set_{}", ident), ident.span());
@@ -78,7 +78,7 @@ impl Accessor {
 			let name = LitStr::new(&name.to_string(), name.span());
 			quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 		} else {
-			let name = LitStr::new(&format!("{}\0", name.to_string()), name.span());
+			let name = LitStr::new(&format!("{}\0", name), name.span());
 			quote!(
 				#krate::spec::create_property_spec_accessor(
 					::std::concat!(#name, "\0"),
@@ -109,7 +109,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, is_setter: bool) -> Result<(ItemFn,
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
 	let (accessor, _, this) = impl_method(method.clone(), |sig| {
-		let params: Vec<_> = sig.inputs.iter().map(|arg| Parameter::from_arg(arg)).collect::<Result<_>>()?;
+		let params: Vec<_> = sig.inputs.iter().map(Parameter::from_arg).collect::<Result<_>>()?;
 		let nargs = params.into_iter().fold(0, |mut acc, param| {
 			if let Parameter::Normal(ty, _) = &param {
 				if let Type::Path(_) = &*ty.ty {
@@ -141,25 +141,18 @@ pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<Ite
 	accessors
 		.into_iter()
 		.flat_map(|(_, Accessor(getter, setter))| [getter, setter])
-		.filter_map(|p| p)
+		.flatten()
 		.collect()
 }
 
 pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor>, class: &mut ItemStruct) -> Result<()> {
-	match &mut class.fields {
-		Fields::Named(fields) => {
-			fields
-				.named
-				.iter_mut()
-				.map(|field| {
-					if let Some(accessor) = Accessor::from_field(field, class.ident.clone())? {
-						accessors.insert(field.ident.as_ref().unwrap().to_string(), accessor);
-					}
-					Ok(())
-				})
-				.collect::<Result<_>>()?;
-		}
-		_ => {}
+	if let Fields::Named(fields) = &mut class.fields {
+		return fields.named.iter_mut().try_for_each(|field| {
+			if let Some(accessor) = Accessor::from_field(field, class.ident.clone())? {
+				accessors.insert(field.ident.as_ref().unwrap().to_string(), accessor);
+			}
+			Ok(())
+		});
 	}
 	Ok(())
 }

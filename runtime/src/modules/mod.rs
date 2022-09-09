@@ -14,13 +14,13 @@ pub use standard::*;
 pub mod loader;
 pub mod standard;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModuleError {
 	pub kind: ModuleErrorKind,
 	pub report: ErrorReport,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModuleErrorKind {
 	Compilation,
 	Instantiation,

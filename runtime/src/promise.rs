@@ -50,7 +50,8 @@ where
 pub struct UnsafeAssertSend<T>(T);
 
 impl<T> UnsafeAssertSend<T> {
-	/// Safety: This instance must be used in a thread-safe way.
+	/// ### Safety
+	/// This instance must be used in a thread-safe way.
 	pub unsafe fn new(value: T) -> Self {
 		Self(value)
 	}
@@ -59,5 +60,6 @@ impl<T> UnsafeAssertSend<T> {
 	}
 }
 
-/// Safety: See [UnsafeAssertSend::new]
+/// ### Safety
+/// See [UnsafeAssertSend::new]
 unsafe impl<T> Send for UnsafeAssertSend<T> {}

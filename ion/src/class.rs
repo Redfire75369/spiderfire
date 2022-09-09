@@ -56,7 +56,7 @@ pub trait ClassInitialiser {
 		Self: Sized + 'static,
 	{
 		let class = Self::class();
-		let parent_proto = Self::parent_info(cx).map(|ci| ci.prototype).unwrap_or(Object::new(cx));
+		let parent_proto = Self::parent_info(cx).map(|ci| ci.prototype).unwrap_or_else(|| Object::new(cx));
 		let (constructor, nargs) = Self::constructor();
 		let properties = Self::properties();
 		let functions = Self::functions();

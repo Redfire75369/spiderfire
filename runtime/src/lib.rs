@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#![allow(clippy::missing_safety_doc, clippy::not_unsafe_ptr_arg_deref)]
+
 #[macro_use]
 extern crate ion;
 #[macro_use]

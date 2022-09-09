@@ -76,7 +76,7 @@ impl Macrotask {
 			Macrotask::User(user) => (user.callback, Vec::new()),
 		};
 
-		return callback.call(cx, Object::global(cx), args).map(|_| ());
+		callback.call(cx, Object::global(cx), args).map(|_| ())
 	}
 
 	fn remaining(&self) -> Duration {

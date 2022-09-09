@@ -34,7 +34,7 @@ pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
 				string.push_str(&value_string);
 
 				if i != length - 1 {
-					string.push_str(&",".color(color).to_string());
+					string.push_str(&",".color(color));
 				}
 				string.push_str(NEWLINE);
 			}
@@ -42,14 +42,14 @@ pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
 			if remaining > 0 {
 				string.push_str(&inner_indent);
 				match remaining.cmp(&1) {
-					Ordering::Equal => string.push_str(&"... 1 more item".color(color).to_string()),
-					Ordering::Greater => string.push_str(&format!("... {} more items", remaining).color(color).to_string()),
+					Ordering::Equal => string.push_str(&"... 1 more item".color(color)),
+					Ordering::Greater => string.push_str(&format!("... {} more items", remaining).color(color)),
 					_ => (),
 				}
 			}
 
 			string.push_str(&outer_indent);
-			string.push_str(&"]".color(color).to_string());
+			string.push_str(&"]".color(color));
 			string
 		} else {
 			let mut string = "[ ".color(color).to_string();
@@ -60,17 +60,17 @@ pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
 				string.push_str(&value_string);
 
 				if i != len - 1 {
-					string.push_str(&", ".color(color).to_string());
+					string.push_str(&", ".color(color));
 				}
 			}
 
 			let remaining = length - len;
 			match remaining.cmp(&1) {
-				Ordering::Equal => string.push_str(&"... 1 more item ".color(color).to_string()),
-				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color).to_string()),
+				Ordering::Equal => string.push_str(&"... 1 more item ".color(color)),
+				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color)),
 				_ => (),
 			}
-			string.push_str(&"]".color(color).to_string());
+			string.push_str(&"]".color(color));
 
 			string
 		}
