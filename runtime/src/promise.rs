@@ -7,9 +7,9 @@
 use std::future::Future;
 
 use futures::channel::oneshot::channel;
-use mozjs::conversions::ToJSValConvertible;
 
 use ion::{Context, Error, Function, Promise};
+use ion::conversions::IntoJSVal;
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::future::{NativeFuture, ToJSVal};
@@ -17,8 +17,8 @@ use crate::event_loop::future::{NativeFuture, ToJSVal};
 pub fn future_to_promise<F, O, E>(cx: Context, future: F) -> Option<Promise>
 where
 	F: Future<Output = Result<O, E>> + 'static + Send,
-	O: ToJSValConvertible + 'static,
-	E: ToJSValConvertible + 'static,
+	O: IntoJSVal + 'static,
+	E: IntoJSVal + 'static,
 {
 	let (tx, rx) = channel::<(UnsafeAssertSend<Function>, UnsafeAssertSend<Function>)>();
 

@@ -14,7 +14,7 @@ use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor
 use crate::class::constructor::impl_constructor;
 use crate::class::method::impl_method;
 use crate::class::property::Property;
-use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
+use crate::class::statics::{class_initialiser, class_spec, into_js_val, methods_to_specs, properties_to_specs};
 
 pub(crate) mod accessor;
 pub(crate) mod constructor;
@@ -160,6 +160,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
 
+	let into_js_val = into_js_val(class.ident.clone());
 	let class_initialiser = class_initialiser(class.ident.clone(), (constructor.sig.ident.clone(), constructor_nargs as u32));
 
 	let methods: Vec<_> = methods.into_iter().map(|(m, _)| m).collect();
@@ -188,6 +189,8 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	content.push(Item::Static(property_specs));
 	content.push(Item::Static(static_method_specs));
 	content.push(Item::Static(static_property_specs));
+
+	content.push(Item::Impl(into_js_val));
 	content.push(Item::Impl(class_initialiser));
 
 	Ok(module)

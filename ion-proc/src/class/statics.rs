@@ -13,13 +13,12 @@ use crate::class::accessor::Accessor;
 use crate::class::property::Property;
 
 pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
-	let krate = quote!(::ion);
 	let name = LitStr::new(&format!("{}\0", object.ident), object.ident.span());
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
 			name: #name.as_ptr() as *const i8,
-			flags: #krate::class_reserved_slots(0),
+			flags: ::mozjs::jsapi::JSCLASS_HAS_PRIVATE,
 			cOps: ::std::ptr::null_mut(),
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
@@ -67,6 +66,17 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 		static #ident: &[::mozjs::jsapi::JSPropertySpec] = &[
 			#(#specs),*
 		];
+	)
+}
+
+pub(crate) fn into_js_val(name: Ident) -> ItemImpl {
+	let krate = quote!(::ion);
+	parse_quote!(
+		impl #krate::conversions::IntoJSVal for #name {
+			unsafe fn into_jsval(self: Box<Self>, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
+				rval.set(::mozjs::jsval::ObjectValue(*<#name as #krate::ClassInitialiser>::new_object(cx, *self)));
+			}
+		}
 	)
 }
 

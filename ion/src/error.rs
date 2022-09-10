@@ -5,6 +5,7 @@
  */
 
 use std::error;
+use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
 use mozjs::jsapi::JS_ReportErrorUTF8;
@@ -66,6 +67,12 @@ impl Error {
 				ErrorKind::Other => JS_ReportErrorUTF8(cx, format!("{}\0", msg).as_ptr() as *const i8),
 			}
 		}
+	}
+}
+
+impl Display for Error {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&self.message)
 	}
 }
 

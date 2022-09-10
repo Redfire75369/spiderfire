@@ -12,12 +12,12 @@ use std::task::Poll;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mozjs::conversions::ToJSValConvertible;
 use mozjs::rust::HandleObject;
 
 use ion::{Context, ErrorReport, Function, Object, Value};
+use ion::conversions::IntoJSVal;
 
-pub type ToJSVal = Box<dyn ToJSValConvertible>;
+pub type ToJSVal = Box<dyn IntoJSVal>;
 pub type NativeFuture = Pin<Box<dyn Future<Output = (Function, Function, Result<ToJSVal, ToJSVal>)> + 'static>>;
 
 #[derive(Default)]
@@ -41,13 +41,13 @@ impl FutureQueue {
 			unsafe {
 				match result {
 					Ok(o) => {
-						o.to_jsval(cx, value.handle_mut());
+						o.into_jsval(cx, value.handle_mut());
 						if let Err(error) = resolve.call(cx, null, vec![value.get()]) {
 							return Err(error);
 						}
 					}
 					Err(e) => {
-						e.to_jsval(cx, value.handle_mut());
+						e.into_jsval(cx, value.handle_mut());
 						if let Err(error) = reject.call(cx, null, vec![value.get()]) {
 							return Err(error);
 						}
@@ -60,8 +60,7 @@ impl FutureQueue {
 	}
 
 	pub fn enqueue(&self, fut: NativeFuture) {
-		let queue = self.queue.borrow();
-		queue.push(fut);
+		self.queue.borrow().push(fut);
 	}
 
 	pub fn is_empty(&self) -> bool {

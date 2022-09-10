@@ -43,7 +43,7 @@ pub async fn start_repl() {
 		repl.add_history_entry(&input);
 
 		if terminate == 1 && input.is_empty() {
-			println!("Press Ctrl+C again to exit.");
+			println!("Press Ctrl+C again or Ctrl+D to exit.");
 			continue;
 		} else if terminate > 1 {
 			break;

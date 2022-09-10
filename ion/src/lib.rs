@@ -24,6 +24,7 @@ pub use objects::*;
 pub use value::Value;
 
 mod class;
+pub mod conversions;
 mod error;
 mod exception;
 pub mod flags;

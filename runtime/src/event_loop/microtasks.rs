@@ -85,7 +85,7 @@ impl MicrotaskQueue {
 		self.queue.borrow_mut().pop_front()
 	}
 
-	pub(crate) fn is_empty(&self) -> bool {
+	pub fn is_empty(&self) -> bool {
 		self.queue.borrow().is_empty()
 	}
 }

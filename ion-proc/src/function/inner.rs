@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Block, FnArg, GenericArgument, ItemFn, LitStr, PathArguments, ReturnType, Signature, Type};
+use syn::{Block, FnArg, ItemFn, LitStr, ReturnType, Signature, Type};
 use syn::punctuated::Punctuated;
 
 use crate::function::parameters::extract_params;
@@ -81,7 +81,13 @@ impl InnerBody for DefaultInnerBody {
 
 			let wrapped = match output {
 				ReturnType::Default => true,
-				ReturnType::Type(_, ty) => check_primitive(ty),
+				ReturnType::Type(_, ty) => {
+					if let Type::Path(ty) = &**ty {
+						!type_ends_with(ty, "Result")
+					} else {
+						true
+					}
+				}
 			};
 
 			let body = if wrapped {
@@ -107,28 +113,4 @@ impl InnerBody for DefaultInnerBody {
 			(body, false)
 		}
 	}
-}
-
-const PRIMITIVES: [&str; 18] = [
-	"()", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "String", "Object", "Array", "Date", "Promise", "JSVal",
-];
-
-fn check_primitive(ty: &Type) -> bool {
-	PRIMITIVES.into_iter().any(|primitive| match ty {
-		Type::Path(ty) => {
-			if type_ends_with(ty, primitive) {
-				return true;
-			} else if type_ends_with(ty, "Option") || type_ends_with(ty, "Vec") {
-				if let Some(last) = ty.path.segments.last() {
-					if let PathArguments::AngleBracketed(args) = &last.arguments {
-						if let Some(GenericArgument::Type(ty)) = args.args.first() {
-							return check_primitive(ty);
-						}
-					}
-				}
-			}
-			false
-		}
-		_ => false,
-	})
 }

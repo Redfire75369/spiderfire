@@ -190,7 +190,7 @@ impl Object {
 
 	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
-	/// They can be created through [function_spec](crate::spec::function_spec).
+	/// They can be created through [function_spec](crate::function_spec).
 	pub fn define_methods(&mut self, cx: Context, methods: &[JSFunctionSpec]) -> bool {
 		rooted!(in(cx) let mut obj = self.obj);
 		unsafe { JS_DefineFunctions(cx, obj.handle().into(), methods.as_ptr()) }

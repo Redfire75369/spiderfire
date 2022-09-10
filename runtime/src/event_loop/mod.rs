@@ -28,7 +28,7 @@ thread_local! {
 			futures: None,
 			microtasks: None,
 			macrotasks: None,
-			waker: AtomicWaker::new()
+			waker: AtomicWaker::new(),
 		}
 	);
 }
@@ -51,27 +51,34 @@ impl EventLoop {
 		}
 
 		if let Some(ref futures) = self.futures {
-			futures.run_futures(cx, wcx)?;
+			if !futures.is_empty() {
+				futures.run_futures(cx, wcx)?;
+			}
 		}
 
 		if let Some(ref microtasks) = self.microtasks {
-			microtasks.run_jobs(cx)?;
+			if !microtasks.is_empty() {
+				microtasks.run_jobs(cx)?;
+			}
 		}
 
 		if let Some(ref macrotasks) = self.macrotasks {
-			macrotasks.run_all(cx)?;
+			if !macrotasks.is_empty() {
+				macrotasks.run_all(cx)?;
+			}
 		}
 
 		if self.is_empty() {
 			Poll::Ready(Ok(()))
 		} else {
+			self.waker.wake();
 			Poll::Pending
 		}
 	}
 
 	fn is_empty(&self) -> bool {
-		self.microtasks.as_ref().map(|m| m.is_empty()).unwrap_or_default()
-			&& self.futures.as_ref().map(|f| f.is_empty()).unwrap_or_default()
-			&& self.macrotasks.as_ref().map(|m| m.is_empty()).unwrap_or_default()
+		self.microtasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
+			&& self.futures.as_ref().map(|f| f.is_empty()).unwrap_or(true)
+			&& self.macrotasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
 	}
 }
