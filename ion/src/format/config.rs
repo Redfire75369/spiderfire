@@ -5,7 +5,6 @@
  */
 
 use colored::Color;
-use derivative::Derivative;
 
 /// Configuration Object for formatting values
 #[derive(Clone, Copy, Debug, Derivative)]

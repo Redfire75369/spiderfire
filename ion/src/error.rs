@@ -56,6 +56,10 @@ impl Error {
 		}
 	}
 
+	pub fn into_message(self) -> String {
+		self.message
+	}
+
 	/// Throws the [Error]
 	pub fn throw(&self, cx: Context) {
 		let msg = &self.message;

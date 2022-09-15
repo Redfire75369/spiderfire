@@ -74,7 +74,7 @@ pub(crate) fn into_js_val(name: Ident) -> ItemImpl {
 	parse_quote!(
 		impl #krate::conversions::IntoJSVal for #name {
 			unsafe fn into_jsval(self: Box<Self>, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
-				rval.set(::mozjs::jsval::ObjectValue(*<#name as #krate::ClassInitialiser>::new_object(cx, *self)));
+				rval.set(<#name as #krate::ClassInitialiser>::new_object(cx, *self).to_value());
 			}
 		}
 	)
@@ -83,8 +83,11 @@ pub(crate) fn into_js_val(name: Ident) -> ItemImpl {
 pub(crate) fn class_initialiser(name: Ident, constructor: (Ident, u32)) -> ItemImpl {
 	let krate = quote!(::ion);
 	let (ident, nargs) = constructor;
+	let name_str = LitStr::new(&name.to_string(), ident.span());
 	parse_quote!(
 		impl #krate::ClassInitialiser for #name {
+			const NAME: &'static str = #name_str;
+
 			fn class() -> &'static ::mozjs::jsapi::JSClass {
 				&CLASS
 			}

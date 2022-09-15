@@ -11,10 +11,11 @@ use std::ffi::c_void;
 use std::ptr;
 
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_GetInstancePrivate, JS_InitClass, JS_NewObjectWithGivenProto, JSClass, JSFunctionSpec, JSPropertySpec, SetPrivate,
+	Handle, JS_GetConstructor, JS_GetInstancePrivate, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JSClass, JSFunctionSpec,
+	JSPropertySpec, SetPrivate,
 };
 
-use crate::{Arguments, Context, Function, NativeFunction, Object};
+use crate::{Arguments, Context, Error, Function, NativeFunction, Object, Result};
 
 // TODO: Move into Context Wrapper
 thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefCell::new(HashMap::new()));
@@ -27,6 +28,8 @@ pub struct ClassInfo {
 }
 
 pub trait ClassInitialiser {
+	const NAME: &'static str;
+
 	fn class() -> &'static JSClass;
 
 	fn parent_info(_: Context) -> Option<ClassInfo> {
@@ -111,7 +114,7 @@ pub trait ClassInitialiser {
 		})
 	}
 
-	fn get_private<'a>(cx: Context, obj: Object, args: Option<&Arguments>) -> &'a mut Self
+	fn get_private<'a>(cx: Context, obj: Object, args: Option<&Arguments>) -> Result<&'a mut Self>
 	where
 		Self: Sized,
 	{
@@ -119,7 +122,43 @@ pub trait ClassInitialiser {
 			rooted!(in(cx) let obj = *obj);
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
 			let ptr = JS_GetInstancePrivate(cx, obj.handle().into(), Self::class(), args) as *mut Self;
-			&mut *ptr
+			if !ptr.is_null() {
+				Ok(&mut *ptr)
+			} else {
+				Err(Error::new(&format!(
+					"Could not get private value in {}. It may have been destroyed.",
+					Self::NAME
+				)))
+			}
+		}
+	}
+
+	fn take_private(cx: Context, obj: Object, args: Option<&Arguments>) -> Result<Box<Self>>
+	where
+		Self: Sized,
+	{
+		unsafe {
+			rooted!(in(cx) let obj = *obj);
+			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
+			let ptr = JS_GetInstancePrivate(cx, obj.handle().into(), Self::class(), args) as *mut Self;
+			if !ptr.is_null() {
+				let private = Box::from_raw(ptr);
+				SetPrivate(obj.get(), ptr::null_mut() as *mut c_void);
+				Ok(private)
+			} else {
+				Err(Error::new(&format!(
+					"Could not get private value in {}. It may have been destroyed.",
+					Self::NAME
+				)))
+			}
+		}
+	}
+
+	fn instance_of(cx: Context, obj: Object, args: Option<&Arguments>) -> bool {
+		unsafe {
+			rooted!(in(cx) let obj = *obj);
+			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
+			JS_InstanceOf(cx, obj.handle().into(), Self::class(), args)
 		}
 	}
 }

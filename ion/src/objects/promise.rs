@@ -195,7 +195,7 @@ impl Promise {
 impl FromJSValConvertible for Promise {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Promise>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Promise>, ()> {
 		if !value.is_object() {
 			throw_type_error(cx, "JSVal is not an object");
 			return Err(());

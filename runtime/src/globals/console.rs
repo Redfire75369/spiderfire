@@ -10,8 +10,8 @@ use std::collections::hash_map::{Entry, HashMap};
 use chrono::{DateTime, offset::Utc};
 use indent::indent_all_by;
 use indexmap::IndexSet;
-use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec, StackFormat};
-use mozjs::jsval::{JSVal, ObjectValue};
+use mozjs::jsapi::{JSFunctionSpec, StackFormat};
+use mozjs::jsval::JSVal;
 use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
@@ -440,7 +440,6 @@ const METHODS: &[JSFunctionSpec] = &[
 ];
 
 pub fn define(cx: Context, mut global: Object) -> bool {
-	rooted!(in(cx) let console = *Object::new(cx));
-	return unsafe { JS_DefineFunctions(cx, console.handle().into(), METHODS.as_ptr()) }
-		&& global.define(cx, "console", ObjectValue(console.get()), PropertyFlags::CONSTANT_ENUMERATED);
+	let mut console = Object::new(cx);
+	console.define_methods(cx, METHODS) && global.define_as(cx, "console", console, PropertyFlags::CONSTANT_ENUMERATED)
 }

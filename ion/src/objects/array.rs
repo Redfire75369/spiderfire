@@ -68,7 +68,7 @@ impl Array {
 	/// Converts an [Array] to a [Vec].
 	/// Returns an empty [Vec] if the conversion fails.
 	pub fn to_vec(&self, cx: Context) -> Vec<JSVal> {
-		rooted!(in(cx) let obj = ObjectValue(self.obj));
+		rooted!(in(cx) let obj = self.to_value());
 		if let ConversionResult::Success(vec) = unsafe { Vec::<JSVal>::from_jsval(cx, obj.handle(), ()).unwrap() } {
 			vec
 		} else {
@@ -174,7 +174,7 @@ impl Array {
 impl FromJSValConvertible for Array {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Array>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Array>, ()> {
 		if !value.is_object() {
 			throw_type_error(cx, "JSVal is not an object");
 			return Err(());

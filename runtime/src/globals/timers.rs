@@ -6,7 +6,7 @@
 
 use chrono::Duration;
 use mozjs::conversions::ConversionBehavior::{Clamp, EnforceRange};
-use mozjs::jsapi::{JS_DefineFunctions, JSFunctionSpec};
+use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, Function, Object, Result};
@@ -87,7 +87,6 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: Context, global: Object) -> bool {
-	rooted!(in(cx) let global = *global);
-	unsafe { JS_DefineFunctions(cx, global.handle().into(), FUNCTIONS.as_ptr()) }
+pub fn define(cx: Context, mut global: Object) -> bool {
+	global.define_methods(cx, FUNCTIONS)
 }

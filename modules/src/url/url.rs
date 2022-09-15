@@ -7,7 +7,7 @@
 use idna::{domain_to_ascii, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{Context, Error, Object, Result};
+use ion::{Context, Object, Result};
 use ion::ClassInitialiser;
 use runtime::modules::NativeModule;
 
@@ -203,7 +203,7 @@ mod class {
 
 #[js_fn]
 fn domainToASCII(domain: String) -> Result<String> {
-	domain_to_ascii(&domain).map_err(|error| Error::new(&error.to_string()))
+	domain_to_ascii(&domain).map_err(|error| error.into())
 }
 
 #[js_fn]

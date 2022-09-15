@@ -6,6 +6,7 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
+convert_case = "0.6.0"
 quote = "1.0.21"
 proc-macro2 = "1.0.43"
 syn = { version = "1.0.99", features = ["extra-traits", "full"] }

@@ -6,7 +6,7 @@
 
 use proc_macro2::Ident;
 use quote::ToTokens;
-use syn::{Error, Expr, FnArg, LitStr, Pat, PatType, Stmt, Type};
+use syn::{Error, Expr, FnArg, LitStr, Pat, PatType, Result, Stmt, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -22,7 +22,7 @@ pub(crate) enum Parameter {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg) -> syn::Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg) -> Result<Parameter> {
 		if let FnArg::Typed(arg) = arg {
 			return if arg.ty == parse_quote!(Context) {
 				Ok(Parameter::Context(arg.clone()))
@@ -37,8 +37,8 @@ impl Parameter {
 					} else if attr == &parse_quote!(#[varargs]) {
 						vararg = true;
 					} else if attr.path == parse_quote!(convert) {
-						let convert_ty: Expr = attr.parse_args()?;
-						convert = Some(convert_ty);
+						let convert_expr: Expr = attr.parse_args()?;
+						convert = Some(convert_expr);
 					}
 				}
 
@@ -85,22 +85,30 @@ impl Parameter {
 		}
 	}
 
-	pub(crate) fn into_class_statement(self, index: &mut usize) -> Stmt {
+	pub(crate) fn into_class_statement(self, index: &mut usize) -> Result<Stmt> {
 		use Parameter::*;
 
 		let krate = quote!(::ion);
 		match self {
-			This(PatType { pat, ty: ref_ty, .. }) => {
-				let ty = if let Type::Reference(ty) = &*ref_ty {
-					ty.elem.clone()
-				} else {
-					ref_ty.clone()
-				};
-				parse_quote!(
-					let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::get_private(cx, #krate::Object::from(args.this().to_object()), Some(args));
-				)
+			This(pat_ty) => {
+				let PatType { pat, ty: ref_ty, .. } = pat_ty.clone();
+				match &*ref_ty {
+					Type::Reference(ty) => {
+						let ty = ty.elem.clone();
+						Ok(parse_quote!(
+							let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::get_private(cx, #krate::Object::from(args.this().to_object()), Some(args))?;
+						))
+					}
+					Type::Path(ty) if type_ends_with(ty, "Box") => {
+						let ty = ty.clone();
+						Ok(parse_quote!(
+							let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::take_private(cx, #krate::Object::from(args.this().to_object()), Some(args))?;
+						))
+					}
+					_ => Err(Error::new(pat_ty.span(), "")),
+				}
 			}
-			param => param.into_statement(index),
+			param => Ok(param.into_statement(index)),
 		}
 	}
 }
@@ -123,7 +131,7 @@ pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handl
 	}
 }
 
-pub(crate) fn extract_params(params: &Punctuated<FnArg, Token![,]>, class: bool) -> syn::Result<(Vec<Stmt>, usize, Option<Ident>)> {
+pub(crate) fn extract_params(params: &Punctuated<FnArg, Token![,]>, class: bool) -> Result<(Vec<Stmt>, usize, Option<Ident>)> {
 	let mut index = 0;
 
 	let mut nargs = 0;
@@ -152,10 +160,10 @@ pub(crate) fn extract_params(params: &Punctuated<FnArg, Token![,]>, class: bool)
 			if !class {
 				Ok(param.into_statement(&mut index))
 			} else {
-				Ok(param.into_class_statement(&mut index))
+				param.into_class_statement(&mut index)
 			}
 		})
-		.collect::<syn::Result<_>>()?;
+		.collect::<Result<_>>()?;
 
 	Ok((statements, nargs, this))
 }

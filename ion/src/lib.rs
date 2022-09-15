@@ -9,6 +9,8 @@
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
+extern crate derivative;
+#[macro_use]
 extern crate mozjs;
 
 use std::result::Result as Result2;

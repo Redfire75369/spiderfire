@@ -236,7 +236,7 @@ impl Object {
 impl FromJSValConvertible for Object {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Object>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Object>, ()> {
 		if !value.is_object() {
 			throw_type_error(cx, "JSVal is not an object");
 			return Err(());
@@ -250,7 +250,7 @@ impl FromJSValConvertible for Object {
 impl ToJSValConvertible for Object {
 	#[inline]
 	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		rval.set(ObjectValue(**self));
+		rval.set(self.to_value());
 		maybe_wrap_object_value(cx, rval);
 	}
 }

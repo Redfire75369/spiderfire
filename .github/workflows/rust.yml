@@ -37,12 +37,14 @@ jobs:
         env:
           MOZILLA_BUILD_LINK: https://ftp.mozilla.org/pub/mozilla/libraries/win32
           MOZILLA_BUILD_VERSION: 3.4
+          LLVM_VERSION: 14.0.6
         run: |
           Start-BitsTransfer -Source $env:MOZILLA_BUILD_LINK/MozillaBuildSetup-$env:MOZILLA_BUILD_VERSION.exe -Destination ./MozillaBuildSetup.exe
           .\MozillaBuildSetup.exe /S | Out-Null
           iwr -useb get.scoop.sh -outfile 'install.ps1'
           .\install.ps1 -RunAsAdmin
-          scoop install llvm sccache --global
+          scoop install llvm@$env:LLVM_VERSION --global
+          scoop install sccache --global
           echo "C:\ProgramData\scoop\shims;C:\Users\runneradmin\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Dependencies on OS X

@@ -84,7 +84,7 @@ impl Date {
 impl FromJSValConvertible for Date {
 	type Config = ();
 	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _option: ()) -> Result<ConversionResult<Date>, ()> {
+	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Date>, ()> {
 		if !value.is_object() {
 			throw_type_error(cx, "JSVal is not an object");
 			return Err(());
