@@ -63,7 +63,7 @@ pub fn init_module<M: NativeModule>(cx: Context, global: &mut Object) -> bool {
 	if let Some(module) = module {
 		if global.define_as(cx, &internal, module, PropertyFlags::CONSTANT) {
 			let module = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
-			return module.register(M::NAME);
+			return module.0.register(M::NAME);
 		}
 	}
 	false

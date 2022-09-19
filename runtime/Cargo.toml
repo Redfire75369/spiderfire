@@ -28,6 +28,7 @@ url = "2.2.2"
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
+promise-logger = []
 
 [lib]
 test = false

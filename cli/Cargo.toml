@@ -12,7 +12,7 @@ dunce = "1.0.2"
 ion = { path = "../ion" }
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
-runtime = { path = "../runtime" }
+runtime = { path = "../runtime", features = ["promise-logger"] }
 rustyline = "10.0.0"
 rustyline-derive = "0.7.0"
 tokio = { version = "1.21.0", features = ["macros", "rt"] }

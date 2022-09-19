@@ -25,6 +25,7 @@ pub enum ErrorKind {
 	Range,
 	Type,
 	Other,
+	None,
 }
 
 impl Error {
@@ -56,6 +57,13 @@ impl Error {
 		}
 	}
 
+	pub fn none() -> Error {
+		Error {
+			kind: ErrorKind::None,
+			message: String::from(""),
+		}
+	}
+
 	pub fn into_message(self) -> String {
 		self.message
 	}
@@ -69,6 +77,7 @@ impl Error {
 				ErrorKind::Range => throw_range_error(cx, msg),
 				ErrorKind::Type => throw_type_error(cx, msg),
 				ErrorKind::Other => JS_ReportErrorUTF8(cx, format!("{}\0", msg).as_ptr() as *const i8),
+				ErrorKind::None => {}
 			}
 		}
 	}

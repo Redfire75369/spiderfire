@@ -19,6 +19,7 @@ use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
 use runtime::cache::map::save_sourcemap;
 use runtime::config::Config;
+use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Module;
 use runtime::script::Script;
 
@@ -76,11 +77,17 @@ pub async fn eval_module(path: &Path) {
 		}
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
-		if let Err(mut error) = result {
-			if let Some(sourcemap) = sourcemap {
-				error.report.transform_with_sourcemap(&sourcemap);
+		match result {
+			Ok((_, Some(promise))) => {
+				add_handler_reactions(rt.cx(), promise);
 			}
-			eprintln!("{}", error);
+			Err(mut error) => {
+				if let Some(sourcemap) = sourcemap {
+					error.report.transform_with_sourcemap(&sourcemap);
+				}
+				eprintln!("{}", error);
+			}
+			_ => {}
 		}
 		run_event_loop(&rt).await;
 	}

@@ -46,15 +46,9 @@ impl Exception {
 			if JS_IsExceptionPending(cx) {
 				rooted!(in(cx) let mut exception = UndefinedValue());
 				if JS_GetPendingException(cx, exception.handle_mut().into()) {
-					let exception = Object::from(exception.to_object());
+					let exception = Exception::from_object(cx, Object::from(exception.to_object()));
 					Exception::clear(cx);
-
-					let message = exception.get_as::<String>(cx, "message", ()).unwrap();
-					let filename = exception.get_as::<String>(cx, "fileName", ()).unwrap();
-					let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
-					let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
-
-					Some(Exception { message, file: filename, lineno, column })
+					Some(exception)
 				} else {
 					None
 				}
@@ -62,6 +56,14 @@ impl Exception {
 				None
 			}
 		}
+	}
+
+	pub fn from_object(cx: Context, exception: Object) -> Exception {
+		let message = exception.get_as::<String>(cx, "message", ()).unwrap();
+		let filename = exception.get_as::<String>(cx, "fileName", ()).unwrap();
+		let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
+		let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
+		Exception { message, file: filename, lineno, column }
 	}
 
 	/// Clears all exceptions within the runtime.

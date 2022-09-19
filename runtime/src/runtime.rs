@@ -9,7 +9,7 @@ use std::ptr;
 use std::rc::Rc;
 
 use futures::task::AtomicWaker;
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
+use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngineHandle, RealmOptions, Runtime as RustRuntime, SIMPLE_GLOBAL_CLASS};
 
 use ion::{Context, ErrorReport, Object};
@@ -107,6 +107,9 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 			event_loop.macrotasks = Some(Rc::new(MacrotaskQueue::default()));
 			init_timers(cx, global);
 		}
+
+		let options = unsafe { &mut *ContextOptionsRef(cx) };
+		options.set_topLevelAwait_(true);
 
 		EVENT_LOOP.with(|eloop| {
 			let mut eloop = eloop.borrow_mut();

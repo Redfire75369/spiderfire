@@ -15,6 +15,9 @@ tokio-stream = { version = "0.1.9", features = ["fs"] }
 runtime = { path = "../runtime" }
 url = "2.2.2"
 
+[dev-dependencies]
+tokio = { version = "1.21.0", features = ["macros", "rt"] }
+
 [features]
 debugmozjs = ["ion/debugmozjs"]
 

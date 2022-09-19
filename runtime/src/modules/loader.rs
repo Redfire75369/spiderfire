@@ -21,7 +21,7 @@ use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 use url::Url;
 
-use ion::{Context, ErrorReport, Exception, Object};
+use ion::{Context, ErrorReport, Exception, Object, Promise};
 
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;
@@ -68,7 +68,7 @@ impl ModuleData {
 }
 
 impl Module {
-	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<Module, ModuleError> {
+	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module, Option<Promise>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
@@ -90,11 +90,14 @@ impl Module {
 					return Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Instantiation));
 				}
 
-				if let Err(exception) = module.evaluate(cx) {
-					return Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Evaluation));
+				let eval_result = module.evaluate(cx);
+				match eval_result {
+					Ok(val) => {
+						let promise = Promise::from_value(cx, val);
+						Ok((module, promise))
+					}
+					Err(exception) => Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Evaluation)),
 				}
-
-				Ok(module)
 			} else {
 				let exception = Exception::new(cx).unwrap();
 				Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Compilation))
@@ -166,8 +169,8 @@ impl Module {
 				let module = Module::compile(cx, specifier, Some(path.as_path()), &script);
 
 				if let Ok(module) = module {
-					module.clone().register(path.to_str().unwrap());
-					Some(module)
+					module.0.clone().register(path.to_str().unwrap());
+					Some(module.0)
 				} else {
 					unsafe {
 						JS_ReportErrorUTF8(cx, format!("Unable to compile module: {}\0", specifier).as_ptr() as *const i8);

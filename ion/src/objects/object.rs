@@ -51,7 +51,7 @@ impl Object {
 
 	/// Creates a `null` [Object].
 	pub fn null() -> Object {
-		Object::from(NullValue().to_object())
+		Object::from(NullValue().to_object_or_null())
 	}
 
 	/// Creates an [Object] from a [*mut JSObject].
