@@ -119,7 +119,7 @@ impl Module {
 		if unsafe { ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(ErrorReport::new_with_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
 	}
 

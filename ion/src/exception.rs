@@ -4,13 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ptr;
 
 use mozjs::conversions::{ConversionBehavior, jsstr_to_string};
 use mozjs::jsapi::{
-	BuildStackString, ESClass, ExceptionStack, GetBuiltinClass, GetPendingExceptionStack, IdentifyStandardInstance, JS_ClearPendingException,
-	JS_GetPendingException, JS_IsExceptionPending, JSObject, JSProtoKey, JSString, StackFormat,
+	BuildStackString, ESClass, ExceptionStack, ExceptionStackOrNull, GetBuiltinClass, GetPendingExceptionStack, IdentifyStandardInstance,
+	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JSObject, JSProtoKey, JSString, StackFormat,
 };
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs_sys::jsgc::Rooted;
@@ -29,6 +30,7 @@ pub enum Exception {
 		file: String,
 		lineno: u32,
 		column: u32,
+		object: Object,
 	},
 	Other(JSVal),
 }
@@ -42,9 +44,14 @@ pub struct StackRecord {
 }
 
 #[derive(Clone, Debug)]
+pub struct Stack {
+	pub records: Vec<StackRecord>,
+}
+
+#[derive(Clone, Debug)]
 pub struct ErrorReport {
 	pub exception: Exception,
-	pub stack: Option<Vec<StackRecord>>,
+	pub stack: Option<Stack>,
 }
 
 impl Exception {
@@ -113,6 +120,7 @@ impl Exception {
 					file: filename,
 					lineno,
 					column,
+					object: exception,
 				}
 			} else {
 				Exception::Other(exception.to_value())
@@ -138,7 +146,7 @@ impl Exception {
 	/// Formats the exception as an error message.
 	pub fn format(&self, cx: Context) -> String {
 		match self {
-			Exception::Error { kind, file, lineno, column, message } => {
+			Exception::Error { kind, message, file, lineno, column, .. } => {
 				let kind = kind.as_ref().map(|k| k.to_string()).unwrap_or_else(|| String::from("Exception"));
 				if !file.is_empty() {
 					if lineno == &0 {
@@ -171,64 +179,8 @@ impl StackRecord {
 	}
 }
 
-impl ErrorReport {
-	/// Creates a new [ErrorReport] with an [Exception] from the runtime.
-	/// Returns [None] if there is no pending exception.
-	pub fn new(cx: Context) -> Option<ErrorReport> {
-		Exception::new(cx).map(|exception| ErrorReport { exception, stack: None })
-	}
-
-	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the runtime.
-	/// Returns [None] if there is no pending exception.
-	pub fn new_with_stack(cx: Context) -> Option<ErrorReport> {
-		unsafe {
-			if JS_IsExceptionPending(cx) {
-				let mut exception_stack = ExceptionStack {
-					exception_: Rooted::new_unrooted(),
-					stack_: Rooted::new_unrooted(),
-				};
-				if GetPendingExceptionStack(cx, &mut exception_stack) {
-					let exception = Exception::from_value(cx, exception_stack.exception_.ptr);
-					let stack = stack_to_string(cx, exception_stack.stack_.ptr).map(|s| parse_stack(&s));
-					Exception::clear(cx);
-					Some(ErrorReport { exception, stack })
-				} else {
-					None
-				}
-			} else {
-				None
-			}
-		}
-	}
-
-	pub fn from(exception: Exception, stack: Option<Vec<StackRecord>>) -> ErrorReport {
-		ErrorReport { exception, stack }
-	}
-
-	#[cfg(feature = "sourcemap")]
-	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
-		self.exception.transform_with_sourcemap(sourcemap);
-		if let Some(stack) = &mut self.stack {
-			for record in stack {
-				record.transform_with_sourcemap(sourcemap);
-			}
-		}
-	}
-
-	pub fn format(&self, cx: Context) -> String {
-		let mut str = self.exception.format(cx);
-		if let Some(ref stack) = self.stack {
-			if !stack.is_empty() {
-				str.push_str(NEWLINE);
-				str.push_str(&format_stack(stack));
-			}
-		}
-		str
-	}
-}
-
 impl Display for StackRecord {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.write_str(self.function.as_deref().unwrap_or(""))?;
 		f.write_str("@")?;
 		f.write_str(&self.file)?;
@@ -240,51 +192,150 @@ impl Display for StackRecord {
 	}
 }
 
-pub fn stack_to_string(cx: Context, stack: *mut JSObject) -> Option<String> {
-	unsafe {
-		rooted!(in(cx) let stack = stack);
-		rooted!(in(cx) let mut string: *mut JSString);
+impl Stack {
+	pub fn from_string(string: &str) -> Stack {
+		let mut records = Vec::new();
+		for line in string.lines() {
+			let (function, line) = line.split_once('@').unwrap();
+			let (line, column) = line.rsplit_once(':').unwrap();
+			let (file, lineno) = line.rsplit_once(':').unwrap();
 
-		if BuildStackString(
-			cx,
-			ptr::null_mut(),
-			stack.handle().into(),
-			string.handle_mut().into(),
-			0,
-			StackFormat::SpiderMonkey,
-		) {
-			Some(jsstr_to_string(cx, string.get()))
-		} else {
-			None
+			let function = if function.is_empty() { None } else { Some(String::from(function)) };
+			records.push(StackRecord {
+				function,
+				file: String::from(normalise_path(file).to_str().unwrap()),
+				lineno: lineno.parse().unwrap(),
+				column: column.parse().unwrap(),
+			});
+		}
+		Stack { records }
+	}
+
+	pub fn from_object(cx: Context, stack: *mut JSObject) -> Option<Stack> {
+		unsafe {
+			rooted!(in(cx) let stack = stack);
+			rooted!(in(cx) let mut string: *mut JSString);
+
+			if BuildStackString(
+				cx,
+				ptr::null_mut(),
+				stack.handle().into(),
+				string.handle_mut().into(),
+				0,
+				StackFormat::SpiderMonkey,
+			) {
+				let string = jsstr_to_string(cx, string.get());
+				Some(Stack::from_string(&string))
+			} else {
+				None
+			}
 		}
 	}
+
+	pub fn from_capture(cx: Context) -> Option<Stack> {
+		unsafe {
+			capture_stack!(in(cx) let stack);
+			stack.and_then(|stack| stack.as_string(None, StackFormat::SpiderMonkey).as_deref().map(Stack::from_string))
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.records.is_empty()
+	}
+
+	#[cfg(feature = "sourcemap")]
+	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
+		for record in &mut self.records {
+			record.transform_with_sourcemap(sourcemap);
+		}
+	}
+
+	pub fn format(&self) -> String {
+		let mut string = String::from("");
+		for record in &self.records {
+			string.push_str(INDENT);
+			string.push_str(&record.to_string());
+			string.push_str(NEWLINE);
+		}
+		string.pop();
+		string
+	}
 }
 
-pub fn parse_stack(string: &str) -> Vec<StackRecord> {
-	let mut stack = Vec::new();
-	for line in string.lines() {
-		let (function, line) = line.split_once('@').unwrap();
-		let (line, column) = line.rsplit_once(':').unwrap();
-		let (file, lineno) = line.rsplit_once(':').unwrap();
-
-		let function = if function.is_empty() { None } else { Some(String::from(function)) };
-		stack.push(StackRecord {
-			function,
-			file: String::from(normalise_path(file).to_str().unwrap()),
-			lineno: lineno.parse().unwrap(),
-			column: column.parse().unwrap(),
-		});
+impl Display for Stack {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.write_str(&self.format())
 	}
-	stack
 }
 
-pub fn format_stack(stack: &[StackRecord]) -> String {
-	let mut string = String::from("");
-	for record in stack {
-		string.push_str(&INDENT.repeat(2));
-		string.push_str(&record.to_string());
-		string.push_str(NEWLINE);
+impl ErrorReport {
+	/// Creates a new [ErrorReport] with an [Exception] from the runtime.
+	/// Returns [None] if there is no pending exception.
+	pub fn new(cx: Context) -> Option<ErrorReport> {
+		Exception::new(cx).map(|exception| ErrorReport { exception, stack: None })
 	}
-	string.pop();
-	string
+
+	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the error.
+	/// Returns [None] if there is no pending exception.
+	pub fn new_with_error_stack(cx: Context) -> Option<ErrorReport> {
+		ErrorReport::new(cx).map(|report| ErrorReport::from_exception_with_error_stack(cx, report.exception))
+	}
+
+	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the runtime.
+	/// Returns [None] if there is no pending exception.
+	pub fn new_with_exception_stack(cx: Context) -> Option<ErrorReport> {
+		unsafe {
+			if JS_IsExceptionPending(cx) {
+				let mut exception_stack = ExceptionStack {
+					exception_: Rooted::new_unrooted(),
+					stack_: Rooted::new_unrooted(),
+				};
+				if GetPendingExceptionStack(cx, &mut exception_stack) {
+					let exception = Exception::from_value(cx, exception_stack.exception_.ptr);
+					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
+					Exception::clear(cx);
+					Some(ErrorReport { exception, stack })
+				} else {
+					None
+				}
+			} else {
+				None
+			}
+		}
+	}
+
+	pub fn from(exception: Exception, stack: Option<Stack>) -> ErrorReport {
+		ErrorReport { exception, stack }
+	}
+
+	pub fn from_exception_with_error_stack(cx: Context, exception: Exception) -> ErrorReport {
+		let stack = if let Exception::Error { object, .. } = exception {
+			unsafe {
+				rooted!(in(cx) let exc = *object);
+				Stack::from_object(cx, ExceptionStackOrNull(exc.handle().into()))
+			}
+		} else {
+			None
+		};
+		ErrorReport { exception, stack }
+	}
+
+	#[cfg(feature = "sourcemap")]
+	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
+		self.exception.transform_with_sourcemap(sourcemap);
+		if let Some(stack) = &mut self.stack {
+			stack.transform_with_sourcemap(sourcemap)
+		}
+	}
+
+	pub fn format(&self, cx: Context) -> String {
+		let mut string = self.exception.format(cx);
+		if let Some(ref stack) = self.stack {
+			if !stack.is_empty() {
+				string.push_str(NEWLINE);
+				string.push_str(&stack.format());
+			}
+		}
+		string
+	}
 }

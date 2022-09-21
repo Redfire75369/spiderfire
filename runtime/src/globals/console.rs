@@ -10,14 +10,13 @@ use std::collections::hash_map::{Entry, HashMap};
 use chrono::{DateTime, offset::Utc};
 use indent::indent_all_by;
 use indexmap::IndexSet;
-use mozjs::jsapi::{JSFunctionSpec, StackFormat};
+use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Key, Object};
-use ion::exception::{format_stack, parse_stack};
+use ion::{Context, Key, Object, Stack};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
@@ -159,18 +158,20 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) {
 		print_args(cx, values, false);
 		println!();
 
-		capture_stack!(in(cx) let stack);
-		let stack = stack.unwrap();
-		let mut stack = parse_stack(&stack.as_string(None, StackFormat::SpiderMonkey).unwrap());
+		let mut stack = Stack::from_capture(cx);
 		let indents = ((get_indents() + 1) * 2) as usize;
 
-		for record in &mut stack {
-			if let Some(sourcemap) = find_sourcemap(&record.file) {
-				record.transform_with_sourcemap(&sourcemap);
+		if let Some(stack) = &mut stack {
+			for record in &mut stack.records {
+				if let Some(sourcemap) = find_sourcemap(&record.file) {
+					record.transform_with_sourcemap(&sourcemap);
+				}
 			}
-		}
 
-		println!("{}", &indent_all_by(indents, &format_stack(&stack)));
+			println!("{}", &indent_all_by(indents, stack.format()));
+		} else {
+			eprintln!("Current Stack could not be captured.");
+		}
 	}
 }
 

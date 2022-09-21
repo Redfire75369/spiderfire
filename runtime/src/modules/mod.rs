@@ -32,11 +32,6 @@ impl ModuleError {
 	}
 
 	pub fn format(&self, cx: Context) -> String {
-		let str = match self.kind {
-			ModuleErrorKind::Compilation => "Module Compilation Error",
-			ModuleErrorKind::Instantiation => "Module Instantiation Error",
-			ModuleErrorKind::Evaluation => "Module Evaluation Error",
-		};
-		format!("{}\n{}", str, self.report.format(cx))
+		format!("{}", self.report.format(cx))
 	}
 }

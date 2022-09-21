@@ -19,7 +19,7 @@ use mozjs::jsapi::JSContext;
 
 pub use class::ClassInitialiser;
 pub use error::*;
-pub use exception::{ErrorReport, Exception};
+pub use exception::*;
 pub use functions::*;
 pub use ion_proc::*;
 pub use objects::*;
@@ -28,7 +28,7 @@ pub use value::Value;
 mod class;
 pub mod conversions;
 mod error;
-pub mod exception;
+mod exception;
 pub mod flags;
 pub mod format;
 mod functions;

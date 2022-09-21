@@ -31,7 +31,7 @@ impl Script {
 		if !rooted_script.is_null() {
 			Ok(Script { script })
 		} else {
-			Err(ErrorReport::new_with_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
 	}
 
@@ -44,7 +44,7 @@ impl Script {
 		if unsafe { JS_ExecuteScript(cx, script.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(ErrorReport::new_with_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
 	}
 

@@ -134,7 +134,7 @@ impl Function {
 		if unsafe { JS_CallFunction(cx, this.handle().into(), fun.handle().into(), &args, rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(ErrorReport::new_with_stack(cx))
+			Err(ErrorReport::new_with_exception_stack(cx))
 		}
 	}
 

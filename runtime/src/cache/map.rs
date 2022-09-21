@@ -48,7 +48,7 @@ pub fn transform_error_report_with_sourcemaps(report: &mut ErrorReport) {
 		}
 	}
 	if let Some(stack) = &mut report.stack {
-		for record in stack {
+		for record in &mut stack.records {
 			if let Some(sourcemap) = find_sourcemap(&record.file) {
 				record.transform_with_sourcemap(&sourcemap);
 			}

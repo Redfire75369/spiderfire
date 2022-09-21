@@ -41,7 +41,7 @@ impl Microtask {
 				if Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
 					Ok(())
 				} else {
-					Err(ErrorReport::new_with_stack(cx))
+					Err(ErrorReport::new_with_exception_stack(cx))
 				}
 			},
 			Microtask::User(callback) => {
