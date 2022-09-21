@@ -111,7 +111,7 @@ impl Cache {
 
 			let source_hash_file = folder.join(format!("{}.{}.sha512", source_file, extension));
 			let destination_hash_file = destination_file.with_extension("js.sha512");
-			let map_hash_file = map_file.with_extension("js.map.sha512");
+			let map_hash_file = map_file.with_extension("map.sha512");
 
 			let (destination, sourcemap) = compile_typescript(source_name, source)?;
 			let mut sourcemap_str: Vec<u8> = Vec::new();

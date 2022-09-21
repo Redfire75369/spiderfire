@@ -21,7 +21,7 @@ use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 use url::Url;
 
-use ion::{Context, ErrorReport, Exception, Object, Promise};
+use ion::{Context, ErrorReport, Object, Promise};
 
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;
@@ -86,8 +86,8 @@ impl Module {
 
 				let module = Module { module: Object::from(module), data };
 
-				if let Err(exception) = module.instantiate(cx) {
-					return Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Instantiation));
+				if let Err(error) = module.instantiate(cx) {
+					return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));
 				}
 
 				let eval_result = module.evaluate(cx);
@@ -96,31 +96,30 @@ impl Module {
 						let promise = Promise::from_value(cx, val);
 						Ok((module, promise))
 					}
-					Err(exception) => Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Evaluation)),
+					Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
 				}
 			} else {
-				let exception = Exception::new(cx).unwrap();
-				Err(ModuleError::new(ErrorReport::new(exception), ModuleErrorKind::Compilation))
+				Err(ModuleError::new(ErrorReport::new(cx).unwrap(), ModuleErrorKind::Compilation))
 			}
 		}
 	}
 
-	pub fn instantiate(&self, cx: Context) -> Result<(), Exception> {
+	pub fn instantiate(&self, cx: Context) -> Result<(), ErrorReport> {
 		rooted!(in(cx) let rooted_module = *self.module);
 		if unsafe { ModuleInstantiate(cx, rooted_module.handle().into()) } {
 			Ok(())
 		} else {
-			Err(Exception::new(cx).unwrap())
+			Err(ErrorReport::new(cx).unwrap())
 		}
 	}
 
-	pub fn evaluate(&self, cx: Context) -> Result<JSVal, Exception> {
+	pub fn evaluate(&self, cx: Context) -> Result<JSVal, ErrorReport> {
 		rooted!(in(cx) let rooted_module = *self.module);
 		rooted!(in(cx) let mut rval = UndefinedValue());
 		if unsafe { ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(Exception::new(cx).unwrap())
+			Err(ErrorReport::new_with_stack(cx).unwrap())
 		}
 	}
 

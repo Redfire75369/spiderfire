@@ -89,6 +89,7 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		let realm = JSAutoRealm::new(cx, global);
 		let mut global = Object::from(global);
 
+		global.set_as(cx, "global", global);
 		init_globals(cx, global);
 
 		let mut event_loop = EventLoop {

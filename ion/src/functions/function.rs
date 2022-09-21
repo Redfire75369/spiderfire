@@ -14,7 +14,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
-use crate::{Context, ErrorReport, Exception, Object};
+use crate::{Context, ErrorReport, Object};
 use crate::flags::PropertyFlags;
 
 pub type NativeFunction = unsafe extern "C" fn(Context, u32, *mut JSVal) -> bool;
@@ -133,10 +133,8 @@ impl Function {
 
 		if unsafe { JS_CallFunction(cx, this.handle().into(), fun.handle().into(), &args, rval.handle_mut().into()) } {
 			Ok(rval.get())
-		} else if let Some(exception) = Exception::new(cx) {
-			Err(Some(ErrorReport::new(exception)))
 		} else {
-			Err(None)
+			Err(ErrorReport::new_with_stack(cx))
 		}
 	}
 

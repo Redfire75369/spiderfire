@@ -8,14 +8,13 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Component, Path, PathBuf};
 
 use mozjs::conversions::ToJSValConvertible;
+use mozjs::jsval::ObjectOrNullValue;
 use mozjs::rust::MutableHandleValue;
 use mozjs::typedarray::{CreateWith, Uint8Array};
-use mozjs_sys::jsapi::JSContext;
-use mozjs_sys::jsval::ObjectOrNullValue;
 
-use crate::{Error, Object};
+use crate::{Context, Error, Object};
 
-pub(crate) fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
+pub fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
 	let mut buf = PathBuf::new();
 	let segments = path.as_ref().components();
 
@@ -55,7 +54,7 @@ impl DerefMut for Uint8ArrayBuffer {
 }
 
 impl ToJSValConvertible for Uint8ArrayBuffer {
-	unsafe fn to_jsval(&self, cx: *mut JSContext, mut rval: MutableHandleValue) {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
 		rooted!(in(cx) let mut array = *Object::new(cx));
 		if Uint8Array::create(cx, CreateWith::Slice(self.buf.as_slice()), array.handle_mut()).is_ok() {
 			rval.set(ObjectOrNullValue(array.get()));

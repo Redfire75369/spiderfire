@@ -10,7 +10,7 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 use mozjs::rust::JSEngine;
 
-use ion::{Context, ErrorReport, Exception, Function, Object};
+use ion::{Context, Exception, Function, Object};
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
@@ -56,15 +56,24 @@ pub async fn eval_module(rt: &Runtime, test: (&str, &str)) {
 
 	assert!(rt.run_event_loop().await.is_ok());
 
-	let exception = Exception::from_object(rt.cx(), rt.global().get_as(rt.cx(), EXCEPTION_STRING, ()).unwrap());
-	let report = ErrorReport::new(exception);
-	assert_eq!(report.exception.message, error, "{}: {}", filename, report);
+	let exception = rt.global().get_as(rt.cx(), EXCEPTION_STRING, ()).unwrap();
+	let exception = Exception::from_value(rt.cx(), exception);
+	match exception {
+		Exception::Error { ref message, .. } => {
+			assert_eq!(message, &error, "{}: {:#?}", filename, exception);
+		}
+		Exception::Other(_) => {
+			panic!("Exception was not an Error")
+		}
+	}
 }
 
 #[ion::js_fn]
 unsafe fn on_rejected(cx: Context, value: JSVal) {
 	let mut global = Object::global(cx);
+	Exception::from_value(cx, value);
 	global.set(cx, EXCEPTION_STRING, value);
+	Exception::clear(cx);
 }
 
 static ON_REJECTED: JSFunctionSpec = ion::function_spec!(on_rejected, "onRejected", 0);

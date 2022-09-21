@@ -15,7 +15,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::UndefinedValue;
 
-use ion::{Context, ErrorReport, Exception, Function, Object};
+use ion::{Context, ErrorReport, Function, Object};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Microtask {
@@ -41,7 +41,7 @@ impl Microtask {
 				if Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
 					Ok(())
 				} else {
-					Err(Exception::new(cx).map(ErrorReport::new))
+					Err(ErrorReport::new_with_stack(cx))
 				}
 			},
 			Microtask::User(callback) => {

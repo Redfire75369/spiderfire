@@ -4,10 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt;
-use std::fmt::{Display, Formatter};
-
-use ion::ErrorReport;
+use ion::{Context, ErrorReport};
 pub use loader::*;
 pub use standard::*;
 
@@ -16,7 +13,7 @@ pub mod handler;
 pub mod loader;
 pub mod standard;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct ModuleError {
 	pub kind: ModuleErrorKind,
 	pub report: ErrorReport,
@@ -33,15 +30,13 @@ impl ModuleError {
 	fn new(report: ErrorReport, kind: ModuleErrorKind) -> ModuleError {
 		ModuleError { kind, report }
 	}
-}
 
-impl Display for ModuleError {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self.kind {
-			ModuleErrorKind::Compilation => f.write_str("Module Compilation Error\n{}")?,
-			ModuleErrorKind::Instantiation => f.write_str("Module Instantiation Error\n{}")?,
-			ModuleErrorKind::Evaluation => f.write_str("Module Evaluation Error\n{}")?,
-		}
-		f.write_str(&self.report.to_string())
+	pub fn format(&self, cx: Context) -> String {
+		let str = match self.kind {
+			ModuleErrorKind::Compilation => "Module Compilation Error",
+			ModuleErrorKind::Instantiation => "Module Instantiation Error",
+			ModuleErrorKind::Evaluation => "Module Evaluation Error",
+		};
+		format!("{}\n{}", str, self.report.format(cx))
 	}
 }

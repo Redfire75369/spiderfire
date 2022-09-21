@@ -6,11 +6,15 @@
 
 use colored::Color;
 
+use crate::flags::IteratorFlags;
+
 /// Configuration Object for formatting values
 #[derive(Clone, Copy, Debug, Derivative)]
 #[derivative(Default)]
 pub struct Config {
 	pub colors: ColorConfig,
+	#[derivative(Default(value = "IteratorFlags::empty()"))]
+	pub iteration: IteratorFlags,
 	pub depth: u16,
 	pub indentation: u16,
 	#[derivative(Default(value = "true"))]
@@ -19,6 +23,14 @@ pub struct Config {
 }
 
 impl Config {
+	pub fn colors(self, colors: ColorConfig) -> Config {
+		Config { colors, ..self }
+	}
+
+	pub fn iteration(self, iteration: IteratorFlags) -> Config {
+		Config { iteration, ..self }
+	}
+
 	pub fn depth(self, depth: u16) -> Config {
 		Config { depth, ..self }
 	}

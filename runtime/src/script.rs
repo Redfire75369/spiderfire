@@ -10,7 +10,7 @@ use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use ion::{Context, ErrorReport, Exception};
+use ion::{Context, ErrorReport};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Script {
@@ -20,7 +20,7 @@ pub struct Script {
 impl Script {
 	/// Compiles a script with a given filename and returns the compiled script.
 	/// Returns [Err] when script compilation fails.
-	pub fn compile(cx: Context, path: &Path, script: &str) -> Result<Script, Exception> {
+	pub fn compile(cx: Context, path: &Path, script: &str) -> Result<Script, ErrorReport> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let options = unsafe { CompileOptionsWrapper::new(cx, path.to_str().unwrap(), 1) };
@@ -31,7 +31,7 @@ impl Script {
 		if !rooted_script.is_null() {
 			Ok(Script { script })
 		} else {
-			Err(Exception::new(cx).unwrap())
+			Err(ErrorReport::new_with_stack(cx).unwrap())
 		}
 	}
 
@@ -44,7 +44,7 @@ impl Script {
 		if unsafe { JS_ExecuteScript(cx, script.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval.get())
 		} else {
-			Err(ErrorReport::new(Exception::new(cx).unwrap()))
+			Err(ErrorReport::new_with_stack(cx).unwrap())
 		}
 	}
 
@@ -56,7 +56,7 @@ impl Script {
 				Ok(v) => Ok(v),
 				Err(e) => Err(e),
 			},
-			Err(e) => Err(ErrorReport::new(e)),
+			Err(e) => Err(e),
 		}
 	}
 }

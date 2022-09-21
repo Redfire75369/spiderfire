@@ -4,15 +4,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::JSFunctionSpec;
+use std::ptr;
+
+use mozjs::jsapi::{ExceptionStackOrNull, JSFunctionSpec};
 use mozjs::jsval::JSVal;
 
-use ion::{Context, Function, Promise};
-use ion::format::format_value;
+use ion::{Context, ErrorReport, Exception, Function, Promise};
+use ion::exception::{parse_stack, stack_to_string};
+
+use crate::cache::map::transform_error_report_with_sourcemaps;
 
 #[js_fn]
-fn on_rejected(cx: Context, value: JSVal) {
-	println!("Uncaught Exception: {}", format_value(cx, Default::default(), value));
+unsafe fn on_rejected(cx: Context, value: JSVal) {
+	let exception = Exception::from_value(cx, value);
+	let stack = if value.is_object() {
+		rooted!(in(cx) let rval = value.to_object());
+		ExceptionStackOrNull(rval.handle().into())
+	} else {
+		ptr::null_mut()
+	};
+
+	let stack = stack_to_string(cx, stack).map(|s| parse_stack(&s));
+	let mut report = ErrorReport::from(exception, stack);
+	Exception::clear(cx);
+	transform_error_report_with_sourcemaps(&mut report);
+	println!("{}", report.format(cx));
 }
 
 static ON_REJECTED: JSFunctionSpec = function_spec!(on_rejected, "onRejected", 0);

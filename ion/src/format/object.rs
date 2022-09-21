@@ -13,7 +13,6 @@ use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, JSObject};
 use mozjs::jsval::ObjectValue;
 
 use crate::{Context, Object};
-use crate::flags::IteratorFlags;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
@@ -54,7 +53,7 @@ pub fn format_object(cx: Context, cfg: Config, object: *mut JSObject) -> String 
 pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
-		let keys = object.keys(cx, Some(IteratorFlags::empty()));
+		let keys = object.keys(cx, Some(cfg.iteration));
 		let length = keys.len();
 
 		if length == 0 {

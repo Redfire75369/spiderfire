@@ -16,7 +16,8 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, format_stack, Key, Object, parse_stack};
+use ion::{Context, Key, Object};
+use ion::exception::{format_stack, parse_stack};
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;

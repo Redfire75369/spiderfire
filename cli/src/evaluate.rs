@@ -17,7 +17,7 @@ use ion::format::format_value;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
-use runtime::cache::map::save_sourcemap;
+use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
 use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Module;
@@ -28,7 +28,7 @@ pub async fn eval_inline(rt: &Runtime, source: &str) {
 
 	match result {
 		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
-		Err(report) => eprintln!("{}", report),
+		Err(report) => eprintln!("{}", report.format(rt.cx())),
 	}
 	run_event_loop(rt).await;
 }
@@ -43,7 +43,7 @@ pub async fn eval_script(path: &Path) {
 
 	if let Some((script, _)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
-		if let Some(sourcemap) = sourcemap.clone() {
+		if let Some(sourcemap) = sourcemap {
 			save_sourcemap(&path, sourcemap);
 		}
 		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
@@ -51,10 +51,8 @@ pub async fn eval_script(path: &Path) {
 		match result {
 			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
 			Err(mut report) => {
-				if let Some(sourcemap) = sourcemap {
-					report.transform_with_sourcemap(&sourcemap);
-				}
-				eprintln!("{}", report);
+				transform_error_report_with_sourcemaps(&mut report);
+				eprintln!("{}", report.format(rt.cx()));
 			}
 		}
 		run_event_loop(&rt).await;
@@ -72,7 +70,7 @@ pub async fn eval_module(path: &Path) {
 
 	if let Some((script, filename)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
-		if let Some(sourcemap) = sourcemap.clone() {
+		if let Some(sourcemap) = sourcemap {
 			save_sourcemap(&path, sourcemap);
 		}
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
@@ -82,10 +80,8 @@ pub async fn eval_module(path: &Path) {
 				add_handler_reactions(rt.cx(), promise);
 			}
 			Err(mut error) => {
-				if let Some(sourcemap) = sourcemap {
-					error.report.transform_with_sourcemap(&sourcemap);
-				}
-				eprintln!("{}", error);
+				transform_error_report_with_sourcemaps(&mut error.report);
+				eprintln!("{}", error.format(rt.cx()));
 			}
 			_ => {}
 		}
@@ -112,9 +108,9 @@ fn read_script(path: &Path) -> Option<(String, String)> {
 }
 
 async fn run_event_loop(rt: &Runtime) {
-	if let Err(e) = rt.run_event_loop().await {
-		if let Some(e) = e {
-			eprintln!("{}", e);
+	if let Err(err) = rt.run_event_loop().await {
+		if let Some(err) = err {
+			eprintln!("{}", err.format(rt.cx()));
 		} else {
 			eprintln!("Unknown error occurred while executing microtask.");
 		}
