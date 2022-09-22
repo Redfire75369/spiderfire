@@ -67,7 +67,7 @@ impl Parameter {
 				let id = *index;
 				let unwrapped = unwrap_param(parse_quote!(#id + #index), pat.clone(), ty.clone(), parse_quote!(handle), conversion);
 				parse_quote! {
-					let #pat: #ty = args.range_handles(#index..(args.len() + 1)).iter().enumerate().map(|(index, handle)| #unwrapped)
+					let #pat: #ty = args.range_handles(#index..=args.len()).iter().enumerate().map(|(index, handle)| #unwrapped)
 						.collect::<#krate::Result<_>>()?;
 				}
 			}

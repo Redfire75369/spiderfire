@@ -41,9 +41,7 @@ pub(crate) fn impl_inner_fn<I: InnerBody>(mut function: ItemFn, class: bool) -> 
 
 	let body = parse_quote!({
 		#args_check
-
 		#(#params)*
-
 		#body
 	});
 	function.block = Box::new(body);

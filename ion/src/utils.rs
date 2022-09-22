@@ -13,6 +13,7 @@ use mozjs::rust::MutableHandleValue;
 use mozjs::typedarray::{CreateWith, Uint8Array};
 
 use crate::{Context, Error, Object};
+use crate::error::ThrowException;
 
 pub fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
 	let mut buf = PathBuf::new();
@@ -59,7 +60,7 @@ impl ToJSValConvertible for Uint8ArrayBuffer {
 		if Uint8Array::create(cx, CreateWith::Slice(self.buf.as_slice()), array.handle_mut()).is_ok() {
 			rval.set(ObjectOrNullValue(array.get()));
 		} else {
-			Error::new("Failed to create Uint8Array").throw(cx)
+			Error::new("Failed to create Uint8Array", None).throw(cx)
 		}
 	}
 }

@@ -74,6 +74,7 @@ pub(crate) fn error_handler() -> TokenStream {
 				true
 			},
 			Ok(Err(error)) => {
+				use #krate::error::ThrowException;
 				error.throw(cx);
 				false
 			}

@@ -18,22 +18,24 @@ use std::result::Result as Result2;
 use mozjs::jsapi::JSContext;
 
 pub use class::ClassInitialiser;
-pub use error::*;
+pub use error::{Error, ErrorKind};
 pub use exception::*;
 pub use functions::*;
 pub use ion_proc::*;
 pub use objects::*;
+pub use stack::*;
 pub use value::Value;
 
 mod class;
 pub mod conversions;
-mod error;
+pub mod error;
 mod exception;
 pub mod flags;
 pub mod format;
 mod functions;
 mod objects;
 pub mod spec;
+mod stack;
 pub mod types;
 pub mod utils;
 mod value;

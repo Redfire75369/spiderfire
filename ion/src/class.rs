@@ -125,10 +125,10 @@ pub trait ClassInitialiser {
 			if !ptr.is_null() {
 				Ok(&mut *ptr)
 			} else {
-				Err(Error::new(&format!(
-					"Could not get private value in {}. It may have been destroyed.",
-					Self::NAME
-				)))
+				Err(Error::new(
+					&format!("Could not get private value in {}. It may have been destroyed.", Self::NAME),
+					None,
+				))
 			}
 		}
 	}
@@ -146,10 +146,10 @@ pub trait ClassInitialiser {
 				SetPrivate(obj.get(), ptr::null_mut() as *mut c_void);
 				Ok(private)
 			} else {
-				Err(Error::new(&format!(
-					"Could not get private value in {}. It may have been destroyed.",
-					Self::NAME
-				)))
+				Err(Error::new(
+					&format!("Could not get private value in {}. It may have been destroyed.", Self::NAME),
+					None,
+				))
 			}
 		}
 	}

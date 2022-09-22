@@ -81,7 +81,7 @@ impl Accessor {
 			let name = LitStr::new(&format!("{}\0", name), name.span());
 			quote!(
 				#krate::spec::create_property_spec_accessor(
-					::std::concat!(#name, "\0"),
+					#name,
 					::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
 					::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
 					#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,

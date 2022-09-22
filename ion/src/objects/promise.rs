@@ -20,6 +20,7 @@ use mozjs::jsval::{JSVal, ObjectValue, UndefinedValue};
 use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
 
 use crate::{Arguments, Context, Function, Object};
+use crate::error::ThrowException;
 use crate::flags::PropertyFlags;
 
 #[derive(Clone, Copy, Debug)]
