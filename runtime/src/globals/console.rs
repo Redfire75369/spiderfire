@@ -163,7 +163,7 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) {
 
 		if let Some(stack) = &mut stack {
 			for record in &mut stack.records {
-				if let Some(sourcemap) = find_sourcemap(&record.file) {
+				if let Some(sourcemap) = find_sourcemap(&record.location.file) {
 					record.transform_with_sourcemap(&sourcemap);
 				}
 			}

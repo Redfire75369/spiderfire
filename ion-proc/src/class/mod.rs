@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use quote::ToTokens;
-use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse, Result, Visibility};
+use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse2, Result, Visibility};
 use syn::spanned::Spanned;
 
 use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
@@ -45,6 +45,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					parse_quote!(#ident)
 				});
 				if Some(&*imp.self_ty) == object.as_ref() {
+					let object = parse2(object.unwrap().to_token_stream())?;
+
+					let mut impl_items_to_add = Vec::new();
 					let mut impl_items_to_remove = Vec::new();
 					let mut imp = imp.clone();
 
@@ -52,7 +55,14 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 						impl_items_to_remove.push(j);
 						match item {
 							ImplItem::Method(method) => {
-								let mut method: ItemFn = parse(method.to_token_stream().into())?;
+								let mut method: ItemFn = parse2(method.to_token_stream())?;
+								match &method.vis {
+									Visibility::Public(_) => (),
+									_ => {
+										impl_items_to_remove.pop();
+										continue;
+									}
+								}
 								let mut indices = (None, None, None);
 
 								for (i, attr) in method.attrs.iter().enumerate() {
@@ -67,39 +77,45 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 								if let Some(index) = indices.0 {
 									method.attrs.remove(index);
-									constructor = Some(impl_constructor(method.clone())?);
+									let (cons, inner, parameters) = impl_constructor(method.clone(), &object)?;
+									constructor = Some((cons, parameters.nargs.0));
+									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
 									continue;
 								}
 
 								if let Some(index) = indices.1 {
 									method.attrs.remove(index);
 									let name = get_accessor_name(&method.sig.ident, false);
-									let (getter, has_this) = impl_accessor(&method, false)?;
+									let (getter, inner, parameters) = impl_accessor(&method, &object, false, false)?;
 
-									if has_this {
+									if parameters.this.is_some() {
 										insert_accessor(&mut accessors, name, Some(getter), None);
 									} else {
 										insert_accessor(&mut static_accessors, name, Some(getter), None);
 									}
+									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
 									continue;
 								}
 
 								if let Some(index) = indices.2 {
 									method.attrs.remove(index);
 									let name = get_accessor_name(&method.sig.ident, true);
-									let (setter, has_this) = impl_accessor(&method, true)?;
+									let (setter, inner, parameters) = impl_accessor(&method, &object, false, true)?;
 
-									if has_this {
+									if parameters.this.is_some() {
 										insert_accessor(&mut accessors, name, None, Some(setter));
 									} else {
 										insert_accessor(&mut static_accessors, name, None, Some(setter));
 									}
+									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
 									continue;
 								}
 
-								let (method, nargs, this) = impl_method(method.clone(), |_| Ok(()))?;
+								let (method, inner, parameters) = impl_method(method.clone(), &object, false, |_| Ok(()))?;
+								let nargs = parameters.nargs.0;
 
-								if this.is_some() {
+								impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
+								if parameters.this.is_some() {
 									methods.push((method, nargs));
 								} else {
 									static_methods.push((method, nargs));
@@ -122,6 +138,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					impl_items_to_remove.reverse();
 					for index in impl_items_to_remove {
 						imp.items.remove(index);
+					}
+					for item in impl_items_to_add {
+						imp.items.push(item);
 					}
 
 					regular_impl = Some(imp);

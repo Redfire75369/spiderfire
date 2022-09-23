@@ -39,7 +39,7 @@ fn stripPrefix(path: String, prefix: String) -> Result<String> {
 	if let Ok(path) = path.strip_prefix(&prefix) {
 		Ok(String::from(path.to_str().unwrap()))
 	} else {
-		Err(Error::new("Failed to strip prefix from path."))
+		Err(Error::new("Failed to strip prefix from path.", None))
 	}
 }
 

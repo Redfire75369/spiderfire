@@ -11,7 +11,7 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{Error, Expr, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
 
 use crate::class::method::impl_method;
-use crate::function::parameters::Parameter;
+use crate::function::parameters::{Parameter, Parameters};
 
 #[derive(Debug)]
 pub(crate) struct Accessor(Option<ItemFn>, Option<ItemFn>);
@@ -52,8 +52,8 @@ impl Accessor {
 				}
 			);
 
-			let (getter, _) = impl_accessor(&getter, false)?;
-			let (setter, _) = impl_accessor(&setter, true)?;
+			let (getter, _, _) = impl_accessor(&getter, &class, true, false)?;
+			let (setter, _, _) = impl_accessor(&setter, &class, true, true)?;
 
 			Ok(Some(Accessor(Some(getter), Some(setter))))
 		} else {
@@ -100,7 +100,7 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(method: &ItemFn, is_setter: bool) -> Result<(ItemFn, bool)> {
+pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is_setter: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let expected_args = if is_setter { 1 } else { 0 };
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -108,9 +108,9 @@ pub(crate) fn impl_accessor(method: &ItemFn, is_setter: bool) -> Result<(ItemFn,
 		format!("Expected Getter to have {} arguments", expected_args)
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
-	let (accessor, _, this) = impl_method(method.clone(), |sig| {
-		let params: Vec<_> = sig.inputs.iter().map(Parameter::from_arg).collect::<Result<_>>()?;
-		let nargs = params.into_iter().fold(0, |mut acc, param| {
+	let (accessor, inner, parameters) = impl_method(method.clone(), ident, keep_inner, |sig| {
+		let parameters = Parameters::parse(&sig.inputs, Some(ident), true)?;
+		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Normal(ty, _) = &param {
 				if let Type::Path(_) = &*ty.ty {
 					acc += 1;
@@ -120,7 +120,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, is_setter: bool) -> Result<(ItemFn,
 		});
 		(nargs == expected_args).then(|| ()).ok_or(error)
 	})?;
-	Ok((accessor, this.is_some()))
+	Ok((accessor, inner, parameters))
 }
 
 pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<ItemFn>, setter: Option<ItemFn>) {

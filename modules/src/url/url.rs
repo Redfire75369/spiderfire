@@ -18,7 +18,7 @@ mod class {
 	use mozjs::conversions::ConversionBehavior::EnforceRange;
 	use url::Url;
 
-	use ion::{Error, Object, Result};
+	use ion::{Context, Error, Object, Result};
 
 	pub struct URL {
 		url: Url,
@@ -26,26 +26,27 @@ mod class {
 
 	impl URL {
 		#[constructor]
-		fn constructor(input: String, base: Option<String>) -> Result<URL> {
+		pub fn constructor(input: String, base: Option<String>) -> Result<URL> {
 			let options = Url::options();
 			let base = base.as_ref().and_then(|base| Url::parse(base).ok());
 			options.base_url(base.as_ref());
-			options.parse(&input).map_err(|error| Error::new(&error.to_string()))
+			let url = options.parse(&input).map_err(|error| Error::new(&error.to_string(), None))?;
+			Ok(URL { url })
 		}
 
-		fn origin(#[this] this: &URL) -> String {
+		pub fn origin(#[this] this: &URL) -> String {
 			this.url.origin().ascii_serialization()
 		}
 
-		fn toString(#[this] this: &URL) -> String {
+		pub fn toString(#[this] this: &URL) -> String {
 			this.url.to_string()
 		}
 
-		fn toJSON(#[this] this: &URL) -> String {
+		pub fn toJSON(#[this] this: &URL) -> String {
 			this.url.to_string()
 		}
 
-		fn format(#[this] this: &URL, options: Option<Object>) -> Result<String> {
+		pub fn format(cx: Context, #[this] this: &URL, options: Option<Object>) -> Result<String> {
 			let mut url = this.url.clone();
 
 			let auth = options.and_then(|options| options.get_as::<bool>(cx, "auth", ())).unwrap_or(true);
@@ -53,7 +54,7 @@ mod class {
 			let search = options.and_then(|options| options.get_as::<bool>(cx, "search", ())).unwrap_or(true);
 
 			if !auth {
-				url.set_username("").map_err(|_| Error::new("Invalid URL"))?;
+				url.set_username("").map_err(|_| Error::new("Invalid URL", None))?;
 			}
 			if !fragment {
 				url.set_fragment(None);
@@ -66,33 +67,33 @@ mod class {
 		}
 
 		#[get]
-		fn get_href(#[this] this: &URL) -> String {
+		pub fn get_href(#[this] this: &URL) -> String {
 			this.url.to_string()
 		}
 
 		#[set]
-		fn set_href(#[this] this: &mut URL, input: String) -> Result<()> {
+		pub fn set_href(#[this] this: &mut URL, input: String) -> Result<()> {
 			match Url::parse(&input) {
 				Ok(url) => {
 					this.url = url;
 					Ok(())
 				}
-				Err(error) => Err(Error::new(&error.to_string())),
+				Err(error) => Err(Error::new(&error.to_string(), None)),
 			}
 		}
 
 		#[get]
-		fn get_protocol(#[this] this: &URL) -> String {
+		pub fn get_protocol(#[this] this: &URL) -> String {
 			String::from(this.url.scheme())
 		}
 
 		#[set]
-		fn set_protocol(#[this] this: &mut URL, protocol: String) -> Result<()> {
-			this.url.set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol"))
+		pub fn set_protocol(#[this] this: &mut URL, protocol: String) -> Result<()> {
+			this.url.set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol", None))
 		}
 
 		#[get]
-		fn get_host(#[this] this: &URL) -> Option<String> {
+		pub fn get_host(#[this] this: &URL) -> Option<String> {
 			this.url.host_str().map(|host| {
 				if let Some(port) = this.url.port() {
 					format!("{}:{}", host, port)
@@ -103,16 +104,16 @@ mod class {
 		}
 
 		#[set]
-		fn set_host(#[this] this: &mut URL, host: Option<String>) -> Result<()> {
+		pub fn set_host(#[this] this: &mut URL, host: Option<String>) -> Result<()> {
 			if let Some(host) = host {
 				let segments: Vec<&str> = host.split(':').collect();
 				let (host, port) = match segments.len().cmp(&2) {
 					Ordering::Less => Ok((segments[0], None)),
-					Ordering::Greater => Err(Error::new("Invalid Host")),
+					Ordering::Greater => Err(Error::new("Invalid Host", None)),
 					Ordering::Equal => {
 						let port = match segments[1].parse::<u16>() {
 							Ok(port) => Ok(port),
-							Err(error) => Err(Error::new(&error.to_string())),
+							Err(error) => Err(Error::new(&error.to_string(), None)),
 						}?;
 						Ok((segments[0], Some(port)))
 					}
@@ -120,82 +121,84 @@ mod class {
 
 				this.url.set_host(Some(host))?;
 
-				this.url.set_port(port).map_err(|_| Error::new("Invalid URL"))?;
+				this.url.set_port(port).map_err(|_| Error::new("Invalid URL", None))?;
 			} else {
 				this.url.set_host(None)?;
-				this.url.set_port(None).map_err(|_| Error::new("Invalid URL"))?;
+				this.url.set_port(None).map_err(|_| Error::new("Invalid URL", None))?;
 			}
 			Ok(())
 		}
 
 		#[get]
-		fn get_hostname(#[this] this: &URL) -> Option<String> {
+		pub fn get_hostname(#[this] this: &URL) -> Option<String> {
 			this.url.host_str().map(String::from)
 		}
 
 		#[set]
-		fn set_hostname(#[this] this: &mut URL, hostname: Option<String>) -> Result<()> {
-			this.url.set_host(hostname.as_deref()).map_err(|error| Error::new(&error.to_string()))
+		pub fn set_hostname(#[this] this: &mut URL, hostname: Option<String>) -> Result<()> {
+			this.url
+				.set_host(hostname.as_deref())
+				.map_err(|error| Error::new(&error.to_string(), None))
 		}
 
 		#[get]
-		fn get_port(#[this] this: &URL) -> Option<u16> {
+		pub fn get_port(#[this] this: &URL) -> Option<u16> {
 			this.url.port_or_known_default()
 		}
 
 		#[set]
-		fn set_port(#[this] this: &mut URL, #[convert(EnforceRange)] port: Option<u16>) -> Result<()> {
-			this.url.set_port(port).map_err(|_| Error::new("Invalid Port"))
+		pub fn set_port(#[this] this: &mut URL, #[convert(EnforceRange)] port: Option<u16>) -> Result<()> {
+			this.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
 		}
 
 		#[get]
-		fn get_path(#[this] this: &URL) -> String {
+		pub fn get_path(#[this] this: &URL) -> String {
 			String::from(this.url.path())
 		}
 
 		#[set]
-		fn set_path(#[this] this: &mut URL, path: String) -> Result<()> {
+		pub fn set_path(#[this] this: &mut URL, path: String) -> Result<()> {
 			this.url.set_path(&path);
 			Ok(())
 		}
 
 		#[get]
-		fn get_username(#[this] this: &URL) -> String {
+		pub fn get_username(#[this] this: &URL) -> String {
 			String::from(this.url.username())
 		}
 
 		#[set]
-		fn set_username(#[this] this: &mut URL, username: String) -> Result<()> {
-			this.url.set_username(&username).map_err(|_| Error::new("Invalid URL"))
+		pub fn set_username(#[this] this: &mut URL, username: String) -> Result<()> {
+			this.url.set_username(&username).map_err(|_| Error::new("Invalid URL", None))
 		}
 
 		#[get]
-		fn get_password(#[this] this: &URL) -> Option<String> {
+		pub fn get_password(#[this] this: &URL) -> Option<String> {
 			this.url.password().map(String::from)
 		}
 
 		#[set]
-		fn set_password(#[this] this: &mut URL, password: Option<String>) -> Result<()> {
-			this.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL"))
+		pub fn set_password(#[this] this: &mut URL, password: Option<String>) -> Result<()> {
+			this.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL", None))
 		}
 
 		#[get]
-		fn get_search(#[this] this: &URL) -> Option<String> {
+		pub fn get_search(#[this] this: &URL) -> Option<String> {
 			this.url.query().map(String::from)
 		}
 
 		#[set]
-		fn set_search(#[this] this: &mut URL, search: Option<String>) {
+		pub fn set_search(#[this] this: &mut URL, search: Option<String>) {
 			this.url.set_query(search.as_deref());
 		}
 
 		#[get]
-		fn get_hash(#[this] this: &URL) -> Option<String> {
+		pub fn get_hash(#[this] this: &URL) -> Option<String> {
 			this.url.fragment().map(String::from)
 		}
 
 		#[set]
-		fn set_hash(#[this] this: &mut URL, hash: Option<String>) {
+		pub fn set_hash(#[this] this: &mut URL, hash: Option<String>) {
 			this.url.set_fragment(hash.as_deref());
 		}
 	}

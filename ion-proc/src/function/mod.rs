@@ -8,29 +8,27 @@ use proc_macro2::TokenStream;
 use syn::{Abi, Error, FnArg, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
-use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
+use crate::function::wrapper::impl_wrapper_fn;
 
 pub(crate) mod inner;
 pub(crate) mod parameters;
+pub(crate) mod wrapper;
 
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let krate = quote!(::ion);
-	let (inner, _, _) = impl_inner_fn::<DefaultInnerBody>(function.clone(), false)?;
+	let (wrapper, _, _) = impl_wrapper_fn(function.clone(), None, true, false)?;
 
-	function.attrs = Vec::new();
 	check_abi(&mut function)?;
 	set_signature(&mut function)?;
+	function.attrs = Vec::new();
 	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let error_handler = error_handler();
 
 	let body = parse_quote!({
 		let args = #krate::Arguments::new(argc, vp);
-
-		#inner
-
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| native_fn(cx, &args)));
-
+		#wrapper
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &args)));
 		#error_handler
 	});
 	function.block = Box::new(body);
@@ -40,8 +38,8 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 
 pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {
 	match &function.sig.abi {
-		Some(Abi { name: None, .. }) => {}
 		None => function.sig.abi = Some(parse_quote!(extern "C")),
+		Some(Abi { name: None, .. }) => {}
 		Some(Abi { name: Some(abi), .. }) if abi.value() == "C" => {}
 		Some(Abi { name: Some(non_c_abi), .. }) => return Err(Error::new_spanned(non_c_abi, "Expected C ABI")),
 	}
@@ -79,12 +77,13 @@ pub(crate) fn error_handler() -> TokenStream {
 				false
 			}
 			Err(unwind_error) => {
+				use #krate::error::ThrowException;
 				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::new(unwind).throw(cx);
+					#krate::Error::new(unwind, None).throw(cx);
 				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::new(*unwind).throw(cx);
+					#krate::Error::new(*unwind, None).throw(cx);
 				} else {
-					#krate::Error::new("Unknown Panic Occurred").throw(cx);
+					#krate::Error::new("Unknown Panic Occurred", None).throw(cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

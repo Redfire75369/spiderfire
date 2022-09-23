@@ -32,6 +32,6 @@ impl ModuleError {
 	}
 
 	pub fn format(&self, cx: Context) -> String {
-		format!("{}", self.report.format(cx))
+		self.report.format(cx)
 	}
 }

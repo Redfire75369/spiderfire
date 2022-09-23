@@ -43,7 +43,7 @@ where
 
 	Promise::new_with_executor(cx, move |_, resolve, reject| {
 		tx.send(unsafe { (UnsafeAssertSend::new(resolve), UnsafeAssertSend::new(reject)) })
-			.map_err(|_| Error::new("Failed to send resolve and reject through channel"))
+			.map_err(|_| Error::new("Failed to send resolve and reject through channel", None))
 	})
 }
 

@@ -4,9 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fs;
+use std::{fs, os, result};
 use std::iter::Iterator;
-use std::os;
 use std::path::Path;
 
 use futures::stream::StreamExt;
@@ -19,7 +18,7 @@ use ion::utils::Uint8ArrayBuffer;
 use runtime::modules::NativeModule;
 
 #[js_fn]
-async unsafe fn readBinary(cx: Context, path_str: String) -> Result<Uint8ArrayBuffer, ()> {
+async unsafe fn readBinary(path_str: String) -> result::Result<Uint8ArrayBuffer, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -31,22 +30,22 @@ async unsafe fn readBinary(cx: Context, path_str: String) -> Result<Uint8ArrayBu
 }
 
 #[js_fn]
-unsafe fn readBinarySync(cx: Context, path_str: String) -> Result<Uint8ArrayBuffer> {
+unsafe fn readBinarySync(path_str: String) -> Result<Uint8ArrayBuffer> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
 		if let Ok(bytes) = fs::read(&path) {
 			Ok(Uint8ArrayBuffer { buf: bytes })
 		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str)))
+			Err(Error::new(&format!("Could not read file: {}", path_str), None))
 		}
 	} else {
-		Err(Error::new(&format!("File {} does not exist", path_str)))
+		Err(Error::new(&format!("File {} does not exist", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn readString(path_str: String) -> Result<String, ()> {
+async fn readString(path_str: String) -> result::Result<String, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -68,15 +67,15 @@ fn readStringSync(path_str: String) -> Result<String> {
 		if let Ok(str) = fs::read_to_string(&path) {
 			Ok(str)
 		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str)))
+			Err(Error::new(&format!("Could not read file: {}", path_str), None))
 		}
 	} else {
-		Err(Error::new(&format!("File {} does not exist", path_str)))
+		Err(Error::new(&format!("File {} does not exist", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn readDir(path_str: String) -> Result<Vec<String>, ()> {
+async fn readDir(path_str: String) -> result::Result<Vec<String>, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -109,12 +108,12 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 			Ok(Vec::new())
 		}
 	} else {
-		Err(Error::new(&format!("Directory {} does not exist", path_str)))
+		Err(Error::new(&format!("Directory {} does not exist", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn write(path_str: String, contents: String) -> Result<bool, ()> {
+async fn write(path_str: String, contents: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_dir() {
@@ -131,12 +130,12 @@ fn writeSync(path_str: String, contents: String) -> Result<bool> {
 	if !path.is_dir() {
 		Ok(fs::write(path, contents).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is a directory", path_str)))
+		Err(Error::new(&format!("Path {} is a directory", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn createDir(path_str: String) -> Result<bool, ()> {
+async fn createDir(path_str: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -153,12 +152,12 @@ fn createDirSync(path_str: String) -> Result<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir(path).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is a file", path_str)))
+		Err(Error::new(&format!("Path {} is a file", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn createDirRecursive(path_str: String) -> Result<bool, ()> {
+async fn createDirRecursive(path_str: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if !path.is_file() {
@@ -175,12 +174,12 @@ fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 	if !path.is_file() {
 		Ok(fs::create_dir_all(path).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is a file", path_str)))
+		Err(Error::new(&format!("Path {} is a file", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn removeFile(path_str: String) -> Result<bool, ()> {
+async fn removeFile(path_str: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_file() {
@@ -197,12 +196,12 @@ fn removeFileSync(path_str: String) -> Result<bool> {
 	if path.is_file() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is not a file", path_str)))
+		Err(Error::new(&format!("Path {} is not a file", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn removeDir(path_str: String) -> Result<bool, ()> {
+async fn removeDir(path_str: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -219,12 +218,12 @@ fn removeDirSync(path_str: String) -> Result<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_file(path).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is not a directory", path_str)))
+		Err(Error::new(&format!("Path {} is not a directory", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn removeDirRecursive(path_str: String) -> Result<bool, ()> {
+async fn removeDirRecursive(path_str: String) -> result::Result<bool, ()> {
 	let path = Path::new(&path_str);
 
 	if path.is_dir() {
@@ -241,12 +240,12 @@ fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 	if path.is_dir() {
 		Ok(fs::remove_dir_all(path).is_ok())
 	} else {
-		Err(Error::new(&format!("Path {} is not a directory", path_str)))
+		Err(Error::new(&format!("Path {} is not a directory", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn copy(from_str: String, to_str: String) -> Result<bool, ()> {
+async fn copy(from_str: String, to_str: String) -> result::Result<bool, ()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -265,12 +264,12 @@ fn copySync(from_str: String, to_str: String) -> Result<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::copy(from, to).is_ok())
 	} else {
-		Err(Error::new(""))
+		Err(Error::new("", None))
 	}
 }
 
 #[js_fn]
-async fn rename(from_str: String, to_str: String) -> Result<bool, ()> {
+async fn rename(from_str: String, to_str: String) -> result::Result<bool, ()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -289,12 +288,12 @@ fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 	if !from.is_dir() || !to.is_dir() {
 		Ok(fs::rename(from, to).is_ok())
 	} else {
-		Err(Error::new(""))
+		Err(Error::new("", None))
 	}
 }
 
 #[js_fn]
-async fn softLink(original_str: String, link_str: String) -> Result<bool, ()> {
+async fn softLink(original_str: String, link_str: String) -> result::Result<bool, ()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -339,12 +338,12 @@ fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 			}
 		}
 	} else {
-		Err(Error::new("Link already exists"))
+		Err(Error::new("Link already exists", None))
 	}
 }
 
 #[js_fn]
-async fn hardLink(original_str: String, link_str: String) -> Result<bool, ()> {
+async fn hardLink(original_str: String, link_str: String) -> result::Result<bool, ()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -363,7 +362,7 @@ fn hardLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	if !link.exists() {
 		Ok(fs::hard_link(original, link).is_ok())
 	} else {
-		Err(Error::new("Link already exists"))
+		Err(Error::new("Link already exists", None))
 	}
 }
 

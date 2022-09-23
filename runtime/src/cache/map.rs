@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use sourcemap::SourceMap;
 
-use ion::{ErrorReport, Exception};
+use ion::{Error, ErrorReport, Exception};
 use ion::utils::normalise_path;
 
 thread_local!(static SOURCEMAP_CACHE: RefCell<HashMap<PathBuf, SourceMap>> = RefCell::new(HashMap::new()));
@@ -42,14 +42,14 @@ pub fn save_sourcemap<P: AsRef<Path>>(path: P, sourcemap: SourceMap) -> bool {
 }
 
 pub fn transform_error_report_with_sourcemaps(report: &mut ErrorReport) {
-	if let Exception::Error { file, .. } = &mut report.exception {
-		if let Some(sourcemap) = find_sourcemap(file) {
+	if let Exception::Error(Error { location: Some(location), .. }) = &mut report.exception {
+		if let Some(sourcemap) = find_sourcemap(&location.file) {
 			report.exception.transform_with_sourcemap(&sourcemap);
 		}
 	}
 	if let Some(stack) = &mut report.stack {
 		for record in &mut stack.records {
-			if let Some(sourcemap) = find_sourcemap(&record.file) {
+			if let Some(sourcemap) = find_sourcemap(&record.location.file) {
 				record.transform_with_sourcemap(&sourcemap);
 			}
 		}

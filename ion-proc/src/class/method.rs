@@ -8,30 +8,35 @@ use proc_macro2::Ident;
 use syn::{ItemFn, Result, Signature};
 
 use crate::function::{check_abi, error_handler, set_signature};
-use crate::function::inner::{DefaultInnerBody, impl_inner_fn};
+use crate::function::parameters::Parameters;
+use crate::function::wrapper::impl_wrapper_fn;
 
-pub(crate) fn impl_method<F: FnOnce(&Signature) -> Result<()>>(mut method: ItemFn, predicate: F) -> Result<(ItemFn, usize, Option<Ident>)> {
+pub(crate) fn impl_method<F: FnOnce(&Signature) -> Result<()>>(
+	mut method: ItemFn, ident: &Ident, keep_inner: bool, predicate: F,
+) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
-	let (inner, nargs, this) = impl_inner_fn::<DefaultInnerBody>(method.clone(), true)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ident), keep_inner, false)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
 		set_signature(&mut method)?;
+		method.attrs = Vec::new();
 		method.attrs.push(parse_quote!(#[allow(non_snake_case)]));
+
+		if !keep_inner {
+			inner.attrs.push(parse_quote!(#[allow(non_snake_case)]));
+		}
 
 		let error_handler = error_handler();
 
 		let body = parse_quote!({
 			let args = #krate::Arguments::new(argc, vp);
-
-			#inner
-
-			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| native_fn(cx, &args)));
-
+			#wrapper
+			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &args)));
 			#error_handler
 		});
 		method.block = Box::new(body);
 
-		Ok((method, nargs, this))
+		Ok((method, inner, parameters))
 	})
 }

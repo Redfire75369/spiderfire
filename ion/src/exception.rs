@@ -144,6 +144,12 @@ impl ThrowException for Exception {
 	}
 }
 
+impl From<Error> for Exception {
+	fn from(err: Error) -> Exception {
+		Exception::Error(err)
+	}
+}
+
 impl ErrorReport {
 	/// Creates a new [ErrorReport] with an [Exception] from the runtime.
 	/// Returns [None] if there is no pending exception.

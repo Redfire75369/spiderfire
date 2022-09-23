@@ -15,7 +15,7 @@ fn assert_internal(message: Option<String>) -> Result<()> {
 		Some(msg) => format!("Assertion Failed: {}", msg),
 		None => String::from("Assertion Failed"),
 	};
-	Err(Error::new(&error))
+	Err(Error::new(&error, None))
 }
 
 #[js_fn]
@@ -39,7 +39,7 @@ unsafe fn equals(cx: Context, actual: JSVal, expected: JSVal, message: Option<St
 			assert_internal(message)
 		}
 	} else {
-		Err(Error::new(""))
+		Err(Error::new("", None))
 	}
 }
 

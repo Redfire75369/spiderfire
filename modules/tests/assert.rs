@@ -10,7 +10,7 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 use mozjs::rust::JSEngine;
 
-use ion::{Context, Exception, Function, Object};
+use ion::{Context, Error, Exception, Function, Object};
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
@@ -59,10 +59,10 @@ pub async fn eval_module(rt: &Runtime, test: (&str, &str)) {
 	let exception = rt.global().get_as(rt.cx(), EXCEPTION_STRING, ()).unwrap();
 	let exception = Exception::from_value(rt.cx(), exception);
 	match exception {
-		Exception::Error { ref message, .. } => {
+		Exception::Error(Error { ref message, .. }) => {
 			assert_eq!(message, &error, "{}: {:#?}", filename, exception);
 		}
-		Exception::Other(_) => {
+		_ => {
 			panic!("Exception was not an Error")
 		}
 	}
@@ -71,7 +71,6 @@ pub async fn eval_module(rt: &Runtime, test: (&str, &str)) {
 #[ion::js_fn]
 unsafe fn on_rejected(cx: Context, value: JSVal) {
 	let mut global = Object::global(cx);
-	Exception::from_value(cx, value);
 	global.set(cx, EXCEPTION_STRING, value);
 	Exception::clear(cx);
 }

@@ -26,7 +26,7 @@ fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, r
 			let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
 			Ok(queue.enqueue(Macrotask::Timer(timer), None))
 		} else {
-			Err(Error::new("Macrotask Queue has not been initialised."))
+			Err(Error::new("Macrotask Queue has not been initialised.", None))
 		}
 	})
 }
@@ -38,7 +38,7 @@ fn clear_timer(id: Option<u32>) -> Result<()> {
 				queue.remove(id);
 				Ok(())
 			} else {
-				Err(Error::new("Macrotask Queue has not been initialised."))
+				Err(Error::new("Macrotask Queue has not been initialised.", None))
 			}
 		})
 	} else {
@@ -73,7 +73,7 @@ fn queueMacrotask(callback: Function) -> Result<()> {
 			queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
 			Ok(())
 		} else {
-			Err(Error::new("Macrotask Queue has not been initialised."))
+			Err(Error::new("Macrotask Queue has not been initialised.", None))
 		}
 	})
 }

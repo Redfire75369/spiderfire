@@ -4,62 +4,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::TokenStream;
-use syn::{Block, ItemFn, Result, Signature};
+use proc_macro2::{Ident, TokenStream};
+use syn::{ItemFn, Result};
 
 use crate::function::{check_abi, set_signature};
-use crate::function::inner::{DefaultInnerBody, impl_inner_fn, InnerBody};
+use crate::function::parameters::Parameters;
+use crate::function::wrapper::impl_wrapper_fn;
 
-pub(crate) fn impl_constructor(mut constructor: ItemFn) -> Result<(ItemFn, usize)> {
+pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
-	let (mut inner, nargs, _) = impl_inner_fn::<ClassConstructorInnerBody>(constructor.clone(), true)?;
-
-	inner.sig.output = parse_quote!(-> #krate::Result<()>);
+	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ident), false, true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
+	constructor.attrs = Vec::new();
 	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let error_handler = error_handler();
 
 	let body = parse_quote!({
 		let args = #krate::Arguments::new(argc, vp);
-
-		if !args.is_constructing() {
-			#krate::Error::new("Constructor must be called with \"new\".").throw(cx);
-			return false;
-		}
-
-		#inner
-
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| native_fn(cx, &args)));
-
+		#wrapper
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &args)));
 		#error_handler
 	});
 	constructor.block = Box::new(body);
 
-	Ok((constructor, nargs))
-}
-
-pub(crate) struct ClassConstructorInnerBody;
-
-impl InnerBody for ClassConstructorInnerBody {
-	fn impl_inner(body: Box<Block>, signature: &Signature) -> (TokenStream, bool) {
-		let (body, wrapped) = DefaultInnerBody::impl_inner(body, signature);
-		let body = quote!(
-			let result = #body;
-
-			use ::mozjs::conversions::ToJSValConvertible;
-
-			result.map(|result| unsafe {
-				let b = ::std::boxed::Box::new(result);
-				::mozjs::rooted!(in(cx) let this = ::mozjs::jsapi::JS_NewObjectForConstructor(cx, &CLASS, &args.call_args()));
-				::mozjs::jsapi::SetPrivate(this.get(), Box::into_raw(b) as *mut ::std::ffi::c_void);
-				this.get().to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
-			})
-		);
-		(body, wrapped)
-	}
+	Ok((constructor, inner, parameters))
 }
 
 pub(crate) fn error_handler() -> TokenStream {
@@ -72,16 +43,18 @@ pub(crate) fn error_handler() -> TokenStream {
 				true
 			},
 			Ok(Err(error)) => {
+				use #krate::error::ThrowException;
 				error.throw(cx);
 				false
 			}
 			Err(unwind_error) => {
+				use #krate::error::ThrowException;
 				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::new(unwind).throw(cx);
+					#krate::Error::new(unwind, None).throw(cx);
 				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::new(*unwind).throw(cx);
+					#krate::Error::new(*unwind, None).throw(cx);
 				} else {
-					#krate::Error::new("Unknown Panic Occurred").throw(cx);
+					#krate::Error::new("Unknown Panic Occurred", None).throw(cx);
 					::std::mem::forget(unwind_error);
 				}
 				false
