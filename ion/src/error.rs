@@ -4,13 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::error;
+use std::{error, ptr};
 use std::fmt::{Display, Formatter};
 
+use mozjs::conversions::ToJSValConvertible;
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{JS_ReportErrorUTF8, JSProtoKey};
+use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSProtoKey, JSString};
+use mozjs::jsval::JSVal;
+use mozjs::rust::MutableHandleValue;
 
-use crate::{Context, Location, Object};
+use crate::{Context, Location, Object, Stack};
+use crate::conversions::IntoJSVal;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorKind {
@@ -63,6 +67,25 @@ impl ErrorKind {
 			_ => None,
 		}
 	}
+
+	pub fn to_exception_type(&self) -> JSExnType {
+		use ErrorKind::*;
+		use JSExnType::*;
+		match self {
+			Normal => JSEXN_ERR,
+			Internal => JSEXN_INTERNALERR,
+			Aggregate => JSEXN_AGGREGATEERR,
+			Eval => JSEXN_EVALERR,
+			Range => JSEXN_RANGEERR,
+			Reference => JSEXN_REFERENCEERR,
+			Syntax => JSEXN_SYNTAXERR,
+			Type => JSEXN_TYPEERR,
+			Compile => JSEXN_WASMCOMPILEERROR,
+			Link => JSEXN_WASMLINKERROR,
+			Runtime => JSEXN_WASMRUNTIMEERROR,
+			None => JSEXN_ERR,
+		}
+	}
 }
 
 impl Display for ErrorKind {
@@ -104,6 +127,55 @@ impl Error {
 			object: None,
 		}
 	}
+
+	pub fn to_object(&self, cx: Context) -> Option<Object> {
+		if let Some(object) = self.object {
+			return Some(object);
+		}
+		if self.kind != ErrorKind::None {
+			unsafe {
+				let exception_type = self.kind.to_exception_type();
+
+				let stack = Stack::from_capture(cx).unwrap();
+				let (file, lineno, column) = stack
+					.records
+					.first()
+					.map(|record| &record.location)
+					.map(|location| (&*location.file, location.lineno, location.column))
+					.unwrap_or_default();
+
+				rooted!(in(cx) let stack = *stack.object.unwrap());
+
+				rooted!(in(cx) let mut file_name: JSVal);
+				file.to_jsval(cx, file_name.handle_mut());
+				rooted!(in(cx) let file_name = file_name.get().to_string());
+
+				rooted!(in(cx) let mut message: *mut JSString);
+				if !self.message.is_empty() {
+					rooted!(in(cx) let mut message_val: JSVal);
+					self.message.to_jsval(cx, message_val.handle_mut());
+					message.set(message_val.get().to_string());
+				}
+
+				rooted!(in(cx) let mut error: JSVal);
+
+				if CreateError(
+					cx,
+					exception_type,
+					stack.handle().into(),
+					file_name.handle().into(),
+					lineno,
+					column,
+					ptr::null_mut(),
+					message.handle().into(),
+					error.handle_mut().into(),
+				) {
+					return Some(Object::from(error.get().to_object()));
+				}
+			}
+		}
+		None
+	}
 }
 
 impl ThrowException for Error {
@@ -118,6 +190,14 @@ impl ThrowException for Error {
 				None => (),
 				_ => unimplemented!("Throwing Exception for this is not implemented"),
 			}
+		}
+	}
+}
+
+impl IntoJSVal for Error {
+	unsafe fn into_jsval(self: Box<Self>, cx: Context, mut rval: MutableHandleValue) {
+		if let Some(object) = self.to_object(cx) {
+			rval.set(object.to_value());
 		}
 	}
 }

@@ -21,6 +21,7 @@ pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nar
 	}
 }
 
+#[cfg(feature = "macros")]
 #[macro_export(local_inner_macros)]
 macro_rules! function_spec {
 	($function:expr, $name:expr, $nargs:expr, $flags:expr) => {

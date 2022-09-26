@@ -62,32 +62,30 @@ pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 
 pub(crate) fn error_handler() -> TokenStream {
 	let krate = quote!(::ion);
-	quote!({
-		use ::std::prelude::v1::*;
-
+	quote!(
 		match result {
-			Ok(Ok(v)) => {
+			::std::result::Result::Ok(::std::result::Result::Ok(v)) => {
 				use ::mozjs::conversions::ToJSValConvertible;
 				v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 				true
 			},
-			Ok(Err(error)) => {
+			::std::result::Result::Ok(::std::result::Result::Err(error)) => {
 				use #krate::error::ThrowException;
 				error.throw(cx);
 				false
 			}
-			Err(unwind_error) => {
+			::std::result::Result::Err(unwind_error) => {
 				use #krate::error::ThrowException;
-				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::new(unwind, None).throw(cx);
-				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::new(*unwind, None).throw(cx);
+				if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<String>() {
+					#krate::Error::new(unwind, ::std::option::Option::None).throw(cx);
+				} else if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<&str>() {
+					#krate::Error::new(*unwind, ::std::option::Option::None).throw(cx);
 				} else {
-					#krate::Error::new("Unknown Panic Occurred", None).throw(cx);
+					#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None).throw(cx);
 					::std::mem::forget(unwind_error);
 				}
 				false
 			}
 		}
-	})
+	)
 }

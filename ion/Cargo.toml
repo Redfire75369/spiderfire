@@ -12,15 +12,16 @@ colored = "2.0.0"
 derivative = "2.2.0"
 futures = { version = "0.3.21", features = ["executor"] }
 indent = "0.1.1"
-ion-proc = { path = "../ion-proc" }
+ion-proc = { path = "../ion-proc", optional = true }
 libffi = "3.0.0"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "4cd3f5b81f4c363c039631bf870e61a00c983f63" }
 sourcemap = { version = "6.0.2", optional = true }
 
 [features]
-default = ["sourcemap"]
+default = []
 debugmozjs = ["mozjs/debugmozjs"]
+macros = ["dep:ion-proc"]
 sourcemap = ["dep:sourcemap"]
 
 [lib]

@@ -33,15 +33,22 @@ pub(crate) fn impl_wrapper_fn(
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
+	let inner_output = output.clone();
 	let mut wrapper_output = output.clone();
+
 	let mut result = quote!(match result {
-		Ok(o) => Ok(o.into()),
-		Err(e) => Err(e.into()),
+		::std::result::Result::Ok(o) => ::std::result::Result::Ok(o.into()),
+		::std::result::Result::Err(e) => ::std::result::Result::Err(e.into()),
 	});
+	let mut async_result = result.clone();
+
+	let mut is_result = false;
 	if let Type::Path(ty) = &output {
 		if !type_ends_with(ty, "Result") {
 			result = quote!(::std::result::Result::<#ty, #krate::Exception>::Ok(result));
 			wrapper_output = parse_quote!(::std::result::Result::<#ty, #krate::Exception>);
+		} else {
+			is_result = true;
 		}
 	} else {
 		result = quote!(::std::result::Result::<#output, #krate::Exception>::Ok(result));
@@ -50,6 +57,12 @@ pub(crate) fn impl_wrapper_fn(
 
 	if function.sig.asyncness.is_some() {
 		result = quote!(result);
+		if !is_result {
+			async_result = quote!(::std::result::Result::<#inner_output, #krate::Exception>::Ok(result));
+		} else {
+			async_result = quote!(result);
+		}
+
 		output = parse_quote!(::std::result::Result::<#krate::Promise, #krate::Exception>);
 		wrapper_output = parse_quote!(::std::result::Result::<#krate::Promise, #krate::Exception>);
 	}
@@ -76,11 +89,14 @@ pub(crate) fn impl_wrapper_fn(
 
 	if function.sig.asyncness.is_some() {
 		inner_call = quote!({
-			let future = async move { #call(#(#idents),*).await };
-			if let Some(promise) = ::runtime::promise::future_to_promise(cx, future) {
-				Ok(promise)
+			let future = async move {
+				let result: #inner_output = #call(#(#idents),*).await;
+				#async_result
+			};
+			if let ::std::option::Option::Some(promise) = ::runtime::promise::future_to_promise(cx, future) {
+				::std::result::Result::Ok(promise)
 			} else {
-				Err(#krate::Error::new("Failed to create Promise", None).into())
+				::std::result::Result::Err(#krate::Error::new("Failed to create Promise", None).into())
 			}
 		});
 	}
@@ -95,8 +111,8 @@ pub(crate) fn impl_wrapper_fn(
 				this.get().to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 			});
 			match result {
-				Ok(_) => Ok(()),
-				Err(e) => Err(e.into()),
+				::std::result::Result::Ok(_) => ::std::result::Result::Ok(()),
+				::std::result::Result::Err(e) => ::std::result::Result::Err(e.into()),
 			}
 		);
 		wrapper_output = parse_quote!(::std::result::Result::<(), #krate::Exception>);
@@ -132,7 +148,7 @@ pub(crate) fn argument_checker(ident: &Ident, nargs: usize) -> TokenStream {
 		let error = LitStr::new(&error_msg, ident.span());
 		quote!(
 			if args.len() < #nargs {
-				return Err(#krate::Error::new(#error, None).into());
+				return ::std::result::Result::Err(#krate::Error::new(#error, ::std::option::Option::None).into());
 			}
 		)
 	} else {
@@ -146,7 +162,7 @@ pub(crate) fn constructing_checker(is_constructor: bool) -> Option<TokenStream> 
 	if is_constructor {
 		Some(quote!(
 			if !args.is_constructing() {
-				return Err(#krate::Error::new("Constructor must be called with \"new\".", None).into());
+				return ::std::result::Result::Err(#krate::Error::new("Constructor must be called with \"new\".", ::std::option::Option::None).into());
 			}
 		))
 	} else {

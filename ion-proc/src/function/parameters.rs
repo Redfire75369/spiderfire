@@ -140,7 +140,7 @@ impl Parameter {
 					Type::Reference(ty) => {
 						let ty = ty.elem.clone();
 						Ok(parse_quote!(
-							let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::get_private(cx, #krate::Object::from(args.this().to_object()), Some(args))?;
+							let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::get_private(cx, #krate::Object::from(args.this().to_object()), ::std::option::Option::Some(args))?;
 						))
 					}
 					Type::Path(ty) if type_ends_with(ty, "Box") => {
@@ -148,7 +148,7 @@ impl Parameter {
 						if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().as_ref().unwrap().arguments {
 							let ty = args.args.first().unwrap();
 							Ok(parse_quote!(
-								let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::take_private(cx, #krate::Object::from(args.this().to_object()), Some(args))?;
+								let #pat: #ref_ty = <#ty as #krate::ClassInitialiser>::take_private(cx, #krate::Object::from(args.this().to_object()), ::std::option::Option::Some(args))?;
 							))
 						} else {
 							unreachable!()
@@ -263,10 +263,10 @@ pub(crate) fn unwrap_param(index: Box<Expr>, pat: Box<Pat>, ty: Box<Type>, handl
 	let error = LitStr::new(&error_msg, pat.span());
 
 	parse_quote! {
-		if let Some(value) = unsafe { #krate::types::values::from_value(cx, #handle.get(), #conversion) } {
-			Ok(value)
+		if let ::std::option::Option::Some(value) = #krate::types::values::from_value(cx, #handle.get(), #conversion) {
+			::std::result::Result::Ok(value)
 		} else {
-			Err(#krate::Error::new(#error, Some(#krate::ErrorKind::Type)))
+			::std::result::Result::Err(#krate::Error::new(#error, ::std::option::Option::Some(#krate::ErrorKind::Type)))
 		}
 	}
 }

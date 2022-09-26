@@ -17,7 +17,7 @@ pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
-			name: #name.as_ptr() as *const i8,
+			name: #name.as_ptr() as *const ::core::primitive::i8,
 			flags: ::mozjs::jsapi::JSCLASS_HAS_PRIVATE,
 			cOps: ::std::ptr::null_mut(),
 			spec: ::std::ptr::null_mut(),
@@ -92,7 +92,7 @@ pub(crate) fn class_initialiser(name: Ident, constructor: (Ident, u32)) -> ItemI
 				&CLASS
 			}
 
-			fn constructor() -> (::ion::NativeFunction, u32) {
+			fn constructor() -> (::ion::NativeFunction, ::core::primitive::u32) {
 				(#ident, #nargs)
 			}
 

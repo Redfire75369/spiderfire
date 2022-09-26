@@ -8,7 +8,7 @@ license = "MPL-2.0"
 [dependencies]
 futures = "0.3.24"
 idna = "0.3.0"
-ion = { path = "../ion" }
+ion = { path = "../ion", features = ["macros"] }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
 tokio = { version = "1.21.0", features = ["fs", "rt"] }
 tokio-stream = { version = "0.1.9", features = ["fs"] }

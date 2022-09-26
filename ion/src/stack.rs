@@ -6,13 +6,14 @@
 
 use std::{fmt, ptr};
 use std::fmt::{Display, Formatter};
+use std::mem::MaybeUninit;
 
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{BuildStackString, JSObject, JSString, StackFormat};
+use mozjs::jsapi::{BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSString, StackFormat};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::Context;
+use crate::{Context, Object};
 use crate::format::{INDENT, NEWLINE};
 use crate::utils::normalise_path;
 
@@ -32,6 +33,7 @@ pub struct StackRecord {
 #[derive(Clone, Debug)]
 pub struct Stack {
 	pub records: Vec<StackRecord>,
+	pub object: Option<Object>,
 }
 
 impl Location {
@@ -84,35 +86,18 @@ impl Stack {
 				location: Location { file, lineno, column },
 			});
 		}
-		Stack { records }
+		Stack { records, object: None }
 	}
 
-	pub fn from_object(cx: Context, stack: *mut JSObject) -> Option<Stack> {
-		unsafe {
-			rooted!(in(cx) let stack = stack);
-			rooted!(in(cx) let mut string: *mut JSString);
-
-			if BuildStackString(
-				cx,
-				ptr::null_mut(),
-				stack.handle().into(),
-				string.handle_mut().into(),
-				0,
-				StackFormat::SpiderMonkey,
-			) {
-				let string = jsstr_to_string(cx, string.get());
-				Some(Stack::from_string(&string))
-			} else {
-				None
-			}
-		}
+	pub fn from_object(cx: Context, stack: Object) -> Option<Stack> {
+		stack_to_string(cx, stack).as_deref().map(Stack::from_string).map(|mut s| {
+			s.object = Some(stack);
+			s
+		})
 	}
 
 	pub fn from_capture(cx: Context) -> Option<Stack> {
-		unsafe {
-			capture_stack!(in(cx) let stack);
-			stack.and_then(|stack| stack.as_string(None, StackFormat::SpiderMonkey).as_deref().map(Stack::from_string))
-		}
+		capture_stack(cx, None).and_then(|stack| Stack::from_object(cx, stack))
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -141,5 +126,43 @@ impl Stack {
 impl Display for Stack {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.write_str(&self.format())
+	}
+}
+
+fn capture_stack(cx: Context, max_frames: Option<u32>) -> Option<Object> {
+	unsafe {
+		let ref mut capture = MaybeUninit::uninit();
+		match max_frames {
+			None => JS_StackCapture_AllFrames(capture.as_mut_ptr()),
+			Some(count) => JS_StackCapture_MaxFrames(count, capture.as_mut_ptr()),
+		};
+		let ref mut capture = capture.assume_init();
+
+		rooted!(in(cx) let mut stack = *Object::null());
+		if CaptureCurrentStack(cx, stack.handle_mut().into(), capture) {
+			Some(Object::from(stack.get()))
+		} else {
+			None
+		}
+	}
+}
+
+fn stack_to_string(cx: Context, stack: Object) -> Option<String> {
+	unsafe {
+		rooted!(in(cx) let stack = *stack);
+		rooted!(in(cx) let mut string: *mut JSString);
+
+		if BuildStackString(
+			cx,
+			ptr::null_mut(),
+			stack.handle().into(),
+			string.handle_mut().into(),
+			0,
+			StackFormat::SpiderMonkey,
+		) {
+			Some(jsstr_to_string(cx, string.get()))
+		} else {
+			None
+		}
 	}
 }

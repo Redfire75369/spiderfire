@@ -10,11 +10,13 @@ use mozjs::jsapi::{
 	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException,
 };
 use mozjs::jsval::{JSVal, UndefinedValue};
+use mozjs::rust::MutableHandleValue;
 use mozjs_sys::jsgc::Rooted;
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
 use crate::{Context, Error, ErrorKind, Location, Object, Stack};
+use crate::conversions::IntoJSVal;
 use crate::error::ThrowException;
 use crate::format::{format_value, NEWLINE};
 
@@ -64,7 +66,7 @@ impl Exception {
 
 			let mut class = ESClass::Other;
 			if GetBuiltinClass(cx, exc.handle().into(), &mut class) && class == ESClass::Error {
-				let message = exception.get_as::<String>(cx, "message", ()).unwrap();
+				let message = exception.get_as::<String>(cx, "message", ()).unwrap_or(String::from(""));
 				let file = exception.get_as::<String>(cx, "fileName", ()).unwrap();
 				let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
 				let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
@@ -144,6 +146,19 @@ impl ThrowException for Exception {
 	}
 }
 
+impl IntoJSVal for Exception {
+	unsafe fn into_jsval(self: Box<Self>, cx: Context, mut rval: MutableHandleValue) {
+		match *self {
+			Exception::Error(err) => {
+				if let Some(object) = err.to_object(cx) {
+					rval.set(object.to_value());
+				}
+			}
+			Exception::Other(value) => rval.set(value),
+		}
+	}
+}
+
 impl From<Error> for Exception {
 	fn from(err: Error) -> Exception {
 		Exception::Error(err)
@@ -174,7 +189,7 @@ impl ErrorReport {
 				};
 				if GetPendingExceptionStack(cx, &mut exception_stack) {
 					let exception = Exception::from_value(cx, exception_stack.exception_.ptr);
-					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
+					let stack = Stack::from_object(cx, Object::from(exception_stack.stack_.ptr));
 					Exception::clear(cx);
 					Some(ErrorReport { exception, stack })
 				} else {
@@ -194,7 +209,7 @@ impl ErrorReport {
 		let stack = if let Exception::Error(Error { object: Some(object), .. }) = exception {
 			unsafe {
 				rooted!(in(cx) let exc = *object);
-				Stack::from_object(cx, ExceptionStackOrNull(exc.handle().into()))
+				Stack::from_object(cx, Object::from(ExceptionStackOrNull(exc.handle().into())))
 			}
 		} else {
 			None

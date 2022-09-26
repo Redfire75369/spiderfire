@@ -21,6 +21,7 @@ pub use class::ClassInitialiser;
 pub use error::{Error, ErrorKind};
 pub use exception::*;
 pub use functions::*;
+#[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use objects::*;
 pub use stack::*;

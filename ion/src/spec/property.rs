@@ -73,6 +73,7 @@ pub const fn create_property_spec_double(name: &'static str, double: f64, attrs:
 	}
 }
 
+#[cfg(feature = "macros")]
 #[macro_export(local_inner_macros)]
 macro_rules! property_spec_getter {
 	($getter:expr) => {
@@ -94,6 +95,7 @@ macro_rules! property_spec_getter {
 	};
 }
 
+#[cfg(feature = "macros")]
 #[macro_export(local_inner_macros)]
 macro_rules! property_spec_setter {
 	($setter:expr) => {
@@ -115,6 +117,7 @@ macro_rules! property_spec_setter {
 	};
 }
 
+#[cfg(feature = "macros")]
 #[macro_export(local_inner_macros)]
 macro_rules! property_spec_getter_setter {
 	($getter:expr, $setter:expr, $name:expr, $attrs:expr) => {

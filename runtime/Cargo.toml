@@ -12,7 +12,7 @@ closure = "0.3.0"
 dirs = "4.0.0"
 dunce = "1.0.2"
 futures = "0.3.24"
-ion = { path = "../ion", features = ["sourcemap"] }
+ion = { path = "../ion", features = ["macros", "sourcemap"] }
 indent = "0.1.1"
 indexmap = "1.9.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
