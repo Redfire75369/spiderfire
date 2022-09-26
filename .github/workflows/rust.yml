@@ -18,7 +18,7 @@ jobs:
           - os: windows-latest
             id: windows
             sccache-path: C:\Users\runneradmin\Mozilla\sccache
-          - os: macOS-latest
+          - os: macos-latest
             id: macos
             sccache-path: /Users/runner/Library/Caches/Mozilla.sccache
           - os: ubuntu-latest
@@ -51,6 +51,16 @@ jobs:
         if: matrix.id == 'macos'
         run: |
           brew install python autoconf@2.13 llvm sccache yasm
+      ## TODO: Remove when Homebrew Python 3.10 is supported
+      ## TODO: Waiting on https://github.com/servo/rust-mozjs/issues/559
+      - name: Install Python 3.9
+        if: matrix.id == 'macos'
+        run: |
+          brew install python@3.9
+          cd $(dirname $(which python3.9))
+          rm -f python3 pip3
+          ln -s python3.9 python3
+          ln -s pip3.9 pip3
 
       - name: Install Dependencies on Linux
         if: matrix.id == 'linux'
