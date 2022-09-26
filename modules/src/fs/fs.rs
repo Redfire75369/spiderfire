@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fs, os, result};
+use std::{fs, os};
 use std::iter::Iterator;
 use std::path::Path;
 
@@ -17,45 +17,91 @@ use ion::flags::PropertyFlags;
 use ion::utils::Uint8ArrayBuffer;
 use runtime::modules::NativeModule;
 
+fn check_exists(path: &Path) -> Result<()> {
+	if path.exists() {
+		Err(Error::new(&format!("Path {} does not exist", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
+fn check_not_exists(path: &Path) -> Result<()> {
+	if !path.exists() {
+		Err(Error::new(&format!("Path {} exist", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
+fn check_is_file(path: &Path) -> Result<()> {
+	check_exists(path)?;
+	if path.is_file() {
+		Err(Error::new(&format!("Path {} is not a file", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
+fn check_is_not_file(path: &Path) -> Result<()> {
+	check_exists(path)?;
+	if !path.is_file() {
+		Err(Error::new(&format!("Path {} is a file", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
+fn check_is_dir(path: &Path) -> Result<()> {
+	check_exists(path)?;
+	if path.is_dir() {
+		Err(Error::new(&format!("Path {} is not a directory", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
+fn check_is_not_dir(path: &Path) -> Result<()> {
+	check_exists(path)?;
+	if !path.is_dir() {
+		Err(Error::new(&format!("Path {} is a directory", path.to_str().unwrap()), None))
+	} else {
+		Ok(())
+	}
+}
+
 #[js_fn]
-async unsafe fn readBinary(path_str: String) -> result::Result<Uint8ArrayBuffer, ()> {
+async fn readBinary(path_str: String) -> Result<Uint8ArrayBuffer> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		if let Ok(bytes) = tokio::fs::read(&path).await {
-			return Ok(Uint8ArrayBuffer { buf: bytes });
-		}
+	check_is_file(&path)?;
+	if let Ok(bytes) = tokio::fs::read(&path).await {
+		Ok(Uint8ArrayBuffer { buf: bytes })
+	} else {
+		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
-	Err(())
 }
 
 #[js_fn]
 unsafe fn readBinarySync(path_str: String) -> Result<Uint8ArrayBuffer> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		if let Ok(bytes) = fs::read(&path) {
-			Ok(Uint8ArrayBuffer { buf: bytes })
-		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str), None))
-		}
+	check_is_file(&path)?;
+	if let Ok(bytes) = fs::read(&path) {
+		Ok(Uint8ArrayBuffer { buf: bytes })
 	} else {
-		Err(Error::new(&format!("File {} does not exist", path_str), None))
+		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn readString(path_str: String) -> result::Result<String, ()> {
+async fn readString(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		if let Ok(str) = tokio::fs::read_to_string(&path).await {
-			Ok(str)
-		} else {
-			Err(())
-		}
+	check_is_file(&path)?;
+	if let Ok(str) = tokio::fs::read_to_string(&path).await {
+		Ok(str)
 	} else {
-		Err(())
+		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
 }
 
@@ -63,33 +109,27 @@ async fn readString(path_str: String) -> result::Result<String, ()> {
 fn readStringSync(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		if let Ok(str) = fs::read_to_string(&path) {
-			Ok(str)
-		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str), None))
-		}
+	check_is_file(&path)?;
+	if let Ok(str) = fs::read_to_string(&path) {
+		Ok(str)
 	} else {
-		Err(Error::new(&format!("File {} does not exist", path_str), None))
+		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
 }
 
 #[js_fn]
-async fn readDir(path_str: String) -> result::Result<Vec<String>, ()> {
+async fn readDir(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		if let Ok(dir) = tokio::fs::read_dir(path).await {
-			let entries: Vec<_> = ReadDirStream::new(dir).filter_map(|entry| async move { entry.ok() }).collect().await;
-			let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
-			str_entries.sort();
+	check_is_dir(&path)?;
+	if let Ok(dir) = tokio::fs::read_dir(path).await {
+		let entries: Vec<_> = ReadDirStream::new(dir).filter_map(|entry| async move { entry.ok() }).collect().await;
+		let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
+		str_entries.sort();
 
-			Ok(str_entries)
-		} else {
-			Ok(Vec::new())
-		}
+		Ok(str_entries)
 	} else {
-		Err(())
+		Ok(Vec::new())
 	}
 }
 
@@ -97,163 +137,122 @@ async fn readDir(path_str: String) -> result::Result<Vec<String>, ()> {
 fn readDirSync(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		if let Ok(dir) = fs::read_dir(path) {
-			let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect();
-			let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
-			str_entries.sort();
+	check_is_dir(&path)?;
+	if let Ok(dir) = fs::read_dir(path) {
+		let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect();
+		let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
+		str_entries.sort();
 
-			Ok(str_entries)
-		} else {
-			Ok(Vec::new())
-		}
+		Ok(str_entries)
 	} else {
-		Err(Error::new(&format!("Directory {} does not exist", path_str), None))
+		Ok(Vec::new())
 	}
 }
 
 #[js_fn]
-async fn write(path_str: String, contents: String) -> result::Result<bool, ()> {
+async fn write(path_str: String, contents: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_dir() {
-		Ok(tokio::fs::write(path, contents).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_not_dir(&path)?;
+	Ok(tokio::fs::write(path, contents).await.is_ok())
 }
 
 #[js_fn]
 fn writeSync(path_str: String, contents: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_dir() {
-		Ok(fs::write(path, contents).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is a directory", path_str), None))
-	}
+	check_is_not_dir(&path)?;
+	Ok(fs::write(path, contents).is_ok())
 }
 
 #[js_fn]
-async fn createDir(path_str: String) -> result::Result<bool, ()> {
+async fn createDir(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_file() {
-		Ok(tokio::fs::create_dir(path).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_not_file(&path)?;
+	Ok(tokio::fs::create_dir(path).await.is_ok())
 }
 
 #[js_fn]
 fn createDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_file() {
-		Ok(fs::create_dir(path).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is a file", path_str), None))
-	}
+	check_is_not_file(&path)?;
+	Ok(fs::create_dir(path).is_ok())
 }
 
 #[js_fn]
-async fn createDirRecursive(path_str: String) -> result::Result<bool, ()> {
+async fn createDirRecursive(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_file() {
-		Ok(tokio::fs::create_dir_all(path).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_not_file(&path)?;
+	Ok(tokio::fs::create_dir_all(path).await.is_ok())
 }
 
 #[js_fn]
 fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if !path.is_file() {
-		Ok(fs::create_dir_all(path).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is a file", path_str), None))
-	}
+	check_is_not_file(&path)?;
+	Ok(fs::create_dir_all(path).is_ok())
 }
 
 #[js_fn]
-async fn removeFile(path_str: String) -> result::Result<bool, ()> {
+async fn removeFile(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		Ok(tokio::fs::remove_file(path).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_file(&path)?;
+	Ok(tokio::fs::remove_file(path).await.is_ok())
 }
 
 #[js_fn]
 fn removeFileSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_file() {
-		Ok(fs::remove_file(path).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is not a file", path_str), None))
-	}
+	check_is_file(&path)?;
+	Ok(fs::remove_file(path).is_ok())
 }
 
 #[js_fn]
-async fn removeDir(path_str: String) -> result::Result<bool, ()> {
+async fn removeDir(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		Ok(fs::remove_file(path).is_ok())
-	} else {
-		Err(())
-	}
+	check_is_dir(&path)?;
+	Ok(tokio::fs::remove_file(path).await.is_ok())
 }
 
 #[js_fn]
 fn removeDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		Ok(fs::remove_file(path).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is not a directory", path_str), None))
-	}
+	check_is_dir(&path)?;
+	Ok(fs::remove_file(path).is_ok())
 }
 
 #[js_fn]
-async fn removeDirRecursive(path_str: String) -> result::Result<bool, ()> {
+async fn removeDirRecursive(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		Ok(tokio::fs::remove_dir_all(path).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_dir(&path)?;
+	Ok(tokio::fs::remove_dir_all(path).await.is_ok())
 }
 
 #[js_fn]
 fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	if path.is_dir() {
-		Ok(fs::remove_dir_all(path).is_ok())
-	} else {
-		Err(Error::new(&format!("Path {} is not a directory", path_str), None))
-	}
+	check_is_dir(&path)?;
+	Ok(fs::remove_dir_all(path).is_ok())
 }
 
 #[js_fn]
-async fn copy(from_str: String, to_str: String) -> result::Result<bool, ()> {
+async fn copy(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	if !from.is_dir() || !to.is_dir() {
-		Ok(tokio::fs::copy(from, to).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_not_dir(&from)?;
+	check_is_not_dir(&to)?;
+	Ok(tokio::fs::copy(from, to).await.is_ok())
 }
 
 #[js_fn]
@@ -261,23 +260,19 @@ fn copySync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	if !from.is_dir() || !to.is_dir() {
-		Ok(fs::copy(from, to).is_ok())
-	} else {
-		Err(Error::new("", None))
-	}
+	check_is_not_dir(&from)?;
+	check_is_not_dir(&to)?;
+	Ok(fs::copy(from, to).is_ok())
 }
 
 #[js_fn]
-async fn rename(from_str: String, to_str: String) -> result::Result<bool, ()> {
+async fn rename(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	if !from.is_dir() || !to.is_dir() {
-		Ok(tokio::fs::rename(from, to).await.is_ok())
-	} else {
-		Err(())
-	}
+	check_is_not_dir(&from)?;
+	check_is_not_dir(&to)?;
+	Ok(tokio::fs::rename(from, to).await.is_ok())
 }
 
 #[js_fn]
@@ -285,35 +280,30 @@ fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	if !from.is_dir() || !to.is_dir() {
-		Ok(fs::rename(from, to).is_ok())
-	} else {
-		Err(Error::new("", None))
-	}
+	check_is_not_dir(&from)?;
+	check_is_not_dir(&to)?;
+	Ok(fs::rename(from, to).is_ok())
 }
 
 #[js_fn]
-async fn softLink(original_str: String, link_str: String) -> result::Result<bool, ()> {
+async fn softLink(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	if !link.exists() {
-		#[cfg(target_family = "unix")]
-		{
-			Ok(tokio::fs::symlink(original, link).await.is_ok())
+	check_not_exists(&link)?;
+	#[cfg(target_family = "unix")]
+	{
+		Ok(tokio::fs::symlink(original, link).await.is_ok())
+	}
+	#[cfg(target_family = "windows")]
+	{
+		if original.is_file() {
+			Ok(tokio::fs::symlink_file(original, link).await.is_ok())
+		} else if original.is_dir() {
+			Ok(tokio::fs::symlink_dir(original, link).await.is_ok())
+		} else {
+			Ok(false)
 		}
-		#[cfg(target_family = "windows")]
-		{
-			if original.is_file() {
-				Ok(tokio::fs::symlink_file(original, link).await.is_ok())
-			} else if original.is_dir() {
-				Ok(tokio::fs::symlink_dir(original, link).await.is_ok())
-			} else {
-				Ok(false)
-			}
-		}
-	} else {
-		Err(())
 	}
 }
 
@@ -322,36 +312,30 @@ fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	if !link.exists() {
-		#[cfg(target_family = "unix")]
-		{
-			Ok(os::unix::fs::symlink(original, link).is_ok())
+	check_not_exists(&link)?;
+	#[cfg(target_family = "unix")]
+	{
+		Ok(os::unix::fs::symlink(original, link).is_ok())
+	}
+	#[cfg(target_family = "windows")]
+	{
+		if original.is_file() {
+			Ok(os::windows::fs::symlink_file(original, link).is_ok())
+		} else if original.is_dir() {
+			Ok(os::windows::fs::symlink_dir(original, link).is_ok())
+		} else {
+			Ok(false)
 		}
-		#[cfg(target_family = "windows")]
-		{
-			if original.is_file() {
-				Ok(os::windows::fs::symlink_file(original, link).is_ok())
-			} else if original.is_dir() {
-				Ok(os::windows::fs::symlink_dir(original, link).is_ok())
-			} else {
-				Ok(false)
-			}
-		}
-	} else {
-		Err(Error::new("Link already exists", None))
 	}
 }
 
 #[js_fn]
-async fn hardLink(original_str: String, link_str: String) -> result::Result<bool, ()> {
+async fn hardLink(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	if !link.exists() {
-		Ok(fs::hard_link(original, link).is_ok())
-	} else {
-		Err(())
-	}
+	check_not_exists(&link)?;
+	Ok(tokio::fs::hard_link(original, link).await.is_ok())
 }
 
 #[js_fn]
@@ -359,11 +343,8 @@ fn hardLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	if !link.exists() {
-		Ok(fs::hard_link(original, link).is_ok())
-	} else {
-		Err(Error::new("Link already exists", None))
-	}
+	check_not_exists(&link)?;
+	Ok(fs::hard_link(original, link).is_ok())
 }
 
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
