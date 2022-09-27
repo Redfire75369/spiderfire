@@ -73,7 +73,7 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log(cx: Context, #[varargs] values: Vec<JSVal>) {
+fn log(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -82,7 +82,7 @@ fn log(cx: Context, #[varargs] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn warn(cx: Context, #[varargs] values: Vec<JSVal>) {
+fn warn(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -91,7 +91,7 @@ fn warn(cx: Context, #[varargs] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn error(cx: Context, #[varargs] values: Vec<JSVal>) {
+fn error(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values, true);
@@ -100,7 +100,7 @@ fn error(cx: Context, #[varargs] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn debug(cx: Context, #[varargs] values: Vec<JSVal>) {
+fn debug(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values, false);
@@ -109,7 +109,7 @@ fn debug(cx: Context, #[varargs] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn assert(cx: Context, assertion: Option<bool>, #[varargs] values: Vec<JSVal>) {
+fn assert(cx: Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -151,7 +151,7 @@ fn clear() {
 }
 
 #[js_fn]
-unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) {
+unsafe fn trace(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -176,7 +176,7 @@ unsafe fn trace(cx: Context, #[varargs] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn group(cx: Context, #[varargs] values: Vec<JSVal>) {
+fn group(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
@@ -259,7 +259,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog(cx: Context, label: Option<String>, #[varargs] values: Vec<JSVal>) {
+fn timeLog(cx: Context, label: Option<String>, #[ion(varargs)] values: Vec<JSVal>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();

@@ -17,7 +17,7 @@ mod keywords {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) enum InnerAttributeArgument {
+pub(crate) enum FromJSValAttribute {
 	Inherit(keywords::inherit),
 	Optional(keywords::optional),
 	Convert {
@@ -43,15 +43,17 @@ pub(crate) enum DefaultValue {
 	Expr(Expr),
 }
 
-impl Parse for InnerAttributeArgument {
-	fn parse(input: ParseStream) -> Result<InnerAttributeArgument> {
+impl Parse for FromJSValAttribute {
+	fn parse(input: ParseStream) -> Result<FromJSValAttribute> {
+		use FromJSValAttribute::*;
+
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::inherit) {
-			Ok(Self::Inherit(input.parse()?))
+			Ok(Inherit(input.parse()?))
 		} else if lookahead.peek(keywords::optional) {
-			Ok(Self::Optional(input.parse()?))
+			Ok(Optional(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
-			Ok(Self::Convert {
+			Ok(Convert {
 				kw: input.parse()?,
 				eq: input.parse()?,
 				expr: input.parse()?,
@@ -60,9 +62,9 @@ impl Parse for InnerAttributeArgument {
 			let kw = input.parse()?;
 			let eq: Option<_> = input.parse()?;
 			let def = eq.map(|_| input.parse()).transpose()?;
-			Ok(Self::Default { kw, eq, def })
+			Ok(Default { kw, eq, def })
 		} else if lookahead.peek(keywords::parser) {
-			Ok(Self::Parser {
+			Ok(Parser {
 				kw: input.parse()?,
 				eq: input.parse()?,
 				expr: input.parse()?,

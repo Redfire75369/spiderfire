@@ -7,17 +7,18 @@
 use proc_macro2::{Ident, TokenStream};
 use syn::{ItemFn, Result};
 
+use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 
-pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result<(ItemFn, ItemFn, Parameters)> {
+pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result<(Method, Parameters)> {
 	let krate = quote!(::ion);
 	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ident), false, true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
-	constructor.attrs = Vec::new();
+	constructor.attrs.clear();
 	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let error_handler = error_handler();
@@ -28,9 +29,16 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &args)));
 		#error_handler
 	});
-	constructor.block = Box::new(body);
+	constructor.block = body;
 
-	Ok((constructor, inner, parameters))
+	let method = Method {
+		receiver: MethodReceiver::Static,
+		method: constructor,
+		inner: Some(inner),
+		nargs: parameters.nargs.0,
+		aliases: vec![],
+	};
+	Ok((method, parameters))
 }
 
 pub(crate) fn error_handler() -> TokenStream {

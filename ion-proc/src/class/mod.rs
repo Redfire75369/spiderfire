@@ -7,16 +7,19 @@
 use std::collections::HashMap;
 
 use quote::ToTokens;
-use syn::{Error, ImplItem, Item, ItemFn, ItemMod, parse2, Result, Visibility};
+use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, parse2, Result, Visibility};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
+use crate::class::attribute::MethodAttribute;
 use crate::class::constructor::impl_constructor;
-use crate::class::method::impl_method;
+use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::property::Property;
 use crate::class::statics::{class_initialiser, class_spec, into_js_val, methods_to_specs, properties_to_specs};
 
 pub(crate) mod accessor;
+pub(crate) mod attribute;
 pub(crate) mod constructor;
 pub(crate) mod method;
 pub(crate) mod property;
@@ -27,7 +30,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 	let mut class = None;
 	let mut constructor = None;
-	let mut regular_impl = None;
+	let mut implementation = None;
 	let mut methods = Vec::new();
 	let mut static_methods = Vec::new();
 	let mut accessors = HashMap::new();
@@ -39,7 +42,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		content_to_remove.push(i);
 		match item {
 			Item::Struct(str) if class.is_none() => class = Some(str.clone()),
-			Item::Impl(imp) if regular_impl.is_none() => {
+			Item::Impl(imp) if implementation.is_none() => {
 				let object = class.as_ref().map(|o| {
 					let ident = o.ident.clone();
 					parse_quote!(#ident)
@@ -47,91 +50,101 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 				if Some(&*imp.self_ty) == object.as_ref() {
 					let object = parse2(object.unwrap().to_token_stream())?;
 
-					let mut impl_items_to_add = Vec::new();
 					let mut impl_items_to_remove = Vec::new();
 					let mut imp = imp.clone();
 
 					for (j, item) in imp.items.iter().enumerate() {
-						impl_items_to_remove.push(j);
 						match item {
 							ImplItem::Method(method) => {
 								let mut method: ItemFn = parse2(method.to_token_stream())?;
 								match &method.vis {
 									Visibility::Public(_) => (),
-									_ => {
-										impl_items_to_remove.pop();
-										continue;
+									_ => continue,
+								}
+
+								let mut names = vec![method.sig.ident.clone()];
+								let mut indexes = Vec::new();
+
+								let mut kind = None;
+								let mut internal = false;
+
+								for (index, attr) in method.attrs.iter().enumerate() {
+									if attr.path.is_ident("ion") {
+										let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+
+										for arg in args {
+											kind = kind.or(arg.to_kind());
+											match arg {
+												MethodAttribute::Internal(_) => {
+													internal = true;
+												}
+												MethodAttribute::Alias(alias) => {
+													for alias in alias.aliases {
+														names.push(alias);
+													}
+												}
+												_ => (),
+											}
+										}
+										indexes.push(index);
 									}
 								}
-								let mut indices = (None, None, None);
 
-								for (i, attr) in method.attrs.iter().enumerate() {
-									if attr == &parse_quote!(#[constructor]) {
-										indices.0 = Some(i);
-									} else if attr == &parse_quote!(#[get]) {
-										indices.1 = Some(i);
-									} else if attr == &parse_quote!(#[set]) {
-										indices.2 = Some(i);
+								if !internal {
+									for index in indexes {
+										method.attrs.remove(index);
 									}
-								}
 
-								if let Some(index) = indices.0 {
-									method.attrs.remove(index);
-									let (cons, inner, parameters) = impl_constructor(method.clone(), &object)?;
-									constructor = Some((cons, parameters.nargs.0));
-									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
-									continue;
-								}
+									match kind {
+										Some(MethodKind::Constructor) => {
+											let (cons, _) = impl_constructor(method.clone(), &object)?;
+											constructor = Some(Method { aliases: names, ..cons });
+										}
+										Some(MethodKind::Getter) => {
+											let name = get_accessor_name(&method.sig.ident, false);
+											let (getter, parameters) = impl_accessor(&method, &object, false, false)?;
+											let getter = Method { aliases: names, ..getter };
 
-								if let Some(index) = indices.1 {
-									method.attrs.remove(index);
-									let name = get_accessor_name(&method.sig.ident, false);
-									let (getter, inner, parameters) = impl_accessor(&method, &object, false, false)?;
+											if parameters.this.is_some() {
+												insert_accessor(&mut accessors, name, Some(getter), None);
+											} else {
+												insert_accessor(&mut static_accessors, name, Some(getter), None);
+											}
+										}
+										Some(MethodKind::Setter) => {
+											let name = get_accessor_name(&method.sig.ident, true);
+											let (setter, parameters) = impl_accessor(&method, &object, false, true)?;
+											let setter = Method { aliases: names, ..setter };
 
-									if parameters.this.is_some() {
-										insert_accessor(&mut accessors, name, Some(getter), None);
-									} else {
-										insert_accessor(&mut static_accessors, name, Some(getter), None);
+											if parameters.this.is_some() {
+												insert_accessor(&mut accessors, name, None, Some(setter));
+											} else {
+												insert_accessor(&mut static_accessors, name, None, Some(setter));
+											}
+										}
+										None => {
+											let (method, _) = impl_method(method.clone(), &object, false, |_| Ok(()))?;
+											let method = Method { aliases: names, ..method };
+
+											if method.receiver == MethodReceiver::Dynamic {
+												methods.push(method);
+											} else {
+												static_methods.push(method);
+											}
+										}
+										Some(MethodKind::Internal) => continue,
 									}
-									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
-									continue;
-								}
-
-								if let Some(index) = indices.2 {
-									method.attrs.remove(index);
-									let name = get_accessor_name(&method.sig.ident, true);
-									let (setter, inner, parameters) = impl_accessor(&method, &object, false, true)?;
-
-									if parameters.this.is_some() {
-										insert_accessor(&mut accessors, name, None, Some(setter));
-									} else {
-										insert_accessor(&mut static_accessors, name, None, Some(setter));
-									}
-									impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
-									continue;
-								}
-
-								let (method, inner, parameters) = impl_method(method.clone(), &object, false, |_| Ok(()))?;
-								let nargs = parameters.nargs.0;
-
-								impl_items_to_add.push(ImplItem::Method(parse2(inner.to_token_stream())?));
-								if parameters.this.is_some() {
-									methods.push((method, nargs));
-								} else {
-									static_methods.push((method, nargs));
+									impl_items_to_remove.push(j);
 								}
 							}
 							ImplItem::Const(con) => {
-								impl_items_to_remove.pop();
 								if let Visibility::Public(_) = con.vis {
 									if let Some(property) = Property::from_const(con) {
 										static_properties.push(property);
 									}
 								}
 							}
-							_ => {
-								impl_items_to_remove.pop();
-							}
+							_ => (),
 						}
 					}
 
@@ -139,11 +152,8 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					for index in impl_items_to_remove {
 						imp.items.remove(index);
 					}
-					for item in impl_items_to_add {
-						imp.items.push(item);
-					}
 
-					regular_impl = Some(imp);
+					implementation = Some(imp);
 				} else {
 					content_to_remove.pop();
 				}
@@ -169,8 +179,8 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	if constructor.is_none() {
 		return Err(Error::new(module.span(), "Expected Constructor within Module"));
 	}
-	let regular_impl = regular_impl.unwrap();
-	let (constructor, constructor_nargs) = constructor.unwrap();
+
+	let constructor = constructor.unwrap();
 
 	let class_spec = class_spec(&class);
 
@@ -180,27 +190,20 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
 
 	let into_js_val = into_js_val(class.ident.clone());
-	let class_initialiser = class_initialiser(class.ident.clone(), (constructor.sig.ident.clone(), constructor_nargs as u32));
+	let class_initialiser = class_initialiser(class.ident.clone(), &constructor);
 
-	let methods: Vec<_> = methods.into_iter().map(|(m, _)| m).collect();
-	let static_methods: Vec<_> = static_methods.into_iter().map(|(m, _)| m).collect();
 	let accessors = flatten_accessors(accessors);
-	let static_accessors: Vec<_> = flatten_accessors(static_accessors);
+	let static_accessors = flatten_accessors(static_accessors);
 
 	content.push(Item::Struct(class));
-	content.push(Item::Impl(regular_impl));
-	content.push(Item::Fn(constructor));
-	for method in methods {
-		content.push(Item::Fn(method));
-	}
-	for accessor in accessors {
-		content.push(Item::Fn(accessor));
-	}
-	for method in static_methods {
-		content.push(Item::Fn(method));
-	}
-	for accessor in static_accessors {
-		content.push(Item::Fn(accessor));
+
+	if let Some(mut regular_impl) = implementation {
+		add_methods(content, &mut regular_impl, vec![constructor]);
+		add_methods(content, &mut regular_impl, methods);
+		add_methods(content, &mut regular_impl, static_methods);
+		add_methods(content, &mut regular_impl, accessors);
+		add_methods(content, &mut regular_impl, static_accessors);
+		content.push(Item::Impl(regular_impl));
 	}
 
 	content.push(Item::Static(class_spec));
@@ -213,4 +216,13 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	content.push(Item::Impl(class_initialiser));
 
 	Ok(module)
+}
+
+fn add_methods(content: &mut Vec<Item>, imp: &mut ItemImpl, methods: Vec<Method>) {
+	for method in methods {
+		content.push(Item::Fn(method.method));
+		if let Some(inner) = method.inner {
+			imp.items.push(ImplItem::Method(parse2(inner.to_token_stream()).unwrap()))
+		}
+	}
 }

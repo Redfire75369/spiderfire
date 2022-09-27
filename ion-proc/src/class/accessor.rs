@@ -8,13 +8,15 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use proc_macro2::{Ident, TokenStream};
-use syn::{Error, Expr, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
+use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
+use syn::punctuated::Punctuated;
 
-use crate::class::method::impl_method;
+use crate::class::attribute::PropertyAttribute;
+use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
 #[derive(Debug)]
-pub(crate) struct Accessor(Option<ItemFn>, Option<ItemFn>);
+pub(crate) struct Accessor(Option<Method>, Option<Method>);
 
 impl Accessor {
 	pub(crate) fn from_field(field: &mut Field, class: Ident) -> Result<Option<Accessor>> {
@@ -22,20 +24,34 @@ impl Accessor {
 		if let Visibility::Public(_) = field.vis {
 			let ident = field.ident.as_ref().unwrap().clone();
 			let ty = field.ty.clone();
-			let mut convert = None;
+			let mut conversion = None;
 
-			let mut index = None;
-			for (i, attr) in field.attrs.iter().enumerate() {
-				if attr.path == parse_quote!(convert) {
-					index = Some(i);
-					let convert_ty: Expr = attr.parse_args()?;
-					convert = Some(convert_ty);
+			let mut names = vec![ident.clone()];
+			let mut indexes = Vec::new();
+			for (index, attr) in field.attrs.iter().enumerate() {
+				if attr.path.is_ident("ion") {
+					let args: Punctuated<PropertyAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+
+					for arg in args {
+						match arg {
+							PropertyAttribute::Convert { conversion: conversion_expr, .. } => {
+								conversion = conversion.or(Some(conversion_expr));
+							}
+							PropertyAttribute::Alias(alias) => {
+								for alias in alias.aliases {
+									names.push(alias);
+								}
+							}
+						}
+					}
+					indexes.push(index);
 				}
 			}
-			if let Some(index) = index {
+			indexes.reverse();
+			for index in indexes {
 				field.attrs.remove(index);
 			}
-			let convert = convert.unwrap_or_else(|| parse_quote!(()));
+			let convert = conversion.unwrap_or_else(|| parse_quote!(()));
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
 			let setter_ident = Ident::new(&format!("set_{}", ident), ident.span());
@@ -52,8 +68,10 @@ impl Accessor {
 				}
 			);
 
-			let (getter, _, _) = impl_accessor(&getter, &class, true, false)?;
-			let (setter, _, _) = impl_accessor(&setter, &class, true, true)?;
+			let (mut getter, _) = impl_accessor(&getter, &class, true, false)?;
+			let (mut setter, _) = impl_accessor(&setter, &class, true, true)?;
+			getter.aliases = names.clone();
+			setter.aliases = names;
 
 			Ok(Some(Accessor(Some(getter), Some(setter))))
 		} else {
@@ -63,30 +81,34 @@ impl Accessor {
 
 	pub(crate) fn to_spec(&self, name: Ident) -> TokenStream {
 		let krate = quote!(::ion);
-		let Accessor(getter, setter) = self;
-		if let Some(getter) = getter {
-			let getter = getter.sig.ident.clone();
-			let name = LitStr::new(&name.to_string(), name.span());
-			if let Some(setter) = setter {
-				let setter = setter.sig.ident.clone();
+
+		match self {
+			Accessor(Some(getter), Some(setter)) => {
+				let getter = getter.method.sig.ident.clone();
+				let setter = setter.method.sig.ident.clone();
+
+				let name = LitStr::new(&name.to_string(), name.span());
 				quote!(#krate::property_spec_getter_setter!(#getter, #setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			} else {
+			}
+			Accessor(Some(getter), None) => {
+				let getter = getter.method.sig.ident.clone();
 				quote!(#krate::property_spec_getter!(#getter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
-		} else if let Some(setter) = setter {
-			let setter = setter.sig.ident.clone();
-			let name = LitStr::new(&name.to_string(), name.span());
-			quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-		} else {
-			let name = LitStr::new(&format!("{}\0", name), name.span());
-			quote!(
-				#krate::spec::create_property_spec_accessor(
-					#name,
-					::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-					::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-					#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
+			Accessor(None, Some(setter)) => {
+				let setter = setter.method.sig.ident.clone();
+				quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+			}
+			Accessor(None, None) => {
+				let name = LitStr::new(&format!("{}\0", name), name.span());
+				quote!(
+					#krate::spec::create_property_spec_accessor(
+						#name,
+						::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+						::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+						#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
+					)
 				)
-			)
+			}
 		}
 	}
 }
@@ -100,7 +122,7 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is_setter: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
+pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = if is_setter { 1 } else { 0 };
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -108,7 +130,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is
 		format!("Expected Getter to have {} arguments", expected_args)
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
-	let (accessor, inner, parameters) = impl_method(method.clone(), ident, keep_inner, |sig| {
+	let (accessor, parameters) = impl_method(method.clone(), ident, keep_inner, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ident), true)?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Normal(ty, _) = &param {
@@ -120,10 +142,11 @@ pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is
 		});
 		(nargs == expected_args).then(|| ()).ok_or(error)
 	})?;
-	Ok((accessor, inner, parameters))
+
+	Ok((accessor, parameters))
 }
 
-pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<ItemFn>, setter: Option<ItemFn>) {
+pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<Method>, setter: Option<Method>) {
 	match accessors.entry(name) {
 		Entry::Occupied(mut o) => match (getter, setter) {
 			(Some(g), Some(s)) => *o.get_mut() = Accessor(Some(g), Some(s)),
@@ -137,7 +160,7 @@ pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: S
 	}
 }
 
-pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<ItemFn> {
+pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<Method> {
 	accessors
 		.into_iter()
 		.flat_map(|(_, Accessor(getter, setter))| [getter, setter])

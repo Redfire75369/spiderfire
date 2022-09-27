@@ -48,8 +48,8 @@ pub trait ThrowException {
 impl ErrorKind {
 	pub fn from_proto_key(key: JSProtoKey) -> ErrorKind {
 		use JSProtoKey::{
-			JSProto_Error, JSProto_InternalError, JSProto_AggregateError, JSProto_EvalError, JSProto_RangeError, JSProto_ReferenceError,
-			JSProto_SyntaxError, JSProto_TypeError, JSProto_CompileError, JSProto_LinkError, JSProto_RuntimeError,
+			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError, JSProto_LinkError,
+			JSProto_RangeError, JSProto_ReferenceError, JSProto_RuntimeError, JSProto_SyntaxError, JSProto_TypeError,
 		};
 		use ErrorKind::*;
 		match key {

@@ -7,9 +7,10 @@
 use std::collections::HashMap;
 
 use proc_macro2::Ident;
-use syn::{ItemFn, ItemImpl, ItemStatic, ItemStruct, LitStr};
+use syn::{ItemImpl, ItemStatic, ItemStruct, LitStr};
 
 use crate::class::accessor::Accessor;
+use crate::class::method::Method;
 use crate::class::property::Property;
 
 pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
@@ -27,17 +28,24 @@ pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
 	)
 }
 
-pub(crate) fn methods_to_specs(methods: &[(ItemFn, usize)], stat: bool) -> ItemStatic {
+pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 	let krate = quote!(::ion);
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
 		.iter()
-		.map(|(method, nargs)| {
-			let name = LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span());
-			let ident = method.sig.ident.clone();
-			let nargs = *nargs as u16;
-			quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
+		.map(|method| {
+			let ident = method.method.sig.ident.clone();
+			let nargs = method.nargs as u16;
+			method
+				.aliases
+				.iter()
+				.map(|alias| {
+					let name = LitStr::new(&alias.to_string(), alias.span());
+					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
+				})
+				.collect::<Vec<_>>()
 		})
+		.flatten()
 		.collect();
 	specs.push(quote!(::mozjs::jsapi::JSFunctionSpec::ZERO));
 
@@ -80,9 +88,10 @@ pub(crate) fn into_js_val(name: Ident) -> ItemImpl {
 	)
 }
 
-pub(crate) fn class_initialiser(name: Ident, constructor: (Ident, u32)) -> ItemImpl {
+pub(crate) fn class_initialiser(name: Ident, constructor: &Method) -> ItemImpl {
 	let krate = quote!(::ion);
-	let (ident, nargs) = constructor;
+	let ident = constructor.method.sig.ident.clone();
+	let nargs = constructor.nargs as u32;
 	let name_str = LitStr::new(&name.to_string(), ident.span());
 	parse_quote!(
 		impl #krate::ClassInitialiser for #name {

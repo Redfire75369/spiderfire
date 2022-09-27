@@ -10,6 +10,7 @@ use syn::{Error, Expr, FnArg, LitStr, Pat, PathArguments, PatType, Result, Stmt,
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
+use crate::function::attribute::ParameterAttribute;
 use crate::utils::type_ends_with;
 
 #[derive(Debug)]
@@ -49,23 +50,33 @@ impl Parameter {
 						Ok(Parameter::This(ty.clone()))
 					}
 				} else {
-					let mut convert = None;
+					let mut conversion = None;
 					let mut vararg = false;
+
 					for attr in &ty.attrs {
-						if attr == &parse_quote!(#[this]) {
-							return Ok(Parameter::This(ty.clone()));
-						} else if attr == &parse_quote!(#[varargs]) {
-							vararg = true;
-						} else if attr.path == parse_quote!(convert) {
-							let convert_expr: Expr = attr.parse_args()?;
-							convert = Some(convert_expr);
+						if attr.path.is_ident("ion") {
+							let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+
+							for arg in args {
+								match arg {
+									ParameterAttribute::This(_) => return Ok(Parameter::This(ty.clone())),
+									ParameterAttribute::VarArgs(_) => {
+										vararg = true;
+									}
+									ParameterAttribute::Convert { conversion: conversion_expr, .. } => {
+										conversion = Some(conversion_expr);
+									}
+								}
+							}
 						}
 					}
 
+					let conversion = Box::new(conversion.unwrap_or_else(|| parse_quote!(())));
+
 					if vararg {
-						Ok(Parameter::VarArgs(ty.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
+						Ok(Parameter::VarArgs(ty.clone(), conversion))
 					} else {
-						Ok(Parameter::Normal(ty.clone(), Box::new(convert.unwrap_or_else(|| parse_quote!(())))))
+						Ok(Parameter::Normal(ty.clone(), conversion))
 					}
 				}
 			}
@@ -231,12 +242,12 @@ impl Parameters {
 			.map(|(i, parameter)| match parameter {
 				Parameter::Context(ty) | Parameter::Arguments(ty) | Parameter::Normal(ty, _) | Parameter::VarArgs(ty, _) => {
 					let mut ty = ty.clone();
-					ty.attrs = Vec::new();
+					ty.attrs.clear();
 					FnArg::Typed(ty)
 				}
 				Parameter::This(ty) => {
 					let mut ty = ty.clone();
-					ty.attrs = Vec::new();
+					ty.attrs.clear();
 					if ty.pat == parse_quote!(self) {
 						index = Some(i);
 					}

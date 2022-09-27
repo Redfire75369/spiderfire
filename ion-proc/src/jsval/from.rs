@@ -11,7 +11,7 @@ use syn::{Block, Data, DeriveInput, Error, Field, Fields, ItemImpl, LitStr, pars
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::jsval::attribute::{DefaultValue, InnerAttributeArgument};
+use crate::jsval::attribute::{DefaultValue, FromJSValAttribute};
 use crate::utils::{add_trait_bounds, type_ends_with};
 
 pub(crate) fn impl_from_jsval(input: DeriveInput) -> Result<ItemImpl> {
@@ -84,10 +84,10 @@ fn impl_body(data: &Data, ident: &Ident, span: Span) -> Result<(Block, bool)> {
 
 					for attr in &variant.attrs {
 						if attr.path.is_ident("ion") {
-							let args: Punctuated<InnerAttributeArgument, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+							let args: Punctuated<FromJSValAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 							for arg in args {
-								if let InnerAttributeArgument::Inherit(_) = arg {
+								if let FromJSValAttribute::Inherit(_) = arg {
 									inherit = true;
 								}
 							}
@@ -177,9 +177,9 @@ fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(V
 
 			for attr in attrs {
 				if attr.path.is_ident("ion") {
-					let args: Punctuated<InnerAttributeArgument, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+					let args: Punctuated<FromJSValAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 					for arg in args {
-						use InnerAttributeArgument::*;
+						use FromJSValAttribute::*;
 						match arg {
 							Inherit(_) => {
 								inherit = true;

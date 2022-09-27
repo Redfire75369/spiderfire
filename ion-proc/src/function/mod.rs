@@ -10,6 +10,7 @@ use syn::punctuated::Punctuated;
 
 use crate::function::wrapper::impl_wrapper_fn;
 
+pub(crate) mod attribute;
 pub(crate) mod inner;
 pub(crate) mod parameters;
 pub(crate) mod wrapper;
@@ -20,7 +21,7 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 
 	check_abi(&mut function)?;
 	set_signature(&mut function)?;
-	function.attrs = Vec::new();
+	function.attrs.clear();
 	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let error_handler = error_handler();

@@ -47,22 +47,22 @@ fn clear_timer(id: Option<u32>) -> Result<()> {
 }
 
 #[js_fn]
-fn setTimeout(callback: Function, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<JSVal>) -> Result<u32> {
+fn setTimeout(callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, #[ion(varargs)] arguments: Vec<JSVal>) -> Result<u32> {
 	set_timer(callback, duration, arguments, false)
 }
 
 #[js_fn]
-fn setInterval(callback: Function, #[convert(Clamp)] duration: Option<i32>, #[varargs] arguments: Vec<JSVal>) -> Result<u32> {
+fn setInterval(callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, #[ion(varargs)] arguments: Vec<JSVal>) -> Result<u32> {
 	set_timer(callback, duration, arguments, true)
 }
 
 #[js_fn]
-fn clearTimeout(#[convert(EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearTimeout(#[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
 	clear_timer(id)
 }
 
 #[js_fn]
-fn clearInterval(#[convert(EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearInterval(#[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
 	clear_timer(id)
 }
 

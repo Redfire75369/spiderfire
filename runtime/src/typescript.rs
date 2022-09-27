@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::string::FromUtf8Error;
 
 use sourcemap::SourceMap;
-use swc_core::common::{BytePos, FileName, GLOBALS, Globals, LineCol, Mark, SourceMap as SwcSourceMap};
+use swc_core::common::{BytePos, FileName, Globals, GLOBALS, LineCol, Mark, SourceMap as SwcSourceMap};
 use swc_core::common::comments::{Comments, SingleThreadedComments};
 use swc_core::common::errors::{ColorConfig, Handler};
 use swc_core::common::input::StringInput;

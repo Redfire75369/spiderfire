@@ -23,7 +23,7 @@ const DELIMITER: &str = ";";
 const DELIMITER: &str = ":";
 
 #[js_fn]
-fn join(#[varargs] segments: Vec<String>) -> String {
+fn join(#[ion(varargs)] segments: Vec<String>) -> String {
 	let mut path = PathBuf::new();
 	for segment in segments {
 		path.push(segment);
