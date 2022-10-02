@@ -11,7 +11,7 @@ declare module "url" {
 		search?: boolean,
 	};
 
-	export function domainToASCII(domain: string): string;
+	export function domainToASCII(domain: string, strict?: boolean): string;
 	export function domainToUnicode(domain: string): string;
 
 	export class URL {

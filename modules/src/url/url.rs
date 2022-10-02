@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use idna::{domain_to_ascii, domain_to_unicode};
+use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{Context, Object, Result};
@@ -207,8 +207,14 @@ mod class {
 }
 
 #[js_fn]
-fn domainToASCII(domain: String) -> Result<String> {
-	domain_to_ascii(&domain).map_err(|error| error.into())
+fn domainToASCII(domain: String, strict: Option<bool>) -> Result<String> {
+	let strict = strict.unwrap_or(false);
+	let domain = if !strict {
+		domain_to_ascii(&domain)
+	} else {
+		domain_to_ascii_strict(&domain)
+	};
+	domain.map_err(|e| e.into())
 }
 
 #[js_fn]

@@ -6,12 +6,17 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
+bytes = "1.2.1"
+derivative = "2.2.0"
 futures = "0.3.24"
+http = "0.2.8"
+hyper = { version = "0.14.20", features = ["client", "http1", "tcp"] }
 idna = "0.3.0"
 ion = { path = "../ion", features = ["macros"] }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
-tokio = { version = "1.21.2", features = ["fs", "rt"] }
-tokio-stream = { version = "0.1.10", features = ["fs"] }
+paste = "1.0.9"
+tokio = { version = "1.21.0", features = ["fs", "rt"] }
+tokio-stream = { version = "0.1.9", features = ["fs"] }
 runtime = { path = "../runtime" }
 url = "2.3.1"
 

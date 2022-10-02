@@ -1,0 +1,69 @@
+// @flow
+
+declare module "http" {
+	declare export type Header = string | string[];
+	declare export interface Headers {
+		[key: string]: Header,
+	}
+
+	declare type TypedArray = Int8Array | Int16Array | Int32Array
+		| Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array
+		| Float32Array | Float64Array;
+	declare export type Body = string | String | ArrayBuffer | TypedArray | DataView;
+
+	declare interface CommonOptions {
+		setHost?: boolean,
+		headers?: Headers,
+		uniqueHeaders?: Headers,
+		body?: Body,
+	}
+
+	declare export type RequestOptions = CommonOptions & {
+		auth?: string,
+	};
+
+	declare export type RequestBuilderOptions = CommonOptions & {
+		method?: string,
+	};
+
+	declare export function get(url: string, options?: RequestOptions): Promise<Response>;
+	declare export function post(url: string, options?: RequestOptions): Promise<Response>;
+	declare export function put(url: string, options?: RequestOptions): Promise<Response>;
+	declare export function request(resource: string, method: string, options?: RequestOptions): Promise<Response>;
+	declare export function request(resource: Request): Promise<Response>;
+
+	declare export class Request {
+		constructor(url: string, options?: RequestBuilderOptions);
+		constructor(url: Request, options?: RequestBuilderOptions);
+	}
+
+	declare export class Response {
+		constructor();
+
+		get ok(): boolean;
+		get status(): number;
+		get statusText(): string;
+
+		get bodyUsed(): boolean;
+		get headers(): Headers;
+
+		arrayBuffer(): Promise<ArrayBuffer>;
+		text(): Promise<string>;
+	}
+
+	declare export default {
+		Header,
+		Headers,
+		Body,
+		RequestOptions,
+		RequestBuilderOptions,
+
+		get,
+		post,
+		put,
+		request,
+
+		Request,
+		Response,
+	};
+}

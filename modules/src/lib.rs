@@ -7,20 +7,26 @@
 #![allow(clippy::module_inception)]
 
 #[macro_use]
+extern crate derivative;
+#[macro_use]
 extern crate ion;
 #[macro_use]
 extern crate mozjs;
+#[macro_use]
+extern crate paste;
 
 use ion::{Context, Object};
 use runtime::modules::{init_global_module, init_module, StandardModules};
 
 pub use crate::assert::Assert;
 pub use crate::fs::FileSystem;
+pub use crate::http::Http;
 pub use crate::path::PathM;
 pub use crate::url::UrlM;
 
 mod assert;
 mod fs;
+mod http;
 mod path;
 mod url;
 
@@ -31,6 +37,7 @@ impl StandardModules for Modules {
 	fn init(cx: Context, global: &mut Object) -> bool {
 		init_module::<Assert>(cx, global)
 			&& init_module::<FileSystem>(cx, global)
+			&& init_module::<Http>(cx, global)
 			&& init_module::<PathM>(cx, global)
 			&& init_module::<UrlM>(cx, global)
 	}
@@ -38,6 +45,7 @@ impl StandardModules for Modules {
 	fn init_globals(cx: Context, global: &mut Object) -> bool {
 		init_global_module::<Assert>(cx, global)
 			&& init_global_module::<FileSystem>(cx, global)
+			&& init_global_module::<Http>(cx, global)
 			&& init_global_module::<PathM>(cx, global)
 			&& init_global_module::<UrlM>(cx, global)
 	}
