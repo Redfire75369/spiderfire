@@ -14,7 +14,7 @@ use tokio_stream::wrappers::ReadDirStream;
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::utils::Uint8ArrayBuffer;
+use ion::typedarray::Uint8Array;
 use runtime::modules::NativeModule;
 
 fn check_exists(path: &Path) -> Result<()> {
@@ -70,24 +70,24 @@ fn check_is_not_dir(path: &Path) -> Result<()> {
 }
 
 #[js_fn]
-async fn readBinary(path_str: String) -> Result<Uint8ArrayBuffer> {
+async fn readBinary(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
 	check_is_file(&path)?;
 	if let Ok(bytes) = tokio::fs::read(&path).await {
-		Ok(Uint8ArrayBuffer { buf: bytes })
+		Ok(Uint8Array { buf: bytes })
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
 }
 
 #[js_fn]
-unsafe fn readBinarySync(path_str: String) -> Result<Uint8ArrayBuffer> {
+unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
 	check_is_file(&path)?;
 	if let Ok(bytes) = fs::read(&path) {
-		Ok(Uint8ArrayBuffer { buf: bytes })
+		Ok(Uint8Array { buf: bytes })
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}

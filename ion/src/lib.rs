@@ -37,6 +37,7 @@ mod functions;
 mod objects;
 pub mod spec;
 mod stack;
+pub mod typedarray;
 pub mod types;
 pub mod utils;
 mod value;
