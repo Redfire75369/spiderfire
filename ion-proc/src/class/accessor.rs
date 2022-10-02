@@ -92,10 +92,12 @@ impl Accessor {
 			}
 			Accessor(Some(getter), None) => {
 				let getter = getter.method.sig.ident.clone();
+				let name = LitStr::new(&name.to_string(), name.span());
 				quote!(#krate::property_spec_getter!(#getter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Accessor(None, Some(setter)) => {
 				let setter = setter.method.sig.ident.clone();
+				let name = LitStr::new(&name.to_string(), name.span());
 				quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Accessor(None, None) => {

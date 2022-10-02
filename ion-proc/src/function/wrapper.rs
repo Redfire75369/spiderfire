@@ -90,7 +90,7 @@ pub(crate) fn impl_wrapper_fn(
 	if function.sig.asyncness.is_some() {
 		inner_call = quote!({
 			let future = async move {
-				let result: #inner_output = #call(#(#idents),*).await;
+				let result: #inner_output = #inner_call.await;
 				#async_result
 			};
 			if let ::std::option::Option::Some(promise) = ::runtime::promise::future_to_promise(cx, future) {

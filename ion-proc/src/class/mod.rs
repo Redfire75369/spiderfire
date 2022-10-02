@@ -47,10 +47,11 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					let ident = o.ident.clone();
 					parse_quote!(#ident)
 				});
-				if Some(&*imp.self_ty) == object.as_ref() {
+				if imp.trait_.is_none() && Some(&*imp.self_ty) == object.as_ref() {
 					let object = parse2(object.unwrap().to_token_stream())?;
 
 					let mut impl_items_to_remove = Vec::new();
+					let mut impl_items_to_add = Vec::new();
 					let mut imp = imp.clone();
 
 					for (j, item) in imp.items.iter().enumerate() {
@@ -66,7 +67,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 								let mut indexes = Vec::new();
 
 								let mut kind = None;
-								let mut internal = false;
+								let mut internal = None;
 
 								for (index, attr) in method.attrs.iter().enumerate() {
 									if attr.path.is_ident("ion") {
@@ -76,7 +77,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											kind = kind.or(arg.to_kind());
 											match arg {
 												MethodAttribute::Internal(_) => {
-													internal = true;
+													internal = Some(index);
 												}
 												MethodAttribute::Alias(alias) => {
 													for alias in alias.aliases {
@@ -90,7 +91,11 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 									}
 								}
 
-								if !internal {
+								impl_items_to_remove.push(j);
+								if let Some(internal) = internal {
+									method.attrs.remove(internal);
+									impl_items_to_add.push(ImplItem::Method(parse2(method.to_token_stream())?));
+								} else {
 									for index in indexes {
 										method.attrs.remove(index);
 									}
@@ -134,7 +139,6 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 										}
 										Some(MethodKind::Internal) => continue,
 									}
-									impl_items_to_remove.push(j);
 								}
 							}
 							ImplItem::Const(con) => {
@@ -151,6 +155,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					impl_items_to_remove.reverse();
 					for index in impl_items_to_remove {
 						imp.items.remove(index);
+					}
+					for item in impl_items_to_add {
+						imp.items.push(item);
 					}
 
 					implementation = Some(imp);

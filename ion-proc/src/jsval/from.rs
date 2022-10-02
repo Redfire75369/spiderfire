@@ -37,6 +37,7 @@ pub(crate) fn impl_from_jsval(input: DeriveInput) -> Result<ItemImpl> {
 	};
 
 	parse2(quote!(
+		#[allow(unused_qualifications)]
 		impl #impl_generics ::mozjs::conversions::FromJSValConvertible for #name #ty_generics #where_clause {
 			type Config = ();
 
@@ -66,12 +67,12 @@ fn impl_body(data: &Data, ident: &Ident, span: Span) -> Result<(Block, bool)> {
 					#(#declarations)*
 					::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(Self(#(#idents, )*)))
 				}))
-				.map(|b| (b, requires_obj))
+				.map(|block| (block, requires_obj))
 			}
 			Fields::Unit => parse2(quote!({
 				::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(Self))
 			}))
-			.map(|b| (b, false)),
+			.map(|block| (block, false)),
 		},
 		Data::Enum(data) => {
 			let variants: Vec<(Block, _)> = data
@@ -94,36 +95,38 @@ fn impl_body(data: &Data, ident: &Ident, span: Span) -> Result<(Block, bool)> {
 						}
 					}
 
+					let handle_result = quote!(match variant {
+						::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success)) =>
+							return ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success)),
+						::std::result::Result::Err(_) => ::ion::Exception::clear(cx),
+						_ => (),
+					});
 					match &variant.fields {
 						Fields::Named(fields) => {
 							let (idents, declarations, requires_obj) = map_fields(&fields.named, inherit)?;
-							parse2(quote!({
+							parse2(quote_spanned!(variant.span() => {
 								let variant: ::std::result::Result<::mozjs::conversions::ConversionResult<Self>, ()> = (|| {
 									#(#declarations)*
 									::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(Self::#variant_ident { #(#idents, )* }))
 								})();
-								if let ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success)) = variant {
-									return ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success));
-								}
+								#handle_result
 							}))
-							.map(|b| (b, requires_obj))
+							.map(|block| (block, requires_obj))
 						}
 						Fields::Unnamed(fields) => {
 							let (idents, declarations, requires_obj) = map_fields(&fields.unnamed, inherit)?;
-							parse2(quote!({
+							parse2(quote_spanned!(variant.span() => {
 								let variant: ::std::result::Result<::mozjs::conversions::ConversionResult<Self>, ()> = (|| {
 									#(#declarations)*
 									::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(Self::#variant_ident(#(#idents, )*)))
 								})();
-								if let ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success)) = variant {
-									return ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(success));
-								}
+								#handle_result
 							}))
-							.map(|b| (b, requires_obj))
+							.map(|block| (block, requires_obj))
 						}
 						Fields::Unit => {
 							parse2(quote!({return ::std::result::Result::Ok(::mozjs::conversions::ConversionResult::Success(Self::#variant_ident));}))
-								.map(|b| (b, false))
+								.map(|block| (block, false))
 						}
 					}
 				})

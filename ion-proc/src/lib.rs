@@ -16,7 +16,7 @@ use syn::{DeriveInput, Error, ItemFn, ItemMod};
 
 use crate::class::impl_js_class;
 use crate::function::impl_js_fn;
-use crate::jsval::from::impl_from_jsval;
+use crate::jsval::impl_from_jsval;
 
 pub(crate) mod class;
 pub(crate) mod function;
