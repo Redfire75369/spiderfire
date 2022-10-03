@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use quote::ToTokens;
-use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, parse2, Result, Visibility};
+use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, Meta, NestedMeta, parse2, Result, Visibility};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -16,7 +16,7 @@ use crate::class::attribute::MethodAttribute;
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::property::Property;
-use crate::class::statics::{class_initialiser, class_spec, into_js_val, methods_to_specs, properties_to_specs};
+use crate::class::statics::{class_initialiser, class_spec, into_js_val, methods_to_specs, properties_to_specs, to_js_val};
 
 pub(crate) mod accessor;
 pub(crate) mod attribute;
@@ -74,7 +74,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 										let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 										for arg in args {
-											kind = kind.or(arg.to_kind());
+											kind = kind.or_else(|| arg.to_kind());
 											match arg {
 												MethodAttribute::Internal(_) => {
 													internal = Some(index);
@@ -181,6 +181,21 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	}
 	let mut class = class.unwrap();
 
+	let is_clone = class.attrs.iter().any(|attr| {
+		if attr.path.is_ident("derive") {
+			let meta = attr.parse_meta().unwrap();
+			if let Meta::List(list) = meta {
+				return list.nested.iter().any(|meta| {
+					if let NestedMeta::Meta(Meta::Path(path)) = meta {
+						return path.is_ident("Clone");
+					}
+					false
+				});
+			}
+		}
+		false
+	});
+
 	insert_property_accessors(&mut accessors, &mut class)?;
 
 	if constructor.is_none() {
@@ -196,7 +211,11 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
 
-	let into_js_val = into_js_val(class.ident.clone());
+	let to_jsval = if is_clone {
+		to_js_val(class.ident.clone())
+	} else {
+		into_js_val(class.ident.clone())
+	};
 	let class_initialiser = class_initialiser(class.ident.clone(), &constructor);
 
 	let accessors = flatten_accessors(accessors);
@@ -219,7 +238,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	content.push(Item::Static(static_method_specs));
 	content.push(Item::Static(static_property_specs));
 
-	content.push(Item::Impl(into_js_val));
+	content.push(Item::Impl(to_jsval));
 	content.push(Item::Impl(class_initialiser));
 
 	Ok(module)

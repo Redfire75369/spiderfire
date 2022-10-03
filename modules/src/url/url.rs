@@ -18,8 +18,10 @@ mod class {
 	use mozjs::conversions::ConversionBehavior::EnforceRange;
 	use url::Url;
 
-	use ion::{Context, Error, Object, Result};
+	use ion::{Error, Object, Result};
 
+	#[derive(Clone)]
+	#[allow(clippy::upper_case_acronyms)]
 	pub struct URL {
 		url: Url,
 	}
@@ -34,20 +36,20 @@ mod class {
 			Ok(URL { url })
 		}
 
-		pub fn origin(#[ion(this)] this: &URL) -> String {
-			this.url.origin().ascii_serialization()
+		pub fn origin(&self) -> String {
+			self.url.origin().ascii_serialization()
 		}
 
-		pub fn toString(#[ion(this)] this: &URL) -> String {
-			this.url.to_string()
+		pub fn toString(&self) -> String {
+			self.url.to_string()
 		}
 
-		pub fn toJSON(#[ion(this)] this: &URL) -> String {
-			this.url.to_string()
+		pub fn toJSON(&self) -> String {
+			self.url.to_string()
 		}
 
-		pub fn format(cx: Context, #[ion(this)] this: &URL, options: Option<Object>) -> Result<String> {
-			let mut url = this.url.clone();
+		pub fn format(&self, cx: Context, options: Option<Object>) -> Result<String> {
+			let mut url = self.url.clone();
 
 			let auth = options.and_then(|options| options.get_as::<bool>(cx, "auth", ())).unwrap_or(true);
 			let fragment = options.and_then(|options| options.get_as::<bool>(cx, "fragment", ())).unwrap_or(true);
@@ -67,15 +69,15 @@ mod class {
 		}
 
 		#[ion(get)]
-		pub fn get_href(#[ion(this)] this: &URL) -> String {
-			this.url.to_string()
+		pub fn get_href(&self) -> String {
+			self.url.to_string()
 		}
 
 		#[ion(set)]
-		pub fn set_href(#[ion(this)] this: &mut URL, input: String) -> Result<()> {
+		pub fn set_href(&mut self, input: String) -> Result<()> {
 			match Url::parse(&input) {
 				Ok(url) => {
-					this.url = url;
+					self.url = url;
 					Ok(())
 				}
 				Err(error) => Err(Error::new(&error.to_string(), None)),
@@ -83,19 +85,19 @@ mod class {
 		}
 
 		#[ion(get)]
-		pub fn get_protocol(#[ion(this)] this: &URL) -> String {
-			String::from(this.url.scheme())
+		pub fn get_protocol(&self) -> String {
+			String::from(self.url.scheme())
 		}
 
 		#[ion(set)]
-		pub fn set_protocol(#[ion(this)] this: &mut URL, protocol: String) -> Result<()> {
-			this.url.set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol", None))
+		pub fn set_protocol(&mut self, protocol: String) -> Result<()> {
+			self.url.set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol", None))
 		}
 
 		#[ion(get)]
-		pub fn get_host(#[ion(this)] this: &URL) -> Option<String> {
-			this.url.host_str().map(|host| {
-				if let Some(port) = this.url.port() {
+		pub fn get_host(&self) -> Option<String> {
+			self.url.host_str().map(|host| {
+				if let Some(port) = self.url.port() {
 					format!("{}:{}", host, port)
 				} else {
 					String::from(host)
@@ -104,7 +106,7 @@ mod class {
 		}
 
 		#[ion(set)]
-		pub fn set_host(#[ion(this)] this: &mut URL, host: Option<String>) -> Result<()> {
+		pub fn set_host(&mut self, host: Option<String>) -> Result<()> {
 			if let Some(host) = host {
 				let segments: Vec<&str> = host.split(':').collect();
 				let (host, port) = match segments.len().cmp(&2) {
@@ -119,87 +121,87 @@ mod class {
 					}
 				}?;
 
-				this.url.set_host(Some(host))?;
+				self.url.set_host(Some(host))?;
 
-				this.url.set_port(port).map_err(|_| Error::new("Invalid URL", None))?;
+				self.url.set_port(port).map_err(|_| Error::new("Invalid URL", None))?;
 			} else {
-				this.url.set_host(None)?;
-				this.url.set_port(None).map_err(|_| Error::new("Invalid URL", None))?;
+				self.url.set_host(None)?;
+				self.url.set_port(None).map_err(|_| Error::new("Invalid URL", None))?;
 			}
 			Ok(())
 		}
 
 		#[ion(get)]
-		pub fn get_hostname(#[ion(this)] this: &URL) -> Option<String> {
-			this.url.host_str().map(String::from)
+		pub fn get_hostname(&self) -> Option<String> {
+			self.url.host_str().map(String::from)
 		}
 
 		#[ion(set)]
-		pub fn set_hostname(#[ion(this)] this: &mut URL, hostname: Option<String>) -> Result<()> {
-			this.url
+		pub fn set_hostname(&mut self, hostname: Option<String>) -> Result<()> {
+			self.url
 				.set_host(hostname.as_deref())
 				.map_err(|error| Error::new(&error.to_string(), None))
 		}
 
 		#[ion(get)]
-		pub fn get_port(#[ion(this)] this: &URL) -> Option<u16> {
-			this.url.port_or_known_default()
+		pub fn get_port(&self) -> Option<u16> {
+			self.url.port_or_known_default()
 		}
 
 		#[ion(set)]
-		pub fn set_port(#[ion(this)] this: &mut URL, #[ion(convert = EnforceRange)] port: Option<u16>) -> Result<()> {
-			this.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
+		pub fn set_port(&mut self, #[ion(convert = EnforceRange)] port: Option<u16>) -> Result<()> {
+			self.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
 		}
 
 		#[ion(get)]
-		pub fn get_path(#[ion(this)] this: &URL) -> String {
-			String::from(this.url.path())
+		pub fn get_path(&self) -> String {
+			String::from(self.url.path())
 		}
 
 		#[ion(set)]
-		pub fn set_path(#[ion(this)] this: &mut URL, path: String) -> Result<()> {
-			this.url.set_path(&path);
+		pub fn set_path(&mut self, path: String) -> Result<()> {
+			self.url.set_path(&path);
 			Ok(())
 		}
 
 		#[ion(get)]
-		pub fn get_username(#[ion(this)] this: &URL) -> String {
-			String::from(this.url.username())
+		pub fn get_username(&self) -> String {
+			String::from(self.url.username())
 		}
 
 		#[ion(set)]
-		pub fn set_username(#[ion(this)] this: &mut URL, username: String) -> Result<()> {
-			this.url.set_username(&username).map_err(|_| Error::new("Invalid URL", None))
+		pub fn set_username(&mut self, username: String) -> Result<()> {
+			self.url.set_username(&username).map_err(|_| Error::new("Invalid URL", None))
 		}
 
 		#[ion(get)]
-		pub fn get_password(#[ion(this)] this: &URL) -> Option<String> {
-			this.url.password().map(String::from)
+		pub fn get_password(&self) -> Option<String> {
+			self.url.password().map(String::from)
 		}
 
 		#[ion(set)]
-		pub fn set_password(#[ion(this)] this: &mut URL, password: Option<String>) -> Result<()> {
-			this.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL", None))
+		pub fn set_password(&mut self, password: Option<String>) -> Result<()> {
+			self.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL", None))
 		}
 
 		#[ion(get)]
-		pub fn get_search(#[ion(this)] this: &URL) -> Option<String> {
-			this.url.query().map(String::from)
+		pub fn get_search(&self) -> Option<String> {
+			self.url.query().map(String::from)
 		}
 
 		#[ion(set)]
-		pub fn set_search(#[ion(this)] this: &mut URL, search: Option<String>) {
-			this.url.set_query(search.as_deref());
+		pub fn set_search(&mut self, search: Option<String>) {
+			self.url.set_query(search.as_deref());
 		}
 
 		#[ion(get)]
-		pub fn get_hash(#[ion(this)] this: &URL) -> Option<String> {
-			this.url.fragment().map(String::from)
+		pub fn get_hash(&self) -> Option<String> {
+			self.url.fragment().map(String::from)
 		}
 
 		#[ion(set)]
-		pub fn set_hash(#[ion(this)] this: &mut URL, hash: Option<String>) {
-			this.url.set_fragment(hash.as_deref());
+		pub fn set_hash(&mut self, hash: Option<String>) {
+			self.url.set_fragment(hash.as_deref());
 		}
 	}
 }

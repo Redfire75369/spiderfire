@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::conversions::ConversionBehavior;
+use mozjs::conversions::{ConversionBehavior, ToJSValConvertible};
 use mozjs::jsapi::{
 	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetBuiltinClass, GetPendingExceptionStack, IdentifyStandardInstance,
 	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException,
@@ -16,7 +16,6 @@ use mozjs_sys::jsgc::Rooted;
 use sourcemap::SourceMap;
 
 use crate::{Context, Error, ErrorKind, Location, Object, Stack};
-use crate::conversions::IntoJSVal;
 use crate::error::ThrowException;
 use crate::format::{format_value, NEWLINE};
 
@@ -66,7 +65,7 @@ impl Exception {
 
 			let mut class = ESClass::Other;
 			if GetBuiltinClass(cx, exc.handle().into(), &mut class) && class == ESClass::Error {
-				let message = exception.get_as::<String>(cx, "message", ()).unwrap_or(String::from(""));
+				let message = exception.get_as::<String>(cx, "message", ()).unwrap_or_default();
 				let file = exception.get_as::<String>(cx, "fileName", ()).unwrap();
 				let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
 				let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
@@ -146,15 +145,15 @@ impl ThrowException for Exception {
 	}
 }
 
-impl IntoJSVal for Exception {
-	unsafe fn into_jsval(self: Box<Self>, cx: Context, mut rval: MutableHandleValue) {
-		match *self {
+impl ToJSValConvertible for Exception {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
+		match self {
 			Exception::Error(err) => {
 				if let Some(object) = err.to_object(cx) {
 					rval.set(object.to_value());
 				}
 			}
-			Exception::Other(value) => rval.set(value),
+			Exception::Other(value) => rval.set(*value),
 		}
 	}
 }

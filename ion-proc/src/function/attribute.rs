@@ -18,7 +18,7 @@ mod keywords {
 pub(crate) enum ParameterAttribute {
 	This(keywords::this),
 	VarArgs(keywords::varargs),
-	Convert { convert: keywords::convert, eq: Token![=], conversion: Expr },
+	Convert { convert: keywords::convert, eq: Token![=], conversion: Box<Expr> },
 }
 
 impl Parse for ParameterAttribute {

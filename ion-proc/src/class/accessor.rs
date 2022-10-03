@@ -7,6 +7,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
@@ -120,7 +121,13 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 	let pat = if is_setter { "set_" } else { "get_" };
 	if name.starts_with(pat) {
 		name.drain(0..4);
+	} else {
+		let pat = if is_setter { "set" } else { "get" };
+		if name.starts_with(pat) {
+			name.drain(0..3);
+		}
 	}
+	name = name.to_case(Case::Camel);
 	name
 }
 
@@ -135,8 +142,8 @@ pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is
 	let (accessor, parameters) = impl_method(method.clone(), ident, keep_inner, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ident), true)?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
-			if let Parameter::Normal(ty, _) = &param {
-				if let Type::Path(_) = &*ty.ty {
+			if let Parameter::Regular { ty, .. } = &param {
+				if let Type::Path(_) = &**ty {
 					acc += 1;
 				}
 			}

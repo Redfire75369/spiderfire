@@ -23,7 +23,7 @@ pub(crate) enum FromJSValAttribute {
 	Convert {
 		kw: keywords::convert,
 		eq: Token!(=),
-		expr: Expr,
+		expr: Box<Expr>,
 	},
 	Default {
 		kw: Token!(default),
@@ -33,14 +33,14 @@ pub(crate) enum FromJSValAttribute {
 	Parser {
 		kw: keywords::parser,
 		eq: Token!(=),
-		expr: Expr,
+		expr: Box<Expr>,
 	},
 }
 
 #[derive(Debug)]
 pub(crate) enum DefaultValue {
 	Literal(Lit),
-	Expr(Expr),
+	Expr(Box<Expr>),
 }
 
 impl Parse for FromJSValAttribute {
@@ -80,7 +80,7 @@ impl Parse for DefaultValue {
 		let expr: Expr = input.parse()?;
 		match expr {
 			Expr::Lit(lit) => Ok(DefaultValue::Literal(lit.lit)),
-			expr => Ok(DefaultValue::Expr(expr)),
+			expr => Ok(DefaultValue::Expr(Box::new(expr))),
 		}
 	}
 }

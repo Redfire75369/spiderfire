@@ -33,7 +33,7 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
 		.iter()
-		.map(|method| {
+		.flat_map(|method| {
 			let ident = method.method.sig.ident.clone();
 			let nargs = method.nargs as u16;
 			method
@@ -45,7 +45,6 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 				})
 				.collect::<Vec<_>>()
 		})
-		.flatten()
 		.collect();
 	specs.push(quote!(::mozjs::jsapi::JSFunctionSpec::ZERO));
 
@@ -74,6 +73,17 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 		static #ident: &[::mozjs::jsapi::JSPropertySpec] = &[
 			#(#specs),*
 		];
+	)
+}
+
+pub(crate) fn to_js_val(name: Ident) -> ItemImpl {
+	let krate = quote!(::ion);
+	parse_quote!(
+		impl ::mozjs::conversions::ToJSValConvertible for #name {
+			unsafe fn to_jsval(&self, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
+				rval.set(<#name as #krate::ClassInitialiser>::new_object(cx, self.clone()).to_value());
+			}
+		}
 	)
 }
 

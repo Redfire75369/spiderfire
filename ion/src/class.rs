@@ -4,18 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::{ptr, result};
 use std::any::TypeId;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::ptr;
 
+use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 use mozjs::jsapi::{
 	Handle, JS_GetConstructor, JS_GetInstancePrivate, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JSClass, JSFunctionSpec,
 	JSPropertySpec, SetPrivate,
 };
+use mozjs::rust::HandleValue;
 
 use crate::{Arguments, Context, Error, Function, NativeFunction, Object, Result};
+use crate::error::ThrowException;
 
 // TODO: Move into Context Wrapper
 thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefCell::new(HashMap::new()));
@@ -160,5 +164,25 @@ pub trait ClassInitialiser {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
 			JS_InstanceOf(cx, obj.handle().into(), Self::class(), args)
 		}
+	}
+}
+
+#[allow(clippy::result_unit_err)]
+pub unsafe fn class_from_jsval<T: ClassInitialiser + Clone>(cx: Context, val: HandleValue) -> result::Result<ConversionResult<T>, ()> {
+	match Object::from_jsval(cx, val, ())? {
+		ConversionResult::Success(obj) => {
+			if T::instance_of(cx, obj, None) {
+				match T::get_private(cx, obj, None) {
+					Ok(t) => Ok(ConversionResult::Success(t.clone())),
+					Err(err) => {
+						err.throw(cx);
+						Err(())
+					}
+				}
+			} else {
+				Ok(ConversionResult::Failure(Cow::Owned(format!("Object is not a {}", T::NAME))))
+			}
+		}
+		ConversionResult::Failure(e) => Ok(ConversionResult::Failure(e)),
 	}
 }

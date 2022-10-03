@@ -73,7 +73,7 @@ fn check_is_not_dir(path: &Path) -> Result<()> {
 async fn readBinary(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	if let Ok(bytes) = tokio::fs::read(&path).await {
 		Ok(Uint8Array { buf: bytes })
 	} else {
@@ -85,7 +85,7 @@ async fn readBinary(path_str: String) -> Result<Uint8Array> {
 unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	if let Ok(bytes) = fs::read(&path) {
 		Ok(Uint8Array { buf: bytes })
 	} else {
@@ -97,7 +97,7 @@ unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 async fn readString(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	if let Ok(str) = tokio::fs::read_to_string(&path).await {
 		Ok(str)
 	} else {
@@ -109,7 +109,7 @@ async fn readString(path_str: String) -> Result<String> {
 fn readStringSync(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	if let Ok(str) = fs::read_to_string(&path) {
 		Ok(str)
 	} else {
@@ -121,7 +121,7 @@ fn readStringSync(path_str: String) -> Result<String> {
 async fn readDir(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	if let Ok(dir) = tokio::fs::read_dir(path).await {
 		let entries: Vec<_> = ReadDirStream::new(dir).filter_map(|entry| async move { entry.ok() }).collect().await;
 		let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
@@ -137,7 +137,7 @@ async fn readDir(path_str: String) -> Result<Vec<String>> {
 fn readDirSync(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	if let Ok(dir) = fs::read_dir(path) {
 		let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect();
 		let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
@@ -153,7 +153,7 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 async fn write(path_str: String, contents: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_dir(&path)?;
+	check_is_not_dir(path)?;
 	Ok(tokio::fs::write(path, contents).await.is_ok())
 }
 
@@ -161,7 +161,7 @@ async fn write(path_str: String, contents: String) -> Result<bool> {
 fn writeSync(path_str: String, contents: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_dir(&path)?;
+	check_is_not_dir(path)?;
 	Ok(fs::write(path, contents).is_ok())
 }
 
@@ -169,7 +169,7 @@ fn writeSync(path_str: String, contents: String) -> Result<bool> {
 async fn createDir(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_file(&path)?;
+	check_is_not_file(path)?;
 	Ok(tokio::fs::create_dir(path).await.is_ok())
 }
 
@@ -177,7 +177,7 @@ async fn createDir(path_str: String) -> Result<bool> {
 fn createDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_file(&path)?;
+	check_is_not_file(path)?;
 	Ok(fs::create_dir(path).is_ok())
 }
 
@@ -185,7 +185,7 @@ fn createDirSync(path_str: String) -> Result<bool> {
 async fn createDirRecursive(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_file(&path)?;
+	check_is_not_file(path)?;
 	Ok(tokio::fs::create_dir_all(path).await.is_ok())
 }
 
@@ -193,7 +193,7 @@ async fn createDirRecursive(path_str: String) -> Result<bool> {
 fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_not_file(&path)?;
+	check_is_not_file(path)?;
 	Ok(fs::create_dir_all(path).is_ok())
 }
 
@@ -201,7 +201,7 @@ fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 async fn removeFile(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	Ok(tokio::fs::remove_file(path).await.is_ok())
 }
 
@@ -209,7 +209,7 @@ async fn removeFile(path_str: String) -> Result<bool> {
 fn removeFileSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_file(&path)?;
+	check_is_file(path)?;
 	Ok(fs::remove_file(path).is_ok())
 }
 
@@ -217,7 +217,7 @@ fn removeFileSync(path_str: String) -> Result<bool> {
 async fn removeDir(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	Ok(tokio::fs::remove_file(path).await.is_ok())
 }
 
@@ -225,7 +225,7 @@ async fn removeDir(path_str: String) -> Result<bool> {
 fn removeDirSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	Ok(fs::remove_file(path).is_ok())
 }
 
@@ -233,7 +233,7 @@ fn removeDirSync(path_str: String) -> Result<bool> {
 async fn removeDirRecursive(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	Ok(tokio::fs::remove_dir_all(path).await.is_ok())
 }
 
@@ -241,7 +241,7 @@ async fn removeDirRecursive(path_str: String) -> Result<bool> {
 fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 	let path = Path::new(&path_str);
 
-	check_is_dir(&path)?;
+	check_is_dir(path)?;
 	Ok(fs::remove_dir_all(path).is_ok())
 }
 
@@ -250,8 +250,8 @@ async fn copy(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	check_is_not_dir(&from)?;
-	check_is_not_dir(&to)?;
+	check_is_not_dir(from)?;
+	check_is_not_dir(to)?;
 	Ok(tokio::fs::copy(from, to).await.is_ok())
 }
 
@@ -260,8 +260,8 @@ fn copySync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	check_is_not_dir(&from)?;
-	check_is_not_dir(&to)?;
+	check_is_not_dir(from)?;
+	check_is_not_dir(to)?;
 	Ok(fs::copy(from, to).is_ok())
 }
 
@@ -270,8 +270,8 @@ async fn rename(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	check_is_not_dir(&from)?;
-	check_is_not_dir(&to)?;
+	check_is_not_dir(from)?;
+	check_is_not_dir(to)?;
 	Ok(tokio::fs::rename(from, to).await.is_ok())
 }
 
@@ -280,8 +280,8 @@ fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	check_is_not_dir(&from)?;
-	check_is_not_dir(&to)?;
+	check_is_not_dir(from)?;
+	check_is_not_dir(to)?;
 	Ok(fs::rename(from, to).is_ok())
 }
 
@@ -290,7 +290,7 @@ async fn softLink(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	check_not_exists(&link)?;
+	check_not_exists(link)?;
 	#[cfg(target_family = "unix")]
 	{
 		Ok(tokio::fs::symlink(original, link).await.is_ok())
@@ -312,7 +312,7 @@ fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	check_not_exists(&link)?;
+	check_not_exists(link)?;
 	#[cfg(target_family = "unix")]
 	{
 		Ok(os::unix::fs::symlink(original, link).is_ok())
@@ -334,7 +334,7 @@ async fn hardLink(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	check_not_exists(&link)?;
+	check_not_exists(link)?;
 	Ok(tokio::fs::hard_link(original, link).await.is_ok())
 }
 
@@ -343,7 +343,7 @@ fn hardLinkSync(original_str: String, link_str: String) -> Result<bool> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	check_not_exists(&link)?;
+	check_not_exists(link)?;
 	Ok(fs::hard_link(original, link).is_ok())
 }
 

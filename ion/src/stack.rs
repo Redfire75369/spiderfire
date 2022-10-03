@@ -131,15 +131,15 @@ impl Display for Stack {
 
 fn capture_stack(cx: Context, max_frames: Option<u32>) -> Option<Object> {
 	unsafe {
-		let ref mut capture = MaybeUninit::uninit();
+		let mut capture = MaybeUninit::uninit();
 		match max_frames {
 			None => JS_StackCapture_AllFrames(capture.as_mut_ptr()),
 			Some(count) => JS_StackCapture_MaxFrames(count, capture.as_mut_ptr()),
 		};
-		let ref mut capture = capture.assume_init();
+		let mut capture = capture.assume_init();
 
 		rooted!(in(cx) let mut stack = *Object::null());
-		if CaptureCurrentStack(cx, stack.handle_mut().into(), capture) {
+		if CaptureCurrentStack(cx, stack.handle_mut().into(), &mut capture) {
 			Some(Object::from(stack.get()))
 		} else {
 			None

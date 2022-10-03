@@ -14,7 +14,6 @@ use mozjs::jsval::JSVal;
 use mozjs::rust::MutableHandleValue;
 
 use crate::{Context, Location, Object, Stack};
-use crate::conversions::IntoJSVal;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorKind {
@@ -194,8 +193,8 @@ impl ThrowException for Error {
 	}
 }
 
-impl IntoJSVal for Error {
-	unsafe fn into_jsval(self: Box<Self>, cx: Context, mut rval: MutableHandleValue) {
+impl ToJSValConvertible for Error {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
 		if let Some(object) = self.to_object(cx) {
 			rval.set(object.to_value());
 		}

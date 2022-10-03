@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#![allow(clippy::missing_safety_doc)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 #[macro_use]
@@ -27,7 +28,7 @@ pub use objects::*;
 pub use stack::*;
 pub use value::Value;
 
-mod class;
+pub mod class;
 pub mod conversions;
 pub mod error;
 mod exception;
