@@ -118,16 +118,19 @@ impl Accessor {
 
 pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 	let mut name = ident.to_string();
-	let pat = if is_setter { "set_" } else { "get_" };
-	if name.starts_with(pat) {
+	let pat_snake = if is_setter { "set_" } else { "get_" };
+	let pat_camel = if is_setter { "set" } else { "get" };
+	if name.starts_with(pat_snake) {
 		name.drain(0..4);
-	} else {
-		let pat = if is_setter { "set" } else { "get" };
-		if name.starts_with(pat) {
-			name.drain(0..3);
+		if name.is_case(Case::Snake) {
+			name = name.to_case(Case::Camel);
+		}
+	} else if name.starts_with(pat_camel) {
+		name.drain(0..3);
+		if name.is_case(Case::Pascal) {
+			name = name.to_case(Case::Camel);
 		}
 	}
-	name = name.to_case(Case::Camel);
 	name
 }
 

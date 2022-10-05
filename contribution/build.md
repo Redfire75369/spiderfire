@@ -26,10 +26,7 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 2. Download and install LLVM for Windows (64 bit) from [LLVM Releases](https://github.com/llvm/llvm-project/releases/latest).
    - Note: When installing LLVM, choose to add LLVM to the system path.
 
-3. Start Visual Studio Developer Command Prompt.
-```batch
-"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
-```
+3. Follow the instructions at [Just Installation](https://github.com/casey/just#installation).
 
 4. Set Environment Variables
 ```batch
@@ -38,7 +35,7 @@ build.bat
 
 5. Build with Cargo
 ```batch
-cargo build --features debugmozjs
+just build
 ```
 
 ### GNU
@@ -58,9 +55,11 @@ cargo build --features debugmozjs
 sudo apt install -y python3 python3-distutils autoconf2.13 clang llvm make pkg-config zlib1g-dev
 ```
 
-2. Build with Cargo
+2. Follow the instructions at [Just Installation](https://github.com/casey/just#installation).
+
+3. Build with Cargo
 ```shell
-CC=clang CXX=clang++ cargo build --features debugmozjs
+CC=clang CXX=clang++ just build
 ```
 
 ### Fedora, RHEL and Derivatives

@@ -35,7 +35,11 @@ pub(crate) struct Aliases {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum PropertyAttribute {
-	Convert { convert: keywords::convert, eq: Token![=], conversion: Box<Expr> },
+	Convert {
+		convert: keywords::convert,
+		eq: Token![=],
+		conversion: Box<Expr>,
+	},
 	Alias(Aliases),
 }
 

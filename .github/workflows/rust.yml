@@ -4,6 +4,8 @@ on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
+  SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
+  SCCACHE_VERSION: v0.3.0
   SHELL: /bin/bash
 
 jobs:
@@ -64,9 +66,6 @@ jobs:
 
       - name: Install Dependencies on Linux
         if: matrix.id == 'linux'
-        env:
-          SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
-          SCCACHE_VERSION: v0.3.0
         run: |
           sudo apt install autoconf2.13 clang llvm -y
           SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
@@ -83,6 +82,8 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
           default: true
+      - name: Install Just
+        uses: extractions/setup-just@v1
 
       - name: Cache Cargo Cache and Git Database
         uses: actions/cache@v2
@@ -111,8 +112,8 @@ jobs:
           CXX: clang++
           RUSTC_WRAPPER: sccache
         run: |
-          cargo build --release -vv
-          cargo test --release -vv
+          just build-release -vv
+          just test-release -vv
           mv ./target/release/cli ./target/release/spiderfire
           strip ./target/release/spiderfire
 
@@ -130,8 +131,8 @@ jobs:
           PYTHON3: C:\mozilla-build\python3\python3.exe
           LIBCLANG_PATH: C:\ProgramData\scoop\apps\llvm\current\lib
         run: |
-          cargo build --release -vv
-          cargo test --release -vv
+          just build-release -vv
+          just test-release -vv
           rename .\target\release\cli.exe spiderfire.exe
 
       - name: Stop sccache Server
@@ -146,3 +147,49 @@ jobs:
           name: spiderfire-${{ github.sha }}-${{ matrix.id }}
           path: target/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
           if-no-files-found: error
+
+  Lint:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE: sccache
+      SCCACHE_CACHE_SIZE: 1G
+      SCCACHE_DIR: /home/runner/.cache/sccache
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Dependencies on Linux
+        if: matrix.id == 'linux'
+        run: |
+          sudo apt install autoconf2.13 clang llvm -y
+          SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
+          mkdir -p $HOME/.local/bin
+          curl -L "$SCCACHE_LINK/$SCCACHE_VERSION/$SCCACHE_FILE.tar.gz" | tar xz
+          chmod +x $SCCACHE_FILE/sccache
+          mv -f $SCCACHE_FILE/sccache $HOME/.local/bin/sccache
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          default: true
+      - name: Install Just
+        uses: extractions/setup-just@v1
+      
+      - name: Start sccache Server
+        run: sccache --start-server
+      
+      - name: Lint
+        env:
+          CC: clang
+          CXX: clang++
+          RUSTC_WRAPPER: sccache
+        run: |
+          just lint
+      
+      - name: Stop sccache Server
+        run: |
+          sccache --show-stats
+          sccache --stop-server || true

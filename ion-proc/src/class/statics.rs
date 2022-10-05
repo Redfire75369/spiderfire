@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use convert_case::{Case, Casing};
 use proc_macro2::Ident;
 use syn::{ItemImpl, ItemStatic, ItemStruct, LitStr};
 
@@ -40,7 +41,12 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 				.aliases
 				.iter()
 				.map(|alias| {
-					let name = LitStr::new(&alias.to_string(), alias.span());
+					let span = alias.span();
+					let mut alias = alias.to_string();
+					if alias.is_case(Case::Snake) {
+						alias = alias.to_case(Case::Camel);
+					}
+					let name = LitStr::new(&alias, span);
 					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
 				})
 				.collect::<Vec<_>>()

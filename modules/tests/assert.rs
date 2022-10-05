@@ -10,7 +10,7 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 use mozjs::rust::JSEngine;
 
-use ion::{Context, Error, Exception, Function, Object};
+use ion::{Error, Exception, Function, Object};
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};

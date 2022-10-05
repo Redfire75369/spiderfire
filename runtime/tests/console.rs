@@ -21,6 +21,6 @@ fn console() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
-	let result = Script::compile_and_evaluate(rt.cx(), &Path::new(FILE_NAME), SCRIPT);
+	let result = Script::compile_and_evaluate(rt.cx(), Path::new(FILE_NAME), SCRIPT);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }

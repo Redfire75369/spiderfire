@@ -7,7 +7,7 @@
 
 # Spiderfire
 
-Spiderfire is a Javascript runtime built with Mozilla's SpiderMonkey engine and Rust.
+Spiderfire is a Javascript runtime built with Mozilla's SpiderMonkey engine.
 
 Spiderfire aims to disrupt the server-side Javascript runtime environment.
 
