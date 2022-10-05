@@ -8,9 +8,10 @@ use bytes::Bytes;
 
 pub use class::*;
 
-use crate::http::header::Headers;
+use crate::http::header::HeadersInit;
 use crate::http::options::parse_body;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(FromJSVal)]
 pub enum Resource {
 	#[ion(inherit)]
@@ -26,25 +27,27 @@ pub struct RequestBuilderOptions {
 	#[derivative(Default(value = "true"))]
 	#[ion(default = true)]
 	pub(crate) set_host: bool,
-	#[ion(inherit)]
-	pub(crate) headers: Headers,
+	pub(crate) headers: HeadersInit,
 	#[ion(default, parser = |b| parse_body(cx, b))]
 	pub(crate) body: Bytes,
 }
 
 #[js_class]
 pub mod class {
+	use std::borrow::Cow;
+	use std::result;
+	use std::str::FromStr;
+
 	use bytes::Bytes;
 	use http::request::Builder;
 	use hyper::{Method, Uri};
-	use ion::{Error, Result, ClassInitialiser, Context, Object};
-	use std::str::FromStr;
-	use std::borrow::Cow;
-	use std::result;
 	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 	use mozjs::rust::HandleValue;
+
+	use ion::{ClassInitialiser, Context, Error, Object, Result};
 	use ion::error::ThrowException;
 
+	use crate::http::header::{Headers, HeadersInit};
 	use crate::http::request::{RequestBuilderOptions, Resource};
 
 	pub struct Request {
@@ -55,7 +58,7 @@ pub mod class {
 
 	impl Request {
 		#[ion(constructor)]
-		pub fn constructor(resource: Resource, options: Option<RequestBuilderOptions>) -> Result<Request> {
+		pub unsafe fn constructor(cx: Context, resource: Resource, options: Option<RequestBuilderOptions>) -> Result<Request> {
 			let mut request = match resource {
 				Resource::Request(request) => request.clone()?,
 				Resource::String(url) => {
@@ -73,7 +76,16 @@ pub mod class {
 			}
 
 			if let Some(h) = request.req.headers_mut() {
-				*h = options.headers.inner();
+				use HeadersInit as HI;
+				match options.headers {
+					HI::Existing(headers) => *h = headers.inner(),
+					HI::Array(array) => {
+						*h = Headers::from_array(array, false)?.inner();
+					}
+					HI::Object(object) => {
+						*h = Headers::from_object(cx, object, false)?.inner();
+					}
+				}
 			}
 
 			request.set_host = options.set_host;

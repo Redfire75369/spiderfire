@@ -20,28 +20,27 @@ pub(crate) struct RequestOptions {
 	#[derivative(Default(value = "true"))]
 	#[ion(default = true)]
 	pub(crate) set_host: bool,
-	#[ion(inherit)]
 	pub(crate) headers: Headers,
 	#[ion(parser = |b| parse_body(cx, b))]
 	pub(crate) body: Option<Bytes>,
 }
 
 macro_rules! typedarray_to_bytes {
-	($body:expr,) => {
+	($body:expr) => {
 		Bytes::default()
 	};
-	($body:expr, [$arr:ident, true], $($rest:tt)*) => {
+	($body:expr, [$arr:ident, true]$(, $($rest:tt)*)?) => {
 		paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
 				Bytes::copy_from_slice(arr.as_slice())
-			} else if let Ok(arr) = <::mozjs::typedarray:: [<Heap $arr>]>::from($body) {
+			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
 				Bytes::copy_from_slice(arr.as_slice())
 			} else {
-				typedarray_to_bytes!($body, $($rest)*)
+				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
 		}
 	};
-	($body:expr, [$arr:ident, false], $($rest:tt)*) => {
+	($body:expr, [$arr:ident, false]$(, $($rest:tt)*)?) => {
 		paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
@@ -50,7 +49,7 @@ macro_rules! typedarray_to_bytes {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
 				Bytes::copy_from_slice(bytes)
 			} else {
-				typedarray_to_bytes!($body, $($rest)*)
+				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
 		}
 	};
@@ -76,7 +75,7 @@ pub(crate) unsafe fn parse_body(cx: Context, body: JSVal) -> Bytes {
 			return Bytes::default();
 		}
 
-		typedarray_to_bytes!(body, [ArrayBuffer, true], [ArrayBufferView, true],)
+		typedarray_to_bytes!(body, [ArrayBuffer, true], [ArrayBufferView, true])
 	} else {
 		Bytes::default()
 	}

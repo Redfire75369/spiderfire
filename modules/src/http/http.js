@@ -9,6 +9,7 @@ export const post = ______httpInternal______.post;
 export const put = ______httpInternal______.put;
 export const request = ______httpInternal______.request;
 
+export const Headers = ______httpInternal______.Headers;
 export const Request = ______httpInternal______.Request;
 export const Response = ______httpInternal______.Response;
 

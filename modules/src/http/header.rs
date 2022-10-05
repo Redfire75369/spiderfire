@@ -4,62 +4,209 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
-use hyper::header::{Entry, HeaderMap, HeaderName, HeaderValue};
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
-use mozjs::rust::HandleValue;
+use hyper::header::{HeaderMap, HeaderName, HeaderValue};
+use mozjs::conversions::ToJSValConvertible;
+use mozjs::jsapi::JSContext;
 use mozjs::rust::MutableHandleValue;
 
-use ion::{Array, Context, Key, Object};
+pub use class::*;
+use ion::{Array, Context, Error, Key, Object, Result};
 use ion::types::values::from_value;
 
-#[derive(Default)]
-pub struct Headers {
-	headers: HeaderMap,
+#[derive(FromJSVal)]
+pub enum Header {
+	#[ion(inherit)]
+	Multiple(Vec<String>),
+	#[ion(inherit)]
+	Single(String),
 }
 
-impl Headers {
-	pub fn new(headers: HeaderMap) -> Headers {
-		Headers { headers }
-	}
-
-	pub fn inner(self) -> HeaderMap {
-		self.headers
-	}
+#[derive(FromJSVal)]
+pub enum HeadersInit {
+	#[ion(inherit)]
+	Existing(Headers),
+	#[ion(inherit)]
+	Array(Vec<Vec<String>>),
+	#[ion(inherit)]
+	Object(Object),
 }
 
-impl Deref for Headers {
-	type Target = HeaderMap;
-
-	fn deref(&self) -> &Self::Target {
-		&self.headers
-	}
-}
-
-impl DerefMut for Headers {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.headers
+impl ToJSValConvertible for Header {
+	unsafe fn to_jsval(&self, cx: *mut JSContext, rval: MutableHandleValue) {
+		match self {
+			Header::Multiple(vec) => vec.to_jsval(cx, rval),
+			Header::Single(str) => str.to_jsval(cx, rval),
+		}
 	}
 }
 
-pub(crate) fn insert_header(map: &mut HeaderMap, name: HeaderName, value: HeaderValue, unique: bool) {
-	match map.entry(name) {
-		Entry::Occupied(mut o) => {
-			if !unique {
-				o.append(value);
-			} else {
-				o.insert(value);
+impl Default for HeadersInit {
+	fn default() -> HeadersInit {
+		HeadersInit::Existing(Headers::new(HeaderMap::new(), false))
+	}
+}
+
+#[js_class]
+mod class {
+	use std::cmp::Ordering;
+	use std::ops::{Deref, DerefMut};
+	use std::result;
+	use std::str::FromStr;
+
+	use http::header::{Entry, HeaderMap, HeaderName, HeaderValue};
+	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
+	use mozjs::rust::HandleValue;
+
+	use ion::{Context, Error, ErrorKind, Object, Result};
+	use ion::class::class_from_jsval;
+
+	use crate::http::header::{append_to_headers, Header, HeadersInit};
+
+	#[derive(Clone, Default)]
+	pub struct Headers {
+		headers: HeaderMap,
+		readonly: bool,
+	}
+
+	impl Headers {
+		#[ion(internal)]
+		pub fn new(headers: HeaderMap, readonly: bool) -> Headers {
+			Headers { headers, readonly }
+		}
+
+		#[ion(internal)]
+		pub fn inner(self) -> HeaderMap {
+			self.headers
+		}
+
+		#[ion(internal)]
+		pub unsafe fn from_array(vec: Vec<Vec<String>>, readonly: bool) -> Result<Headers> {
+			let mut headers = HeaderMap::new();
+			for mut vec in vec {
+				if vec.len() != 2 {
+					return Err(Error::new(
+						&format!("Received Header Entry with Length {}, Expected Length 2", vec.len()),
+						Some(ErrorKind::Type),
+					));
+				}
+				let value = vec.remove(1);
+				let mut name = vec.remove(0);
+				name.make_ascii_lowercase();
+
+				let name = HeaderName::from_str(&name)?;
+				let value = HeaderValue::try_from(&value)?;
+				headers.append(name, value);
+			}
+			Ok(Headers { headers, readonly })
+		}
+
+		#[ion(internal)]
+		pub unsafe fn from_object(cx: Context, object: Object, readonly: bool) -> Result<Headers> {
+			let mut headers = HeaderMap::new();
+			append_to_headers(cx, &mut headers, object, false)?;
+			Ok(Headers { headers, readonly })
+		}
+
+		#[ion(internal)]
+		pub fn get_internal(&self, name: &HeaderName) -> Result<Option<Header>> {
+			let values: Vec<_> = self.headers.get_all(name).into_iter().collect();
+			match values.len().cmp(&1) {
+				Ordering::Less => Ok(None),
+				Ordering::Equal => Ok(Some(Header::Single(String::from(values[0].to_str()?)))),
+				Ordering::Greater => {
+					let values: Vec<String> = values.iter().map(|v| Ok(String::from(v.to_str()?))).collect::<Result<_>>()?;
+					Ok(Some(Header::Multiple(values)))
+				}
 			}
 		}
-		Entry::Vacant(v) => {
-			v.insert(value);
+
+		#[ion(constructor)]
+		pub unsafe fn constructor(cx: Context, init: Option<HeadersInit>) -> Result<Headers> {
+			match init {
+				Some(HeadersInit::Existing(existing)) => {
+					let headers = existing.headers;
+					Ok(Headers { headers, readonly: existing.readonly })
+				}
+				Some(HeadersInit::Array(vec)) => Headers::from_array(vec, false),
+				Some(HeadersInit::Object(object)) => Headers::from_object(cx, object, false),
+				None => Ok(Headers::default()),
+			}
+		}
+
+		pub fn append(&mut self, name: String, value: String) -> Result<()> {
+			if !self.readonly {
+				let name = HeaderName::from_str(&name.to_lowercase())?;
+				let value = HeaderValue::from_str(&value)?;
+				self.headers.append(name, value);
+				Ok(())
+			} else {
+				Err(Error::new("Cannot Modify Readonly Headers", None))
+			}
+		}
+
+		pub fn delete(&mut self, name: String) -> Result<bool> {
+			if !self.readonly {
+				let name = HeaderName::from_str(&name.to_lowercase())?;
+				match self.headers.entry(name) {
+					Entry::Occupied(o) => {
+						o.remove_entry_mult();
+						Ok(true)
+					}
+					Entry::Vacant(_) => Ok(false),
+				}
+			} else {
+				Err(Error::new("Cannot Modify Readonly Headers", None))
+			}
+		}
+
+		pub fn get(&self, name: String) -> Result<Option<Header>> {
+			let name = HeaderName::from_str(&name.to_lowercase())?;
+			self.get_internal(&name)
+		}
+
+		pub fn has(&self, name: String) -> Result<bool> {
+			let name = HeaderName::from_str(&name.to_lowercase())?;
+			Ok(self.headers.contains_key(name))
+		}
+
+		pub fn set(&mut self, name: String, value: String) -> Result<()> {
+			if !self.readonly {
+				let name = HeaderName::from_str(&name.to_lowercase())?;
+				let value = HeaderValue::from_str(&value)?;
+				self.headers.insert(name, value);
+				Ok(())
+			} else {
+				Err(Error::new("Cannot Modify Readonly Headers", None))
+			}
+		}
+	}
+
+	impl Deref for Headers {
+		type Target = HeaderMap;
+
+		fn deref(&self) -> &HeaderMap {
+			&self.headers
+		}
+	}
+
+	impl DerefMut for Headers {
+		fn deref_mut(&mut self) -> &mut HeaderMap {
+			&mut self.headers
+		}
+	}
+
+	impl FromJSValConvertible for Headers {
+		type Config = ();
+
+		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<Self>, ()> {
+			class_from_jsval(cx, val)
 		}
 	}
 }
 
-pub(crate) fn append_to_headers(cx: Context, headers: &mut HeaderMap, obj: Object, unique: bool) {
+fn append_to_headers(cx: Context, headers: &mut HeaderMap, obj: Object, unique: bool) -> Result<()> {
 	for key in obj.keys(cx, None) {
 		let key = match key {
 			Key::Int(i) => i.to_string(),
@@ -67,74 +214,32 @@ pub(crate) fn append_to_headers(cx: Context, headers: &mut HeaderMap, obj: Objec
 			Key::Void => continue,
 		};
 
-		if let Ok(name) = HeaderName::from_str(&key.to_lowercase()) {
-			let value = obj.get(cx, &key).unwrap();
-			if let Some(array) = Array::from_value(cx, value) {
-				if !unique {
-					for i in 0..array.len(cx) {
-						if let Some(str) = array.get_as::<String>(cx, i, ()) {
-							if let Ok(value) = HeaderValue::from_str(&str) {
-								insert_header(headers, name.clone(), value, unique);
-							}
-						}
+		let name = HeaderName::from_str(&key.to_lowercase())?;
+		let value = obj.get(cx, &key).unwrap();
+		if let Some(array) = Array::from_value(cx, value) {
+			if !unique {
+				for i in 0..array.len(cx) {
+					if let Some(str) = array.get_as::<String>(cx, i, ()) {
+						let value = HeaderValue::from_str(&str)?;
+						headers.insert(name.clone(), value);
 					}
-				} else {
-					let vec: Vec<String> = array.to_vec(cx).into_iter().filter_map(|v| from_value(cx, v, ())).collect();
-					let str = vec.join(";");
-					if let Ok(value) = HeaderValue::from_str(&str) {
-						insert_header(headers, name.clone(), value, unique);
-					}
-				}
-			} else if let Some(str) = from_value::<String>(cx, value, ()) {
-				if let Ok(value) = HeaderValue::from_str(&str) {
-					insert_header(headers, name, value, unique);
 				}
 			} else {
-				continue;
-			};
-		}
-	}
-}
-
-impl FromJSValConvertible for Headers {
-	type Config = ();
-
-	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> Result<ConversionResult<Self>, ()> {
-		let res: ConversionResult<Object> = FromJSValConvertible::from_jsval(cx, val, ())?;
-		match res {
-			ConversionResult::Success(obj) => {
-				let headers: Option<Object> = obj.get_as(cx, "headers", ());
-				let unique_headers: Option<Object> = obj.get_as(cx, "uniqueHeaders", ());
-
-				let mut header_map = HeaderMap::new();
-				if let Some(headers) = headers {
-					append_to_headers(cx, &mut header_map, headers, false);
-				}
-				if let Some(unique_headers) = unique_headers {
-					append_to_headers(cx, &mut header_map, unique_headers, true);
-				}
-
-				Ok(ConversionResult::Success(Headers { headers: header_map }))
+				let vec: Vec<String> = array
+					.to_vec(cx)
+					.into_iter()
+					.map(|v| from_value(cx, v, ()).ok_or_else(|| Error::new("Could not Convert Header Value to String", None)))
+					.collect::<Result<_>>()?;
+				let str = vec.join(";");
+				let value = HeaderValue::from_str(&str)?;
+				headers.insert(name, value);
 			}
-			ConversionResult::Failure(e) => Ok(ConversionResult::Failure(e)),
-		}
+		} else if let Some(str) = from_value::<String>(cx, value, ()) {
+			let value = HeaderValue::from_str(&str)?;
+			headers.insert(name, value);
+		} else {
+			return Err(Error::new("Could not convert value to Header Value", None));
+		};
 	}
-}
-
-impl ToJSValConvertible for Headers {
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		let mut obj = Object::new(cx);
-
-		for key in self.headers.keys() {
-			let values: Vec<_> = self.headers.get_all(key).into_iter().collect();
-			if values.len() == 1 {
-				obj.set_as(cx, key.as_str(), String::from(values[0].to_str().unwrap()));
-			} else if values.len() > 1 {
-				let values: Vec<String> = values.iter().filter_map(|v| v.to_str().ok().map(String::from)).collect();
-				obj.set_as(cx, key.as_str(), values);
-			}
-		}
-
-		rval.set(obj.to_value());
-	}
+	Ok(())
 }

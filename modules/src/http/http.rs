@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use hyper::{Body, Client, Method, Request, Uri};
+use hyper::{Body, Client, Method, Uri};
 use hyper::header::{HeaderName, HeaderValue};
 use mozjs::jsapi::JSFunctionSpec;
 use url::Url;
@@ -14,12 +14,12 @@ use url::Url;
 use ion::{ClassInitialiser, Context, Error, Object, Result};
 use runtime::modules::NativeModule;
 
-use crate::http::header::insert_header;
+use crate::http::header::Headers;
 use crate::http::options::RequestOptions;
-use crate::http::request::Resource;
+use crate::http::request::{Request, Resource};
 use crate::http::response::Response;
 
-fn construct_request(url: &Url, method: Method, options: RequestOptions) -> Result<Request<Body>> {
+fn construct_request(url: &Url, method: Method, options: RequestOptions) -> Result<hyper::Request<Body>> {
 	let uri: Uri = url.as_str().parse()?;
 
 	if options.body.is_some() {
@@ -38,19 +38,22 @@ fn construct_request(url: &Url, method: Method, options: RequestOptions) -> Resu
 		}
 	}
 
-	let mut request = Request::builder().method(method).uri(uri);
+	let mut request = hyper::Request::builder().method(method).uri(uri);
 
-	let auth = url.password().map(|pw| format!("{}:{}", url.username(), pw));
-	let auth = auth.or_else(|| options.auth);
+	if let Some(headers) = request.headers_mut() {
+		*headers = options.headers.inner();
+	}
+
+	let auth = url.password().map(|pw| format!("{}:{}", url.username(), pw)).or(options.auth);
 
 	if let Some(auth) = auth {
-		request.headers_mut().map(|h| {
+		if let Some(headers) = request.headers_mut() {
 			if let Ok(auth) = HeaderValue::from_str(&auth) {
-				if !h.contains_key("authorization") {
-					insert_header(h, HeaderName::from_static("authorization"), auth, true);
+				if !headers.contains_key("authorization") {
+					headers.insert(HeaderName::from_static("authorization"), auth);
 				}
 			}
-		});
+		}
 	}
 
 	if options.set_host {
@@ -62,24 +65,20 @@ fn construct_request(url: &Url, method: Method, options: RequestOptions) -> Resu
 			}
 		});
 		if let Some(host) = host {
-			request.headers_mut().map(|h| {
+			if let Some(headers) = request.headers_mut() {
 				if let Ok(host) = HeaderValue::from_str(&host) {
-					if !h.contains_key("host") {
-						insert_header(h, HeaderName::from_static("host"), host, true);
+					if !headers.contains_key("host") {
+						headers.insert(HeaderName::from_static("host"), host);
 					}
 				}
-			});
+			}
 		}
-	}
-
-	if let Some(headers) = request.headers_mut() {
-		*headers = options.headers.inner();
 	}
 
 	Ok(request.body(Body::from(options.body.unwrap_or_default()))?)
 }
 
-async fn request_internal(request: Request<Body>, set_host: bool) -> Result<hyper::Response<Body>> {
+async fn request_internal(request: hyper::Request<Body>, set_host: bool) -> Result<hyper::Response<Body>> {
 	let mut builder = Client::builder();
 	builder.set_host(set_host);
 	let client = builder.build_http();
@@ -163,8 +162,9 @@ impl NativeModule for Http {
 		let mut http = Object::new(cx);
 
 		http.define_methods(cx, FUNCTIONS);
+		Headers::init_class(cx, &http);
+		Request::init_class(cx, &http);
 		Response::init_class(cx, &http);
-		crate::http::request::Request::init_class(cx, &http);
 		Some(http)
 	}
 }

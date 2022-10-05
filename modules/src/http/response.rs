@@ -11,11 +11,13 @@ pub mod class {
 	use bytes::{Buf, BufMut};
 	use hyper::Body;
 	use hyper::body::HttpBody;
+
 	use ion::{Error, Result};
 	use ion::typedarray::ArrayBuffer;
 
 	use crate::http::header::Headers;
 
+	#[allow(dead_code)]
 	pub struct Response {
 		pub(crate) res: hyper::Response<Body>,
 		pub(crate) body_used: bool,
@@ -39,13 +41,13 @@ pub mod class {
 		}
 
 		#[ion(get)]
-		pub fn get_bodyUsed(&self) -> bool {
+		pub fn get_body_used(&self) -> bool {
 			self.body_used
 		}
 
 		#[ion(get)]
 		pub fn get_headers(&self) -> Headers {
-			Headers::new(self.res.headers().clone())
+			Headers::new(self.res.headers().clone(), true)
 		}
 
 		#[ion(get)]
@@ -59,7 +61,7 @@ pub mod class {
 		}
 
 		#[ion(get)]
-		pub fn get_statusText(&self) -> Option<String> {
+		pub fn get_status_text(&self) -> Option<String> {
 			self.res.status().canonical_reason().map(String::from)
 		}
 
