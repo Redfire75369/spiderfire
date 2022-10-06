@@ -65,9 +65,8 @@ pub(crate) fn error_handler() -> TokenStream {
 	let krate = quote!(::ion);
 	quote!(
 		match result {
-			::std::result::Result::Ok(::std::result::Result::Ok(v)) => {
-				use ::mozjs::conversions::ToJSValConvertible;
-				v.to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
+			::std::result::Result::Ok(::std::result::Result::Ok(val)) => {
+				::mozjs::conversions::ToJSValConvertible::to_jsval(&val, cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 				true
 			},
 			::std::result::Result::Ok(::std::result::Result::Err(error)) => {

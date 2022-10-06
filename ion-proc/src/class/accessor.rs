@@ -152,7 +152,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is
 			}
 			acc
 		});
-		(nargs == expected_args).then(|| ()).ok_or(error)
+		(nargs == expected_args).then_some(()).ok_or(error)
 	})?;
 
 	Ok((accessor, parameters))

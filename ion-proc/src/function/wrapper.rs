@@ -67,7 +67,7 @@ pub(crate) fn impl_wrapper_fn(
 		wrapper_output = parse_quote!(::std::result::Result::<#krate::Promise, #krate::Exception>);
 	}
 
-	let wrapper_inner = keep_inner.then(|| &inner);
+	let wrapper_inner = keep_inner.then_some(&inner);
 
 	let mut call = quote!(inner);
 	if !keep_inner {
@@ -107,8 +107,7 @@ pub(crate) fn impl_wrapper_fn(
 				let b = ::std::boxed::Box::new(result);
 				::mozjs::rooted!(in(cx) let this = ::mozjs::jsapi::JS_NewObjectForConstructor(cx, &CLASS, &args.call_args()));
 				::mozjs::jsapi::SetPrivate(this.get(), Box::into_raw(b) as *mut ::std::ffi::c_void);
-				use ::mozjs::conversions::ToJSValConvertible;
-				this.get().to_jsval(cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
+				::mozjs::conversions::ToJSValConvertible::to_jsval(&this.get(), cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
 			});
 			match result {
 				::std::result::Result::Ok(_) => ::std::result::Result::Ok(()),

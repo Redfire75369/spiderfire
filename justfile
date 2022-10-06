@@ -15,11 +15,11 @@ run args='':
 run-release args='':
   cargo run --release {{args}}
 
-test:
-  cargo test --features debugmozjs --locked --no-fail-fast
+test args='':
+  cargo test --features debugmozjs --locked --no-fail-fast {{args}}
 
-test-release:
-  cargo test --release --locked --no-fail-fast
+test-release args='':
+  cargo test --release --locked --no-fail-fast {{args}}
 
 lint:
   cargo fmt --check --all

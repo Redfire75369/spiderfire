@@ -10,13 +10,13 @@ futures = "0.3.24"
 idna = "0.3.0"
 ion = { path = "../ion", features = ["macros"] }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
-tokio = { version = "1.21.0", features = ["fs", "rt"] }
-tokio-stream = { version = "0.1.9", features = ["fs"] }
+tokio = { version = "1.21.2", features = ["fs", "rt"] }
+tokio-stream = { version = "0.1.10", features = ["fs"] }
 runtime = { path = "../runtime" }
-url = "2.2.2"
+url = "2.3.1"
 
 [dev-dependencies]
-tokio = { version = "1.21.0", features = ["macros", "rt"] }
+tokio = { version = "1.21.2", features = ["macros", "rt"] }
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
