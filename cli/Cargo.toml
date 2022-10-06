@@ -7,8 +7,8 @@ license = "MPL-2.0"
 
 [dependencies]
 colored = "2.0.0"
-clap = { version = "4.0.9", features = ["derive"] }
-dunce = "1.0.2"
+clap = { version = "4.0.10", features = ["derive"] }
+dunce = "1.0.3"
 ion = { path = "../ion" }
 modules = { path = "../modules" }
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
