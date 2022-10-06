@@ -13,4 +13,6 @@ export const Headers = ______httpInternal______.Headers;
 export const Request = ______httpInternal______.Request;
 export const Response = ______httpInternal______.Response;
 
+export const Client = ______httpInternal______.Client;
+
 export default Object.freeze(______httpInternal______);

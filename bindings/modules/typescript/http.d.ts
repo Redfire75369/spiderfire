@@ -11,19 +11,27 @@ declare module "http" {
 		| Float32Array | Float64Array;
 	export type Body = string | String | ArrayBuffer | TypedArray | DataView;
 
-	interface CommonOptions {
+	export interface RequestOptions {
+		auth?: string,
 		setHost?: boolean,
+
+		client?: ClientRequestOptions,
 		headers?: HeadersInit,
 		body?: Body,
 	}
 
-	export type RequestOptions = CommonOptions & {
-		auth?: string,
-	};
-
-	export type RequestBuilderOptions = CommonOptions & {
+	export type RequestBuilderOptions = RequestOptions & {
 		method?: string,
 	};
+
+	export interface ClientOptions {
+		keepAlive?: boolean,
+		keepAliveTimeout?: number,
+		maxIdleSockets?: number,
+		retryCancelled?: boolean,
+	}
+
+	export type ClientRequestOptions = undefined | boolean | Client;
 
 	export function get(url: string, options?: RequestOptions): Promise<Response>;
 	export function post(url: string, options?: RequestOptions): Promise<Response>;
@@ -63,6 +71,10 @@ declare module "http" {
 		text(): Promise<string>;
 	}
 
+	export class Client {
+		constructor(options?: ClientOptions);
+	}
+
 	namespace Http {
 		export {
 			Body,
@@ -81,6 +93,8 @@ declare module "http" {
 			Headers,
 			Request,
 			Response,
+
+			Client,
 		};
 	}
 

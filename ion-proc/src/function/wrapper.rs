@@ -103,7 +103,13 @@ pub(crate) fn impl_wrapper_fn(
 	}
 
 	if is_constructor {
+		let constructor_result = if !is_result {
+			quote!(let result = ::std::result::Result::<#inner_output, ::ion::Exception>::Ok(result);)
+		} else {
+			TokenStream::new()
+		};
 		result = quote!(
+			#constructor_result
 			let result = result.map(|result| unsafe {
 				let b = ::std::boxed::Box::new(result);
 				::mozjs::rooted!(in(cx) let this = ::mozjs::jsapi::JS_NewObjectForConstructor(cx, &CLASS, &args.call_args()));

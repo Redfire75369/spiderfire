@@ -6,6 +6,7 @@
 
 pub use self::http::*;
 
+mod client;
 mod header;
 mod http;
 mod options;

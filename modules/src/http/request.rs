@@ -4,12 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use bytes::Bytes;
+use http::{HeaderMap, HeaderValue, Method};
+use http::header::HeaderName;
+use url::Url;
 
 pub use class::*;
+use ion::{Error, Result};
 
-use crate::http::header::HeadersInit;
-use crate::http::options::parse_body;
+use crate::http::options::RequestOptions;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(FromJSVal)]
@@ -24,12 +26,8 @@ pub enum Resource {
 #[derivative(Default)]
 pub struct RequestBuilderOptions {
 	pub(crate) method: Option<String>,
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) set_host: bool,
-	pub(crate) headers: HeadersInit,
-	#[ion(default, parser = |b| parse_body(cx, b))]
-	pub(crate) body: Bytes,
+	#[ion(default, inherit)]
+	pub(crate) options: RequestOptions,
 }
 
 #[js_class]
@@ -39,89 +37,80 @@ pub mod class {
 	use std::str::FromStr;
 
 	use bytes::Bytes;
-	use http::request::Builder;
-	use hyper::{Method, Uri};
+	use hyper::{Body, Method, Uri};
 	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 	use mozjs::rust::HandleValue;
+	use url::Url;
 
-	use ion::{ClassInitialiser, Context, Error, Object, Result};
+	use ion::{ClassInitialiser, Context, Object, Result};
 	use ion::error::ThrowException;
 
-	use crate::http::header::{Headers, HeadersInit};
-	use crate::http::request::{RequestBuilderOptions, Resource};
+	use crate::http::client::ClientRequestOptions;
+	use crate::http::request::{add_authorisation_header, add_host_header, check_method_with_body, RequestBuilderOptions, Resource};
 
 	pub struct Request {
-		pub(crate) req: Builder,
-		pub(crate) set_host: bool,
+		pub(crate) request: hyper::Request<Body>,
 		pub(crate) body: Bytes,
+		pub(crate) client: ClientRequestOptions,
 	}
 
 	impl Request {
 		#[ion(constructor)]
-		pub unsafe fn constructor(cx: Context, resource: Resource, options: Option<RequestBuilderOptions>) -> Result<Request> {
+		pub fn constructor(resource: Resource, options: Option<RequestBuilderOptions>) -> Result<Request> {
 			let mut request = match resource {
 				Resource::Request(request) => request.clone()?,
 				Resource::String(url) => {
-					let uri: Uri = url.parse()?;
-					let req = hyper::Request::builder().uri(uri);
+					let uri = Uri::from_str(&url)?;
+					let request = hyper::Request::builder().uri(uri).body(Body::empty())?;
 
-					Request { req, set_host: true, body: Bytes::new() }
+					Request {
+						request,
+						body: Bytes::new(),
+						client: ClientRequestOptions::default(),
+					}
 				}
 			};
-			let options = options.unwrap_or_default();
-			if let Some(mut method) = options.method {
+
+			let url = Url::from_str(&request.request.uri().to_string())?;
+
+			let RequestBuilderOptions { method, options } = options.unwrap_or_default();
+			if let Some(mut method) = method {
 				method.make_ascii_uppercase();
 				let method = Method::from_str(&method)?;
-				request.req = request.req.method(method);
+				check_method_with_body(&method, options.body.is_some())?;
+				*request.request.method_mut() = method;
 			}
 
-			if let Some(h) = request.req.headers_mut() {
-				use HeadersInit as HI;
-				match options.headers {
-					HI::Existing(headers) => *h = headers.inner(),
-					HI::Array(array) => {
-						*h = Headers::from_array(array, false)?.inner();
-					}
-					HI::Object(object) => {
-						*h = Headers::from_object(cx, object, false)?.inner();
-					}
-				}
-			}
+			*request.request.headers_mut() = options.headers.into_headers()?.inner();
 
-			request.set_host = options.set_host;
-			request.body = options.body;
+			add_authorisation_header(request.request.headers_mut(), &url, options.auth)?;
+			add_host_header(request.request.headers_mut(), &url, options.set_host)?;
+
+			if let Some(body) = options.body {
+				request.body = body;
+				*request.request.body_mut() = Body::empty();
+			}
+			request.client = options.client;
 
 			Ok(request)
 		}
 
 		#[ion(internal)]
 		pub fn clone(&self) -> Result<Request> {
-			let error: Result<Request> = Err(Error::new("Error in Request", None));
+			let method = self.request.method().clone();
+			let uri = self.request.uri().clone();
+			let headers = self.request.headers().clone();
 
-			let method = if let Some(method) = self.req.method_ref() {
-				method.clone()
-			} else {
-				return error;
-			};
-			let uri = if let Some(uri) = self.req.uri_ref() {
-				uri.clone()
-			} else {
-				return error;
-			};
-			let headers = if let Some(headers) = self.req.headers_ref() {
-				headers.clone()
-			} else {
-				return error;
-			};
-			let set_host = self.set_host;
 			let body = self.body.clone();
+			let client = self.client.clone();
 
-			let mut req = hyper::Request::builder().method(method).uri(uri);
-			if let Some(h) = req.headers_mut() {
-				*h = headers;
+			let mut request = hyper::Request::builder().method(method).uri(uri);
+			if let Some(head) = request.headers_mut() {
+				*head = headers;
 			}
+			let request = request.body(Body::empty())?;
 
-			Ok(Request { req, set_host, body })
+			Ok(Request { request, body, client })
 		}
 	}
 
@@ -153,4 +142,43 @@ pub mod class {
 			}
 		}
 	}
+}
+
+pub(crate) fn check_method_with_body(method: &Method, has_body: bool) -> Result<()> {
+	match (has_body, method) {
+		(true, &Method::GET | &Method::HEAD | &Method::CONNECT | &Method::OPTIONS | &Method::TRACE) => {
+			Err(Error::new(&format!("{} cannot have a body.", method.as_str()), None))
+		}
+		(false, &Method::POST | &Method::PUT | &Method::PATCH) => Err(Error::new(&format!("{} must have a body.", method.as_str()), None)),
+		_ => Ok(()),
+	}
+}
+
+pub(crate) fn add_authorisation_header(headers: &mut HeaderMap, url: &Url, auth: Option<String>) -> Result<()> {
+	let auth = url.password().map(|pw| format!("{}:{}", url.username(), pw)).or(auth);
+
+	if let Some(auth) = auth {
+		let auth = HeaderValue::from_str(&auth)?;
+		if !headers.contains_key("authorization") {
+			headers.insert(HeaderName::from_static("authorization"), auth);
+		}
+	}
+	Ok(())
+}
+
+pub(crate) fn add_host_header(headers: &mut HeaderMap, url: &Url, set_host: bool) -> Result<()> {
+	if set_host {
+		let host = url.host_str().map(|host| {
+			if let Some(port) = url.port() {
+				format!("{}:{}", host, port)
+			} else {
+				String::from(host)
+			}
+		});
+		if let Some(host) = host {
+			let host = HeaderValue::from_str(&host)?;
+			headers.append(HeaderName::from_static("host"), host);
+		}
+	}
+	Ok(())
 }

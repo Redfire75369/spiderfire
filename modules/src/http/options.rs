@@ -11,7 +11,8 @@ use mozjs::jsval::JSVal;
 
 use ion::{Context, Object};
 
-use crate::http::header::Headers;
+use crate::http::client::ClientRequestOptions;
+use crate::http::header::HeadersInit;
 
 #[derive(Derivative, FromJSVal)]
 #[derivative(Default)]
@@ -20,7 +21,11 @@ pub(crate) struct RequestOptions {
 	#[derivative(Default(value = "true"))]
 	#[ion(default = true)]
 	pub(crate) set_host: bool,
-	pub(crate) headers: Headers,
+
+	#[ion(default)]
+	pub(crate) client: ClientRequestOptions,
+	#[ion(default)]
+	pub(crate) headers: HeadersInit,
 	#[ion(parser = |b| parse_body(cx, b))]
 	pub(crate) body: Option<Bytes>,
 }

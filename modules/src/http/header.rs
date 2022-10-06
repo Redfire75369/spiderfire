@@ -4,15 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::borrow::Cow;
+use std::result;
 use std::str::FromStr;
 
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
-use mozjs::conversions::ToJSValConvertible;
-use mozjs::jsapi::JSContext;
-use mozjs::rust::MutableHandleValue;
+use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
+use mozjs::rust::{HandleValue, MutableHandleValue};
 
 pub use class::*;
 use ion::{Array, Context, Error, Key, Object, Result};
+use ion::error::ThrowException;
 use ion::types::values::from_value;
 
 #[derive(FromJSVal)]
@@ -23,6 +25,10 @@ pub enum Header {
 	Single(String),
 }
 
+pub struct HeadersObject {
+	headers: HeaderMap,
+}
+
 #[derive(FromJSVal)]
 pub enum HeadersInit {
 	#[ion(inherit)]
@@ -30,14 +36,46 @@ pub enum HeadersInit {
 	#[ion(inherit)]
 	Array(Vec<Vec<String>>),
 	#[ion(inherit)]
-	Object(Object),
+	Object(HeadersObject),
 }
 
 impl ToJSValConvertible for Header {
-	unsafe fn to_jsval(&self, cx: *mut JSContext, rval: MutableHandleValue) {
+	unsafe fn to_jsval(&self, cx: Context, rval: MutableHandleValue) {
 		match self {
 			Header::Multiple(vec) => vec.to_jsval(cx, rval),
 			Header::Single(str) => str.to_jsval(cx, rval),
+		}
+	}
+}
+
+impl FromJSValConvertible for HeadersObject {
+	type Config = ();
+
+	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<HeadersObject>, ()> {
+		if let Some(object) = Object::from_value(val.get()) {
+			let mut headers = HeaderMap::new();
+			if let Err(err) = append_to_headers(cx, &mut headers, object, false) {
+				err.throw(cx);
+				return Err(());
+			}
+			Ok(ConversionResult::Success(HeadersObject { headers }))
+		} else {
+			Ok(ConversionResult::Failure(Cow::Borrowed("Headers are not an Object")))
+		}
+	}
+}
+
+impl HeadersInit {
+	pub(crate) fn into_headers(self) -> Result<Headers> {
+		unsafe {
+			match self {
+				HeadersInit::Existing(existing) => {
+					let headers = existing.headers;
+					Ok(Headers { headers, readonly: existing.readonly })
+				}
+				HeadersInit::Array(vec) => Headers::from_array(vec, false),
+				HeadersInit::Object(object) => Ok(Headers { headers: object.headers, readonly: false }),
+			}
 		}
 	}
 }
@@ -59,15 +97,15 @@ mod class {
 	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 	use mozjs::rust::HandleValue;
 
-	use ion::{Context, Error, ErrorKind, Object, Result};
+	use ion::{Context, Error, ErrorKind, Result};
 	use ion::class::class_from_jsval;
 
-	use crate::http::header::{append_to_headers, Header, HeadersInit};
+	use crate::http::header::{Header, HeadersInit};
 
 	#[derive(Clone, Default)]
 	pub struct Headers {
-		headers: HeaderMap,
-		readonly: bool,
+		pub(crate) headers: HeaderMap,
+		pub(crate) readonly: bool,
 	}
 
 	impl Headers {
@@ -103,13 +141,6 @@ mod class {
 		}
 
 		#[ion(internal)]
-		pub unsafe fn from_object(cx: Context, object: Object, readonly: bool) -> Result<Headers> {
-			let mut headers = HeaderMap::new();
-			append_to_headers(cx, &mut headers, object, false)?;
-			Ok(Headers { headers, readonly })
-		}
-
-		#[ion(internal)]
 		pub fn get_internal(&self, name: &HeaderName) -> Result<Option<Header>> {
 			let values: Vec<_> = self.headers.get_all(name).into_iter().collect();
 			match values.len().cmp(&1) {
@@ -123,14 +154,9 @@ mod class {
 		}
 
 		#[ion(constructor)]
-		pub unsafe fn constructor(cx: Context, init: Option<HeadersInit>) -> Result<Headers> {
+		pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
 			match init {
-				Some(HeadersInit::Existing(existing)) => {
-					let headers = existing.headers;
-					Ok(Headers { headers, readonly: existing.readonly })
-				}
-				Some(HeadersInit::Array(vec)) => Headers::from_array(vec, false),
-				Some(HeadersInit::Object(object)) => Headers::from_object(cx, object, false),
+				Some(init) => init.into_headers(),
 				None => Ok(Headers::default()),
 			}
 		}
@@ -200,7 +226,7 @@ mod class {
 	impl FromJSValConvertible for Headers {
 		type Config = ();
 
-		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<Self>, ()> {
+		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<Headers>, ()> {
 			class_from_jsval(cx, val)
 		}
 	}
