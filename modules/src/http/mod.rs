@@ -4,11 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+pub(crate) use header::Headers;
+pub(crate) use request::{Request, Resource};
+pub(crate) use response::Response;
+
 pub use self::http::*;
 
 mod client;
 mod header;
 mod http;
-mod options;
+mod network;
 mod request;
 mod response;

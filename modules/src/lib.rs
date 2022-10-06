@@ -12,8 +12,6 @@ extern crate derivative;
 extern crate ion;
 #[macro_use]
 extern crate mozjs;
-#[macro_use]
-extern crate paste;
 
 use ion::{Context, Object};
 use runtime::modules::{init_global_module, init_module, StandardModules};

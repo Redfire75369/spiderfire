@@ -16,6 +16,8 @@ declare module "http" {
 		setHost?: boolean,
 
 		client?: ClientRequestOptions,
+		redirect?: Redirect,
+
 		headers?: HeadersInit,
 		body?: Body,
 	}
@@ -32,6 +34,8 @@ declare module "http" {
 	}
 
 	export type ClientRequestOptions = undefined | boolean | Client;
+
+	export type Redirect = "follow" | "error" | "manual";
 
 	export function get(url: string, options?: RequestOptions): Promise<Response>;
 	export function post(url: string, options?: RequestOptions): Promise<Response>;

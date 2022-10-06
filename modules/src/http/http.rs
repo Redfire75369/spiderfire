@@ -4,99 +4,52 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::str::FromStr;
-
-use hyper::{Body, Method, Uri};
+use hyper::Method;
 use mozjs::jsapi::JSFunctionSpec;
-use url::Url;
 
-use ion::{ClassInitialiser, Context, Error, Object, Result};
+use ion::{ClassInitialiser, Context, Object, Result};
 use runtime::modules::NativeModule;
 
-use crate::http::client::{ClientRequestOptions, default_client, GLOBAL_CLIENT};
+use crate::http::{Headers, Request, Resource, Response};
+use crate::http::client::{default_client, GLOBAL_CLIENT};
 use crate::http::client::Client;
-use crate::http::header::Headers;
-use crate::http::options::RequestOptions;
-use crate::http::request::{add_authorisation_header, add_host_header, check_method_with_body, Request, Resource};
-use crate::http::response::Response;
-
-fn construct_request(url: &Url, method: Method, options: RequestOptions) -> Result<hyper::Request<Body>> {
-	let uri = Uri::from_str(url.as_str())?;
-
-	check_method_with_body(&method, options.body.is_some())?;
-
-	let mut request = hyper::Request::builder().method(method).uri(uri);
-
-	if let Some(headers) = request.headers_mut() {
-		*headers = options.headers.into_headers()?.inner();
-
-		add_authorisation_header(headers, url, options.auth)?;
-		add_host_header(headers, url, options.set_host)?;
-	}
-
-	Ok(request.body(Body::from(options.body.unwrap_or_default()))?)
-}
-
-async fn request_internal(client: ClientRequestOptions, request: hyper::Request<Body>) -> Result<hyper::Response<Body>> {
-	let client = client.into_client();
-	let res = client.request(request).await?;
-	Ok(res)
-}
+use crate::http::network::request_internal;
+use crate::http::request::{RequestBuilderOptions, RequestOptions};
 
 #[js_fn]
 async fn get(url: String, options: Option<RequestOptions>) -> Result<Response> {
-	let url: Url = Url::from_str(&url)?;
-	let options = options.unwrap_or_default();
-	let client = options.client.clone();
+	let options = RequestBuilderOptions::from_request_options(options, Method::GET.to_string());
+	let request = Request::constructor(Resource::String(url), Some(options))?;
 
-	let request = construct_request(&url, Method::GET, options)?;
-	let response = request_internal(client, request).await?;
-	Response::new(response, url.as_str())
+	request_internal(request).await
 }
 
 #[js_fn]
 async fn post(url: String, options: Option<RequestOptions>) -> Result<Response> {
-	let url: Url = Url::from_str(&url)?;
-	let options = options.unwrap_or_default();
-	let client = options.client.clone();
+	let options = RequestBuilderOptions::from_request_options(options, Method::POST.to_string());
+	let request = Request::constructor(Resource::String(url), Some(options))?;
 
-	let request = construct_request(&url, Method::POST, options)?;
-	let response = request_internal(client, request).await?;
-	Response::new(response, url.as_str())
+	request_internal(request).await
 }
 
 #[js_fn]
 async fn put(url: String, options: Option<RequestOptions>) -> Result<Response> {
-	let url: Url = Url::from_str(&url)?;
-	let options = options.unwrap_or_default();
-	let client = options.client.clone();
+	let options = RequestBuilderOptions::from_request_options(options, Method::PUT.to_string());
+	let request = Request::constructor(Resource::String(url), Some(options))?;
 
-	let request = construct_request(&url, Method::PUT, options)?;
-	let response = request_internal(client, request).await?;
-	Response::new(response, url.as_str())
+	request_internal(request).await
 }
 
 #[js_fn]
 async fn request(resource: Resource, method: Option<String>, options: Option<RequestOptions>) -> Result<Response> {
 	use crate::http::request::Request;
 	match resource {
-		Resource::Request(Request { mut request, body, client }) => {
-			let url = Url::from_str(&request.uri().to_string())?;
-			*request.body_mut() = Body::from(body);
-			let response = request_internal(client, request).await?;
-			Response::new(response, url.as_str())
-		}
+		Resource::Request(request) => request_internal(request).await,
 		Resource::String(url) => {
-			let url = Url::from_str(&url)?;
-			let mut method = method.ok_or_else(|| Error::new("request() requires at least 2 arguments", None))?;
-			method.make_ascii_uppercase();
-			let method = Method::from_str(&method)?;
-			let options = options.unwrap_or_default();
-			let client = options.client.clone();
+			let options = RequestBuilderOptions::from_request_options(options, method);
+			let request = Request::constructor(Resource::String(url), Some(options))?;
 
-			let request = construct_request(&url, method, options)?;
-			let response = request_internal(client, request).await?;
-			Response::new(response, url.as_str())
+			request_internal(request).await
 		}
 	}
 }
@@ -123,9 +76,10 @@ impl NativeModule for Http {
 		Headers::init_class(cx, &http);
 		Request::init_class(cx, &http);
 		Response::init_class(cx, &http);
-		Client::init_class(cx, &http);
 
+		Client::init_class(cx, &http);
 		let _ = GLOBAL_CLIENT.set(default_client());
+
 		Some(http)
 	}
 }

@@ -11,18 +11,19 @@ pub mod class {
 	use bytes::{Buf, BufMut};
 	use hyper::Body;
 	use hyper::body::HttpBody;
+	use url::Url;
 
 	use ion::{Error, Result};
 	use ion::typedarray::ArrayBuffer;
 
-	use crate::http::header::Headers;
+	use crate::http::Headers;
 
 	#[allow(dead_code)]
 	pub struct Response {
-		pub(crate) res: hyper::Response<Body>,
+		pub(crate) response: hyper::Response<Body>,
 		pub(crate) body_used: bool,
-		pub(crate) redirected: bool,
-		pub(crate) url: String,
+		pub(crate) redirections: u8,
+		pub(crate) locations: Vec<Url>,
 	}
 
 	impl Response {
@@ -31,13 +32,13 @@ pub mod class {
 			Err(Error::new("Constructor should not be called.", None))
 		}
 
-		pub(crate) fn new(res: hyper::Response<Body>, url: &str) -> Result<Response> {
-			Ok(Response {
-				res,
+		pub(crate) fn new(response: hyper::Response<Body>, redirections: u8, locations: Vec<Url>) -> Response {
+			Response {
+				response,
 				body_used: false,
-				redirected: false,
-				url: String::from(url),
-			})
+				redirections,
+				locations,
+			}
 		}
 
 		#[ion(get)]
@@ -47,22 +48,32 @@ pub mod class {
 
 		#[ion(get)]
 		pub fn get_headers(&self) -> Headers {
-			Headers::new(self.res.headers().clone(), true)
+			Headers::new(self.response.headers().clone(), true)
 		}
 
 		#[ion(get)]
 		pub fn get_ok(&self) -> bool {
-			self.res.status().is_success()
+			self.response.status().is_success()
 		}
 
 		#[ion(get)]
 		pub fn get_status(&self) -> u16 {
-			self.res.status().as_u16()
+			self.response.status().as_u16()
 		}
 
 		#[ion(get)]
 		pub fn get_status_text(&self) -> Option<String> {
-			self.res.status().canonical_reason().map(String::from)
+			self.response.status().canonical_reason().map(String::from)
+		}
+
+		#[ion(get)]
+		pub fn get_redirected(&self) -> bool {
+			self.redirections >= 1
+		}
+
+		#[ion(get)]
+		pub fn get_url(&self) -> String {
+			String::from(self.locations[self.locations.len() - 1].as_str())
 		}
 
 		async fn read_to_bytes(&mut self) -> Result<Vec<u8>> {
@@ -71,7 +82,7 @@ pub mod class {
 			}
 			self.body_used = true;
 
-			let body = self.res.body_mut();
+			let body = self.response.body_mut();
 
 			let first = if let Some(buf) = body.data().await {
 				buf?

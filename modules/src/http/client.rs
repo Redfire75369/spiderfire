@@ -51,12 +51,12 @@ pub enum ClientRequestOptions {
 }
 
 impl ClientRequestOptions {
-	pub fn into_client(self) -> hyper::Client<HttpConnector> {
+	pub fn to_client(&self) -> hyper::Client<HttpConnector> {
 		use ClientRequestOptions as CRO;
 		match self {
 			CRO::Global => GLOBAL_CLIENT.get().unwrap().clone(),
 			CRO::New => default_client(),
-			CRO::Client(client) => client.client,
+			CRO::Client(client) => client.client.clone(),
 		}
 	}
 }
