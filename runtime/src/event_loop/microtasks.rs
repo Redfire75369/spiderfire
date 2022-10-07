@@ -45,11 +45,8 @@ impl Microtask {
 				}
 			},
 			Microtask::User(callback) => {
-				if let Err(report) = callback.call(cx, Object::global(cx), Vec::new()) {
-					Err(report)
-				} else {
-					Ok(())
-				}
+				callback.call(cx, Object::global(cx), Vec::new())?;
+				Ok(())
 			}
 			Microtask::None => Ok(()),
 		}

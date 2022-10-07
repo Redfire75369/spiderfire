@@ -42,15 +42,11 @@ impl FutureQueue {
 				match result {
 					Ok(o) => {
 						o.into_jsval(cx, value.handle_mut());
-						if let Err(error) = resolve.call(cx, null, vec![value.get()]) {
-							return Err(error);
-						}
+						resolve.call(cx, null, vec![value.get()])?;
 					}
 					Err(e) => {
 						e.into_jsval(cx, value.handle_mut());
-						if let Err(error) = reject.call(cx, null, vec![value.get()]) {
-							return Err(error);
-						}
+						reject.call(cx, null, vec![value.get()])?;
 					}
 				}
 			}

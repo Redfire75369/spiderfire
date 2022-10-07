@@ -84,6 +84,8 @@ jobs:
           default: true
       - name: Install Just
         uses: extractions/setup-just@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Cargo Cache and Git Database
         uses: actions/cache@v2
@@ -176,6 +178,25 @@ jobs:
           default: true
       - name: Install Just
         uses: extractions/setup-just@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Cargo Cache and Git Database
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-lint-
+      - name: Cache sccache Cache
+        uses: actions/cache@v2
+        with:
+          path: /home/runner/.cache/sccache
+          key: sccache-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sccache-lint-
 
       - name: Start sccache Server
         run: sccache --start-server

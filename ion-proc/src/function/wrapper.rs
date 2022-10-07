@@ -90,6 +90,7 @@ pub(crate) fn impl_wrapper_fn(
 	if function.sig.asyncness.is_some() {
 		inner_call = quote!({
 			let future = async move {
+				#[allow(clippy::let_unit_value)]
 				let result: #inner_output = #inner_call.await;
 				#async_result
 			};
@@ -123,6 +124,7 @@ pub(crate) fn impl_wrapper_fn(
 		#(#statements)*
 		#wrapper_inner
 
+		#[allow(clippy::let_unit_value)]
 		let result: #output = #inner_call;
 		#result
 	}))?;
