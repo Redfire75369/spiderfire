@@ -158,9 +158,9 @@ impl ToJSValConvertible for Exception {
 	}
 }
 
-impl From<Error> for Exception {
-	fn from(err: Error) -> Exception {
-		Exception::Error(err)
+impl<E: Into<Error>> From<E> for Exception {
+	fn from(error: E) -> Exception {
+		Exception::Error(error.into())
 	}
 }
 

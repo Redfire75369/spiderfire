@@ -7,17 +7,27 @@
 use std::str::FromStr;
 
 use bytes::Bytes;
+use futures::future::{Either, select};
 use http::{Method, StatusCode, Uri};
 use http::header::{CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LOCATION, CONTENT_TYPE, HOST, LOCATION};
 use hyper::Body;
 use url::Url;
 
-use ion::{Error, Result};
+use ion::{Error, Exception};
 
 use crate::http::{Request, Response};
 use crate::http::request::{add_host_header, clone_request, Redirection};
 
-pub(crate) async fn request_internal(mut req: Request) -> Result<Response> {
+pub(crate) async fn request_internal(request: Request) -> Result<Response, Exception> {
+	let signal = request.signal.poll();
+	let send = Box::pin(send_requests(request));
+	match select(send, signal).await {
+		Either::Left((response, _)) => response,
+		Either::Right((exception, _)) => Err(Exception::Other(exception)),
+	}
+}
+
+pub(crate) async fn send_requests(mut req: Request) -> Result<Response, Exception> {
 	let client = req.client.to_client();
 	let mut redirections = 0;
 
@@ -30,11 +40,11 @@ pub(crate) async fn request_internal(mut req: Request) -> Result<Response> {
 
 	while response.status().is_redirection() {
 		if redirections >= 20 {
-			return Err(Error::new("Too Many Redirects", None));
+			return Err(Error::new("Too Many Redirects", None).into());
 		}
 		let status = response.status();
 		if status != StatusCode::SEE_OTHER && !request.body.is_empty() {
-			return Err(Error::new("Redirected with a Body", None));
+			return Err(Error::new("Redirected with a Body", None).into());
 		}
 
 		match req.redirection {
@@ -78,7 +88,7 @@ pub(crate) async fn request_internal(mut req: Request) -> Result<Response> {
 					return Ok(Response::new(response, redirections, locations));
 				}
 			}
-			Redirection::Error => return Err(Error::new("Received Redirection", None)),
+			Redirection::Error => return Err(Error::new("Received Redirection", None).into()),
 			Redirection::Manual => return Ok(Response::new(response, redirections, locations)),
 		}
 	}

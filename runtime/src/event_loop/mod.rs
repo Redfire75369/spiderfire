@@ -64,7 +64,7 @@ impl EventLoop {
 
 		if let Some(ref macrotasks) = self.macrotasks {
 			if !macrotasks.is_empty() {
-				macrotasks.run_all(cx)?;
+				macrotasks.run_jobs(cx)?;
 			}
 		}
 

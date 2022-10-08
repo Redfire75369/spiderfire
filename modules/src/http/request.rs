@@ -19,6 +19,7 @@ use url::Url;
 
 pub use class::*;
 use ion::{Context, Error, Object, Result};
+use runtime::globals::abort::AbortSignal;
 
 use crate::http::client::ClientRequestOptions;
 use crate::http::header::HeadersInit;
@@ -76,6 +77,8 @@ pub struct RequestOptions {
 	pub(crate) client: ClientRequestOptions,
 	#[ion(default)]
 	pub(crate) redirect: Redirection,
+	#[ion(default)]
+	pub(crate) signal: AbortSignal,
 
 	#[ion(default)]
 	pub(crate) headers: HeadersInit,
@@ -113,6 +116,7 @@ pub mod class {
 
 	use ion::{ClassInitialiser, Context, Object, Result};
 	use ion::error::ThrowException;
+	use runtime::globals::abort::AbortSignal;
 
 	use crate::http::{Headers, Resource};
 	use crate::http::client::ClientRequestOptions;
@@ -126,6 +130,7 @@ pub mod class {
 
 		pub(crate) client: ClientRequestOptions,
 		pub(crate) redirection: Redirection,
+		pub(crate) signal: AbortSignal,
 		pub(crate) url: Url,
 	}
 
@@ -137,9 +142,17 @@ pub mod class {
 
 			let client = self.client.clone();
 			let redirection = self.redirection;
+			let signal = self.signal.clone();
 			let url = self.url.clone();
 
-			Ok(Request { request, body, client, redirection, url })
+			Ok(Request {
+				request,
+				body,
+				client,
+				redirection,
+				signal,
+				url,
+			})
 		}
 
 		#[ion(constructor)]
@@ -157,6 +170,7 @@ pub mod class {
 
 						client: ClientRequestOptions::default(),
 						redirection: Redirection::Follow,
+						signal: AbortSignal::default(),
 						url,
 					}
 				}
@@ -183,6 +197,7 @@ pub mod class {
 			}
 			request.client = options.client;
 			request.redirection = options.redirect;
+			request.signal = options.signal;
 
 			Ok(request)
 		}

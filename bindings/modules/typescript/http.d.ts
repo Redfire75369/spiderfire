@@ -17,6 +17,7 @@ declare module "http" {
 
 		client?: ClientRequestOptions,
 		redirect?: Redirect,
+		signal?: AbortSignal,
 
 		headers?: HeadersInit,
 		body?: Body,
@@ -62,8 +63,6 @@ declare module "http" {
 	}
 
 	export class Response {
-		constructor();
-
 		get ok(): boolean;
 		get status(): number;
 		get statusText(): string;

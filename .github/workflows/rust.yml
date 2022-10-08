@@ -84,7 +84,7 @@ jobs:
           default: true
       - name: Install Just
         uses: extractions/setup-just@v1
-        with:
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Cargo Cache and Git Database

@@ -7,7 +7,7 @@
 use hyper::Method;
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{ClassInitialiser, Context, Object, Result};
+use ion::{ClassInitialiser, Context, Exception, Object};
 use runtime::modules::NativeModule;
 
 use crate::http::{Headers, Request, Resource, Response};
@@ -17,7 +17,7 @@ use crate::http::network::request_internal;
 use crate::http::request::{RequestBuilderOptions, RequestOptions};
 
 #[js_fn]
-async fn get(url: String, options: Option<RequestOptions>) -> Result<Response> {
+async fn get(url: String, options: Option<RequestOptions>) -> Result<Response, Exception> {
 	let options = RequestBuilderOptions::from_request_options(options, Method::GET.to_string());
 	let request = Request::constructor(Resource::String(url), Some(options))?;
 
@@ -25,7 +25,7 @@ async fn get(url: String, options: Option<RequestOptions>) -> Result<Response> {
 }
 
 #[js_fn]
-async fn post(url: String, options: Option<RequestOptions>) -> Result<Response> {
+async fn post(url: String, options: Option<RequestOptions>) -> Result<Response, Exception> {
 	let options = RequestBuilderOptions::from_request_options(options, Method::POST.to_string());
 	let request = Request::constructor(Resource::String(url), Some(options))?;
 
@@ -33,7 +33,7 @@ async fn post(url: String, options: Option<RequestOptions>) -> Result<Response> 
 }
 
 #[js_fn]
-async fn put(url: String, options: Option<RequestOptions>) -> Result<Response> {
+async fn put(url: String, options: Option<RequestOptions>) -> Result<Response, Exception> {
 	let options = RequestBuilderOptions::from_request_options(options, Method::PUT.to_string());
 	let request = Request::constructor(Resource::String(url), Some(options))?;
 
@@ -41,7 +41,7 @@ async fn put(url: String, options: Option<RequestOptions>) -> Result<Response> {
 }
 
 #[js_fn]
-async fn request(resource: Resource, method: Option<String>, options: Option<RequestOptions>) -> Result<Response> {
+async fn request(resource: Resource, method: Option<String>, options: Option<RequestOptions>) -> Result<Response, Exception> {
 	use crate::http::request::Request;
 	match resource {
 		Resource::Request(request) => request_internal(request).await,

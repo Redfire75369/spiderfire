@@ -5,15 +5,42 @@
  */
 
 use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::{DateTime, Duration, Utc};
 use mozjs::jsval::JSVal;
 
 use ion::{Context, ErrorReport, Function, Object};
 
-#[derive(Clone, Debug)]
+pub struct SignalMacrotask {
+	callback: Box<dyn FnOnce()>,
+	terminate: Arc<AtomicBool>,
+	scheduled: DateTime<Utc>,
+}
+
+impl SignalMacrotask {
+	pub fn new(callback: Box<dyn FnOnce()>, terminate: Arc<AtomicBool>, duration: Duration) -> SignalMacrotask {
+		SignalMacrotask {
+			callback,
+			terminate,
+			scheduled: Utc::now() + duration,
+		}
+	}
+}
+
+impl Debug for SignalMacrotask {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("SignalMacrotask")
+			.field("terminate", &self.terminate.as_ref())
+			.field("scheduled", &self.scheduled)
+			.finish()
+	}
+}
+
+#[derive(Debug)]
 pub struct TimerMacrotask {
 	callback: Function,
 	arguments: Vec<JSVal>,
@@ -43,7 +70,7 @@ impl TimerMacrotask {
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct UserMacrotask {
 	callback: Function,
 	scheduled: DateTime<Utc>,
@@ -55,13 +82,14 @@ impl UserMacrotask {
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Macrotask {
+	Signal(SignalMacrotask),
 	Timer(TimerMacrotask),
 	User(UserMacrotask),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct MacrotaskQueue {
 	pub(crate) map: RefCell<HashMap<u32, Macrotask>>,
 	pub(crate) nesting: Cell<u8>,
@@ -70,50 +98,51 @@ pub struct MacrotaskQueue {
 }
 
 impl Macrotask {
-	pub fn run(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
-		let (callback, args) = match self {
+	pub fn run(self, cx: Context) -> Result<Option<Macrotask>, Option<ErrorReport>> {
+		if let Macrotask::Signal(signal) = self {
+			(signal.callback)();
+			return Ok(None);
+		}
+		let (callback, args) = match &self {
 			Macrotask::Timer(timer) => (timer.callback, timer.arguments.clone()),
 			Macrotask::User(user) => (user.callback, Vec::new()),
+			_ => unreachable!(),
 		};
 
-		callback.call(cx, Object::global(cx), args).map(|_| ())
+		callback.call(cx, Object::global(cx), args).map(|_| (Some(self)))
+	}
+
+	fn terminate(&self) -> bool {
+		match self {
+			Macrotask::Signal(signal) => signal.terminate.load(Ordering::SeqCst),
+			_ => false,
+		}
 	}
 
 	fn remaining(&self) -> Duration {
-		match *self {
-			Macrotask::Timer(ref timer) => timer.scheduled + timer.duration - Utc::now(),
-			Macrotask::User(ref user) => user.scheduled - Utc::now(),
+		match self {
+			Macrotask::Signal(signal) => signal.scheduled - Utc::now(),
+			Macrotask::Timer(timer) => timer.scheduled + timer.duration - Utc::now(),
+			Macrotask::User(user) => user.scheduled - Utc::now(),
 		}
 	}
 }
 
 impl MacrotaskQueue {
-	pub fn run_all(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
-		let mut is_empty = { self.map.borrow().is_empty() };
+	pub fn run_jobs(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+		self.find_next();
+		while let Some(next) = self.next.get() {
+			let macrotask = { self.map.borrow_mut().remove_entry(&next) };
+			if let Some((id, macrotask)) = macrotask {
+				let macrotask = macrotask.run(cx)?;
 
-		while !is_empty {
-			if let Some(next) = self.next.get() {
-				let macrotask = { self.map.borrow().get(&next).cloned() };
-				if let Some(macrotask) = macrotask {
-					macrotask.run(cx)?;
-
-					let mut queue = self.map.borrow_mut();
-					if let Entry::Occupied(mut entry) = queue.entry(next) {
-						let mut to_remove = true;
-						if let Macrotask::Timer(ref mut timer) = entry.get_mut() {
-							if timer.reset() {
-								to_remove = false;
-							}
-						}
-
-						if to_remove {
-							entry.remove();
-						}
+				if let Some(Macrotask::Timer(mut timer)) = macrotask {
+					if timer.reset() {
+						self.map.borrow_mut().insert(id, Macrotask::Timer(timer));
 					}
 				}
 			}
 			self.find_next();
-			is_empty = self.map.borrow().is_empty();
 		}
 
 		Ok(())
@@ -155,8 +184,13 @@ impl MacrotaskQueue {
 
 	pub fn find_next(&self) {
 		let mut next: Option<(u32, &Macrotask)> = None;
-		let queue = self.map.borrow();
+		let mut to_remove = Vec::new();
+		let mut queue = self.map.borrow_mut();
 		for (id, macrotask) in &*queue {
+			if macrotask.terminate() {
+				to_remove.push(*id);
+				continue;
+			}
 			if let Some((_, next_macrotask)) = next {
 				if macrotask.remaining() < next_macrotask.remaining() {
 					next = Some((*id, macrotask));
@@ -165,7 +199,11 @@ impl MacrotaskQueue {
 				next = Some((*id, macrotask));
 			}
 		}
-		self.next.set(next.map(|(id, _)| id));
+		let next = next.map(|(id, _)| id);
+		for id in to_remove.iter_mut() {
+			queue.remove(id);
+		}
+		self.next.set(next);
 	}
 
 	pub fn set_next(&self, index: u32, macrotask: &Macrotask) {
