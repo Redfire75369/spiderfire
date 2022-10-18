@@ -20,7 +20,7 @@ pub(crate) fn impl_from_jsval(input: DeriveInput) -> Result<ItemImpl> {
 	let name = &input.ident;
 	let krate = quote!(::ion);
 
-	let generics = add_trait_bounds(input.generics);
+	let generics = add_trait_bounds(input.generics, &parse2(quote!(::mozjs::conversions::FromJSValConvertible)).unwrap());
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let (body, requires_obj) = impl_body(&input.data, name, span)?;

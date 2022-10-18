@@ -20,8 +20,9 @@ mod class {
 
 	use ion::{Error, Object, Result};
 
-	#[derive(Clone)]
 	#[allow(clippy::upper_case_acronyms)]
+	#[derive(Clone)]
+	#[ion(from_jsval, to_jsval)]
 	pub struct URL {
 		url: Url,
 	}

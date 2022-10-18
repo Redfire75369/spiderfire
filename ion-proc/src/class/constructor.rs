@@ -4,17 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Ident, TokenStream};
-use syn::{ItemFn, Result};
+use proc_macro2::TokenStream;
+use syn::{ItemFn, Result, Type};
 
 use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 
-pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result<(Method, Parameters)> {
+pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
 	let krate = quote!(::ion);
-	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ident), false, true)?;
+	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ty), false, true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
@@ -36,7 +36,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ident: &Ident) -> Result
 		method: constructor,
 		inner: Some(inner),
 		nargs: parameters.nargs.0,
-		aliases: vec![],
+		names: vec![],
 	};
 	Ok((method, parameters))
 }

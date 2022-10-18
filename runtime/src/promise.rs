@@ -9,10 +9,10 @@ use std::future::Future;
 use futures::channel::oneshot::channel;
 
 use ion::{Context, Error, Function, Promise};
-use ion::conversions::IntoJSVal;
+use ion::conversions::{BoxedIntoJSVal, IntoJSVal};
 
 use crate::event_loop::EVENT_LOOP;
-use crate::event_loop::future::{NativeFuture, ToJSVal};
+use crate::event_loop::future::NativeFuture;
 
 pub fn future_to_promise<F, O, E>(cx: Context, future: F) -> Option<Promise>
 where
@@ -26,7 +26,7 @@ where
 		let (resolve, reject) = rx.await.unwrap();
 		let result = future.await;
 
-		let result: Result<ToJSVal, ToJSVal> = match result {
+		let result: Result<BoxedIntoJSVal, BoxedIntoJSVal> = match result {
 			Ok(o) => Ok(Box::new(o)),
 			Err(e) => Err(Box::new(e)),
 		};

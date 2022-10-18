@@ -86,6 +86,7 @@ mod controller {
 
 	use crate::globals::abort::{AbortSignal, Signal};
 
+	#[ion(into_jsval)]
 	pub struct AbortController {
 		sender: Sender<Option<JSVal>>,
 	}
@@ -124,30 +125,24 @@ mod signal {
 	use std::sync::atomic::AtomicBool;
 
 	use chrono::Duration;
-	use mozjs::conversions::{ConversionBehavior, ConversionResult, FromJSValConvertible, ToJSValConvertible};
+	use mozjs::conversions::{ConversionBehavior, ToJSValConvertible};
 	use mozjs::jsval::{JSVal, NullValue};
-	use mozjs::rust::HandleValue;
 	use tokio::sync::watch::channel;
 
-	use ion::{Context, Error, Exception, Result};
-	use ion::class::class_from_jsval;
+	use ion::{Error, Exception};
 
 	use crate::event_loop::EVENT_LOOP;
 	use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 	use crate::globals::abort::{Signal, SignalFuture};
 
 	#[derive(Clone, Default)]
+	#[ion(no_constructor, from_jsval, to_jsval)]
 	pub struct AbortSignal {
 		pub(crate) signal: Signal,
 	}
 
 	impl AbortSignal {
-		#[ion(constructor)]
-		pub fn constructor() -> Result<AbortSignal> {
-			Err(Error::new("Constructor should not be called.", None))
-		}
-
-		#[ion(internal)]
+		#[ion(skip)]
 		pub fn poll(&self) -> SignalFuture {
 			SignalFuture { inner: self.signal.clone() }
 		}
@@ -207,14 +202,6 @@ mod signal {
 			AbortSignal {
 				signal: Signal::Timeout(receiver, terminate2),
 			}
-		}
-	}
-
-	impl FromJSValConvertible for AbortSignal {
-		type Config = ();
-
-		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<AbortSignal>, ()> {
-			class_from_jsval(cx, val)
 		}
 	}
 }

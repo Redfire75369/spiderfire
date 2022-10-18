@@ -37,7 +37,7 @@ pub(crate) struct Parameters {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg, ident: Option<&Ident>, is_class: bool) -> Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg, ty: Option<&Type>, is_class: bool) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
@@ -91,15 +91,12 @@ impl Parameter {
 				}
 				let lifetime = recv.reference.as_ref().and_then(|(_, l)| l.as_ref());
 				let mutability = recv.mutability;
-				let this = <Token![self]>::default().into();
-				let ident = ident.unwrap_or(&this);
-				let arg = parse2(quote_spanned!(recv.span() => self: &#lifetime #mutability #ident)).unwrap();
-				if let FnArg::Typed(pat_ty) = arg {
-					let span = pat_ty.span();
-					parse_this(pat_ty.pat, pat_ty.ty, true, span)
-				} else {
-					unreachable!()
-				}
+				let this = <Token![self]>::default();
+				let this = parse2(quote!(#this)).unwrap();
+				let ty = ty.unwrap();
+
+				let ty = parse2(quote!(&#lifetime #mutability #ty)).unwrap();
+				parse_this(this, ty, true, recv.span())
 			}
 		}
 	}
@@ -154,7 +151,7 @@ impl Parameter {
 }
 
 impl Parameters {
-	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ident: Option<&Ident>, is_class: bool) -> Result<Parameters> {
+	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_class: bool) -> Result<Parameters> {
 		let mut nargs = (0, 0);
 		let mut this: Option<Ident> = None;
 		let mut idents = Vec::new();
@@ -162,7 +159,7 @@ impl Parameters {
 		let parameters: Vec<_> = parameters
 			.iter()
 			.map(|arg| {
-				let param = Parameter::from_arg(arg, ident, is_class)?;
+				let param = Parameter::from_arg(arg, ty, is_class)?;
 				let ident = match &param {
 					Parameter::Regular { pat, ty, .. } => {
 						if let Type::Path(ty) = &**ty {

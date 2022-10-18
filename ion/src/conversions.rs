@@ -9,6 +9,8 @@ use mozjs::rust::MutableHandleValue;
 
 use crate::Context;
 
+pub type BoxedIntoJSVal = Box<dyn IntoJSVal>;
+
 pub trait IntoJSVal {
 	unsafe fn into_jsval(self: Box<Self>, cx: Context, rval: MutableHandleValue);
 }

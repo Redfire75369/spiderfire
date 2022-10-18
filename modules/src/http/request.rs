@@ -124,6 +124,7 @@ pub mod class {
 		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, Redirection, RequestBuilderOptions,
 	};
 
+	#[ion(into_jsval)]
 	pub struct Request {
 		pub(crate) request: hyper::Request<Body>,
 		pub(crate) body: Bytes,
@@ -135,7 +136,7 @@ pub mod class {
 	}
 
 	impl Request {
-		#[ion(internal)]
+		#[ion(skip)]
 		pub fn clone(&self) -> Result<Request> {
 			let request = clone_request(&self.request)?;
 			let body = self.body.clone();

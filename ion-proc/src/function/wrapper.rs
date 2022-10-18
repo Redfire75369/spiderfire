@@ -14,13 +14,13 @@ use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
-	mut function: ItemFn, class: Option<&Ident>, keep_inner: bool, is_constructor: bool,
+	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
 
-	let parameters = Parameters::parse(&function.sig.inputs, class, class.is_some())?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty, class_ty.is_some())?;
 	let idents = &parameters.idents;
-	let statements = parameters.to_statements(class.is_some())?;
+	let statements = parameters.to_statements(class_ty.is_some())?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
@@ -71,12 +71,12 @@ pub(crate) fn impl_wrapper_fn(
 
 	let mut call = quote!(inner);
 	if !keep_inner {
-		if let Some(class) = class {
+		if let Some(class) = class_ty {
 			let function = &function.sig.ident;
 			if parameters.this == Some(<Token![self]>::default().into()) {
 				call = quote!(#function);
 			} else {
-				call = quote!(#class::#function);
+				call = quote!(<#class>::#function);
 			}
 		}
 	}

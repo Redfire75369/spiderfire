@@ -50,7 +50,7 @@ pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {
 pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 	let krate = quote!(::ion);
 	function.sig.asyncness = None;
-	function.sig.unsafety = Some(parse_quote!(unsafe));
+	function.sig.unsafety = Some(<Token![unsafe]>::default());
 	let params: [FnArg; 3] = [
 		parse_quote!(cx: #krate::Context),
 		parse_quote!(argc: ::core::primitive::u32),

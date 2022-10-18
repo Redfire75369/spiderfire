@@ -4,18 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::CString;
 use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
 use proc_macro2::Ident;
-use syn::{ItemImpl, ItemStatic, ItemStruct, LitStr};
+use syn::{ItemImpl, ItemStatic, LitStr, parse2};
 
 use crate::class::accessor::Accessor;
 use crate::class::method::Method;
 use crate::class::property::Property;
 
-pub(crate) fn class_spec(object: &ItemStruct) -> ItemStatic {
-	let name = LitStr::new(&format!("{}\0", object.ident), object.ident.span());
+pub(crate) fn class_spec(literal: &LitStr) -> ItemStatic {
+	let name = CString::new(literal.value()).unwrap().into_string().unwrap();
+	let name = LitStr::new(&name, literal.span());
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
@@ -37,16 +39,15 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 		.flat_map(|method| {
 			let ident = method.method.sig.ident.clone();
 			let nargs = method.nargs as u16;
-			method
-				.aliases
+			(*method.names)
 				.iter()
-				.map(|alias| {
-					let span = alias.span();
-					let mut alias = alias.to_string();
-					if alias.is_case(Case::Snake) {
-						alias = alias.to_case(Case::Camel);
+				.map(|name| {
+					let mut string = name.value();
+					if string.is_case(Case::Snake) {
+						string = string.to_case(Case::Camel);
 					}
-					let name = LitStr::new(&alias, span);
+					let name = LitStr::new(&string, name.span());
+
 					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
 				})
 				.collect::<Vec<_>>()
@@ -82,35 +83,12 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 	)
 }
 
-pub(crate) fn to_js_val(name: Ident) -> ItemImpl {
+pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, constructor_nargs: u32) -> ItemImpl {
 	let krate = quote!(::ion);
-	parse_quote!(
-		impl ::mozjs::conversions::ToJSValConvertible for #name {
-			unsafe fn to_jsval(&self, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
-				rval.set(<#name as #krate::ClassInitialiser>::new_object(cx, self.clone()).to_value());
-			}
-		}
-	)
-}
+	let name_str = LitStr::new(&class_ident.to_string(), class_ident.span());
 
-pub(crate) fn into_js_val(name: Ident) -> ItemImpl {
-	let krate = quote!(::ion);
-	parse_quote!(
-		impl #krate::conversions::IntoJSVal for #name {
-			unsafe fn into_jsval(self: Box<Self>, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
-				rval.set(<#name as #krate::ClassInitialiser>::new_object(cx, *self).to_value());
-			}
-		}
-	)
-}
-
-pub(crate) fn class_initialiser(name: Ident, constructor: &Method) -> ItemImpl {
-	let krate = quote!(::ion);
-	let ident = constructor.method.sig.ident.clone();
-	let nargs = constructor.nargs as u32;
-	let name_str = LitStr::new(&name.to_string(), ident.span());
-	parse_quote!(
-		impl #krate::ClassInitialiser for #name {
+	parse2(quote!(
+		impl #krate::ClassInitialiser for #class_ident {
 			const NAME: &'static str = #name_str;
 
 			fn class() -> &'static ::mozjs::jsapi::JSClass {
@@ -118,7 +96,7 @@ pub(crate) fn class_initialiser(name: Ident, constructor: &Method) -> ItemImpl {
 			}
 
 			fn constructor() -> (::ion::NativeFunction, ::core::primitive::u32) {
-				(#ident, #nargs)
+				(#constructor_ident, #constructor_nargs)
 			}
 
 			fn functions() -> &'static [::mozjs::jsapi::JSFunctionSpec] {
@@ -137,5 +115,6 @@ pub(crate) fn class_initialiser(name: Ident, constructor: &Method) -> ItemImpl {
 				&STATIC_PROPERTIES
 			}
 		}
-	)
+	))
+	.unwrap()
 }

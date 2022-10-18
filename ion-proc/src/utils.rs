@@ -6,7 +6,7 @@
 
 use prettyplease::unparse;
 use proc_macro2::Ident;
-use syn::{GenericArgument, GenericParam, Generics, parse2, Pat, PathArguments, Type, TypePath};
+use syn::{GenericArgument, GenericParam, Generics, parse2, Pat, PathArguments, Type, TypeParamBound, TypePath};
 
 pub(crate) fn type_ends_with<I: ?Sized>(ty: &TypePath, ident: &I) -> bool
 where
@@ -16,6 +16,14 @@ where
 		&last.ident == ident
 	} else {
 		false
+	}
+}
+
+pub(crate) fn extract_last_argument(ty: &Type) -> Option<Ident> {
+	if let Type::Path(path) = ty {
+		path.path.segments.last().map(|segment| segment.ident.clone())
+	} else {
+		None
 	}
 }
 
@@ -31,10 +39,10 @@ pub(crate) fn extract_type_argument(ty: &TypePath, index: usize) -> Option<Box<T
 	None
 }
 
-pub(crate) fn add_trait_bounds(mut generics: Generics) -> Generics {
+pub(crate) fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -> Generics {
 	for param in &mut generics.params {
-		if let GenericParam::Type(ref mut type_param) = *param {
-			type_param.bounds.push(parse_quote!(::mozjs::jsval::ToJSValConvertible));
+		if let GenericParam::Type(type_param) = param {
+			type_param.bounds.push(bound.clone());
 		}
 	}
 	generics

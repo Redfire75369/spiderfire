@@ -9,11 +9,11 @@ use std::result;
 use std::str::FromStr;
 
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
+use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
 use mozjs::rust::{HandleValue, MutableHandleValue};
 
 pub use class::*;
-use ion::{Array, Context, Error, Key, Object, Result};
+use ion::{Array, Context, Error, ErrorKind, Key, Object, Result};
 use ion::error::ThrowException;
 use ion::types::values::from_value;
 
@@ -29,12 +29,17 @@ pub struct HeadersObject {
 	headers: HeaderMap,
 }
 
+pub struct HeaderEntry {
+	name: String,
+	value: String,
+}
+
 #[derive(FromJSVal)]
 pub enum HeadersInit {
 	#[ion(inherit)]
 	Existing(Headers),
 	#[ion(inherit)]
-	Array(Vec<Vec<String>>),
+	Array(Vec<HeaderEntry>),
 	#[ion(inherit)]
 	Object(HeadersObject),
 }
@@ -45,6 +50,39 @@ impl ToJSValConvertible for Header {
 			Header::Multiple(vec) => vec.to_jsval(cx, rval),
 			Header::Single(str) => str.to_jsval(cx, rval),
 		}
+	}
+}
+
+impl FromJSValConvertible for HeaderEntry {
+	type Config = ();
+
+	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<HeaderEntry>, ()> {
+		if let ConversionResult::Success(array) = Array::from_jsval(cx, val, ())? {
+			let length = array.len(cx);
+			if length != 2 {
+				Error::new(
+					&format!("Received Header Entry with Length {}, Expected Length 2", length),
+					Some(ErrorKind::Type),
+				)
+				.throw(cx);
+				return Err(());
+			}
+			let name = jsstr_to_string(cx, array.get(cx, 0).unwrap().to_string());
+			let value = jsstr_to_string(cx, array.get(cx, 1).unwrap().to_string());
+			Ok(ConversionResult::Success(HeaderEntry { name, value }))
+		} else {
+			Error::new("Expected Array", Some(ErrorKind::Type)).throw(cx);
+			Err(())
+		}
+	}
+}
+
+impl ToJSValConvertible for HeaderEntry {
+	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
+		let mut array = Array::new(cx);
+		array.set_as(cx, 0, &self.name);
+		array.set_as(cx, 1, &self.value);
+		rval.set(array.to_value());
 	}
 }
 
@@ -90,47 +128,38 @@ impl Default for HeadersInit {
 mod class {
 	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
-	use std::result;
 	use std::str::FromStr;
 
 	use http::header::{Entry, HeaderMap, HeaderName, HeaderValue};
-	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
-	use mozjs::rust::HandleValue;
 
-	use ion::{Context, Error, ErrorKind, Result};
-	use ion::class::class_from_jsval;
+	use ion::{Error, Result};
 
-	use crate::http::header::{Header, HeadersInit};
+	use crate::http::header::{Header, HeaderEntry, HeadersInit};
 
 	#[derive(Clone, Default)]
+	#[ion(from_jsval, to_jsval)]
 	pub struct Headers {
 		pub(crate) headers: HeaderMap,
 		pub(crate) readonly: bool,
 	}
 
 	impl Headers {
-		#[ion(internal)]
+		#[ion(skip)]
 		pub fn new(headers: HeaderMap, readonly: bool) -> Headers {
 			Headers { headers, readonly }
 		}
 
-		#[ion(internal)]
+		#[ion(skip)]
 		pub fn inner(self) -> HeaderMap {
 			self.headers
 		}
 
-		#[ion(internal)]
-		pub unsafe fn from_array(vec: Vec<Vec<String>>, readonly: bool) -> Result<Headers> {
+		#[ion(skip)]
+		pub unsafe fn from_array(vec: Vec<HeaderEntry>, readonly: bool) -> Result<Headers> {
 			let mut headers = HeaderMap::new();
-			for mut vec in vec {
-				if vec.len() != 2 {
-					return Err(Error::new(
-						&format!("Received Header Entry with Length {}, Expected Length 2", vec.len()),
-						Some(ErrorKind::Type),
-					));
-				}
-				let value = vec.remove(1);
-				let mut name = vec.remove(0);
+			for entry in vec {
+				let mut name = entry.name;
+				let value = entry.value;
 				name.make_ascii_lowercase();
 
 				let name = HeaderName::from_str(&name)?;
@@ -140,7 +169,7 @@ mod class {
 			Ok(Headers { headers, readonly })
 		}
 
-		#[ion(internal)]
+		#[ion(skip)]
 		pub fn get_internal(&self, name: &HeaderName) -> Result<Option<Header>> {
 			let values: Vec<_> = self.headers.get_all(name).into_iter().collect();
 			match values.len().cmp(&1) {
@@ -220,14 +249,6 @@ mod class {
 	impl DerefMut for Headers {
 		fn deref_mut(&mut self) -> &mut HeaderMap {
 			&mut self.headers
-		}
-	}
-
-	impl FromJSValConvertible for Headers {
-		type Config = ();
-
-		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<Headers>, ()> {
-			class_from_jsval(cx, val)
 		}
 	}
 }

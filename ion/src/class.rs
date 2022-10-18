@@ -58,10 +58,16 @@ pub trait ClassInitialiser {
 		&[JSPropertySpec::ZERO]
 	}
 
-	fn init_class(cx: Context, object: &Object) -> ClassInfo
+	fn init_class(cx: Context, object: &Object) -> (bool, ClassInfo)
 	where
 		Self: Sized + 'static,
 	{
+		let class_info = CLASS_INFOS.with(|infos| infos.borrow_mut().get(&TypeId::of::<Self>()).cloned());
+
+		if let Some(class_info) = class_info {
+			return (false, class_info);
+		}
+
 		let class = Self::class();
 		let parent_proto = Self::parent_info(cx).map(|ci| ci.prototype).unwrap_or_else(|| Object::new(cx));
 		let (constructor, nargs) = Self::constructor();
@@ -98,7 +104,7 @@ pub trait ClassInitialiser {
 		CLASS_INFOS.with(|infos| {
 			let mut infos = infos.borrow_mut();
 			(*infos).insert(TypeId::of::<Self>(), class_info);
-			class_info
+			(true, class_info)
 		})
 	}
 

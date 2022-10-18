@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
-use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, Result, Type, Visibility};
+use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
 
 use crate::class::attribute::PropertyAttribute;
@@ -20,14 +20,18 @@ use crate::function::parameters::{Parameter, Parameters};
 pub(crate) struct Accessor(Option<Method>, Option<Method>);
 
 impl Accessor {
-	pub(crate) fn from_field(field: &mut Field, class: Ident) -> Result<Option<Accessor>> {
+	pub(crate) fn from_field(field: &mut Field, class_ty: &Type) -> Result<Option<Accessor>> {
 		let krate = quote!(::ion);
 		if let Visibility::Public(_) = field.vis {
 			let ident = field.ident.as_ref().unwrap().clone();
 			let ty = field.ty.clone();
 			let mut conversion = None;
 
-			let mut names = vec![ident.clone()];
+			let mut name = None;
+			let mut names = Vec::new();
+			let mut readonly = false;
+			let mut skip = false;
+
 			let mut indexes = Vec::new();
 			for (index, attr) in field.attrs.iter().enumerate() {
 				if attr.path.is_ident("ion") {
@@ -35,14 +39,15 @@ impl Accessor {
 
 					for arg in args {
 						match arg {
-							PropertyAttribute::Convert { conversion: conversion_expr, .. } => {
-								conversion = conversion.or(Some(conversion_expr));
-							}
+							PropertyAttribute::Name(name_) => name = Some(name_.literal),
 							PropertyAttribute::Alias(alias) => {
 								for alias in alias.aliases {
 									names.push(alias);
 								}
 							}
+							PropertyAttribute::Convert { conversion: conversion_expr, .. } => conversion = conversion.or(Some(conversion_expr)),
+							PropertyAttribute::Readonly(_) => readonly = true,
+							PropertyAttribute::Skip(_) => skip = true,
 						}
 					}
 					indexes.push(index);
@@ -52,29 +57,42 @@ impl Accessor {
 			for index in indexes {
 				field.attrs.remove(index);
 			}
-			let convert = conversion.unwrap_or_else(|| parse_quote!(()));
+
+			if skip {
+				return Ok(None);
+			}
+
+			let name = name.unwrap_or_else(|| LitStr::new(&ident.to_string(), ident.span()));
+			names.insert(0, name);
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
-			let setter_ident = Ident::new(&format!("set_{}", ident), ident.span());
-
-			let getter = parse_quote!(
-				fn #getter_ident(#[this] this: &#class) -> #krate::Result<#ty> {
+			let getter = parse2(quote!(
+				fn #getter_ident(&self) -> #krate::Result<#ty> {
 					Ok(this.#ident)
 				}
-			);
-			let setter = parse_quote!(
-				fn #setter_ident(#[this] this: &mut #class, #[convert(#convert)] #ident: #ty) -> #krate::Result<()> {
-					this.#ident = #ident;
-					Ok(())
-				}
-			);
+			))
+			.unwrap();
+			let (mut getter, _) = impl_accessor(&getter, class_ty, true, false)?;
+			getter.names = names.clone();
 
-			let (mut getter, _) = impl_accessor(&getter, &class, true, false)?;
-			let (mut setter, _) = impl_accessor(&setter, &class, true, true)?;
-			getter.aliases = names.clone();
-			setter.aliases = names;
+			if readonly {
+				let convert = conversion.unwrap_or_else(|| parse_quote!(()));
+				let setter_ident = readonly.then(|| Ident::new(&format!("set_{}", ident), ident.span()));
 
-			Ok(Some(Accessor(Some(getter), Some(setter))))
+				let setter = parse2(quote!(
+					fn #setter_ident(&mut self, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
+						this.#ident = #ident;
+						Ok(())
+					}
+				))
+				.unwrap();
+				let (mut setter, _) = impl_accessor(&setter, class_ty, true, true)?;
+				setter.names = names;
+
+				Ok(Some(Accessor(Some(getter), Some(setter))))
+			} else {
+				Ok(Some(Accessor(Some(getter), None)))
+			}
 		} else {
 			Ok(None)
 		}
@@ -134,7 +152,7 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
+pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = if is_setter { 1 } else { 0 };
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -142,8 +160,9 @@ pub(crate) fn impl_accessor(method: &ItemFn, ident: &Ident, keep_inner: bool, is
 		format!("Expected Getter to have {} arguments", expected_args)
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
-	let (accessor, parameters) = impl_method(method.clone(), ident, keep_inner, |sig| {
-		let parameters = Parameters::parse(&sig.inputs, Some(ident), true)?;
+
+	let (accessor, parameters) = impl_method(method.clone(), ty, keep_inner, |sig| {
+		let parameters = Parameters::parse(&sig.inputs, Some(ty), true)?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
 				if let Type::Path(_) = &**ty {
@@ -181,9 +200,11 @@ pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<Met
 }
 
 pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor>, class: &mut ItemStruct) -> Result<()> {
+	let ident = &class.ident;
+	let ty = parse2(quote!(#ident))?;
 	if let Fields::Named(fields) = &mut class.fields {
 		return fields.named.iter_mut().try_for_each(|field| {
-			if let Some(accessor) = Accessor::from_field(field, class.ident.clone())? {
+			if let Some(accessor) = Accessor::from_field(field, &ty)? {
 				accessors.insert(field.ident.as_ref().unwrap().to_string(), accessor);
 			}
 			Ok(())

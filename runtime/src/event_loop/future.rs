@@ -15,10 +15,9 @@ use futures::StreamExt;
 use mozjs::rust::HandleObject;
 
 use ion::{Context, ErrorReport, Function, Object, Value};
-use ion::conversions::IntoJSVal;
+use ion::conversions::BoxedIntoJSVal;
 
-pub type ToJSVal = Box<dyn IntoJSVal>;
-pub type NativeFuture = Pin<Box<dyn Future<Output = (Function, Function, Result<ToJSVal, ToJSVal>)> + 'static>>;
+pub type NativeFuture = Pin<Box<dyn Future<Output = (Function, Function, Result<BoxedIntoJSVal, BoxedIntoJSVal>)> + 'static>>;
 
 #[derive(Default)]
 pub struct FutureQueue {
@@ -27,7 +26,7 @@ pub struct FutureQueue {
 
 impl FutureQueue {
 	pub fn run_futures(&self, cx: Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
-		let mut results: Vec<(Function, Function, Result<ToJSVal, ToJSVal>)> = Vec::new();
+		let mut results: Vec<(Function, Function, Result<BoxedIntoJSVal, BoxedIntoJSVal>)> = Vec::new();
 
 		let mut queue = self.queue.borrow_mut();
 		while let Poll::Ready(Some(item)) = queue.poll_next_unpin(wcx) {

@@ -4,8 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::Ident;
-use syn::{ItemFn, Result, Signature};
+use syn::{ItemFn, LitStr, Result, Signature, Type};
 
 use crate::function::{check_abi, error_handler, set_signature};
 use crate::function::parameters::Parameters;
@@ -31,15 +30,15 @@ pub(crate) struct Method {
 	pub(crate) method: ItemFn,
 	pub(crate) inner: Option<ItemFn>,
 	pub(crate) nargs: usize,
-	pub(crate) aliases: Vec<Ident>,
+	pub(crate) names: Vec<LitStr>,
 }
 
-pub(crate) fn impl_method<F>(mut method: ItemFn, ident: &Ident, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>
+pub(crate) fn impl_method<F>(mut method: ItemFn, ty: &Type, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {
 	let krate = quote!(::ion);
-	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ident), keep_inner, false)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner, false)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
@@ -70,7 +69,7 @@ where
 			method,
 			inner: if !keep_inner { Some(inner) } else { None },
 			nargs: parameters.nargs.0,
-			aliases: vec![],
+			names: vec![],
 		};
 		Ok((method, parameters))
 	})

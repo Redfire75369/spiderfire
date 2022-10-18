@@ -18,7 +18,7 @@ pub mod class {
 
 	use crate::http::Headers;
 
-	#[allow(dead_code)]
+	#[ion(no_constructor, into_jsval)]
 	pub struct Response {
 		pub(crate) response: hyper::Response<Body>,
 		pub(crate) body_used: bool,
@@ -27,11 +27,6 @@ pub mod class {
 	}
 
 	impl Response {
-		#[ion(constructor)]
-		pub fn constructor() -> Result<Response> {
-			Err(Error::new("Constructor should not be called.", None))
-		}
-
 		pub(crate) fn new(response: hyper::Response<Body>, redirections: u8, locations: Vec<Url>) -> Response {
 			Response {
 				response,
