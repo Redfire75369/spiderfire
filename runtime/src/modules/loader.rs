@@ -14,39 +14,41 @@ use std::ptr;
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, Handle, JS_GetRuntime, JS_ReportErrorUTF8, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
+	CompileModule, Handle, JS_GetRuntime, JS_SetProperty, JSContext, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
 	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
-use mozjs::jsval::{JSVal, UndefinedValue};
+use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 use url::Url;
 
-use ion::{Context, ErrorReport, Object, Promise};
+use ion::{Context, Error, ErrorReport, Object, Promise, Value};
+use ion::conversions::{FromValue, ToValue};
+use ion::error::ThrowException;
 
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;
 use crate::config::Config;
 use crate::modules::{ModuleError, ModuleErrorKind};
 
-thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, Module>> = RefCell::new(HashMap::new()));
+thread_local!(static MODULE_REGISTRY: RefCell<HashMap<String, (*mut JSObject, ModuleData)>> = RefCell::new(HashMap::new()));
 
 #[derive(Clone, Debug)]
 pub struct ModuleData {
 	pub path: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-pub struct Module {
-	module: Object,
+#[derive(Debug)]
+pub struct Module<'cx> {
+	module: Object<'cx>,
 	#[allow(dead_code)]
 	data: ModuleData,
 }
 
 impl ModuleData {
-	fn from_module(cx: Context, module: Handle<JSVal>) -> Option<ModuleData> {
+	fn from_module(cx: &Context, module: Handle<JSVal>) -> Option<ModuleData> {
 		if module.get().is_object() {
-			let obj = Object::from(module.get().to_object());
-			let path = obj.get_as::<String>(cx, "path", ());
+			let module = Object::from(cx.root_object(module.get().to_object()));
+			let path = module.get_as::<String>(cx, "path", ());
 
 			Some(ModuleData { path })
 		} else {
@@ -54,7 +56,7 @@ impl ModuleData {
 		}
 	}
 
-	pub fn to_object(&self, cx: Context) -> Object {
+	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
 		let mut data = Object::new(cx);
 
 		if let Some(path) = self.path.as_ref() {
@@ -67,24 +69,27 @@ impl ModuleData {
 	}
 }
 
-impl Module {
-	pub fn compile(cx: Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module, Option<Promise>), ModuleError> {
+impl<'cx> Module<'cx> {
+	pub fn compile(cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
-		let options = unsafe { CompileOptionsWrapper::new(cx, filename, 1) };
+		let options = unsafe { CompileOptionsWrapper::new(**cx, filename, 1) };
 
-		let module = unsafe { CompileModule(cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };
-		rooted!(in(cx) let rooted_module = module);
+		let module = unsafe { CompileModule(**cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };
 
 		unsafe {
-			if !rooted_module.is_null() {
+			if !module.is_null() {
+				let module = Object::from(cx.root_object(module));
+
 				let data = ModuleData {
 					path: path.and_then(Path::to_str).map(String::from),
 				};
-				SetModulePrivate(module, &data.to_object(cx).to_value());
+				let mut private = Value::undefined(&cx);
+				data.to_object(cx).to_value(&cx, &mut private);
+				SetModulePrivate(**module, &**private);
 
-				let module = Module { module: Object::from(module), data };
+				let module = Module { module, data };
 
 				if let Err(error) = module.instantiate(cx) {
 					return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));
@@ -93,7 +98,7 @@ impl Module {
 				let eval_result = module.evaluate(cx);
 				match eval_result {
 					Ok(val) => {
-						let promise = Promise::from_value(cx, val);
+						let promise = Promise::from_value(cx, &val, true, ()).ok();
 						Ok((module, promise))
 					}
 					Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
@@ -104,31 +109,29 @@ impl Module {
 		}
 	}
 
-	pub fn instantiate(&self, cx: Context) -> Result<(), ErrorReport> {
-		rooted!(in(cx) let rooted_module = *self.module);
-		if unsafe { ModuleInstantiate(cx, rooted_module.handle().into()) } {
+	pub fn instantiate(&self, cx: &Context) -> Result<(), ErrorReport> {
+		if unsafe { ModuleInstantiate(**cx, self.module.handle().into()) } {
 			Ok(())
 		} else {
 			Err(ErrorReport::new(cx).unwrap())
 		}
 	}
 
-	pub fn evaluate(&self, cx: Context) -> Result<JSVal, ErrorReport> {
-		rooted!(in(cx) let rooted_module = *self.module);
-		rooted!(in(cx) let mut rval = UndefinedValue());
-		if unsafe { ModuleEvaluate(cx, rooted_module.handle().into(), rval.handle_mut().into()) } {
-			Ok(rval.get())
+	pub fn evaluate(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
+		let mut rval = Value::undefined(cx);
+		if unsafe { ModuleEvaluate(**cx, self.module.handle().into(), rval.handle_mut().into()) } {
+			Ok(rval)
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
 	}
 
-	pub fn register(self, name: &str) -> bool {
+	pub fn register(&self, name: &str) -> bool {
 		MODULE_REGISTRY.with(|registry| {
 			let mut registry = registry.borrow_mut();
 			match (*registry).entry(String::from(name)) {
 				Entry::Vacant(v) => {
-					v.insert(self);
+					v.insert((**self.module, self.data.clone()));
 					true
 				}
 				Entry::Occupied(_) => false,
@@ -136,7 +139,7 @@ impl Module {
 		})
 	}
 
-	pub fn resolve(cx: Context, specifier: &str, data: ModuleData) -> Option<Module> {
+	pub fn resolve(cx: &'cx Context, specifier: &str, data: ModuleData) -> Option<Module<'cx>> {
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
 			Path::new(data.path.as_ref().unwrap()).parent().unwrap().join(specifier)
 		} else {
@@ -148,7 +151,10 @@ impl Module {
 
 			let str = String::from(path.to_str().unwrap());
 			match (*registry).entry(str) {
-				Entry::Occupied(o) => Some(o.get().clone()),
+				Entry::Occupied(o) => Some(Module {
+					module: Object::from(cx.root_object(o.get().0)),
+					data: o.get().1.clone(),
+				}),
 				Entry::Vacant(_) => None,
 			}
 		});
@@ -167,41 +173,41 @@ impl Module {
 
 				let module = Module::compile(cx, specifier, Some(path.as_path()), &script);
 
-				if let Ok(module) = module {
-					module.0.clone().register(path.to_str().unwrap());
-					Some(module.0)
+				if let Ok((module, _)) = module {
+					module.register(path.to_str().unwrap());
+					Some(module)
 				} else {
-					unsafe {
-						JS_ReportErrorUTF8(cx, format!("Unable to compile module: {}\0", specifier).as_ptr() as *const i8);
-					}
+					Error::new(&format!("Unable to compile module: {}\0", specifier), None).throw(cx);
 					None
 				}
 			} else {
-				unsafe {
-					JS_ReportErrorUTF8(cx, format!("Unable to read module: {}\0", specifier).as_ptr() as *const i8);
-				}
+				Error::new(&format!("Unable to read module: {}", specifier), None).throw(cx);
 				None
 			}
 		})
 	}
 }
 
-pub unsafe extern "C" fn resolve_module(cx: Context, private_data: Handle<JSVal>, specifier: Handle<*mut JSString>) -> *mut JSObject {
-	let specifier = jsstr_to_string(cx, specifier.get());
-	let data = ModuleData::from_module(cx, private_data).unwrap();
+pub unsafe extern "C" fn resolve_module(mut cx: *mut JSContext, private_data: Handle<JSVal>, specifier: Handle<*mut JSString>) -> *mut JSObject {
+	let cx = Context::new(&mut cx);
 
-	Module::resolve(cx, &specifier, data)
-		.map(|module| *module.module)
+	let specifier = jsstr_to_string(*cx, specifier.get());
+	let data = ModuleData::from_module(&cx, private_data).unwrap();
+
+	Module::resolve(&cx, &specifier, data)
+		.map(|module| **module.module)
 		.unwrap_or(ptr::null_mut())
 }
 
-pub unsafe extern "C" fn module_metadata(cx: Context, private_data: Handle<JSVal>, meta: Handle<*mut JSObject>) -> bool {
-	let data = ModuleData::from_module(cx, private_data).unwrap();
+pub unsafe extern "C" fn module_metadata(mut cx: *mut JSContext, private_data: Handle<JSVal>, meta: Handle<*mut JSObject>) -> bool {
+	let cx = Context::new(&mut cx);
+	let data = ModuleData::from_module(&cx, private_data).unwrap();
 
 	if let Some(path) = data.path.as_ref() {
 		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
-		let mut meta = Object::from(meta.get());
-		if !meta.set_as(cx, "url", String::from(url.as_str())) {
+		let mut value = Value::undefined(&cx);
+		url.as_str().to_value(&cx, &mut value);
+		if !JS_SetProperty(*cx, meta, "url\0".as_ptr() as *const i8, value.handle().into()) {
 			return false;
 		}
 	}
@@ -209,9 +215,9 @@ pub unsafe extern "C" fn module_metadata(cx: Context, private_data: Handle<JSVal
 	true
 }
 
-pub fn init_module_loaders(cx: Context) {
+pub fn init_module_loaders(cx: &Context) {
 	unsafe {
-		SetModuleResolveHook(JS_GetRuntime(cx), Some(resolve_module));
-		SetModuleMetadataHook(JS_GetRuntime(cx), Some(module_metadata));
+		SetModuleResolveHook(JS_GetRuntime(**cx), Some(resolve_module));
+		SetModuleMetadataHook(JS_GetRuntime(**cx), Some(module_metadata));
 	}
 }

@@ -4,22 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::CString;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
-use mozjs::error::throw_type_error;
+use mozjs::conversions::jsstr_to_string;
 use mozjs::glue::{RUST_JSID_IS_INT, RUST_JSID_IS_STRING, RUST_JSID_TO_INT, RUST_JSID_TO_STRING};
 use mozjs::jsapi::{
-	AssertSameCompartment, CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineFunctions, JS_DefineProperty, JS_DeleteProperty1,
-	JS_GetProperty, JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSFunctionSpec, JSObject, JSTracer,
+	CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineFunctions, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
+	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSFunctionSpec, JSObject,
 };
-use mozjs::jsval::{JSVal, NullValue, ObjectValue, UndefinedValue};
-use mozjs::rust::{CustomTrace, HandleValue, IdVector, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::jsval::{NullValue, UndefinedValue};
+use mozjs::rust::{Handle, IdVector, MutableHandle};
 
-use crate::{Context, Exception, Function, NativeFunction};
+use crate::{Context, Exception, Function, Local, NativeFunction, Value};
+use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::types::values::from_value;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Key {
@@ -38,48 +38,33 @@ impl Display for Key {
 	}
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Object {
-	obj: *mut JSObject,
+#[derive(Debug)]
+pub struct Object<'cx> {
+	object: &'cx mut Local<'cx, *mut JSObject>,
 }
 
-impl Object {
+impl<'cx> Object<'cx> {
 	/// Creates an empty [Object].
-	pub fn new(cx: Context) -> Object {
-		unsafe { Object::from(JS_NewPlainObject(cx)) }
+	pub fn new(cx: &'cx Context) -> Object<'cx> {
+		Object::from(cx.root_object(unsafe { JS_NewPlainObject(**cx) }))
 	}
 
-	/// Creates a `null` [Object].
-	pub fn null() -> Object {
-		Object::from(NullValue().to_object_or_null())
+	/// Creates a `null` "Object".
+	pub fn null(cx: &'cx Context) -> Object<'cx> {
+		Object::from(cx.root_object(NullValue().to_object_or_null()))
 	}
 
-	/// Creates an [Object] from a [*mut JSObject].
-	pub fn from(obj: *mut JSObject) -> Object {
-		Object { obj }
-	}
-
-	/// Creates an [Object] from a [JSVal].
-	pub fn from_value(val: JSVal) -> Option<Object> {
-		if val.is_object() {
-			Some(Object::from(val.to_object()))
-		} else {
-			None
-		}
-	}
-
-	/// Converts an [Object] to a [JSVal].
-	pub fn to_value(&self) -> JSVal {
-		ObjectValue(self.obj)
+	/// Returns the current global object or `null` if one has not been initialised yet.
+	pub fn global(cx: &'cx Context) -> Object<'cx> {
+		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(**cx) }))
 	}
 
 	/// Checks if the [Object] has a value at the given key.
-	pub fn has(&self, cx: Context, key: &str) -> bool {
-		let key = format!("{}\0", key);
+	pub fn has(&self, cx: &Context, key: &str) -> bool {
+		let key = CString::new(key).unwrap();
 		let mut found = false;
-		rooted!(in(cx) let obj = self.obj);
 
-		if unsafe { JS_HasProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) } {
+		if unsafe { JS_HasProperty(**cx, self.handle().into(), key.as_ptr() as *const i8, &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -89,12 +74,11 @@ impl Object {
 
 	/// Checks if the [Object] has its own value at the given key.
 	/// An object owns its properties if they are not inherited from a prototype.
-	pub fn has_own(&self, cx: Context, key: &str) -> bool {
-		let key = format!("{}\0", key);
+	pub fn has_own(&self, cx: &Context, key: &str) -> bool {
+		let key = CString::new(key).unwrap();
 		let mut found = false;
-		rooted!(in(cx) let obj = self.obj);
 
-		if unsafe { JS_HasOwnProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, &mut found) } {
+		if unsafe { JS_HasOwnProperty(**cx, self.handle().into(), key.as_ptr() as *const i8, &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -104,13 +88,12 @@ impl Object {
 
 	/// Gets the [JSVal] at the given key of the [Object].
 	/// Returns [None] if there is no value at the given key.
-	pub fn get(&self, cx: Context, key: &str) -> Option<JSVal> {
-		let key = format!("{}\0", key);
+	pub fn get(&self, cx: &'cx Context, key: &str) -> Option<Value<'cx>> {
 		if self.has(cx, &key) {
-			rooted!(in(cx) let obj = self.obj);
-			rooted!(in(cx) let mut rval = UndefinedValue());
-			unsafe { JS_GetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle_mut().into()) };
-			Some(rval.get())
+			let key = CString::new(key).unwrap();
+			let mut rval = Value::from(cx.root_value(UndefinedValue()));
+			unsafe { JS_GetProperty(**cx, self.handle().into(), key.as_ptr() as *const i8, rval.handle_mut().into()) };
+			Some(rval)
 		} else {
 			None
 		}
@@ -118,43 +101,39 @@ impl Object {
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub fn get_as<T: FromJSValConvertible>(&self, cx: Context, key: &str, config: T::Config) -> Option<T> {
+	pub fn get_as<T: FromValue<'cx>>(&self, cx: &'cx Context, key: &str, config: T::Config) -> Option<T> {
 		let opt = self.get(cx, key);
-		opt.and_then(|val| from_value(cx, val, config))
+		opt.and_then(|val| unsafe { T::from_value(cx, &val, true, config).ok() })
 	}
 
 	/// Sets the [JSVal] at the given key of the [Object].
 	/// Returns `false` if the property cannot be set.
-	pub fn set(&mut self, cx: Context, key: &str, value: JSVal) -> bool {
-		let key = format!("{}\0", key);
-		rooted!(in(cx) let obj = self.obj);
-		rooted!(in(cx) let rval = value);
-		unsafe { JS_SetProperty(cx, obj.handle().into(), key.as_ptr() as *const i8, rval.handle().into()) }
+	pub fn set(&mut self, cx: &Context, key: &str, value: &Value) -> bool {
+		let key = CString::new(key).unwrap();
+		unsafe { JS_SetProperty(**cx, self.handle().into(), key.as_ptr() as *const i8, value.handle().into()) }
 	}
 
 	/// Sets the Rust type at the given key of the [Object].
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<T: ToJSValConvertible>(&mut self, cx: Context, key: &str, value: T) -> bool {
-		let key = format!("{}\0", key);
-		rooted!(in(cx) let mut val = UndefinedValue());
+	pub fn set_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T) -> bool {
+		let mut val = Value::undefined(cx);
 		unsafe {
-			value.to_jsval(cx, val.handle_mut());
+			value.to_value(cx, &mut val);
 		}
-		self.set(cx, &key, val.get())
+		let res = self.set(cx, &key, &val);
+		res
 	}
 
 	/// Defines the [JSVal] at the given key of the [Object] with the given attributes.
 	/// Returns `false` if the property cannot be defined.
-	pub fn define(&mut self, cx: Context, key: &str, value: JSVal, attrs: PropertyFlags) -> bool {
-		let key = format!("{}\0", key);
-		rooted!(in(cx) let obj = self.obj);
-		rooted!(in(cx) let rval = value);
+	pub fn define(&mut self, cx: &Context, key: &str, value: &Value, attrs: PropertyFlags) -> bool {
+		let key = CString::new(key).unwrap();
 		unsafe {
 			JS_DefineProperty(
-				cx,
-				obj.handle().into(),
+				**cx,
+				self.handle().into(),
 				key.as_ptr() as *const i8,
-				rval.handle().into(),
+				value.handle().into(),
 				attrs.bits() as u32,
 			)
 		}
@@ -162,63 +141,60 @@ impl Object {
 
 	/// Defines the Rust type at the given key of the [Object] with the given attributes.
 	/// Returns `false` if the property cannot be defined.
-	pub fn define_as<T: ToJSValConvertible>(&mut self, cx: Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
-		let key = format!("{}\0", key);
-		rooted!(in(cx) let mut val = UndefinedValue());
+	pub fn define_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
+		let mut val = Value::undefined(cx);
 		unsafe {
-			value.to_jsval(cx, val.handle_mut());
+			value.to_value(cx, &mut val);
 		}
-		self.define(cx, &key, val.get(), attrs)
+		let res = self.define(cx, &key, &val, attrs);
+		res
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].
 	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
-	pub fn define_method(&mut self, cx: Context, name: &str, method: NativeFunction, nargs: u32, attrs: PropertyFlags) -> Function {
-		let name = format!("{}\0", name);
-		rooted!(in(cx) let mut obj = self.obj);
-		Function::from(unsafe {
+	pub fn define_method(&mut self, cx: &'cx Context, name: &str, method: NativeFunction, nargs: u32, attrs: PropertyFlags) -> Function<'cx> {
+		let name = CString::new(name).unwrap();
+		cx.root_function(unsafe {
 			JS_DefineFunction(
-				cx,
-				obj.handle().into(),
+				**cx,
+				self.handle().into(),
 				name.as_ptr() as *const i8,
 				Some(method),
 				nargs,
 				attrs.bits() as u32,
 			)
 		})
+		.into()
 	}
 
 	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
 	/// They can be created through [function_spec](crate::function_spec).
-	pub fn define_methods(&mut self, cx: Context, methods: &[JSFunctionSpec]) -> bool {
-		rooted!(in(cx) let mut obj = self.obj);
-		unsafe { JS_DefineFunctions(cx, obj.handle().into(), methods.as_ptr()) }
+	pub fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
+		unsafe { JS_DefineFunctions(**cx, self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Deletes the [JSVal] at the given index.
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete(&self, cx: Context, key: &str) -> bool {
-		let key = format!("{}\0", key);
-		rooted!(in(cx) let obj = self.obj);
-		unsafe { JS_DeleteProperty1(cx, obj.handle().into(), key.as_ptr() as *const i8) }
+	pub fn delete(&self, cx: &Context, key: &str) -> bool {
+		let key = CString::new(key).unwrap();
+		unsafe { JS_DeleteProperty1(**cx, self.handle().into(), key.as_ptr() as *const i8) }
 	}
 
 	/// Returns a [Vec] of the keys of the [Object].
 	/// Each [Key] can be a [String], integer or void.
-	pub fn keys(&self, cx: Context, flags: Option<IteratorFlags>) -> Vec<Key> {
+	pub fn keys(&self, cx: &Context, flags: Option<IteratorFlags>) -> Vec<Key> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
-		let mut ids = unsafe { IdVector::new(cx) };
-		rooted!(in(cx) let obj = self.obj);
-		unsafe { GetPropertyKeys(cx, obj.handle().into(), flags.bits(), ids.handle_mut()) };
+		let mut ids = unsafe { IdVector::new(**cx) };
+		unsafe { GetPropertyKeys(**cx, self.handle().into(), flags.bits(), ids.handle_mut()) };
 		ids.iter()
 			.map(|id| {
-				rooted!(in(cx) let id = *id);
+				rooted!(in(**cx) let id = *id);
 				unsafe {
 					if RUST_JSID_IS_INT(id.handle().into()) {
 						Key::Int(RUST_JSID_TO_INT(id.handle().into()))
 					} else if RUST_JSID_IS_STRING(id.handle().into()) {
-						Key::String(jsstr_to_string(cx, RUST_JSID_TO_STRING(id.handle().into())))
+						Key::String(jsstr_to_string(**cx, RUST_JSID_TO_STRING(id.handle().into())))
 					} else {
 						Key::Void
 					}
@@ -227,44 +203,41 @@ impl Object {
 			.collect()
 	}
 
-	/// Returns the current global [Object] or `null` if one has not been initialised yet.
-	pub fn global(cx: Context) -> Object {
-		unsafe { Object::from(CurrentGlobalOrNull(cx)) }
+	pub fn handle<'a>(&'a self) -> Handle<'a, *mut JSObject>
+	where
+		'cx: 'a,
+	{
+		self.object.handle()
+	}
+
+	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
+	where
+		'cx: 'a,
+	{
+		self.object.handle_mut()
+	}
+
+	pub fn into_local(self) -> &'cx mut Local<'cx, *mut JSObject> {
+		self.object
 	}
 }
 
-impl FromJSValConvertible for Object {
-	type Config = ();
-	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Object>, ()> {
-		if !value.is_object() {
-			throw_type_error(cx, "JSVal is not an object");
-			return Err(());
-		}
-
-		AssertSameCompartment(cx, value.to_object());
-		Ok(ConversionResult::Success(Object::from(value.to_object())))
+impl<'cx> From<&'cx mut Local<'cx, *mut JSObject>> for Object<'cx> {
+	fn from(object: &'cx mut Local<'cx, *mut JSObject>) -> Object<'cx> {
+		Object { object }
 	}
 }
 
-impl ToJSValConvertible for Object {
-	#[inline]
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		rval.set(self.to_value());
-		maybe_wrap_object_value(cx, rval);
-	}
-}
-
-impl Deref for Object {
-	type Target = *mut JSObject;
+impl<'cx> Deref for Object<'cx> {
+	type Target = Local<'cx, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.obj
+		&*self.object
 	}
 }
 
-unsafe impl CustomTrace for Object {
-	fn trace(&self, tracer: *mut JSTracer) {
-		self.obj.trace(tracer)
+impl<'cx> DerefMut for Object<'cx> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		self.object
 	}
 }

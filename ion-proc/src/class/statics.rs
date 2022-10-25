@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::CString;
 use std::collections::HashMap;
+use std::ffi::CString;
 
 use convert_case::{Case, Casing};
 use proc_macro2::Ident;
@@ -16,7 +16,7 @@ use crate::class::method::Method;
 use crate::class::property::Property;
 
 pub(crate) fn class_spec(literal: &LitStr) -> ItemStatic {
-	let name = CString::new(literal.value()).unwrap().into_string().unwrap();
+	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
 	let name = LitStr::new(&name, literal.span());
 
 	parse_quote!(
@@ -35,12 +35,12 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 	let krate = quote!(::ion);
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
-		.iter()
+		.into_iter()
 		.flat_map(|method| {
 			let ident = method.method.sig.ident.clone();
 			let nargs = method.nargs as u16;
 			(*method.names)
-				.iter()
+				.into_iter()
 				.map(|name| {
 					let mut string = name.value();
 					if string.is_case(Case::Snake) {

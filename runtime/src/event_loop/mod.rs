@@ -41,11 +41,11 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
-	pub async fn run_event_loop(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+	pub async fn run_event_loop(&self, cx: &Context<'_>) -> Result<(), Option<ErrorReport>> {
 		poll_fn(|wcx| self.poll_event_loop(cx, wcx)).await
 	}
 
-	fn poll_event_loop(&self, cx: Context, wcx: &mut task::Context) -> Poll<Result<(), Option<ErrorReport>>> {
+	fn poll_event_loop(&self, cx: &Context, wcx: &mut task::Context) -> Poll<Result<(), Option<ErrorReport>>> {
 		{
 			self.waker.register(wcx.waker());
 		}

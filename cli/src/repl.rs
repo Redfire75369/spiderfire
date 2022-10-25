@@ -7,7 +7,7 @@
 use rustyline::{Config, Result};
 use rustyline::config::Builder;
 use rustyline::validate::{MatchingBracketValidator, ValidationContext, ValidationResult, Validator};
-use rustyline_derive::{Completer, Helper, Hinter, Highlighter};
+use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 #[derive(Completer, Helper, Hinter, Highlighter)]
 pub struct ReplHelper;

@@ -11,12 +11,12 @@ use chrono::{DateTime, offset::Utc};
 use indent::indent_all_by;
 use indexmap::IndexSet;
 use mozjs::jsapi::JSFunctionSpec;
-use mozjs::jsval::JSVal;
 use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Key, Object, Stack};
+use ion::{Context, Key, Object, Stack, Value};
+use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
@@ -51,7 +51,7 @@ fn print_indent(is_stderr: bool) {
 	});
 }
 
-fn print_args(cx: Context, args: Vec<JSVal>, stderr: bool) {
+fn print_args<'cx>(cx: &'cx Context, args: &[Value<'cx>], stderr: bool) {
 	let indents = get_indents();
 	for value in args.into_iter() {
 		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
@@ -73,43 +73,43 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+fn log<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
-		print_args(cx, values, false);
+		print_args(cx, values.as_slice(), false);
 		println!();
 	}
 }
 
 #[js_fn]
-fn warn(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+fn warn<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
-		print_args(cx, values, true);
+		print_args(cx, values.as_slice(), true);
 		println!();
 	}
 }
 
 #[js_fn]
-fn error(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+fn error<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
-		print_args(cx, values, true);
+		print_args(cx, values.as_slice(), true);
 		println!();
 	}
 }
 
 #[js_fn]
-fn debug(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+fn debug<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
-		print_args(cx, values, false);
+		print_args(cx, values.as_slice(), false);
 		println!();
 	}
 }
 
 #[js_fn]
-fn assert(cx: Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<JSVal>) {
+fn assert<'cx>(cx: &'cx Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -124,15 +124,15 @@ fn assert(cx: Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<JSVa
 
 			if values[0].is_string() {
 				print_indent(true);
-				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), values[0]));
-				print_args(cx, values[2..].to_vec(), true);
+				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), &values[0]));
+				print_args(cx, &values[2..], true);
 				eprintln!();
 				return;
 			}
 
 			print_indent(true);
 			eprint!("Assertion Failed: ");
-			print_args(cx, values, true);
+			print_args(cx, values.as_slice(), true);
 			println!();
 		} else {
 			eprintln!("Assertion Failed:");
@@ -151,11 +151,11 @@ fn clear() {
 }
 
 #[js_fn]
-unsafe fn trace(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+unsafe fn trace<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
-		print_args(cx, values, false);
+		print_args(cx, values.as_slice(), false);
 		println!();
 
 		let mut stack = Stack::from_capture(cx);
@@ -176,14 +176,14 @@ unsafe fn trace(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
 }
 
 #[js_fn]
-fn group(cx: Context, #[ion(varargs)] values: Vec<JSVal>) {
+fn group<'cx>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
 	});
 
 	if Config::global().log_level >= LogLevel::Info {
-		print_args(cx, values, false);
+		print_args(cx, values.as_slice(), false);
 		println!();
 	}
 }
@@ -259,7 +259,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog(cx: Context, label: Option<String>, #[ion(varargs)] values: Vec<JSVal>) {
+fn timeLog<'cx>(cx: &'cx Context, label: Option<String>, #[ion(varargs)] values: Vec<Value<'cx>>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -276,7 +276,7 @@ fn timeLog(cx: Context, label: Option<String>, #[ion(varargs)] values: Vec<JSVal
 					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 					print_indent(false);
 					print!("{}: {}ms ", label, duration);
-					print_args(cx, values, false);
+					print_args(cx, values.as_slice(), false);
 					println!();
 				}
 			}
@@ -310,7 +310,7 @@ fn timeEnd(label: Option<String>) {
 }
 
 #[js_fn]
-unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
+unsafe fn table<'cx>(cx: &'cx Context, data: Value<'cx>, columns: Option<Vec<String>>) {
 	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -336,7 +336,7 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 	}
 
 	let indents = get_indents();
-	if let Some(object) = Object::from_value(data) {
+	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
 		let (rows, columns, has_values) = if let Some(columns) = columns {
 			let rows = object.keys(cx, None);
 			let mut keys = IndexSet::<Key>::new();
@@ -357,7 +357,7 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 
 			for row in rows.iter() {
 				let value = object.get(cx, &row.to_string()).unwrap();
-				if let Some(object) = Object::from_value(value) {
+				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 					let obj_keys = object.keys(cx, None);
 					keys.extend(obj_keys);
 				} else {
@@ -386,10 +386,10 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 			let value = object.get(cx, &row.to_string()).unwrap();
 			let mut table_row = vec![TableCell::new_with_alignment(row.to_string(), 1, Alignment::Center)];
 
-			if let Some(object) = Object::from_value(value) {
+			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 				for column in columns.iter() {
 					if let Some(value) = object.get(cx, &column.to_string()) {
-						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), value);
+						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
 						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))
 					} else {
 						table_row.push(TableCell::new(""))
@@ -403,7 +403,7 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 					table_row.push(TableCell::new(""))
 				}
 				if has_values {
-					let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), value);
+					let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
 					table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center));
 				}
 			}
@@ -414,7 +414,7 @@ unsafe fn table(cx: Context, data: JSVal, columns: Option<Vec<String>>) {
 		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
 	} else if Config::global().log_level >= LogLevel::Info {
 		print_indent(true);
-		println!("{}", format_value(cx, FormatConfig::default().indentation(indents), data));
+		println!("{}", format_value(cx, FormatConfig::default().indentation(indents), &data));
 	}
 }
 
@@ -441,7 +441,7 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: Context, mut global: Object) -> bool {
+pub fn define<'cx>(cx: &'cx Context, global: &mut Object<'cx>) -> bool {
 	let mut console = Object::new(cx);
 	console.define_methods(cx, METHODS) && global.define_as(cx, "console", console, PropertyFlags::CONSTANT_ENUMERATED)
 }

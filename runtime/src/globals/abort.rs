@@ -105,7 +105,7 @@ mod controller {
 			}
 		}
 
-		pub fn abort(&self, cx: Context, reason: Option<JSVal>) {
+		pub fn abort(&self, cx: &Context, reason: Option<JSVal>) {
 			let none = reason.is_none();
 			rooted!(in(cx) let mut reason = reason.unwrap_or_else(NullValue));
 			if none {
@@ -169,7 +169,7 @@ mod signal {
 			}
 		}
 
-		pub fn abort(cx: Context, reason: Option<JSVal>) -> AbortSignal {
+		pub fn abort(cx: &Context, reason: Option<JSVal>) -> AbortSignal {
 			let none = reason.is_none();
 			rooted!(in(cx) let mut reason = reason.unwrap_or_else(NullValue));
 			if none {
@@ -180,7 +180,7 @@ mod signal {
 			AbortSignal { signal: Signal::Abort(reason.get()) }
 		}
 
-		pub fn timeout(cx: Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> AbortSignal {
+		pub fn timeout(cx: &Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> AbortSignal {
 			let (sender, receiver) = channel(None);
 			let terminate = Arc::new(AtomicBool::new(false));
 			let terminate2 = terminate.clone();
@@ -206,7 +206,7 @@ mod signal {
 	}
 }
 
-pub fn define(cx: Context, global: Object) -> bool {
+pub fn define(cx: &Context, global: &mut Object) -> bool {
 	AbortController::init_class(cx, &global);
 	AbortSignal::init_class(cx, &global);
 	true

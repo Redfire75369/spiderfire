@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::TokenStream;
-use syn::{Abi, Error, FnArg, ItemFn, Result};
+use syn::{Abi, Error, FnArg, Generics, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
 use crate::function::wrapper::impl_wrapper_fn;
@@ -15,6 +15,7 @@ pub(crate) mod inner;
 pub(crate) mod parameters;
 pub(crate) mod wrapper;
 
+// TODO: Partially Remove Error Handling in Infallible Functions
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let krate = quote!(::ion);
 	let (wrapper, _, _) = impl_wrapper_fn(function.clone(), None, true, false)?;
@@ -27,9 +28,16 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let error_handler = error_handler();
 
 	let body = parse_quote!({
-		let args = #krate::Arguments::new(argc, vp);
+		let cx = #krate::Context::new(&mut cx);
+		let rval = ::mozjs::rust::MutableHandle::from_raw(::mozjs::jsapi::CallArgs::from_vp(vp, argc).rval());
+
+		let cx = &cx;
+
 		#wrapper
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &args)));
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(move || {
+			let mut args = #krate::Arguments::new(cx, argc, vp);
+			wrapper(cx, &mut args)
+		}));
 		#error_handler
 	});
 	function.block = Box::new(body);
@@ -48,14 +56,14 @@ pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {
 }
 
 pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
-	let krate = quote!(::ion);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 	let params: [FnArg; 3] = [
-		parse_quote!(cx: #krate::Context),
+		parse_quote!(mut cx: *mut ::mozjs::jsapi::JSContext),
 		parse_quote!(argc: ::core::primitive::u32),
 		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
 	];
+	function.sig.generics = Generics::default();
 	function.sig.inputs = Punctuated::<_, _>::from_iter(params);
 	function.sig.output = parse_quote!(-> ::core::primitive::bool);
 	Ok(())
@@ -66,22 +74,20 @@ pub(crate) fn error_handler() -> TokenStream {
 	quote!(
 		match result {
 			::std::result::Result::Ok(::std::result::Result::Ok(val)) => {
-				::mozjs::conversions::ToJSValConvertible::to_jsval(&val, cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
+				::mozjs::conversions::ToJSValConvertible::to_jsval(&val, **cx, rval);
 				true
 			},
 			::std::result::Result::Ok(::std::result::Result::Err(error)) => {
-				use #krate::error::ThrowException;
-				error.throw(cx);
+				#krate::error::ThrowException::throw(&error, cx);
 				false
 			}
 			::std::result::Result::Err(unwind_error) => {
-				use #krate::error::ThrowException;
 				if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::Error::new(unwind, ::std::option::Option::None).throw(cx);
+					#krate::error::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
 				} else if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::Error::new(*unwind, ::std::option::Option::None).throw(cx);
+					#krate::error::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
 				} else {
-					#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None).throw(cx);
+					#krate::error::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None), cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

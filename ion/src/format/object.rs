@@ -9,10 +9,10 @@ use std::fmt::Write;
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, JSObject};
+use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
 use mozjs::jsval::ObjectValue;
 
-use crate::{Context, Object};
+use crate::{Array, Context, Date, Function, Object};
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
@@ -23,26 +23,29 @@ use crate::format::function::format_function;
 
 /// Formats an [Object], depending on its class, as a [String] using the given [Config].
 /// The object is passed to other formatting functions such as [format_array] and [format_date].
-pub fn format_object(cx: Context, cfg: Config, object: *mut JSObject) -> String {
-	rooted!(in(cx) let robj = object);
-
+pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> String {
 	unsafe {
-		use ESClass::*;
-		let mut class = Other;
-		if !GetBuiltinClass(cx, robj.handle().into(), &mut class) {
-			return std::string::String::from("");
+		use ESClass as ESC;
+		let mut class = ESC::Other;
+		if !GetBuiltinClass(**cx, object.handle().into(), &mut class) {
+			return String::from("");
 		}
 
+		// TODO: Add Formatting for Errors and Promises
 		match class {
-			Boolean | Number | String | BigInt => format_boxed(cx, cfg, object, class),
-			Array => format_array(cx, cfg, crate::Array::from(cx, object).unwrap()),
-			Object => format_object_raw(cx, cfg, crate::Object::from(object)),
-			Date => format_date(cx, cfg, crate::Date::from(cx, object).unwrap()),
-			Function => format_function(cx, cfg, crate::Function::from_object(object).unwrap()),
-			Other => format_class_object(cx, cfg, crate::Object::from(object)),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &Object::from(object.into_local()), class),
+			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
+			ESC::Object => format_object_raw(cx, cfg, &Object::from(object.into_local())),
+			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
+			ESC::Function => {
+				let function = Function::from_object(cx, &object).unwrap();
+				let formatted = format_function(cx, cfg, &function);
+				formatted
+			}
+			ESC::Other => format_class_object(cx, cfg, &object),
 			_ => {
-				rooted!(in(cx) let rval = ObjectValue(object));
-				jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))
+				rooted!(in(**cx) let rval = ObjectValue(**object));
+				jsstr_to_string(**cx, JS_ValueToSource(**cx, rval.handle().into()))
 			}
 		}
 	}
@@ -50,7 +53,7 @@ pub fn format_object(cx: Context, cfg: Config, object: *mut JSObject) -> String 
 
 /// Formats an [Object] as a [String] using the given [Config].
 /// Disregards the class of the object.
-pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
+pub fn format_object_raw<'cx>(cx: &'cx Context, cfg: Config, object: &Object<'cx>) -> String {
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));
@@ -65,7 +68,7 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 			for (i, key) in keys.into_iter().enumerate().take(length) {
 				let value = object.get(cx, &key.to_string()).unwrap();
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
 				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
 
@@ -83,7 +86,7 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 			let len = length.clamp(0, 3);
 			for (i, key) in keys.into_iter().enumerate().take(len) {
 				let value = object.get(cx, &key.to_string()).unwrap();
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
 
 				if i != len - 1 {

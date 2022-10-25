@@ -4,5 +4,5 @@ members = [
 	"ion",
 	"ion-proc",
 	"modules",
-	"runtime"
+	"runtime",
 ]

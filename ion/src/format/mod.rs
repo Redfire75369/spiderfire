@@ -4,11 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsval::JSVal;
-
 pub use config::Config;
 
-use crate::Context;
+use crate::{Context, Value};
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
 
@@ -25,10 +23,10 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 /// Formats a [JSVal] as a [String] with the given [Config].
-pub fn format_value(cx: Context, cfg: Config, value: JSVal) -> String {
+pub fn format_value<'cx>(cx: &'cx Context, cfg: Config, value: &Value<'cx>) -> String {
 	if !value.is_object() {
 		format_primitive(cx, cfg, value)
 	} else {
-		format_object(cx, cfg, value.to_object())
+		format_object(cx, cfg, cx.root_object(**value.to_object(cx)).into())
 	}
 }

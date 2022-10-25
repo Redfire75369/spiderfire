@@ -13,7 +13,7 @@ use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::Config;
 
 /// Formats an [Array] as a [String] using the given [Config].
-pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
+pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &Array<'cx>) -> String {
 	let color = cfg.colors.array;
 	if cfg.depth < 5 {
 		let vec = array.to_vec(cx);
@@ -29,7 +29,7 @@ pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
 			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 			for (i, value) in vec.into_iter().enumerate().take(len) {
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
 				string.push_str(&value_string);
 
@@ -56,7 +56,7 @@ pub fn format_array(cx: Context, cfg: Config, array: Array) -> String {
 			let len = length.clamp(0, 3);
 
 			for (i, value) in vec.into_iter().enumerate().take(len) {
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&value_string);
 
 				if i != len - 1 {

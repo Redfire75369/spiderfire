@@ -87,6 +87,6 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: Context, mut global: Object) -> bool {
+pub fn define<'cx>(cx: &'cx Context, global: &'cx mut Object) -> bool {
 	global.define_methods(cx, FUNCTIONS)
 }

@@ -855,6 +855,7 @@ dependencies = [
  "mozjs",
  "mozjs_sys",
  "sourcemap",
+ "typed-arena",
 ]
 
 [[package]]

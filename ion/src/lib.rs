@@ -16,32 +16,31 @@ extern crate mozjs;
 
 use std::result::Result as Result2;
 
-use mozjs::jsapi::JSContext;
-
 pub use class::ClassInitialiser;
+pub use context::Context;
 pub use error::{Error, ErrorKind};
 pub use exception::*;
 pub use functions::*;
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
+pub use local::Local;
 pub use objects::*;
 pub use stack::*;
 pub use value::Value;
 
 pub mod class;
+mod context;
 pub mod conversions;
 pub mod error;
 mod exception;
 pub mod flags;
 pub mod format;
 mod functions;
+pub mod local;
 mod objects;
 pub mod spec;
 mod stack;
-pub mod typedarray;
-pub mod types;
 pub mod utils;
 mod value;
 
-pub type Context = *mut JSContext;
 pub type Result<T> = Result2<T, Error>;

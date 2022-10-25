@@ -6,14 +6,13 @@
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsval::JSVal;
 
-use crate::Context;
+use crate::{Context, Value};
 use crate::format::Config;
 
 /// Formats a primitive value as a [String] using the given [Config].
 /// The supported types are `boolean`, `number`, `string`, `null` and `undefined`.
-pub fn format_primitive(cx: Context, cfg: Config, value: JSVal) -> String {
+pub fn format_primitive(cx: &Context, cfg: Config, value: &Value) -> String {
 	let colors = cfg.colors;
 
 	if value.is_boolean() {
@@ -29,7 +28,7 @@ pub fn format_primitive(cx: Context, cfg: Config, value: JSVal) -> String {
 			number.to_string().color(colors.number).to_string()
 		}
 	} else if value.is_string() {
-		let str = unsafe { jsstr_to_string(cx, value.to_string()) };
+		let str = unsafe { jsstr_to_string(**cx, value.to_string()) };
 		if cfg.quoted {
 			format!("\"{}\"", str).color(colors.string).to_string()
 		} else {

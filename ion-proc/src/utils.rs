@@ -48,6 +48,7 @@ pub(crate) fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -
 	generics
 }
 
+#[allow(dead_code)]
 pub(crate) fn format_type(ty: &Type) -> String {
 	let ty = unparse(
 		&parse2(quote!(
@@ -61,15 +62,19 @@ pub(crate) fn format_type(ty: &Type) -> String {
 	String::from(ty.trim())
 }
 
-pub(crate) fn format_pat(pat: &Pat) -> String {
+pub(crate) fn format_pat(pat: &Pat) -> Option<String> {
+	let ident = match pat {
+		Pat::Ident(ident) => ident.ident.clone(),
+		_ => return None,
+	};
 	let pat = unparse(
 		&parse2(quote!(
-			const #pat: () = ();
+			const #ident: () = ();
 		))
 		.unwrap(),
 	);
 	let mut pat = String::from(pat.trim());
 	pat.drain((pat.len() - 10)..(pat.len()));
 	pat.drain(0..5);
-	String::from(pat.trim())
+	Some(String::from(pat.trim()))
 }

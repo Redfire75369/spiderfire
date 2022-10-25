@@ -11,6 +11,7 @@ mod keywords {
 	custom_keyword!(this);
 	custom_keyword!(varargs);
 	custom_keyword!(convert);
+	custom_keyword!(strict);
 }
 
 #[allow(dead_code)]
@@ -23,6 +24,7 @@ pub(crate) enum ParameterAttribute {
 		eq: Token![=],
 		conversion: Box<Expr>,
 	},
+	Strict(keywords::strict),
 }
 
 impl Parse for ParameterAttribute {
@@ -40,6 +42,8 @@ impl Parse for ParameterAttribute {
 				eq: input.parse()?,
 				conversion: input.parse()?,
 			})
+		} else if lookahead.peek(keywords::strict) {
+			Ok(input.parse()?)
 		} else {
 			Err(lookahead.error())
 		}

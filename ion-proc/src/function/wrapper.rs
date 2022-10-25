@@ -27,7 +27,10 @@ pub(crate) fn impl_wrapper_fn(
 	let argument_checker = argument_checker(&function.sig.ident, parameters.nargs.0);
 	let constructing_checker = constructing_checker(is_constructor);
 
-	let wrapper_args: [FnArg; 2] = [parse_quote!(cx: #krate::Context), parse_quote!(args: &#krate::Arguments)];
+	let wrapper_args: [FnArg; 2] = [
+		parse_quote!(cx: &'cx #krate::Context),
+		parse_quote!(args: &'cx mut #krate::Arguments<'cx>),
+	];
 
 	let mut output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
@@ -36,10 +39,7 @@ pub(crate) fn impl_wrapper_fn(
 	let inner_output = output.clone();
 	let mut wrapper_output = output.clone();
 
-	let mut result = quote!(match result {
-		::std::result::Result::Ok(o) => ::std::result::Result::Ok(o.into()),
-		::std::result::Result::Err(e) => ::std::result::Result::Err(e.into()),
-	});
+	let mut result = quote!(result.map_err(::std::convert::Into::into));
 	let mut async_result = result.clone();
 
 	let mut is_result = false;
@@ -137,6 +137,7 @@ pub(crate) fn impl_wrapper_fn(
 
 	function.sig.ident = Ident::new("wrapper", function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
+	function.sig.generics = parse_quote!(<'cx>);
 	function.sig.output = parse_quote!(-> #wrapper_output);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());

@@ -7,13 +7,12 @@
 use std::{error, ptr};
 use std::fmt::{Display, Formatter};
 
-use mozjs::conversions::ToJSValConvertible;
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSProtoKey, JSString};
-use mozjs::jsval::JSVal;
-use mozjs::rust::MutableHandleValue;
+use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey, JSString};
+use mozjs::jsval::UndefinedValue;
 
-use crate::{Context, Location, Object, Stack};
+use crate::{Context, Location, Object, Stack, Value};
+use crate::conversions::ToValue;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorKind {
@@ -37,11 +36,11 @@ pub struct Error {
 	pub kind: ErrorKind,
 	pub message: String,
 	pub location: Option<Location>,
-	pub object: Option<Object>,
+	pub object: Option<*mut JSObject>,
 }
 
 pub trait ThrowException {
-	fn throw(&self, cx: Context);
+	fn throw(&self, cx: &Context);
 }
 
 impl ErrorKind {
@@ -109,9 +108,9 @@ impl Display for ErrorKind {
 }
 
 impl Error {
-	pub fn new(message: &str, kind: Option<ErrorKind>) -> Error {
+	pub fn new<T: Into<Option<ErrorKind>>>(message: &str, kind: T) -> Error {
 		Error {
-			kind: kind.unwrap_or(ErrorKind::Normal),
+			kind: kind.into().unwrap_or(ErrorKind::Normal),
 			message: String::from(message),
 			location: None,
 			object: None,
@@ -127,9 +126,9 @@ impl Error {
 		}
 	}
 
-	pub fn to_object(&self, cx: Context) -> Option<Object> {
+	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		if let Some(object) = self.object {
-			return Some(object);
+			return Some(cx.root_object(object).into());
 		}
 		if self.kind != ErrorKind::None {
 			unsafe {
@@ -143,23 +142,24 @@ impl Error {
 					.map(|location| (&*location.file, location.lineno, location.column))
 					.unwrap_or_default();
 
-				rooted!(in(cx) let stack = *stack.object.unwrap());
+				let stack = Object::from(cx.root_object(stack.object.unwrap()));
 
-				rooted!(in(cx) let mut file_name: JSVal);
-				file.to_jsval(cx, file_name.handle_mut());
-				rooted!(in(cx) let file_name = file_name.get().to_string());
+				let mut file_name = Value::undefined(cx);
+				file.to_value(cx, &mut file_name);
 
-				rooted!(in(cx) let mut message: *mut JSString);
+				let file_name = cx.root_string(file_name.handle().get().to_string());
+
+				rooted!(in(**cx) let mut message: *mut JSString);
 				if !self.message.is_empty() {
-					rooted!(in(cx) let mut message_val: JSVal);
-					self.message.to_jsval(cx, message_val.handle_mut());
-					message.set(message_val.get().to_string());
+					let mut message_val = Value::undefined(cx);
+					self.message.to_value(cx, &mut message_val);
+					message.set(message_val.handle().get().to_string());
 				}
 
-				rooted!(in(cx) let mut error: JSVal);
+				let mut error = Value::from(cx.root_value(UndefinedValue()));
 
 				if CreateError(
-					cx,
+					**cx,
 					exception_type,
 					stack.handle().into(),
 					file_name.handle().into(),
@@ -169,7 +169,7 @@ impl Error {
 					message.handle().into(),
 					error.handle_mut().into(),
 				) {
-					return Some(Object::from(error.get().to_object()));
+					return Some(error.to_object(cx));
 				}
 			}
 		}
@@ -178,14 +178,14 @@ impl Error {
 }
 
 impl ThrowException for Error {
-	fn throw(&self, cx: Context) {
+	fn throw(&self, cx: &Context) {
 		unsafe {
 			use ErrorKind::*;
 			match self.kind {
-				Normal => JS_ReportErrorUTF8(cx, format!("{}\0", self.message).as_ptr() as *const i8),
-				Internal => throw_internal_error(cx, &self.message),
-				Range => throw_range_error(cx, &self.message),
-				Type => throw_type_error(cx, &self.message),
+				Normal => JS_ReportErrorUTF8(**cx, format!("{}\0", self.message).as_ptr() as *const i8),
+				Internal => throw_internal_error(**cx, &self.message),
+				Range => throw_range_error(**cx, &self.message),
+				Type => throw_type_error(**cx, &self.message),
 				None => (),
 				_ => unimplemented!("Throwing Exception for this is not implemented"),
 			}
@@ -193,11 +193,9 @@ impl ThrowException for Error {
 	}
 }
 
-impl ToJSValConvertible for Error {
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		if let Some(object) = self.to_object(cx) {
-			rval.set(object.to_value());
-		}
+impl<'cx> ToValue<'cx> for Error {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+		self.to_object(cx).to_value(cx, value)
 	}
 }
 

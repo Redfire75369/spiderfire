@@ -6,6 +6,7 @@
 
 use proc_macro2::Ident;
 use syn::{ItemImpl, parse2, Type};
+
 use crate::class::constructor::impl_constructor;
 use crate::class::method::Method;
 
