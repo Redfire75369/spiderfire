@@ -17,7 +17,6 @@ use crate::class::property::Property;
 
 pub(crate) fn class_spec(literal: &LitStr) -> ItemStatic {
 	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
-	let name = LitStr::new(&name, literal.span());
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
@@ -35,18 +34,17 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 	let krate = quote!(::ion);
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
-		.into_iter()
+		.iter()
 		.flat_map(|method| {
 			let ident = method.method.sig.ident.clone();
 			let nargs = method.nargs as u16;
 			(*method.names)
-				.into_iter()
+				.iter()
 				.map(|name| {
-					let mut string = name.value();
-					if string.is_case(Case::Snake) {
-						string = string.to_case(Case::Camel);
+					let mut name = name.value();
+					if name.is_case(Case::Snake) {
+						name = name.to_case(Case::Camel);
 					}
-					let name = LitStr::new(&string, name.span());
 
 					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
 				})

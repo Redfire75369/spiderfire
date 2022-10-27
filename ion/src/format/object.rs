@@ -23,7 +23,7 @@ use crate::format::function::format_function;
 
 /// Formats an [Object], depending on its class, as a [String] using the given [Config].
 /// The object is passed to other formatting functions such as [format_array] and [format_date].
-pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> String {
+pub fn format_object(cx: &Context, cfg: Config, object: Object) -> String {
 	unsafe {
 		use ESClass as ESC;
 		let mut class = ESC::Other;
@@ -39,8 +39,7 @@ pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) ->
 			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
 			ESC::Function => {
 				let function = Function::from_object(cx, &object).unwrap();
-				let formatted = format_function(cx, cfg, &function);
-				formatted
+				format_function(cx, cfg, &function)
 			}
 			ESC::Other => format_class_object(cx, cfg, &object),
 			_ => {
@@ -53,7 +52,7 @@ pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) ->
 
 /// Formats an [Object] as a [String] using the given [Config].
 /// Disregards the class of the object.
-pub fn format_object_raw<'cx>(cx: &'cx Context, cfg: Config, object: &Object<'cx>) -> String {
+pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
 	let color = cfg.colors.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));

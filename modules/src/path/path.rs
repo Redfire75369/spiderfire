@@ -128,7 +128,7 @@ impl NativeModule for PathM {
 	const NAME: &'static str = "path";
 	const SOURCE: &'static str = include_str!("path.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut path = Object::new(cx);
 		if path.define_methods(cx, FUNCTIONS)
 			&& path.define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)

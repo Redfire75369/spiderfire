@@ -8,9 +8,11 @@ use proc_macro2::{Ident, Span};
 use syn::{Error, Expr, FnArg, GenericArgument, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::visit_mut::visit_type_mut;
 
 use crate::function::attribute::ParameterAttribute;
 use crate::utils::{extract_type_argument, format_pat, type_ends_with};
+use crate::visitors::{LifetimeRemover, SelfRenamer};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ThisKind {
@@ -51,7 +53,7 @@ pub(crate) struct Parameters {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg, ty: Option<&Type>, is_class: bool) -> Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
@@ -61,65 +63,72 @@ impl Parameter {
 					if let Type::Path(path) = &*reference.elem {
 						if type_ends_with(path, "Context") {
 							return Ok(Parameter::Context(pat, ty));
-						} else if type_ends_with(&path, "Arguments") {
+						} else if type_ends_with(path, "Arguments") {
 							return Ok(Parameter::Arguments(pat, ty));
 						}
 					}
 				}
 
-				if is_class && pat == parse_quote!(self) {
-					parse_this(pat, ty, true, span)
-				} else {
-					let mut option = None;
-					let mut vararg = false;
+				match class_ty {
+					Some(class_ty) if pat == parse_quote!(self) => {
+						let class_ty = Box::new(class_ty.clone());
+						let mut self_renamer = SelfRenamer { ty: class_ty };
+						let mut ty = ty;
+						visit_type_mut(&mut self_renamer, &mut ty);
+						parse_this(pat, ty, true, span)
+					}
+					_ => {
+						let mut option = None;
+						let mut vararg = false;
 
-					let mut conversion = None;
-					let mut strict = false;
+						let mut conversion = None;
+						let mut strict = false;
 
-					for attr in &pat_ty.attrs {
-						if attr.path.is_ident("ion") {
-							let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+						for attr in &pat_ty.attrs {
+							if attr.path.is_ident("ion") {
+								let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
-							use ParameterAttribute as PA;
-							for arg in args {
-								match arg {
-									PA::This(_) => return parse_this(pat, ty, is_class, span),
-									PA::VarArgs(_) => {
-										vararg = true;
-									}
-									PA::Convert { conversion: conversion_expr, .. } => {
-										conversion = Some(conversion_expr);
-									}
-									PA::Strict(_) => {
-										strict = true;
+								use ParameterAttribute as PA;
+								for arg in args {
+									match arg {
+										PA::This(_) => return parse_this(pat, ty, class_ty.is_some(), span),
+										PA::VarArgs(_) => {
+											vararg = true;
+										}
+										PA::Convert { conversion: conversion_expr, .. } => {
+											conversion = Some(conversion_expr);
+										}
+										PA::Strict(_) => {
+											strict = true;
+										}
 									}
 								}
 							}
 						}
-					}
 
-					let conversion = conversion.unwrap_or_else(|| parse_quote!(()));
+						let conversion = conversion.unwrap_or_else(|| parse_quote!(()));
 
-					if let Type::Path(path) = &*ty {
-						if type_ends_with(path, "Option") {
-							let option_segment = path.path.segments.last().unwrap();
-							if let PathArguments::AngleBracketed(inner) = &option_segment.arguments {
-								if let GenericArgument::Type(inner) = inner.args.last().unwrap() {
-									option = Some(Box::new(inner.clone()));
+						if let Type::Path(path) = &*ty {
+							if type_ends_with(path, "Option") {
+								let option_segment = path.path.segments.last().unwrap();
+								if let PathArguments::AngleBracketed(inner) = &option_segment.arguments {
+									if let GenericArgument::Type(inner) = inner.args.last().unwrap() {
+										option = Some(Box::new(inner.clone()));
+									}
 								}
 							}
 						}
-					}
 
-					if vararg {
-						Ok(Parameter::VarArgs { pat, ty, conversion, strict })
-					} else {
-						Ok(Parameter::Regular { pat, ty, conversion, strict, option })
+						if vararg {
+							Ok(Parameter::VarArgs { pat, ty, conversion, strict })
+						} else {
+							Ok(Parameter::Regular { pat, ty, conversion, strict, option })
+						}
 					}
 				}
 			}
 			FnArg::Receiver(recv) => {
-				if !is_class {
+				if class_ty.is_none() {
 					return Err(Error::new(arg.span(), "Can only have self on Class Methods"));
 				}
 				if recv.reference.is_none() {
@@ -129,7 +138,7 @@ impl Parameter {
 				let mutability = recv.mutability;
 				let this = <Token![self]>::default();
 				let this = parse2(quote!(#this)).unwrap();
-				let ty = ty.unwrap();
+				let ty = class_ty.unwrap();
 
 				let ty = parse2(quote!(&#lifetime #mutability #ty)).unwrap();
 				parse_this(this, ty, true, recv.span())
@@ -137,21 +146,31 @@ impl Parameter {
 		}
 	}
 
+	pub(crate) fn get_type_without_lifetimes(&self) -> Type {
+		use Parameter as P;
+		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::This { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty)) = self;
+		let mut ty = *ty.clone();
+		let mut lifetime_remover = LifetimeRemover;
+		visit_type_mut(&mut lifetime_remover, &mut ty);
+		ty
+	}
+
 	pub(crate) fn to_statement(&self, index: &mut usize) -> Result<Stmt> {
 		let krate = quote!(::ion);
 		use Parameter as P;
+		let ty = self.get_type_without_lifetimes();
 		match self {
-			P::Regular { pat, ty, conversion, strict, option } => {
+			P::Regular { pat, conversion, strict, option, .. } => {
 				let value = parse_quote!(args.value(#index));
 				*index += 1;
-				regular_param_statement(*index - 1, pat, ty, option.as_deref(), conversion, *strict, &value)
+				regular_param_statement(*index - 1, pat, &ty, option.as_deref(), conversion, *strict, &value)
 			}
-			P::VarArgs { pat, ty, conversion, strict } => varargs_param_statement(*index, pat, ty, conversion, *strict),
-			P::This { pat, ty, .. } => parse2(quote!(
+			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(*index, pat, &ty, conversion, *strict),
+			P::This { pat, .. } => parse2(quote!(
 				let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, args.this(), true, ())?;
 			)),
-			P::Context(pat, ty) => parse2(quote!(let #pat: #ty = cx;)),
-			P::Arguments(pat, ty) => parse2(quote!(let #pat: #ty = args;)),
+			P::Context(pat, _) => parse2(quote!(let #pat: #ty = cx;)),
+			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = args;)),
 		}
 	}
 
@@ -160,16 +179,15 @@ impl Parameter {
 		match self {
 			Parameter::This { pat, ty, kind } => {
 				let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
+				let this = quote!(#krate::Object::from(#krate::Local::from_marked(&args.this().handle().get().to_object())));
 				match kind {
 					ThisKind::Ref(lt, mutability) => Ok(parse2(quote!(
-						let this = #krate::Object::from(#krate::Local::from_marked(args.this().handle().get().to_object()));
-						let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(cx, &this, ::std::option::Option::Some(args))?;
+						let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(cx, &#this, ::std::option::Option::Some(args))?;
 					))?),
 					ThisKind::Box => Ok(parse2(quote!(
-						let this = #krate::Object::from(#krate::Local::from_marked(args.this().handle().get().to_object()));
-						let #pat: ::std::boxed::Box<#ty> = <#ty as #krate::ClassInitialiser>::take_private(cx, &this, ::std::option::Option::Some(args))?;
+						let #pat: ::std::boxed::Box<#ty> = <#ty as #krate::ClassInitialiser>::take_private(cx, &#this, ::std::option::Option::Some(args))?;
 					))?),
-					ThisKind::Owned => return Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
+					ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 				}
 			}
 			param => param.to_statement(index),
@@ -178,7 +196,7 @@ impl Parameter {
 }
 
 impl Parameters {
-	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_class: bool) -> Result<Parameters> {
+	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>) -> Result<Parameters> {
 		let mut nargs = (0, 0);
 		let mut this: Option<Ident> = None;
 		let mut idents = Vec::new();
@@ -186,7 +204,7 @@ impl Parameters {
 		let parameters: Vec<_> = parameters
 			.iter()
 			.map(|arg| {
-				let param = Parameter::from_arg(arg, ty, is_class)?;
+				let param = Parameter::from_arg(arg, ty)?;
 				let ident = match &param {
 					Parameter::Regular { pat, option, .. } => {
 						if option.is_none() {

@@ -10,8 +10,10 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use mozjs::rust::JSEngine;
+use mozjs::rust::Runtime as RustRuntime;
 use sourcemap::SourceMap;
 
+use ion::Context;
 use ion::format::Config as FormatConfig;
 use ion::format::format_value;
 use modules::Modules;
@@ -23,11 +25,11 @@ use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Module;
 use runtime::script::Script;
 
-pub async fn eval_inline(rt: &Runtime, source: &str) {
+pub async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);
 
 	match result {
-		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
+		Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), &v)),
 		Err(report) => eprintln!("{}", report.format(rt.cx())),
 	}
 	run_event_loop(rt).await;
@@ -35,11 +37,15 @@ pub async fn eval_inline(rt: &Runtime, source: &str) {
 
 pub async fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
+	let rt = RustRuntime::new(engine.handle());
+	let mut cx = rt.cx();
+
+	let cx = Context::new(&mut cx);
 	let rt = RuntimeBuilder::<Modules>::new()
-		.macrotask_queue()
 		.microtask_queue()
+		.macrotask_queue()
 		.standard_modules()
-		.build(engine.handle());
+		.build(&cx);
 
 	if let Some((script, _)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
@@ -49,7 +55,7 @@ pub async fn eval_script(path: &Path) {
 		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
 
 		match result {
-			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), v)),
+			Ok(v) => println!("{}", format_value(rt.cx(), FormatConfig::default().quoted(true), &v)),
 			Err(mut report) => {
 				transform_error_report_with_sourcemaps(&mut report);
 				eprintln!("{}", report.format(rt.cx()));
@@ -61,12 +67,16 @@ pub async fn eval_script(path: &Path) {
 
 pub async fn eval_module(path: &Path) {
 	let engine = JSEngine::init().unwrap();
+	let rt = RustRuntime::new(engine.handle());
+	let mut cx = rt.cx();
+
+	let cx = Context::new(&mut cx);
 	let rt = RuntimeBuilder::<Modules>::new()
-		.macrotask_queue()
 		.microtask_queue()
+		.macrotask_queue()
 		.modules()
 		.standard_modules()
-		.build(engine.handle());
+		.build(&cx);
 
 	if let Some((script, filename)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
@@ -76,8 +86,8 @@ pub async fn eval_module(path: &Path) {
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
 		match result {
-			Ok((_, Some(promise))) => {
-				add_handler_reactions(rt.cx(), promise);
+			Ok((_, Some(mut promise))) => {
+				add_handler_reactions(rt.cx(), &mut promise);
 			}
 			Err(mut error) => {
 				transform_error_report_with_sourcemaps(&mut error.report);
@@ -107,7 +117,7 @@ fn read_script(path: &Path) -> Option<(String, String)> {
 	}
 }
 
-async fn run_event_loop(rt: &Runtime) {
+async fn run_event_loop(rt: &Runtime<'_, '_>) {
 	if let Err(err) = rt.run_event_loop().await {
 		if let Some(err) = err {
 			eprintln!("{}", err.format(rt.cx()));

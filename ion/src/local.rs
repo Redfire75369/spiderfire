@@ -17,7 +17,7 @@ pub enum Local<'cx, T: 'cx>
 where
 	T: GCMethods + RootKind,
 {
-	Rooted(RootedGuard<'cx, T>),
+	Rooted(&'cx mut RootedGuard<'cx, T>),
 	Mutable(MutableHandle<'cx, T>),
 	Handle(Handle<'cx, T>),
 }
@@ -47,7 +47,7 @@ impl<'cx, T: Copy + GCMethods + RootKind> Local<'cx, T> {
 }
 
 impl<'cx, T: GCMethods + RootKind> Local<'cx, T> {
-	pub fn from_rooted(rooted: RootedGuard<'cx, T>) -> Local<'cx, T> {
+	pub fn from_rooted(rooted: &'cx mut RootedGuard<'cx, T>) -> Local<'cx, T> {
 		Local::Rooted(rooted)
 	}
 
@@ -81,7 +81,7 @@ impl<'cx, T: GCMethods + RootKind> Deref for Local<'cx, T> {
 
 	fn deref(&self) -> &T {
 		match self {
-			Local::Rooted(rooted) => &**rooted,
+			Local::Rooted(rooted) => &***rooted,
 			Local::Mutable(handle) => &**handle,
 			Local::Handle(handle) => &**handle,
 		}
@@ -91,7 +91,7 @@ impl<'cx, T: GCMethods + RootKind> Deref for Local<'cx, T> {
 impl<'cx, T: GCMethods + RootKind> DerefMut for Local<'cx, T> {
 	fn deref_mut(&mut self) -> &mut T {
 		match self {
-			Local::Rooted(rooted) => &mut **rooted,
+			Local::Rooted(rooted) => &mut ***rooted,
 			Local::Mutable(handle) => &mut **handle,
 			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
 		}

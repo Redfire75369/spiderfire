@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use futures::task::AtomicWaker;
 use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::rust::{RealmOptions, Runtime as RustRuntime, SIMPLE_GLOBAL_CLASS};
+use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 use ion::{Context, ErrorReport, Object};
 
@@ -22,13 +22,11 @@ use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::{init_module_loaders, StandardModules};
 
 pub struct Runtime<'c, 'cx> {
-	cx: &'cx Context<'c>,
 	global: Object<'cx>,
+	cx: &'cx Context<'c>,
 	event_loop: EventLoop,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
-	#[allow(dead_code)]
-	rt: RustRuntime,
 }
 
 impl<'cx> Runtime<'_, 'cx> {
@@ -36,7 +34,11 @@ impl<'cx> Runtime<'_, 'cx> {
 		self.cx
 	}
 
-	pub fn global(&mut self) -> &mut Object<'cx> {
+	pub fn global(&self) -> &Object<'cx> {
+		&self.global
+	}
+
+	pub fn global_mut(&mut self) -> &mut Object<'cx> {
 		&mut self.global
 	}
 
@@ -51,7 +53,7 @@ pub struct RuntimeBuilder<T: Default> {
 	macrotask_queue: bool,
 	modules: bool,
 	standard_modules: bool,
-	_modules: PhantomData<T>,
+	_standard_modules: PhantomData<T>,
 }
 
 impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
@@ -79,7 +81,7 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		self
 	}
 
-	pub fn build<'c, 'cx>(self, runtime: RustRuntime, cx: &'cx Context<'c>) -> Runtime<'c, 'cx> {
+	pub fn build<'c, 'cx>(self, cx: &'cx Context<'c>) -> Runtime<'c, 'cx> {
 		let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
 		let c_options = RealmOptions::default();
 
@@ -89,8 +91,8 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		let mut global: Object = Object::from(cx.root_object(global));
 
 		let global_ref = **global;
-		global.set_as(&cx, "global", global_ref);
-		init_globals(&cx, &mut global);
+		global.set_as(cx, "global", global_ref);
+		init_globals(cx, &mut global);
 
 		let mut event_loop = EventLoop {
 			futures: None,
@@ -100,13 +102,13 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		};
 
 		if self.microtask_queue {
-			event_loop.microtasks = Some(init_microtask_queue(&cx));
-			init_microtasks(&cx, &mut global);
+			event_loop.microtasks = Some(init_microtask_queue(cx));
+			init_microtasks(cx, &mut global);
 			event_loop.futures = Some(Rc::new(FutureQueue::default()));
 		}
 		if self.macrotask_queue {
 			event_loop.macrotasks = Some(Rc::new(MacrotaskQueue::default()));
-			init_timers(&cx, &mut global);
+			init_timers(cx, &mut global);
 		}
 
 		let options = unsafe { &mut *ContextOptionsRef(**cx) };
@@ -120,23 +122,17 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		});
 
 		if self.modules {
-			init_module_loaders(&cx);
+			init_module_loaders(cx);
 		}
 
 		if self.standard_modules {
 			if self.modules {
-				Std::init(&cx, &mut global);
+				Std::init(cx, &mut global);
 			} else {
-				Std::init_globals(&cx, &mut global);
+				Std::init_globals(cx, &mut global);
 			}
 		}
 
-		Runtime {
-			cx,
-			rt: runtime,
-			event_loop,
-			global,
-			realm,
-		}
+		Runtime { global, cx, event_loop, realm }
 	}
 }

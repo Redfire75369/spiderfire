@@ -15,7 +15,7 @@ use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, mayb
 use crate::{Array, Context, Date, Function, Object, Promise, Value};
 
 pub trait ToValue<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>);
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value);
 }
 
 impl ToValue<'_> for () {
@@ -58,7 +58,7 @@ impl_to_value_for_integer!(u32, unsigned);
 macro_rules! impl_to_value_as_double {
 	($ty:ty) => {
 		impl ToValue<'_> for $ty {
-			unsafe fn to_value(&self, _: &Context, value: &mut Value<'_>) {
+			unsafe fn to_value(&self, _: &Context, value: &mut Value) {
 				value.handle_mut().set(DoubleValue(*self as f64))
 			}
 		}
@@ -83,7 +83,7 @@ impl ToValue<'_> for str {
 }
 
 impl<'cx> ToValue<'cx> for String {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value)
 	}
 }
@@ -103,37 +103,37 @@ impl ToValue<'_> for NonNull<JSObject> {
 }
 
 impl<'cx> ToValue<'cx> for Object<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Array<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Date<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Promise<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for *mut JSFunction {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		JS_GetFunctionObject(*self).to_value(cx, value)
 	}
 }
 
 impl<'cx> ToValue<'cx> for Function<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value)
 	}
 }
@@ -146,31 +146,31 @@ impl ToValue<'_> for JSVal {
 }
 
 impl<'cx> ToValue<'cx> for Value<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value)
 	}
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for &'_ T {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(*self).to_value(cx, value)
 	}
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Box<T> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value)
 	}
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Rc<T> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value)
 	}
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Option<T> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		match self {
 			Some(t) => t.to_value(cx, value),
 			None => value.handle_mut().set(NullValue()),
@@ -179,7 +179,7 @@ impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Option<T> {
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for [T] {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		let mut array = Array::new_with_length(cx, self.len());
 
 		for (i, t) in self.iter().enumerate() {
@@ -191,7 +191,7 @@ impl<'cx, T: ToValue<'cx>> ToValue<'cx> for [T] {
 }
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Vec<T> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value<'cx>) {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }

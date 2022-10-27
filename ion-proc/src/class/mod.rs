@@ -13,7 +13,7 @@ use syn::spanned::Spanned;
 
 use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
 use crate::class::attribute::{ClassAttribute, MethodAttribute};
-use crate::class::automatic::{from_jsval, no_constructor, to_jsval};
+use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::property::Property;
@@ -202,9 +202,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 	let mut class_name = None;
 	let mut has_constructor = true;
-	let mut impl_from_jsval = false;
-	let mut impl_to_jsval = false;
-	let mut impl_into_jsval = false;
+	let mut impl_from_value = false;
+	let mut impl_to_value = false;
+	let mut impl_into_value = false;
 
 	let mut class_attrs_to_remove = Vec::new();
 	for (index, attr) in (*class.attrs).iter().enumerate() {
@@ -215,9 +215,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 				match arg {
 					ClassAttribute::Name(name) => class_name = Some(name.literal),
 					ClassAttribute::NoConstructor(_) => has_constructor = false,
-					ClassAttribute::FromJSVal(_) => impl_from_jsval = true,
-					ClassAttribute::ToJSVal(_) => impl_to_jsval = true,
-					ClassAttribute::IntoJSVal(_) => impl_into_jsval = true,
+					ClassAttribute::FromValue(_) => impl_from_value = true,
+					ClassAttribute::ToValue(_) => impl_to_value = true,
+					ClassAttribute::IntoValue(_) => impl_into_value = true,
 				}
 			}
 			class_attrs_to_remove.push(index);
@@ -242,7 +242,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	} else if let Some(implementation) = &implementation {
 		no_constructor(&*implementation.self_ty)
 	} else {
-		return Err(Error::new(module.span(), "Expected No Constructor"));
+		return Err(Error::new(module.span(), "Expected Implementation"));
 	};
 
 	let class_name = class_name.unwrap_or_else(|| LitStr::new(&class.ident.to_string(), class.ident.span()));
@@ -253,23 +253,23 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
 
-	let from_jsval = if impl_from_jsval {
+	let from_value = if impl_from_value {
 		if is_clone {
-			Some(from_jsval(&class.ident))
+			Some(from_value(&class.ident))
 		} else {
-			return Err(Error::new(class.span(), "Expected Clone for Automatic FromJSVal Implementation"));
+			return Err(Error::new(class.span(), "Expected Clone for Automatic FromValue Implementation"));
 		}
 	} else {
 		None
 	};
-	let to_jsval = if impl_to_jsval {
+	let to_value = if impl_to_value {
 		if is_clone {
-			Some(to_jsval(&class.ident, true))
+			Some(to_value(&class.ident, true))
 		} else {
-			return Err(Error::new(class.span(), "Expected Clone for Automatic ToJSVal Implementation"));
+			return Err(Error::new(class.span(), "Expected Clone for Automatic ToValue Implementation"));
 		}
-	} else if impl_into_jsval {
-		Some(to_jsval(&class.ident, false))
+	} else if impl_into_value {
+		Some(to_value(&class.ident, false))
 	} else {
 		None
 	};
@@ -295,11 +295,11 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	content.push(Item::Static(static_method_specs));
 	content.push(Item::Static(static_property_specs));
 
-	if let Some(from_jsval) = from_jsval {
-		content.push(Item::Impl(from_jsval));
+	if let Some(from_value) = from_value {
+		content.push(Item::Impl(from_value));
 	}
-	if let Some(to_jsval) = to_jsval {
-		content.push(Item::Impl(to_jsval));
+	if let Some(to_value) = to_value {
+		content.push(Item::Impl(to_value));
 	}
 	content.push(Item::Impl(class_initialiser));
 

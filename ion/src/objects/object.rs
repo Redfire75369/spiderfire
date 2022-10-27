@@ -39,23 +39,23 @@ impl Display for Key {
 }
 
 #[derive(Debug)]
-pub struct Object<'cx> {
-	object: &'cx mut Local<'cx, *mut JSObject>,
+pub struct Object<'o> {
+	object: Local<'o, *mut JSObject>,
 }
 
-impl<'cx> Object<'cx> {
+impl<'o> Object<'o> {
 	/// Creates an empty [Object].
-	pub fn new(cx: &'cx Context) -> Object<'cx> {
+	pub fn new<'cx>(cx: &'cx Context) -> Object<'cx> {
 		Object::from(cx.root_object(unsafe { JS_NewPlainObject(**cx) }))
 	}
 
 	/// Creates a `null` "Object".
-	pub fn null(cx: &'cx Context) -> Object<'cx> {
+	pub fn null<'cx>(cx: &'cx Context) -> Object<'cx> {
 		Object::from(cx.root_object(NullValue().to_object_or_null()))
 	}
 
 	/// Returns the current global object or `null` if one has not been initialised yet.
-	pub fn global(cx: &'cx Context) -> Object<'cx> {
+	pub fn global<'cx>(cx: &'cx Context) -> Object<'cx> {
 		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(**cx) }))
 	}
 
@@ -88,8 +88,8 @@ impl<'cx> Object<'cx> {
 
 	/// Gets the [JSVal] at the given key of the [Object].
 	/// Returns [None] if there is no value at the given key.
-	pub fn get(&self, cx: &'cx Context, key: &str) -> Option<Value<'cx>> {
-		if self.has(cx, &key) {
+	pub fn get<'cx>(&self, cx: &'cx Context, key: &str) -> Option<Value<'cx>> {
+		if self.has(cx, key) {
 			let key = CString::new(key).unwrap();
 			let mut rval = Value::from(cx.root_value(UndefinedValue()));
 			unsafe { JS_GetProperty(**cx, self.handle().into(), key.as_ptr() as *const i8, rval.handle_mut().into()) };
@@ -101,9 +101,8 @@ impl<'cx> Object<'cx> {
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub fn get_as<T: FromValue<'cx>>(&self, cx: &'cx Context, key: &str, config: T::Config) -> Option<T> {
-		let opt = self.get(cx, key);
-		opt.and_then(|val| unsafe { T::from_value(cx, &val, true, config).ok() })
+	pub fn get_as<'cx, T: FromValue<'cx>>(&self, cx: &'cx Context, key: &str, strict: bool, config: T::Config) -> Option<T> {
+		self.get(cx, key).and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
 	}
 
 	/// Sets the [JSVal] at the given key of the [Object].
@@ -115,13 +114,12 @@ impl<'cx> Object<'cx> {
 
 	/// Sets the Rust type at the given key of the [Object].
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T) -> bool {
+	pub fn set_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T) -> bool {
 		let mut val = Value::undefined(cx);
 		unsafe {
 			value.to_value(cx, &mut val);
 		}
-		let res = self.set(cx, &key, &val);
-		res
+		self.set(cx, key, &val)
 	}
 
 	/// Defines the [JSVal] at the given key of the [Object] with the given attributes.
@@ -141,18 +139,17 @@ impl<'cx> Object<'cx> {
 
 	/// Defines the Rust type at the given key of the [Object] with the given attributes.
 	/// Returns `false` if the property cannot be defined.
-	pub fn define_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
+	pub fn define_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
 		let mut val = Value::undefined(cx);
 		unsafe {
 			value.to_value(cx, &mut val);
 		}
-		let res = self.define(cx, &key, &val, attrs);
-		res
+		self.define(cx, key, &val, attrs)
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].
 	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
-	pub fn define_method(&mut self, cx: &'cx Context, name: &str, method: NativeFunction, nargs: u32, attrs: PropertyFlags) -> Function<'cx> {
+	pub fn define_method<'cx>(&mut self, cx: &'cx Context, name: &str, method: NativeFunction, nargs: u32, attrs: PropertyFlags) -> Function<'cx> {
 		let name = CString::new(name).unwrap();
 		cx.root_function(unsafe {
 			JS_DefineFunction(
@@ -203,41 +200,41 @@ impl<'cx> Object<'cx> {
 			.collect()
 	}
 
-	pub fn handle<'a>(&'a self) -> Handle<'a, *mut JSObject>
+	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'o: 's,
 	{
 		self.object.handle()
 	}
 
-	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
+	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'o: 's,
 	{
 		self.object.handle_mut()
 	}
 
-	pub fn into_local(self) -> &'cx mut Local<'cx, *mut JSObject> {
+	pub fn into_local(self) -> Local<'o, *mut JSObject> {
 		self.object
 	}
 }
 
-impl<'cx> From<&'cx mut Local<'cx, *mut JSObject>> for Object<'cx> {
-	fn from(object: &'cx mut Local<'cx, *mut JSObject>) -> Object<'cx> {
+impl<'o> From<Local<'o, *mut JSObject>> for Object<'o> {
+	fn from(object: Local<'o, *mut JSObject>) -> Object<'o> {
 		Object { object }
 	}
 }
 
-impl<'cx> Deref for Object<'cx> {
-	type Target = Local<'cx, *mut JSObject>;
+impl<'o> Deref for Object<'o> {
+	type Target = Local<'o, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&*self.object
+		&self.object
 	}
 }
 
-impl<'cx> DerefMut for Object<'cx> {
+impl<'o> DerefMut for Object<'o> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		self.object
+		&mut self.object
 	}
 }

@@ -48,7 +48,7 @@ impl ModuleData {
 	fn from_module(cx: &Context, module: Handle<JSVal>) -> Option<ModuleData> {
 		if module.get().is_object() {
 			let module = Object::from(cx.root_object(module.get().to_object()));
-			let path = module.get_as::<String>(cx, "path", ());
+			let path = module.get_as::<String>(cx, "path", true, ());
 
 			Some(ModuleData { path })
 		} else {
@@ -85,8 +85,8 @@ impl<'cx> Module<'cx> {
 				let data = ModuleData {
 					path: path.and_then(Path::to_str).map(String::from),
 				};
-				let mut private = Value::undefined(&cx);
-				data.to_object(cx).to_value(&cx, &mut private);
+				let mut private = Value::undefined(cx);
+				data.to_object(cx).to_value(cx, &mut private);
 				SetModulePrivate(**module, &**private);
 
 				let module = Module { module, data };

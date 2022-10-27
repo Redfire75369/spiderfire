@@ -388,13 +388,13 @@ impl NativeModule for FileSystem {
 	const NAME: &'static str = "fs";
 	const SOURCE: &'static str = include_str!("fs.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut fs = Object::new(cx);
 		let mut sync = Object::new(cx);
 
 		if fs.define_methods(cx, ASYNC_FUNCTIONS)
 			&& sync.define_methods(cx, SYNC_FUNCTIONS)
-			&& fs.define(cx, "sync", sync.to_value(), PropertyFlags::CONSTANT_ENUMERATED)
+			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
 		{
 			return Some(fs);
 		}

@@ -18,34 +18,34 @@ use crate::conversions::{FromValue, ToValue};
 use crate::flags::PropertyFlags;
 
 #[derive(Debug)]
-pub struct Array<'cx> {
-	array: &'cx mut Local<'cx, *mut JSObject>,
+pub struct Array<'a> {
+	array: Local<'a, *mut JSObject>,
 }
 
-impl<'cx> Array<'cx> {
+impl<'a> Array<'a> {
 	/// Creates an empty [Array].
-	pub fn new(cx: &'cx Context) -> Array<'cx> {
+	pub fn new<'cx>(cx: &'cx Context) -> Array<'cx> {
 		Array::new_with_length(cx, 0)
 	}
 
-	pub fn new_with_length(cx: &'cx Context, length: usize) -> Array<'cx> {
+	pub fn new_with_length<'cx>(cx: &'cx Context, length: usize) -> Array<'cx> {
 		Array {
 			array: cx.root_object(unsafe { NewArrayObject1(**cx, length) }),
 		}
 	}
 
 	/// Creates an [Array] from a [Vec] of JSVal.
-	pub fn from_vec(cx: &'cx Context, vec: Vec<JSVal>) -> Array<'cx> {
+	pub fn from_vec<'cx>(cx: &'cx Context, vec: Vec<JSVal>) -> Array<'cx> {
 		Array::from_slice(cx, vec.as_slice())
 	}
 
 	/// Creates an [Array] from a slice.
-	pub fn from_slice(cx: &'cx Context, slice: &[JSVal]) -> Array<'cx> {
+	pub fn from_slice<'cx>(cx: &'cx Context, slice: &[JSVal]) -> Array<'cx> {
 		Array::from_handle(cx, unsafe { HandleValueArray::from_rooted_slice(slice) })
 	}
 
 	/// Creates an [Array] from a [HandleValueArray].
-	pub fn from_handle(cx: &'cx Context, handle: HandleValueArray) -> Array<'cx> {
+	pub fn from_handle<'cx>(cx: &'cx Context, handle: HandleValueArray) -> Array<'cx> {
 		Array {
 			array: cx.root_object(unsafe { NewArrayObject(**cx, &handle) }),
 		}
@@ -53,7 +53,7 @@ impl<'cx> Array<'cx> {
 
 	/// Creates an [Array] from an object.
 	/// Returns [None] if the object is not an array.
-	pub fn from(cx: &'cx Context, object: &'cx mut Local<'cx, *mut JSObject>) -> Option<Array<'cx>> {
+	pub fn from(cx: &Context, object: Local<'a, *mut JSObject>) -> Option<Array<'a>> {
 		if Array::is_array(cx, &object) {
 			Some(Array { array: object })
 		} else {
@@ -65,14 +65,14 @@ impl<'cx> Array<'cx> {
 	///
 	/// ### Safety
 	/// Object must be an array.
-	pub unsafe fn from_unchecked(object: &'cx mut Local<'cx, *mut JSObject>) -> Array<'cx> {
+	pub unsafe fn from_unchecked(object: Local<'a, *mut JSObject>) -> Array<'a> {
 		Array { array: object }
 	}
 
 	/// Converts an [Array] to a [Vec].
 	/// Returns an empty [Vec] if the conversion fails.
-	pub fn to_vec(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
-		let value = cx.root_value(ObjectValue(**self.array)).into();
+	pub fn to_vec<'cx>(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
+		let value = cx.root_value(ObjectValue(*self.array)).into();
 		if let Ok(vec) = unsafe { Vec::from_value(cx, &value, true, ()) } {
 			vec
 		} else {
@@ -103,7 +103,7 @@ impl<'cx> Array<'cx> {
 
 	/// Gets the [JSVal] at the given index of the [Array].
 	/// Returns [None] if there is no value at the given index.
-	pub fn get(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
+	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
 		if self.has(cx, index) {
 			let mut rval = Value::from(cx.root_value(UndefinedValue()));
 			unsafe { JS_GetElement(**cx, self.handle().into(), index, rval.handle_mut().into()) };
@@ -115,9 +115,9 @@ impl<'cx> Array<'cx> {
 
 	/// Gets the value at the given index of the [Array] as a Rust type.
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
-	pub fn get_as<T: FromValue<'cx>>(&self, cx: &'cx Context, index: u32, config: T::Config) -> Option<T> {
-		let opt = self.get(cx, index);
-		opt.and_then(|val| unsafe { T::from_value(cx, &val, true, config).ok() })
+	pub fn get_as<'cx, T: FromValue<'cx>>(&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config) -> Option<T> {
+		self.get(cx, index)
+			.and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
 	}
 
 	/// Sets the [JSVal] at the given index of the [Array].
@@ -128,11 +128,10 @@ impl<'cx> Array<'cx> {
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T) -> bool {
+	pub fn set_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T) -> bool {
 		let mut val = Value::undefined(cx);
 		unsafe { value.to_value(cx, &mut val) };
-		let res = self.set(cx, index, &val);
-		res
+		self.set(cx, index, &val)
 	}
 
 	/// Defines the [JSVal] at the given index of the [Array] with the given attributes.
@@ -143,11 +142,10 @@ impl<'cx> Array<'cx> {
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define_as<T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T, attrs: PropertyFlags) -> bool {
+	pub fn define_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T, attrs: PropertyFlags) -> bool {
 		let mut val = Value::undefined(cx);
 		unsafe { value.to_value(cx, &mut val) };
-		let res = self.define(cx, index, &val, attrs);
-		res
+		self.define(cx, index, &val, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.
@@ -156,16 +154,16 @@ impl<'cx> Array<'cx> {
 		unsafe { JS_DeleteElement1(**cx, self.handle().into(), index) }
 	}
 
-	pub fn handle<'a>(&'a self) -> Handle<'a, *mut JSObject>
+	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'a: 's,
 	{
 		self.array.handle()
 	}
 
-	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
+	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'a: 's,
 	{
 		self.array.handle_mut()
 	}
@@ -184,8 +182,8 @@ impl<'cx> Array<'cx> {
 	}
 }
 
-impl<'cx> Deref for Array<'cx> {
-	type Target = Local<'cx, *mut JSObject>;
+impl<'a> Deref for Array<'a> {
+	type Target = Local<'a, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.array

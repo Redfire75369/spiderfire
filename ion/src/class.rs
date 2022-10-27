@@ -96,7 +96,7 @@ pub trait ClassInitialiser {
 
 		let class_info = ClassInfo {
 			constructor: **constructor,
-			prototype: **class,
+			prototype: *class,
 		};
 
 		CLASS_INFOS.with(|infos| {
@@ -140,7 +140,7 @@ pub trait ClassInitialiser {
 		}
 	}
 
-	fn take_private(cx: &Context, object: &mut Object, args: Option<&Arguments>) -> Result<Box<Self>>
+	fn take_private(cx: &Context, object: &Object, args: Option<&Arguments>) -> Result<Box<Self>>
 	where
 		Self: Sized,
 	{
@@ -168,11 +168,14 @@ pub trait ClassInitialiser {
 	}
 }
 
-pub unsafe fn class_from_value<'cx, T: Clone + ClassInitialiser>(cx: &'cx Context, value: &Value<'cx>) -> Result<&'cx mut T> {
+pub unsafe fn class_from_value<'cx, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T>
+where
+	'cx: 'v,
+{
 	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
-		T::get_private(cx, &object, None)
+		T::get_private(cx, &object, None).map(|c| c.clone())
 	} else {
-		return Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type));
+		Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 	}
 }

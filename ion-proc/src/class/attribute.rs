@@ -17,9 +17,9 @@ mod keywords {
 	custom_keyword!(skip);
 
 	custom_keyword!(no_constructor);
-	custom_keyword!(from_jsval);
-	custom_keyword!(to_jsval);
-	custom_keyword!(into_jsval);
+	custom_keyword!(from_value);
+	custom_keyword!(to_value);
+	custom_keyword!(into_value);
 
 	custom_keyword!(convert);
 	custom_keyword!(readonly);
@@ -52,9 +52,9 @@ pub(crate) struct Aliases {
 pub(crate) enum ClassAttribute {
 	Name(Name),
 	NoConstructor(keywords::no_constructor),
-	FromJSVal(keywords::from_jsval),
-	ToJSVal(keywords::to_jsval),
-	IntoJSVal(keywords::into_jsval),
+	FromValue(keywords::from_value),
+	ToValue(keywords::to_value),
+	IntoValue(keywords::into_value),
 }
 
 #[allow(dead_code)]
@@ -136,12 +136,12 @@ impl Parse for ClassAttribute {
 			Ok(CA::Name(input.parse()?))
 		} else if lookahead.peek(keywords::no_constructor) {
 			Ok(CA::NoConstructor(input.parse()?))
-		} else if lookahead.peek(keywords::from_jsval) {
-			Ok(CA::FromJSVal(input.parse()?))
-		} else if lookahead.peek(keywords::to_jsval) {
-			Ok(CA::ToJSVal(input.parse()?))
-		} else if lookahead.peek(keywords::into_jsval) {
-			Ok(CA::IntoJSVal(input.parse()?))
+		} else if lookahead.peek(keywords::from_value) {
+			Ok(CA::FromValue(input.parse()?))
+		} else if lookahead.peek(keywords::to_value) {
+			Ok(CA::ToValue(input.parse()?))
+		} else if lookahead.peek(keywords::into_value) {
+			Ok(CA::IntoValue(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}

@@ -69,15 +69,15 @@ impl NativeModule for Http {
 	const NAME: &'static str = "http";
 	const SOURCE: &'static str = include_str!("http.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut http = Object::new(cx);
 
 		http.define_methods(cx, FUNCTIONS);
-		Headers::init_class(cx, &http);
-		Request::init_class(cx, &http);
-		Response::init_class(cx, &http);
+		Headers::init_class(cx, &mut http);
+		Request::init_class(cx, &mut http);
+		Response::init_class(cx, &mut http);
 
-		Client::init_class(cx, &http);
+		Client::init_class(cx, &mut http);
 		let _ = GLOBAL_CLIENT.set(default_client());
 
 		Some(http)

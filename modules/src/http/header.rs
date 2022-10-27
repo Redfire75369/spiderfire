@@ -4,20 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::borrow::Cow;
-use std::result;
 use std::str::FromStr;
 
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string, ToJSValConvertible};
-use mozjs::rust::{HandleValue, MutableHandleValue};
 
 pub use class::*;
-use ion::{Array, Context, Error, ErrorKind, Key, Object, Result};
-use ion::error::ThrowException;
-use ion::types::values::from_value;
+use ion::{Array, Context, Error, ErrorKind, Key, Object, Result, Value};
+use ion::conversions::{FromValue, ToValue};
 
-#[derive(FromJSVal)]
+#[derive(FromValue)]
 pub enum Header {
 	#[ion(inherit)]
 	Multiple(Vec<String>),
@@ -34,7 +29,7 @@ pub struct HeaderEntry {
 	value: String,
 }
 
-#[derive(FromJSVal)]
+#[derive(FromValue)]
 pub enum HeadersInit {
 	#[ion(inherit)]
 	Existing(Headers),
@@ -44,62 +39,55 @@ pub enum HeadersInit {
 	Object(HeadersObject),
 }
 
-impl ToJSValConvertible for Header {
-	unsafe fn to_jsval(&self, cx: Context, rval: MutableHandleValue) {
+impl ToValue<'_> for Header {
+	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		match self {
-			Header::Multiple(vec) => vec.to_jsval(cx, rval),
-			Header::Single(str) => str.to_jsval(cx, rval),
+			Header::Multiple(vec) => vec.to_value(cx, value),
+			Header::Single(str) => str.to_value(cx, value),
 		}
 	}
 }
 
-impl FromJSValConvertible for HeaderEntry {
+impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
-
-	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<HeaderEntry>, ()> {
-		if let ConversionResult::Success(array) = Array::from_jsval(cx, val, ())? {
-			let length = array.len(cx);
-			if length != 2 {
-				Error::new(
-					&format!("Received Header Entry with Length {}, Expected Length 2", length),
-					Some(ErrorKind::Type),
-				)
-				.throw(cx);
-				return Err(());
-			}
-			let name = jsstr_to_string(cx, array.get(cx, 0).unwrap().to_string());
-			let value = jsstr_to_string(cx, array.get(cx, 1).unwrap().to_string());
-			Ok(ConversionResult::Success(HeaderEntry { name, value }))
-		} else {
-			Error::new("Expected Array", Some(ErrorKind::Type)).throw(cx);
-			Err(())
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeaderEntry>
+	where
+		'cx: 'v,
+	{
+		let vec = Vec::<String>::from_value(cx, value, false, ())?;
+		if vec.len() != 2 {
+			return Err(Error::new(
+				&format!("Received Header Entry with Length {}, Expected Length 2", vec.len()),
+				ErrorKind::Type,
+			));
 		}
+		Ok(HeaderEntry {
+			name: vec[0].clone(),
+			value: vec[1].clone(),
+		})
 	}
 }
 
-impl ToJSValConvertible for HeaderEntry {
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
+impl ToValue<'_> for HeaderEntry {
+	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		let mut array = Array::new(cx);
 		array.set_as(cx, 0, &self.name);
 		array.set_as(cx, 1, &self.value);
-		rval.set(array.to_value());
+		array.to_value(cx, value);
 	}
 }
 
-impl FromJSValConvertible for HeadersObject {
+impl<'cx> FromValue<'cx> for HeadersObject {
 	type Config = ();
 
-	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<HeadersObject>, ()> {
-		if let Some(object) = Object::from_value(val.get()) {
-			let mut headers = HeaderMap::new();
-			if let Err(err) = append_to_headers(cx, &mut headers, object, false) {
-				err.throw(cx);
-				return Err(());
-			}
-			Ok(ConversionResult::Success(HeadersObject { headers }))
-		} else {
-			Ok(ConversionResult::Failure(Cow::Borrowed("Headers are not an Object")))
-		}
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
+	where
+		'cx: 'v,
+	{
+		let object = Object::from_value(cx, value, true, ())?;
+		let mut headers = HeaderMap::new();
+		append_to_headers(cx, &mut headers, object, false)?;
+		Ok(HeadersObject { headers })
 	}
 }
 
@@ -137,7 +125,7 @@ mod class {
 	use crate::http::header::{Header, HeaderEntry, HeadersInit};
 
 	#[derive(Clone, Default)]
-	#[ion(from_jsval, to_jsval)]
+	#[ion(from_value, to_value)]
 	pub struct Headers {
 		pub(crate) headers: HeaderMap,
 		pub(crate) readonly: bool,
@@ -253,7 +241,7 @@ mod class {
 	}
 }
 
-fn append_to_headers(cx: Context, headers: &mut HeaderMap, obj: Object, unique: bool) -> Result<()> {
+fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object, unique: bool) -> Result<()> {
 	for key in obj.keys(cx, None) {
 		let key = match key {
 			Key::Int(i) => i.to_string(),
@@ -263,29 +251,29 @@ fn append_to_headers(cx: Context, headers: &mut HeaderMap, obj: Object, unique: 
 
 		let name = HeaderName::from_str(&key.to_lowercase())?;
 		let value = obj.get(cx, &key).unwrap();
-		if let Some(array) = Array::from_value(cx, value) {
+		if let Ok(array) = unsafe { Array::from_value(cx, &value, false, ()) } {
 			if !unique {
 				for i in 0..array.len(cx) {
-					if let Some(str) = array.get_as::<String>(cx, i, ()) {
+					if let Some(str) = array.get_as::<String>(cx, i, false, ()) {
 						let value = HeaderValue::from_str(&str)?;
 						headers.insert(name.clone(), value);
 					}
 				}
 			} else {
-				let vec: Vec<String> = array
+				let vec: Vec<_> = array
 					.to_vec(cx)
 					.into_iter()
-					.map(|v| from_value(cx, v, ()).ok_or_else(|| Error::new("Could not Convert Header Value to String", None)))
+					.map(|v| unsafe { String::from_value(cx, &v, false, ()) })
 					.collect::<Result<_>>()?;
 				let str = vec.join(";");
 				let value = HeaderValue::from_str(&str)?;
 				headers.insert(name, value);
 			}
-		} else if let Some(str) = from_value::<String>(cx, value, ()) {
+		} else if let Ok(str) = unsafe { String::from_value(cx, &value, false, ()) } {
 			let value = HeaderValue::from_str(&str)?;
 			headers.insert(name, value);
 		} else {
-			return Err(Error::new("Could not convert value to Header Value", None));
+			return Err(Error::new("Could not convert value to Header Value", ErrorKind::Type));
 		};
 	}
 	Ok(())

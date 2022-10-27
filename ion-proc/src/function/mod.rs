@@ -18,7 +18,7 @@ pub(crate) mod wrapper;
 // TODO: Partially Remove Error Handling in Infallible Functions
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let krate = quote!(::ion);
-	let (wrapper, _, _) = impl_wrapper_fn(function.clone(), None, true, false)?;
+	let (wrapper, _, _) = impl_wrapper_fn(function.clone(), None, true)?;
 
 	check_abi(&mut function)?;
 	set_signature(&mut function)?;
@@ -28,16 +28,11 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let error_handler = error_handler();
 
 	let body = parse_quote!({
-		let cx = #krate::Context::new(&mut cx);
-		let rval = ::mozjs::rust::MutableHandle::from_raw(::mozjs::jsapi::CallArgs::from_vp(vp, argc).rval());
-
-		let cx = &cx;
+		let cx = &#krate::Context::new(&mut cx);
+		let mut args = #krate::Arguments::new(cx, argc, vp);
 
 		#wrapper
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(move || {
-			let mut args = #krate::Arguments::new(cx, argc, vp);
-			wrapper(cx, &mut args)
-		}));
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args)));
 		#error_handler
 	});
 	function.block = Box::new(body);
@@ -74,7 +69,7 @@ pub(crate) fn error_handler() -> TokenStream {
 	quote!(
 		match result {
 			::std::result::Result::Ok(::std::result::Result::Ok(val)) => {
-				::mozjs::conversions::ToJSValConvertible::to_jsval(&val, **cx, rval);
+				#krate::conversions::ToValue::to_value(&val, cx, &mut args.rval());
 				true
 			},
 			::std::result::Result::Ok(::std::result::Result::Err(error)) => {

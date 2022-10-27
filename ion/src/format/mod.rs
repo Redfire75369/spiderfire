@@ -23,10 +23,13 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 /// Formats a [JSVal] as a [String] with the given [Config].
-pub fn format_value<'cx>(cx: &'cx Context, cfg: Config, value: &Value<'cx>) -> String {
+pub fn format_value<'cx, 'v>(cx: &'cx Context, cfg: Config, value: &Value<'v>) -> String
+where
+	'cx: 'v,
+{
 	if !value.is_object() {
 		format_primitive(cx, cfg, value)
 	} else {
-		format_object(cx, cfg, cx.root_object(**value.to_object(cx)).into())
+		format_object(cx, cfg, value.to_object(cx))
 	}
 }

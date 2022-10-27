@@ -4,21 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::borrow::Cow;
-
 use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Method};
 use http::header::HeaderName;
 use hyper::Body;
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string};
-use mozjs::error::throw_type_error;
-use mozjs::jsapi::{ESClass, GetBuiltinClass, JSContext, Unbox};
-use mozjs::jsval::JSVal;
-use mozjs::rust::HandleValue;
+use mozjs::jsapi::{ESClass, GetBuiltinClass, Unbox};
 use url::Url;
 
 pub use class::*;
-use ion::{Context, Error, Object, Result};
+use ion::{Context, Error, ErrorKind, Result, Value};
+use ion::conversions::FromValue;
 use runtime::globals::abort::AbortSignal;
 
 use crate::http::client::ClientRequestOptions;
@@ -37,27 +32,24 @@ impl Default for Redirection {
 	}
 }
 
-impl FromJSValConvertible for Redirection {
+impl<'cx> FromValue<'cx> for Redirection {
 	type Config = ();
-
-	unsafe fn from_jsval(cx: *mut JSContext, val: HandleValue, _: ()) -> std::result::Result<ConversionResult<Redirection>, ()> {
-		if val.is_string() {
-			let string = jsstr_to_string(cx, val.to_string());
-			match &*string.to_ascii_lowercase() {
-				"follow" => Ok(ConversionResult::Success(Redirection::Follow)),
-				"error" => Ok(ConversionResult::Success(Redirection::Error)),
-				"manual" => Ok(ConversionResult::Success(Redirection::Manual)),
-				_ => Ok(ConversionResult::Failure(Cow::Borrowed("Invalid Redirection String"))),
-			}
-		} else {
-			throw_type_error(cx, "Redirection must be a string");
-			Err(())
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Self>
+	where
+		'cx: 'v,
+	{
+		let string = String::from_value(cx, value, true, ())?;
+		match &*string.to_ascii_lowercase() {
+			"follow" => Ok(Redirection::Follow),
+			"error" => Ok(Redirection::Error),
+			"manual" => Ok(Redirection::Manual),
+			_ => Err(Error::new("Invalid Redirection String", ErrorKind::Type)),
 		}
 	}
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(FromJSVal)]
+#[derive(FromValue)]
 pub enum Resource {
 	#[ion(inherit)]
 	Request(Request),
@@ -65,7 +57,7 @@ pub enum Resource {
 	String(String),
 }
 
-#[derive(Derivative, FromJSVal)]
+#[derive(Derivative, FromValue)]
 #[derivative(Default)]
 pub struct RequestOptions {
 	pub(crate) auth: Option<String>,
@@ -82,11 +74,11 @@ pub struct RequestOptions {
 
 	#[ion(default)]
 	pub(crate) headers: HeadersInit,
-	#[ion(parser = | b | parse_body(cx, b))]
+	#[ion(default, parser = |b| parse_body(cx, b))]
 	pub(crate) body: Option<Bytes>,
 }
 
-#[derive(Derivative, FromJSVal)]
+#[derive(Derivative, FromValue)]
 #[derivative(Default)]
 pub struct RequestBuilderOptions {
 	pub(crate) method: Option<String>,
@@ -104,18 +96,14 @@ impl RequestBuilderOptions {
 
 #[js_class]
 pub mod class {
-	use std::borrow::Cow;
-	use std::result;
 	use std::str::FromStr;
 
 	use bytes::Bytes;
 	use hyper::{Body, Method, Uri};
-	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
-	use mozjs::rust::HandleValue;
 	use url::Url;
 
-	use ion::{ClassInitialiser, Context, Object, Result};
-	use ion::error::ThrowException;
+	use ion::{ClassInitialiser, Context, Error, ErrorKind, Object, Result, Value};
+	use ion::conversions::FromValue;
 	use runtime::globals::abort::AbortSignal;
 
 	use crate::http::{Headers, Resource};
@@ -124,7 +112,7 @@ pub mod class {
 		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, Redirection, RequestBuilderOptions,
 	};
 
-	#[ion(into_jsval)]
+	#[ion(into_value)]
 	pub struct Request {
 		pub(crate) request: hyper::Request<Body>,
 		pub(crate) body: Bytes,
@@ -209,31 +197,17 @@ pub mod class {
 		}
 	}
 
-	impl FromJSValConvertible for Request {
+	impl<'cx> FromValue<'cx> for Request {
 		type Config = ();
-
-		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> result::Result<ConversionResult<Self>, ()> {
-			match Object::from_jsval(cx, val, ())? {
-				ConversionResult::Success(obj) => {
-					if Request::instance_of(cx, obj, None) {
-						match Request::get_private(cx, obj, None) {
-							Ok(request) => match request.clone() {
-								Ok(request) => Ok(ConversionResult::Success(request)),
-								Err(err) => {
-									err.throw(cx);
-									Err(())
-								}
-							},
-							Err(err) => {
-								err.throw(cx);
-								Err(())
-							}
-						}
-					} else {
-						Ok(ConversionResult::Failure(Cow::Borrowed("Object is not a Request")))
-					}
-				}
-				ConversionResult::Failure(e) => Ok(ConversionResult::Failure(e)),
+		unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Request>
+		where
+			'cx: 'v,
+		{
+			let object = Object::from_value(cx, value, true, ())?;
+			if Request::instance_of(cx, &object, None) {
+				Request::get_private(cx, &object, None).and_then(|c| c.clone())
+			} else {
+				Err(Error::new("Expected Request", ErrorKind::Type))
 			}
 		}
 	}
@@ -241,14 +215,14 @@ pub mod class {
 
 macro_rules! typedarray_to_bytes {
 	($body:expr) => {
-		Bytes::default()
+		None
 	};
 	($body:expr, [$arr:ident, true]$(, $($rest:tt)*)?) => {
 		paste::paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
-				Bytes::copy_from_slice(arr.as_slice())
+				Some(Bytes::copy_from_slice(arr.as_slice()))
 			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
-				Bytes::copy_from_slice(arr.as_slice())
+				Some(Bytes::copy_from_slice(arr.as_slice()))
 			} else {
 				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
@@ -258,10 +232,10 @@ macro_rules! typedarray_to_bytes {
 		paste::paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Bytes::copy_from_slice(bytes)
+				Some(Bytes::copy_from_slice(bytes))
 			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Bytes::copy_from_slice(bytes)
+				Some(Bytes::copy_from_slice(bytes))
 			} else {
 				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
@@ -269,29 +243,31 @@ macro_rules! typedarray_to_bytes {
 	};
 }
 
-pub(crate) unsafe fn parse_body(cx: Context, body: JSVal) -> Bytes {
+pub(crate) unsafe fn parse_body<'cx, 'v>(cx: &'cx Context, body: Value<'v>) -> Option<Bytes>
+where
+	'cx: 'v,
+{
 	if body.is_string() {
-		Bytes::from(jsstr_to_string(cx, body.to_string()))
+		Some(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
 	} else if body.is_object() {
-		let body = body.to_object();
-		rooted!(in(cx) let rbody = body);
+		let body = body.to_object(cx);
 
 		let mut class = ESClass::Other;
-		if GetBuiltinClass(cx, rbody.handle().into(), &mut class) {
+		if GetBuiltinClass(**cx, body.handle().into(), &mut class) {
 			if class == ESClass::String {
-				rooted!(in(cx) let mut unboxed = Object::new(cx).to_value());
+				let mut unboxed = Value::undefined(cx);
 
-				if Unbox(cx, rbody.handle().into(), unboxed.handle_mut().into()) {
-					return Bytes::from(jsstr_to_string(cx, unboxed.get().to_string()));
+				if Unbox(**cx, body.handle().into(), unboxed.handle_mut().into()) {
+					return Some(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
 				}
 			}
 		} else {
-			return Bytes::default();
+			return None;
 		}
 
-		typedarray_to_bytes!(body, [ArrayBuffer, true], [ArrayBufferView, true])
+		typedarray_to_bytes!(**body, [ArrayBuffer, true], [ArrayBufferView, true])
 	} else {
-		Bytes::default()
+		None
 	}
 }
 

@@ -4,31 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 use mozjs::jsapi::CallArgs;
 use mozjs::jsval::JSVal;
-use mozjs::rust::MutableHandle;
 
-use crate::{Context, Value};
+use crate::{Context, Local, Value};
 
 /// Function Arguments
+#[derive(Debug)]
 pub struct Arguments<'cx> {
 	values: Vec<Value<'cx>>,
 	this: Value<'cx>,
-	rval: MutableHandle<'cx, JSVal>,
+	rval: Value<'cx>,
 	call_args: CallArgs,
-}
-
-impl Debug for Arguments<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("Arguments")
-			.field("values", &self.values)
-			.field("this", &self.this)
-			.field("rval", &self.rval.get())
-			.field("call_args", &self.call_args)
-			.finish()
-	}
 }
 
 impl<'cx> Arguments<'cx> {
@@ -38,7 +27,7 @@ impl<'cx> Arguments<'cx> {
 			let call_args = CallArgs::from_vp(vp, argc);
 			let values = (0..argc).map(|i| cx.root_value(call_args.get(i).get()).into()).collect();
 			let this = cx.root_value(call_args.thisv().get()).into();
-			let rval = MutableHandle::from_raw(call_args.rval());
+			let rval = Local::from_raw_handle_mut(call_args.rval()).into();
 
 			Arguments { values, this, rval, call_args }
 		}
@@ -60,7 +49,10 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns a range of handles within the arguments.
-	pub fn range<'a: 'cx, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>> {
+	pub fn range<'a, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>>
+	where
+		'cx: 'a,
+	{
 		range.filter_map(|index| self.value(index)).collect()
 	}
 
@@ -70,8 +62,8 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns the mutable return value of the function.
-	pub fn rval(&mut self) -> MutableHandle<JSVal> {
-		self.rval
+	pub fn rval(&mut self) -> &mut Value<'cx> {
+		&mut self.rval
 	}
 
 	/// Returns true if the function was called with `new`,

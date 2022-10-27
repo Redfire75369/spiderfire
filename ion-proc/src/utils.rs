@@ -39,16 +39,14 @@ pub(crate) fn extract_type_argument(ty: &TypePath, index: usize) -> Option<Box<T
 	None
 }
 
-pub(crate) fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -> Generics {
+pub(crate) fn add_trait_bounds(generics: &mut Generics, bound: &TypeParamBound) {
 	for param in &mut generics.params {
 		if let GenericParam::Type(type_param) = param {
 			type_param.bounds.push(bound.clone());
 		}
 	}
-	generics
 }
 
-#[allow(dead_code)]
 pub(crate) fn format_type(ty: &Type) -> String {
 	let ty = unparse(
 		&parse2(quote!(

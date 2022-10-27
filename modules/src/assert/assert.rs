@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{CurrentGlobalOrNull, JSFunctionSpec, SameValue};
-use mozjs::jsval::JSVal;
+use mozjs::jsapi::{JSFunctionSpec, SameValue};
 
-use ion::{Context, Error, Function, Object, Result};
+use ion::{Context, Error, Function, Object, Result, Value};
 use runtime::modules::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {
@@ -28,11 +27,9 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 }
 
 #[js_fn]
-unsafe fn equals(cx: Context, actual: JSVal, expected: JSVal, message: Option<String>) -> Result<()> {
+unsafe fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
 	let mut same = false;
-	rooted!(in(cx) let actual = actual);
-	rooted!(in(cx) let expected = expected);
-	if SameValue(cx, actual.handle().into(), expected.handle().into(), &mut same) {
+	if SameValue(**cx, actual.handle().into(), expected.handle().into(), &mut same) {
 		if same {
 			Ok(())
 		} else {
@@ -44,8 +41,8 @@ unsafe fn equals(cx: Context, actual: JSVal, expected: JSVal, message: Option<St
 }
 
 #[js_fn]
-unsafe fn throws(cx: Context, func: Function, message: Option<String>) -> Result<()> {
-	if func.call(cx, Object::from(CurrentGlobalOrNull(cx)), Vec::new()).is_err() {
+unsafe fn throws(cx: &Context, func: Function, message: Option<String>) -> Result<()> {
+	if func.call(cx, &Object::global(cx), &[]).is_err() {
 		assert_internal(message)
 	} else {
 		Ok(())
@@ -72,7 +69,7 @@ impl NativeModule for Assert {
 	const NAME: &'static str = "assert";
 	const SOURCE: &'static str = include_str!("assert.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut assert = Object::new(cx);
 		if assert.define_methods(cx, FUNCTIONS) {
 			return Some(assert);

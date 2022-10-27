@@ -15,25 +15,25 @@ use mozjs::rust::{Handle, MutableHandle};
 use crate::{Context, Local};
 
 #[derive(Debug)]
-pub struct Date<'cx> {
-	date: &'cx mut Local<'cx, *mut JSObject>,
+pub struct Date<'d> {
+	date: Local<'d, *mut JSObject>,
 }
 
-impl<'cx> Date<'cx> {
+impl<'d> Date<'d> {
 	/// Creates a new Date Object with the current time.
-	pub fn new(cx: &'cx Context) -> Date<'cx> {
+	pub fn new<'cx>(cx: &'cx Context) -> Date<'cx> {
 		Date::from_date(cx, Utc::now())
 	}
 
 	/// Creates a new Date Object with the given time.
-	pub fn from_date(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
+	pub fn from_date<'cx>(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
 		Date {
 			date: cx.root_object(unsafe { NewDateObject(**cx, ClippedTime { t: time.timestamp_millis() as f64 }) }),
 		}
 	}
 
 	/// Creates a [Date] from an object.
-	pub fn from(cx: &'cx Context, object: &'cx mut Local<'cx, *mut JSObject>) -> Option<Date<'cx>> {
+	pub fn from(cx: &Context, object: Local<'d, *mut JSObject>) -> Option<Date<'d>> {
 		if Date::is_date(cx, &object) {
 			Some(Date { date: object })
 		} else {
@@ -43,7 +43,7 @@ impl<'cx> Date<'cx> {
 
 	/// Converts a [Date] to a [JSVal].
 	pub fn to_value(&self) -> JSVal {
-		ObjectValue(**self.date)
+		ObjectValue(*self.date)
 	}
 
 	/// Checks if the [Date] is a valid date.
@@ -62,16 +62,16 @@ impl<'cx> Date<'cx> {
 		}
 	}
 
-	pub fn handle<'a>(&'a self) -> Handle<'a, *mut JSObject>
+	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'd: 's,
 	{
 		self.date.handle()
 	}
 
 	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
 	where
-		'cx: 'a,
+		'd: 'a,
 	{
 		self.date.handle_mut()
 	}
@@ -90,10 +90,10 @@ impl<'cx> Date<'cx> {
 	}
 }
 
-impl<'cx> Deref for Date<'cx> {
-	type Target = Local<'cx, *mut JSObject>;
+impl<'d> Deref for Date<'d> {
+	type Target = Local<'d, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&*self.date
+		&self.date
 	}
 }

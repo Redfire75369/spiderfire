@@ -42,3 +42,8 @@ path = "tests/objects/object.rs"
 [[test]]
 name = "rooting"
 path = "tests/rooting.rs"
+
+[[example]]
+name = "macros"
+crate-type = ["lib"]
+required-features = ["macros"]

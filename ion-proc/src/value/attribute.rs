@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{Expr, Lit, Result};
+use syn::{Expr, ExprClosure, Lit, Result};
 use syn::parse::{Parse, ParseStream};
 
 mod keywords {
@@ -12,12 +12,13 @@ mod keywords {
 	custom_keyword!(optional);
 
 	custom_keyword!(convert);
+	custom_keyword!(strict);
 	custom_keyword!(parser);
 }
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) enum FromJSValAttribute {
+pub(crate) enum FromValueAttribute {
 	Inherit(keywords::inherit),
 	Optional(keywords::optional),
 	Convert {
@@ -25,6 +26,7 @@ pub(crate) enum FromJSValAttribute {
 		eq: Token!(=),
 		expr: Box<Expr>,
 	},
+	Strict(keywords::strict),
 	Default {
 		kw: Token!(default),
 		eq: Option<Token!(=)>,
@@ -40,12 +42,13 @@ pub(crate) enum FromJSValAttribute {
 #[derive(Debug)]
 pub(crate) enum DefaultValue {
 	Literal(Lit),
+	Closure(ExprClosure),
 	Expr(Box<Expr>),
 }
 
-impl Parse for FromJSValAttribute {
-	fn parse(input: ParseStream) -> Result<FromJSValAttribute> {
-		use FromJSValAttribute::*;
+impl Parse for FromValueAttribute {
+	fn parse(input: ParseStream) -> Result<FromValueAttribute> {
+		use FromValueAttribute::*;
 
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::inherit) {
@@ -58,6 +61,8 @@ impl Parse for FromJSValAttribute {
 				eq: input.parse()?,
 				expr: input.parse()?,
 			})
+		} else if lookahead.peek(keywords::strict) {
+			Ok(Strict(input.parse()?))
 		} else if lookahead.peek(Token![default]) {
 			let kw = input.parse()?;
 			let eq: Option<_> = input.parse()?;
@@ -80,6 +85,7 @@ impl Parse for DefaultValue {
 		let expr: Expr = input.parse()?;
 		match expr {
 			Expr::Lit(lit) => Ok(DefaultValue::Literal(lit.lit)),
+			Expr::Closure(closure) => Ok(DefaultValue::Closure(closure)),
 			expr => Ok(DefaultValue::Expr(Box::new(expr))),
 		}
 	}

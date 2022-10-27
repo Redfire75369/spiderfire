@@ -18,7 +18,7 @@ pub mod class {
 
 	use crate::http::Headers;
 
-	#[ion(no_constructor, into_jsval)]
+	#[ion(no_constructor, into_value)]
 	pub struct Response {
 		pub(crate) response: hyper::Response<Body>,
 		pub(crate) body_used: bool,

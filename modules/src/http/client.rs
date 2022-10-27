@@ -7,12 +7,12 @@
 use std::time::Duration;
 
 use hyper::client::HttpConnector;
-use mozjs::conversions::{ConversionBehavior, ConversionResult, FromJSValConvertible};
-use mozjs::rust::HandleValue;
 use once_cell::sync::OnceCell;
 
 pub use class::*;
-use ion::Context;
+use ion::{Context, Value};
+use ion::conversions::ConversionBehavior;
+use ion::conversions::FromValue;
 
 pub(crate) static GLOBAL_CLIENT: OnceCell<hyper::Client<HttpConnector>> = OnceCell::new();
 
@@ -27,7 +27,7 @@ pub(crate) fn default_client() -> hyper::Client<HttpConnector> {
 	client.build_http()
 }
 
-#[derive(Derivative, FromJSVal)]
+#[derive(Derivative, FromValue)]
 #[derivative(Default)]
 pub struct ClientOptions {
 	#[ion(default)]
@@ -67,23 +67,23 @@ impl Default for ClientRequestOptions {
 	}
 }
 
-impl FromJSValConvertible for ClientRequestOptions {
+impl<'cx> FromValue<'cx> for ClientRequestOptions {
 	type Config = ();
-
-	unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> Result<ConversionResult<ClientRequestOptions>, ()> {
-		if val.is_undefined() {
-			Ok(ConversionResult::Success(ClientRequestOptions::Global))
-		} else if val.is_boolean() {
-			if val.to_boolean() {
-				Ok(ConversionResult::Success(ClientRequestOptions::Global))
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> ion::Result<ClientRequestOptions>
+	where
+		'cx: 'v,
+	{
+		if value.is_undefined() {
+			Ok(ClientRequestOptions::Global)
+		} else if value.is_boolean() {
+			if value.to_boolean() {
+				Ok(ClientRequestOptions::Global)
 			} else {
-				Ok(ConversionResult::Success(ClientRequestOptions::New))
+				Ok(ClientRequestOptions::New)
 			}
 		} else {
-			match Client::from_jsval(cx, val, ())? {
-				ConversionResult::Success(client) => Ok(ConversionResult::Success(ClientRequestOptions::Client(client))),
-				ConversionResult::Failure(f) => Ok(ConversionResult::Failure(f)),
-			}
+			let client = Client::from_value(cx, value, true, ())?;
+			Ok(ClientRequestOptions::Client(client))
 		}
 	}
 }
@@ -94,15 +94,11 @@ mod class {
 	use std::time::Duration;
 
 	use hyper::client::HttpConnector;
-	use mozjs::conversions::{ConversionResult, FromJSValConvertible};
-	use mozjs::rust::HandleValue;
-
-	use ion::class::class_from_jsval;
-	use ion::Context;
 
 	use crate::http::client::ClientOptions;
 
 	#[derive(Clone)]
+	#[ion(from_value)]
 	pub struct Client {
 		pub(crate) client: hyper::Client<HttpConnector>,
 	}
@@ -134,14 +130,6 @@ mod class {
 
 		fn deref(&self) -> &hyper::Client<HttpConnector> {
 			&self.client
-		}
-	}
-
-	impl FromJSValConvertible for Client {
-		type Config = ();
-
-		unsafe fn from_jsval(cx: Context, val: HandleValue, _: ()) -> Result<ConversionResult<Client>, ()> {
-			class_from_jsval(cx, val)
 		}
 	}
 }

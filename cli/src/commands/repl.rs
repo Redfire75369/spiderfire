@@ -4,10 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::rust::JSEngine;
+use mozjs::rust::{JSEngine, Runtime};
 use rustyline::Editor;
 use rustyline::error::ReadlineError;
 
+use ion::Context;
 use modules::Modules;
 use runtime::RuntimeBuilder;
 
@@ -16,11 +17,15 @@ use crate::repl::{ReplHelper, rustyline_config};
 
 pub async fn start_repl() {
 	let engine = JSEngine::init().unwrap();
+	let rt = Runtime::new(engine.handle());
+	let mut cx = rt.cx();
+
+	let cx = Context::new(&mut cx);
 	let rt = RuntimeBuilder::<Modules>::new()
-		.macrotask_queue()
 		.microtask_queue()
+		.macrotask_queue()
 		.standard_modules()
-		.build(engine.handle());
+		.build(&cx);
 
 	let mut repl = match Editor::with_config(rustyline_config()) {
 		Ok(repl) => repl,

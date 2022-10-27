@@ -23,13 +23,13 @@ use crate::error::ThrowException;
 use crate::flags::PropertyFlags;
 
 #[derive(Debug)]
-pub struct Promise<'cx> {
-	promise: &'cx mut Local<'cx, *mut JSObject>,
+pub struct Promise<'p> {
+	promise: Local<'p, *mut JSObject>,
 }
 
-impl<'cx> Promise<'cx> {
+impl<'p> Promise<'p> {
 	/// Creates a new [Promise] which resolves immediately and returns void.
-	pub fn new(cx: &'cx Context) -> Promise<'cx> {
+	pub fn new<'cx>(cx: &'cx Context) -> Promise<'cx> {
 		Promise {
 			promise: cx.root_object(unsafe { NewPromiseObject(**cx, HandleObject::null().into()) }),
 		}
@@ -39,7 +39,7 @@ impl<'cx> Promise<'cx> {
 	///
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [JSVal] to resolve or reject the promise with the given [JSVal].
-	pub fn new_with_executor<F>(cx: &'cx Context, executor: F) -> Option<Promise<'cx>>
+	pub fn new_with_executor<'cx, F>(cx: &'cx Context, executor: F) -> Option<Promise<'cx>>
 	where
 		F: for<'cx2> FnOnce(&'cx2 Context, Function<'cx2>, Function<'cx2>) -> crate::Result<()> + 'static,
 	{
@@ -50,8 +50,8 @@ impl<'cx> Promise<'cx> {
 
 				let resolve_obj = args.value(0).unwrap().to_object(&cx).into_local();
 				let reject_obj = args.value(1).unwrap().to_object(&cx).into_local();
-				let resolve = Function::from_object(&cx, resolve_obj).unwrap();
-				let reject = Function::from_object(&cx, reject_obj).unwrap();
+				let resolve = Function::from_object(&cx, &resolve_obj).unwrap();
+				let reject = Function::from_object(&cx, &reject_obj).unwrap();
 
 				match executor(&cx, resolve, reject) {
 					Ok(()) => true as u8,
@@ -80,7 +80,7 @@ impl<'cx> Promise<'cx> {
 	///
 	/// If the future returns an [Ok], the promise is resolved with the [JSVal] contained within.
 	/// If the future returns an [Err], the promise is rejected with the [JSVal] contained within.
-	pub fn new_with_future<F, Output, Error>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
+	pub fn block_on_future<'cx, F, Output, Error>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
 	where
 		F: Future<Output = Result<Output, Error>> + 'static,
 		Output: for<'cx2> ToValue<'cx2> + 'static,
@@ -115,7 +115,7 @@ impl<'cx> Promise<'cx> {
 	}
 
 	/// Creates a [Promise] from a [*mut JSObject].
-	pub fn from(object: &'cx mut Local<'cx, *mut JSObject>) -> Option<Promise<'cx>> {
+	pub fn from(object: Local<'p, *mut JSObject>) -> Option<Promise<'p>> {
 		if Promise::is_promise(&object) {
 			Some(Promise { promise: object })
 		} else {
@@ -127,7 +127,7 @@ impl<'cx> Promise<'cx> {
 	///
 	/// ### Safety
 	/// Object must be a Promise.
-	pub unsafe fn from_unchecked(object: &'cx mut Local<'cx, *mut JSObject>) -> Promise<'cx> {
+	pub unsafe fn from_unchecked(object: Local<'p, *mut JSObject>) -> Promise<'p> {
 		Promise { promise: object }
 	}
 
@@ -151,7 +151,7 @@ impl<'cx> Promise<'cx> {
 	/// Adds Reactions to the [Promise]
 	/// `on_resolved` is similar to calling `.then()` on a promise.
 	/// `on_rejected` is similar to calling `.catch()` on a promise.
-	pub fn add_reactions(&mut self, cx: &'cx Context, on_resolved: Option<Function<'cx>>, on_rejected: Option<Function<'cx>>) -> bool {
+	pub fn add_reactions<'cx, 'f1, 'f2>(&mut self, cx: &'cx Context, on_resolved: Option<Function<'f1>>, on_rejected: Option<Function<'f2>>) -> bool {
 		let mut resolved = Object::null(cx);
 		let mut rejected = Object::null(cx);
 		if let Some(on_resolved) = on_resolved {
@@ -173,16 +173,16 @@ impl<'cx> Promise<'cx> {
 		unsafe { RejectPromise(**cx, self.handle().into(), value.handle().into()) }
 	}
 
-	pub fn handle<'a>(&'a self) -> Handle<'a, *mut JSObject>
+	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'p: 's,
 	{
 		self.promise.handle()
 	}
 
-	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
+	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
 	where
-		'cx: 'a,
+		'p: 's,
 	{
 		self.promise.handle_mut()
 	}
@@ -199,8 +199,8 @@ impl<'cx> Promise<'cx> {
 	}
 }
 
-impl<'cx> Deref for Promise<'cx> {
-	type Target = Local<'cx, *mut JSObject>;
+impl<'p> Deref for Promise<'p> {
+	type Target = Local<'p, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.promise

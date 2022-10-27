@@ -6,8 +6,9 @@
 
 use std::path::Path;
 
-use mozjs::rust::JSEngine;
+use mozjs::rust::{JSEngine, Runtime};
 
+use ion::Context;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::RuntimeBuilder;
 use runtime::script::Script;
@@ -18,9 +19,14 @@ const SCRIPT: &str = include_str!("scripts/console.js");
 #[test]
 fn console() {
 	CONFIG.set(Config::default().log_level(LogLevel::Debug).script(true)).unwrap();
-	let engine = JSEngine::init().unwrap();
-	let rt = RuntimeBuilder::<()>::new().build(engine.handle());
 
-	let result = Script::compile_and_evaluate(rt.cx(), Path::new(FILE_NAME), SCRIPT);
+	let engine = JSEngine::init().unwrap();
+	let rt = Runtime::new(engine.handle());
+	let mut cx = rt.cx();
+
+	let cx = Context::new(&mut cx);
+	let _rt = RuntimeBuilder::<()>::new().build(&cx);
+
+	let result = Script::compile_and_evaluate(&cx, Path::new(FILE_NAME), SCRIPT);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }

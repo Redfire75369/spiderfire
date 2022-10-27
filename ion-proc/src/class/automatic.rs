@@ -23,36 +23,40 @@ pub(crate) fn no_constructor(ty: &Type) -> Method {
 	impl_constructor(method, ty).unwrap().0
 }
 
-pub(crate) fn from_jsval(class_ident: &Ident) -> ItemImpl {
+pub(crate) fn from_value(class_ident: &Ident) -> ItemImpl {
 	let krate = quote!(::ion);
 
 	parse2(quote!(
-		impl ::mozjs::conversions::FromJSValConvertible for #class_ident {
+		impl<'cx> ::ion::conversions::FromValue<'cx> for #class_ident {
 			type Config = ();
-			unsafe fn from_jsval(cx: #krate::Context, value: ::mozjs::rust::HandleValue, _: ()) -> ::std::result::Result<::mozjs::conversions::ConversionResult<#class_ident>, ()> {
-				#krate::class::class_from_jsval(cx, value)
+			unsafe fn from_value<'v>(cx: &'cx #krate::Context, value: &#krate::Value<'v>, _: bool, _: ()) -> #krate::Result<#class_ident>
+			where
+				'cx: 'v
+			{
+				#krate::class::class_from_value(cx, value)
 			}
 		}
-	)).unwrap()
+	))
+	.unwrap()
 }
 
-pub(crate) fn to_jsval(class_ident: &Ident, is_clone: bool) -> ItemImpl {
+pub(crate) fn to_value(class_ident: &Ident, is_clone: bool) -> ItemImpl {
 	let krate = quote!(::ion);
 
 	if is_clone {
 		parse2(quote!(
-			impl ::mozjs::conversions::ToJSValConvertible for #class_ident {
-				unsafe fn to_jsval(&self, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
-					rval.set(<#class_ident as #krate::ClassInitialiser>::new_object(cx, self.clone()).to_value());
+			impl<'cx> #krate::conversions::ToValue<'cx> for #class_ident {
+				unsafe fn to_value(&self, cx: &'cx #krate::Context, value: &mut #krate::Value) {
+					<#class_ident as #krate::ClassInitialiser>::new_object(cx, self.clone()).to_value(cx, value)
 				}
 			}
 		))
 		.unwrap()
 	} else {
 		parse2(quote!(
-			impl #krate::conversions::IntoJSVal for #class_ident {
-				unsafe fn into_jsval(self: Box<Self>, cx: #krate::Context, mut rval: ::mozjs::rust::MutableHandleValue) {
-					rval.set(<#class_ident as #krate::ClassInitialiser>::new_object(cx, *self).to_value());
+			impl<'cx> #krate::conversions::IntoValue<'cx> for #class_ident {
+				unsafe fn into_value(self: Box<Self>, cx: &'cx #krate::Context, value: &mut #krate::Value) {
+					#krate::conversions::ToValue::to_value(&<#class_ident as #krate::ClassInitialiser>::new_object(cx, *self), cx, value)
 				}
 			}
 		))

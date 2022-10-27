@@ -14,7 +14,7 @@ use crate::format::Config;
 use crate::format::object::format_object_raw;
 
 /// Formats an [Object], along with the name of its constructor, as a [String] with the given [Config].
-pub fn format_class_object<'cx>(cx: &'cx Context, cfg: Config, object: &Object<'cx>) -> String {
+pub fn format_class_object(cx: &Context, cfg: Config, object: &Object) -> String {
 	let class = unsafe { get_object_class(object.handle().get()) };
 	let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
 

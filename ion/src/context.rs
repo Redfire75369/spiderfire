@@ -41,12 +41,12 @@ struct RootedArena {
 #[derive(Default)]
 struct LocalArena<'a> {
 	order: RefCell<Vec<GCType>>,
-	values: Arena<Local<'a, JSVal>>,
-	objects: Arena<Local<'a, *mut JSObject>>,
-	strings: Arena<Local<'a, *mut JSString>>,
-	scripts: Arena<Local<'a, *mut JSScript>>,
-	property_keys: Arena<Local<'a, PropertyKey>>,
-	functions: Arena<Local<'a, *mut JSFunction>>,
+	values: Arena<RootedGuard<'a, JSVal>>,
+	objects: Arena<RootedGuard<'a, *mut JSObject>>,
+	strings: Arena<RootedGuard<'a, *mut JSString>>,
+	scripts: Arena<RootedGuard<'a, *mut JSScript>>,
+	property_keys: Arena<RootedGuard<'a, PropertyKey>>,
+	functions: Arena<RootedGuard<'a, *mut JSFunction>>,
 }
 
 pub struct Context<'c> {
@@ -58,14 +58,14 @@ pub struct Context<'c> {
 macro_rules! impl_root_method {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
-			pub fn $fn_name<'cx>(&'cx self, ptr: $pointer) -> &'cx mut Local<'cx, $pointer> {
+			pub fn $fn_name<'cx>(&'cx self, ptr: $pointer) -> Local<'cx, $pointer> {
 				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
 				self.local.order.borrow_mut().push(GCType::$gc_type);
-				unsafe {
-					transmute(self.local.$key.alloc(
-						Local::from_rooted(RootedGuard::new(*self.context, transmute(rooted), ptr))
-					))
-				}
+				Local::from_rooted(
+					unsafe {
+						transmute(self.local.$key.alloc(RootedGuard::new(*self.context, transmute(rooted), ptr)))
+					}
+				)
 			}
 		)*
 	};

@@ -78,15 +78,15 @@ impl Drop for SignalFuture {
 
 #[js_class]
 mod controller {
-	use mozjs::conversions::ToJSValConvertible;
-	use mozjs::jsval::{JSVal, NullValue};
+	use mozjs::jsval::JSVal;
 	use tokio::sync::watch::{channel, Sender};
 
-	use ion::Error;
+	use ion::{Context, Error, Value};
+	use ion::conversions::ToValue;
 
 	use crate::globals::abort::{AbortSignal, Signal};
 
-	#[ion(into_jsval)]
+	#[ion(into_value)]
 	pub struct AbortController {
 		sender: Sender<Option<JSVal>>,
 	}
@@ -105,15 +105,15 @@ mod controller {
 			}
 		}
 
-		pub fn abort(&self, cx: &Context, reason: Option<JSVal>) {
+		pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
 			let none = reason.is_none();
-			rooted!(in(cx) let mut reason = reason.unwrap_or_else(NullValue));
+			let mut reason = reason.unwrap_or_else(|| Value::undefined(cx));
 			if none {
 				unsafe {
-					Error::new("AbortError", None).to_jsval(cx, reason.handle_mut());
+					Error::new("AbortError", None).to_value(cx, &mut reason);
 				}
 			}
-			self.sender.send_replace(Some(reason.get()));
+			self.sender.send_replace(Some(**reason));
 		}
 	}
 }
@@ -125,18 +125,18 @@ mod signal {
 	use std::sync::atomic::AtomicBool;
 
 	use chrono::Duration;
-	use mozjs::conversions::{ConversionBehavior, ToJSValConvertible};
-	use mozjs::jsval::{JSVal, NullValue};
+	use mozjs::jsval::JSVal;
 	use tokio::sync::watch::channel;
 
-	use ion::{Error, Exception};
+	use ion::{Context, Error, Exception, Value};
+	use ion::conversions::{ConversionBehavior, ToValue};
 
 	use crate::event_loop::EVENT_LOOP;
 	use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 	use crate::globals::abort::{Signal, SignalFuture};
 
 	#[derive(Clone, Default)]
-	#[ion(no_constructor, from_jsval, to_jsval)]
+	#[ion(no_constructor, from_value, to_value)]
 	pub struct AbortSignal {
 		pub(crate) signal: Signal,
 	}
@@ -169,15 +169,15 @@ mod signal {
 			}
 		}
 
-		pub fn abort(cx: &Context, reason: Option<JSVal>) -> AbortSignal {
+		pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> AbortSignal {
 			let none = reason.is_none();
-			rooted!(in(cx) let mut reason = reason.unwrap_or_else(NullValue));
+			let mut reason = reason.unwrap_or_else(|| Value::undefined(cx));
 			if none {
 				unsafe {
-					Error::new("AbortError", None).to_jsval(cx, reason.handle_mut());
+					Error::new("AbortError", None).to_value(cx, &mut reason);
 				}
 			}
-			AbortSignal { signal: Signal::Abort(reason.get()) }
+			AbortSignal { signal: Signal::Abort(**reason) }
 		}
 
 		pub fn timeout(cx: &Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> AbortSignal {
@@ -185,12 +185,13 @@ mod signal {
 			let terminate = Arc::new(AtomicBool::new(false));
 			let terminate2 = terminate.clone();
 
+			let mut error = Value::null(cx);
+			unsafe {
+				Error::new(&format!("Timeout Error: {}ms", time), None).to_value(cx, &mut error);
+			}
+			let error = **error;
 			let callback = Box::new(move || {
-				rooted!(in(cx) let mut error = NullValue());
-				unsafe {
-					Error::new(&format!("Timeout Error: {}ms", time), None).to_jsval(cx, error.handle_mut());
-				}
-				sender.send_replace(Some(error.get()));
+				sender.send_replace(Some(error));
 			});
 
 			let duration = Duration::milliseconds(time as i64);
@@ -207,7 +208,7 @@ mod signal {
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	AbortController::init_class(cx, &global);
-	AbortSignal::init_class(cx, &global);
+	AbortController::init_class(cx, global);
+	AbortSignal::init_class(cx, global);
 	true
 }

@@ -18,11 +18,11 @@ mod class {
 	use mozjs::conversions::ConversionBehavior::EnforceRange;
 	use url::Url;
 
-	use ion::{Error, Object, Result};
+	use ion::{Context, Error, Object, Result};
 
 	#[allow(clippy::upper_case_acronyms)]
 	#[derive(Clone)]
-	#[ion(from_jsval, to_jsval)]
+	#[ion(from_value, to_value)]
 	pub struct URL {
 		url: Url,
 	}
@@ -49,12 +49,21 @@ mod class {
 			self.url.to_string()
 		}
 
-		pub fn format(&self, cx: Context, options: Option<Object>) -> Result<String> {
+		pub fn format(&self, cx: &Context, options: Option<Object>) -> Result<String> {
 			let mut url = self.url.clone();
 
-			let auth = options.and_then(|options| options.get_as::<bool>(cx, "auth", ())).unwrap_or(true);
-			let fragment = options.and_then(|options| options.get_as::<bool>(cx, "fragment", ())).unwrap_or(true);
-			let search = options.and_then(|options| options.get_as::<bool>(cx, "search", ())).unwrap_or(true);
+			let auth = options
+				.as_ref()
+				.and_then(|options| options.get_as::<bool>(cx, "auth", true, ()))
+				.unwrap_or(true);
+			let fragment = options
+				.as_ref()
+				.and_then(|options| options.get_as::<bool>(cx, "fragment", true, ()))
+				.unwrap_or(true);
+			let search = options
+				.as_ref()
+				.and_then(|options| options.get_as::<bool>(cx, "search", true, ()))
+				.unwrap_or(true);
 
 			if !auth {
 				url.set_username("").map_err(|_| Error::new("Invalid URL", None))?;
@@ -232,10 +241,10 @@ impl NativeModule for UrlM {
 	const NAME: &'static str = "url";
 	const SOURCE: &'static str = include_str!("url.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut url = Object::new(cx);
 		if url.define_methods(cx, FUNCTIONS) {
-			class::URL::init_class(cx, &url);
+			class::URL::init_class(cx, &mut url);
 			return Some(url);
 		}
 		None

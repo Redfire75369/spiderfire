@@ -16,19 +16,20 @@ use syn::{DeriveInput, Error, ItemFn, ItemMod};
 
 use crate::class::impl_js_class;
 use crate::function::impl_js_fn;
-use crate::jsval::impl_from_jsval;
+use crate::value::impl_from_value;
 
 pub(crate) mod class;
 pub(crate) mod function;
-pub(crate) mod jsval;
 pub(crate) mod utils;
+pub(crate) mod value;
+pub(crate) mod visitors;
 
 #[proc_macro_attribute]
 pub fn js_fn(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	let function = parse_macro_input!(stream as ItemFn);
 
 	match impl_js_fn(function) {
-		Ok(function) => function.to_token_stream().into(),
+		Ok(function) => function.into_token_stream().into(),
 		Err(error) => error.to_compile_error().into(),
 	}
 }
@@ -42,17 +43,17 @@ pub fn js_class(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	}
 
 	match impl_js_class(module) {
-		Ok(module) => module.to_token_stream().into(),
+		Ok(module) => module.into_token_stream().into(),
 		Err(error) => error.to_compile_error().into(),
 	}
 }
 
-#[proc_macro_derive(FromJSVal, attributes(ion))]
-pub fn from_jsval(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(FromValue, attributes(ion))]
+pub fn from_value(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 
-	match impl_from_jsval(input) {
-		Ok(to_jsval) => to_jsval.to_token_stream().into(),
+	match impl_from_value(input) {
+		Ok(from_value) => from_value.into_token_stream().into(),
 		Err(error) => error.to_compile_error().into(),
 	}
 }
