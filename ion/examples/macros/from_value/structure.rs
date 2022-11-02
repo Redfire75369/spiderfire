@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
-use ion::{Context, FromValue, Object, Value};
+use ion::{Context, FromValue, Object, Result, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 
 #[derive(FromValue)]
@@ -21,11 +21,6 @@ struct Complex<'cx> {
 	parsed: Arc<AtomicU64>,
 }
 
-unsafe fn parse_as_atomic_arc<'cx, 'v>(cx: &'cx Context, value: Value<'v>) -> Option<Arc<AtomicU64>>
-where
-	'cx: 'v,
-{
-	u64::from_value(cx, &value, true, ConversionBehavior::Default)
-		.ok()
-		.map(|num| Arc::new(AtomicU64::new(num)))
+unsafe fn parse_as_atomic_arc<'cx: 'v, 'v>(cx: &'cx Context, value: Value<'v>) -> Result<Arc<AtomicU64>> {
+	u64::from_value(cx, &value, true, ConversionBehavior::Default).map(|num| Arc::new(AtomicU64::new(num)))
 }

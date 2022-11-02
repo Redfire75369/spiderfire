@@ -25,7 +25,7 @@ use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Module;
 use runtime::script::Script;
 
-pub async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
+pub(crate) async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);
 
 	match result {
@@ -35,7 +35,7 @@ pub async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
 	run_event_loop(rt).await;
 }
 
-pub async fn eval_script(path: &Path) {
+pub(crate) async fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
 	let mut cx = rt.cx();
@@ -65,7 +65,7 @@ pub async fn eval_script(path: &Path) {
 	}
 }
 
-pub async fn eval_module(path: &Path) {
+pub(crate) async fn eval_module(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
 	let mut cx = rt.cx();

@@ -12,7 +12,7 @@ use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;
 
-pub async fn eval_source(source: &str) {
+pub(crate) async fn eval_source(source: &str) {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 	let mut cx = rt.cx();

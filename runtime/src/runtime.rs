@@ -91,7 +91,7 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		let mut global: Object = Object::from(cx.root_object(global));
 
 		let global_ref = **global;
-		global.set_as(cx, "global", global_ref);
+		global.set_as(cx, "global", &global_ref);
 		init_globals(cx, &mut global);
 
 		let mut event_loop = EventLoop {

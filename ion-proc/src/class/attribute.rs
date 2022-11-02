@@ -37,63 +37,6 @@ pub(crate) struct Name {
 	pub(crate) literal: LitStr,
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct Aliases {
-	pub(crate) alias: keywords::alias,
-	pub(crate) eq: Token![=],
-	pub(crate) bracket: Bracket,
-	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
-}
-
-// TODO: Add `inspectable` to provide `toString` and `toJSON`
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) enum ClassAttribute {
-	Name(Name),
-	NoConstructor(keywords::no_constructor),
-	FromValue(keywords::from_value),
-	ToValue(keywords::to_value),
-	IntoValue(keywords::into_value),
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) enum PropertyAttribute {
-	Name(Name),
-	Alias(Aliases),
-	Convert {
-		convert: keywords::convert,
-		eq: Token![=],
-		conversion: Box<Expr>,
-	},
-	Readonly(keywords::readonly),
-	Skip(keywords::skip),
-}
-
-#[derive(Debug)]
-pub(crate) enum MethodAttribute {
-	Name(Name),
-	Alias(Aliases),
-	Constructor(keywords::constructor),
-	Getter(keywords::get),
-	Setter(keywords::set),
-	Skip(keywords::skip),
-}
-
-impl MethodAttribute {
-	pub(crate) fn to_kind(&self) -> Option<MethodKind> {
-		use MethodAttribute as MA;
-		match self {
-			MA::Constructor(_) => Some(MethodKind::Constructor),
-			MA::Getter(_) => Some(MethodKind::Getter),
-			MA::Setter(_) => Some(MethodKind::Setter),
-			MA::Skip(_) => Some(MethodKind::Internal),
-			_ => None,
-		}
-	}
-}
-
 impl Parse for Name {
 	fn parse(input: ParseStream) -> Result<Name> {
 		let lookahead = input.lookahead1();
@@ -107,6 +50,15 @@ impl Parse for Name {
 			Err(lookahead.error())
 		}
 	}
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) struct Aliases {
+	pub(crate) alias: keywords::alias,
+	pub(crate) eq: Token![=],
+	pub(crate) bracket: Bracket,
+	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
 }
 
 impl Parse for Aliases {
@@ -125,6 +77,17 @@ impl Parse for Aliases {
 			Err(lookahead.error())
 		}
 	}
+}
+
+// TODO: Add `inspectable` to provide `toString` and `toJSON`
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) enum ClassAttribute {
+	Name(Name),
+	NoConstructor(keywords::no_constructor),
+	FromValue(keywords::from_value),
+	ToValue(keywords::to_value),
+	IntoValue(keywords::into_value),
 }
 
 impl Parse for ClassAttribute {
@@ -148,6 +111,20 @@ impl Parse for ClassAttribute {
 	}
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) enum PropertyAttribute {
+	Name(Name),
+	Alias(Aliases),
+	Convert {
+		convert: keywords::convert,
+		eq: Token![=],
+		conversion: Box<Expr>,
+	},
+	Readonly(keywords::readonly),
+	Skip(keywords::skip),
+}
+
 impl Parse for PropertyAttribute {
 	fn parse(input: ParseStream) -> Result<PropertyAttribute> {
 		use PropertyAttribute as PA;
@@ -169,6 +146,29 @@ impl Parse for PropertyAttribute {
 			Ok(PA::Skip(input.parse()?))
 		} else {
 			Err(lookahead.error())
+		}
+	}
+}
+
+#[derive(Debug)]
+pub(crate) enum MethodAttribute {
+	Name(Name),
+	Alias(Aliases),
+	Constructor(keywords::constructor),
+	Getter(keywords::get),
+	Setter(keywords::set),
+	Skip(keywords::skip),
+}
+
+impl MethodAttribute {
+	pub(crate) fn to_kind(&self) -> Option<MethodKind> {
+		use MethodAttribute as MA;
+		match self {
+			MA::Constructor(_) => Some(MethodKind::Constructor),
+			MA::Getter(_) => Some(MethodKind::Getter),
+			MA::Setter(_) => Some(MethodKind::Setter),
+			MA::Skip(_) => Some(MethodKind::Internal),
+			_ => None,
 		}
 	}
 }

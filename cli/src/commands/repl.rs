@@ -15,7 +15,7 @@ use runtime::RuntimeBuilder;
 use crate::evaluate::eval_inline;
 use crate::repl::{ReplHelper, rustyline_config};
 
-pub async fn start_repl() {
+pub(crate) async fn start_repl() {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 	let mut cx = rt.cx();

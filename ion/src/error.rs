@@ -144,16 +144,14 @@ impl Error {
 
 				let stack = Object::from(cx.root_object(stack.object.unwrap()));
 
-				let mut file_name = Value::undefined(cx);
-				file.to_value(cx, &mut file_name);
+				let file = file.as_value(cx);
 
-				let file_name = cx.root_string(file_name.handle().get().to_string());
+				let file_name = cx.root_string(file.to_string());
 
 				rooted!(in(**cx) let mut message: *mut JSString);
 				if !self.message.is_empty() {
-					let mut message_val = Value::undefined(cx);
-					self.message.to_value(cx, &mut message_val);
-					message.set(message_val.handle().get().to_string());
+					let message_val = self.message.as_value(cx);
+					message.set(message_val.to_string());
 				}
 
 				let mut error = Value::from(cx.root_value(UndefinedValue()));

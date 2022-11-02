@@ -114,12 +114,8 @@ impl<'o> Object<'o> {
 
 	/// Sets the Rust type at the given key of the [Object].
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T) -> bool {
-		let mut val = Value::undefined(cx);
-		unsafe {
-			value.to_value(cx, &mut val);
-		}
-		self.set(cx, key, &val)
+	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: &str, value: &T) -> bool {
+		self.set(cx, key, unsafe { &value.as_value(cx) })
 	}
 
 	/// Defines the [JSVal] at the given key of the [Object] with the given attributes.
@@ -139,12 +135,8 @@ impl<'o> Object<'o> {
 
 	/// Defines the Rust type at the given key of the [Object] with the given attributes.
 	/// Returns `false` if the property cannot be defined.
-	pub fn define_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, key: &str, value: T, attrs: PropertyFlags) -> bool {
-		let mut val = Value::undefined(cx);
-		unsafe {
-			value.to_value(cx, &mut val);
-		}
-		self.define(cx, key, &val, attrs)
+	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: &str, value: &T, attrs: PropertyFlags) -> bool {
+		self.define(cx, key, unsafe { &value.as_value(cx) }, attrs)
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].

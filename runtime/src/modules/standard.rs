@@ -10,27 +10,17 @@ use ion::flags::PropertyFlags;
 use crate::modules::Module;
 
 pub trait StandardModules {
-	fn init<'cx, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-	where
-		'cx: 'o;
+	fn init<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool;
 
-	fn init_globals<'cx, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-	where
-		'cx: 'o;
+	fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool;
 }
 
 impl StandardModules for () {
-	fn init<'cx, 'o>(_: &'cx Context, _: &mut Object<'o>) -> bool
-	where
-		'cx: 'o,
-	{
+	fn init<'cx: 'o, 'o>(_: &'cx Context, _: &mut Object<'o>) -> bool {
 		true
 	}
 
-	fn init_globals<'cx, 'o>(_: &'cx Context, _: &mut Object<'o>) -> bool
-	where
-		'cx: 'o,
-	{
+	fn init_globals<'cx: 'o, 'o>(_: &'cx Context, _: &mut Object<'o>) -> bool {
 		true
 	}
 }
@@ -43,29 +33,20 @@ pub trait NativeModule {
 }
 
 impl<M: NativeModule> StandardModules for M {
-	fn init<'cx, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-	where
-		'cx: 'o,
-	{
+	fn init<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 		init_module::<M>(cx, global)
 	}
 
-	fn init_globals<'cx, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-	where
-		'cx: 'o,
-	{
+	fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 		init_global_module::<M>(cx, global)
 	}
 }
 
-pub fn init_global_module<'cx, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-where
-	'cx: 'o,
-{
+pub fn init_global_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	let module = M::module(cx);
 
 	if let Some(module) = module {
-		global.define_as(cx, M::NAME, module, PropertyFlags::CONSTANT_ENUMERATED)
+		global.define_as(cx, M::NAME, &module, PropertyFlags::CONSTANT_ENUMERATED)
 	} else {
 		false
 	}
@@ -73,15 +54,12 @@ where
 
 // TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
 //TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
-pub fn init_module<'cx, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-where
-	'cx: 'o,
-{
+pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	let internal = format!("______{}Internal______", M::NAME);
 	let module = M::module(cx);
 
 	if let Some(module) = module {
-		if global.define_as(cx, &internal, module, PropertyFlags::CONSTANT) {
+		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT) {
 			let module = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
 			return module.0.register(M::NAME);
 		}

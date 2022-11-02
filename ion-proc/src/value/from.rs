@@ -6,18 +6,15 @@
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, parse2, Result, Type};
+use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, NestedMeta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::utils::{add_trait_bounds, format_type, type_ends_with};
-use crate::value::attribute::{DefaultValue, FromValueAttribute};
+use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	let krate = quote!(::ion);
-
-	let span = input.span();
-	let name = &input.ident;
 
 	add_trait_bounds(&mut input.generics, &parse2(quote!(#krate::conversions::FromValue)).unwrap());
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -34,16 +31,71 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl_generics.params.push(parse2(quote!('cx))?);
 	}
 
-	let (body, requires_obj) = impl_body(&input.data, name, span)?;
+	let mut tag = Tag::default();
+	let mut inherit = false;
+	let mut repr = None;
+	for attr in &input.attrs {
+		if attr.path.is_ident("ion") {
+			let args: Punctuated<DataAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
-	let object = requires_obj.then(|| quote!(let object = #krate::Object::from_value(cx, val, true, ())?;));
+			for arg in args {
+				match arg {
+					DataAttribute::Tag(data_tag) => {
+						tag = data_tag;
+					}
+					DataAttribute::Inherit(_) => {
+						inherit = true;
+					}
+				}
+			}
+		} else if attr.path.is_ident("repr") {
+			let meta = attr.parse_meta()?;
+			let allowed_reprs: Vec<Ident> = vec![
+				parse_quote!(i8),
+				parse_quote!(i16),
+				parse_quote!(i32),
+				parse_quote!(i64),
+				parse_quote!(u8),
+				parse_quote!(u16),
+				parse_quote!(u32),
+				parse_quote!(u64),
+			];
+			match meta {
+				Meta::List(list) => {
+					for meta in list.nested {
+						match meta {
+							NestedMeta::Meta(Meta::Path(meta)) => {
+								for allowed_repr in &allowed_reprs {
+									if meta.is_ident(allowed_repr) {
+										if repr.is_none() {
+											repr = Some(meta.segments.last().unwrap().ident.clone());
+										} else {
+											return Err(Error::new(meta.span(), "Only One Representation Allowed in #[repr]"));
+										}
+									}
+								}
+							}
+							_ => return Err(Error::new(meta.span(), "Expected Structured Meta Path in #[repr]")),
+						}
+					}
+				}
+				_ => return Err(Error::new(meta.span(), "Expected List Meta for #[repr]")),
+			}
+		}
+	}
 
-	parse2(quote!(
-		#[allow(unused_qualifications)]
+	let name = &input.ident;
+
+	let (body, requires_object) = impl_body(&input.data, name, input.span(), tag, inherit, repr)?;
+
+	let object = requires_object.then(|| quote_spanned!(input.span() => let object = #krate::Object::from_value(cx, value, true, ())?;));
+
+	parse2(quote_spanned!(input.span() =>
+		#[automatically_derived]
 		impl #impl_generics #krate::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			unsafe fn from_value<'v>(cx: &'cx #krate::Context, val: &#krate::Value<'v>, strict: bool, _: ())
+			unsafe fn from_value<'v>(cx: &'cx #krate::Context, value: &#krate::Value<'v>, strict: bool, _: ())
 				-> #krate::Result<Self> where 'cx: 'v
 			{
 				#object
@@ -53,44 +105,55 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	))
 }
 
-fn impl_body(data: &Data, ident: &Ident, span: Span) -> Result<(Block, bool)> {
+fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, repr: Option<Ident>) -> Result<(Block, bool)> {
 	match data {
 		Data::Struct(data) => match &data.fields {
 			Fields::Named(fields) => {
-				let (idents, declarations, requires_obj) = map_fields(&fields.named, false)?;
-				parse2(quote!({
+				let (requirement, idents, declarations, requires_object) = map_fields(&fields.named, None, tag, inherit)?;
+				parse2(quote_spanned!(span => {
+					#requirement
 					#(#declarations)*
 					::std::result::Result::Ok(Self { #(#idents, )* })
 				}))
-				.map(|b| (b, requires_obj))
+				.map(|b| (b, requires_object))
 			}
 			Fields::Unnamed(fields) => {
-				let (idents, declarations, requires_obj) = map_fields(&fields.unnamed, false)?;
-				parse2(quote!({
+				let (requirement, idents, declarations, requires_object) = map_fields(&fields.unnamed, None, tag, inherit)?;
+				parse2(quote_spanned!(span => {
+					#requirement
 					#(#declarations)*
 					::std::result::Result::Ok(Self(#(#idents, )*))
 				}))
-				.map(|block| (block, requires_obj))
+				.map(|block| (block, requires_object))
 			}
-			Fields::Unit => parse2(quote!({ ::std::result::Result::Ok(Self) })).map(|block| (block, false)),
+			Fields::Unit => parse2(quote_spanned!(span => { ::std::result::Result::Ok(Self) })).map(|block| (block, false)),
 		},
 		Data::Enum(data) => {
 			let krate = quote!(::ion);
+			let unit = data.variants.iter().all(|variant| matches!(variant.fields, Fields::Unit));
+
 			let variants: Vec<(Block, _)> = data
 				.variants
 				.iter()
 				.map(|variant| {
 					let variant_ident = &variant.ident;
+					let variant_string = variant_ident.to_string();
 
-					let mut inherit = true;
+					let mut tag = tag.clone();
+					let mut inherit = inherit;
 
 					for attr in &variant.attrs {
 						if attr.path.is_ident("ion") {
-							let args: Punctuated<FromValueAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+							let args: Punctuated<VariantAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 							for arg in args {
-								if let FromValueAttribute::Inherit(_) = arg {
-									inherit = true;
+								match arg {
+									VariantAttribute::Tag(variant_tag) => {
+										tag = variant_tag;
+									}
+									VariantAttribute::Inherit(_) => {
+										inherit = true;
+									}
 								}
 							}
 						}
@@ -101,50 +164,113 @@ fn impl_body(data: &Data, ident: &Ident, span: Span) -> Result<(Block, bool)> {
 					});
 					match &variant.fields {
 						Fields::Named(fields) => {
-							let (idents, declarations, requires_obj) = map_fields(&fields.named, inherit)?;
+							let (requirement, idents, declarations, requires_object) = map_fields(&fields.named, Some(variant_string), tag, inherit)?;
 							parse2(quote_spanned!(variant.span() => {
 								let variant: #krate::Result<Self> = (|| {
+									#requirement
 									#(#declarations)*
 									::std::result::Result::Ok(Self::#variant_ident { #(#idents, )* })
 								})();
 								#handle_result
 							}))
-							.map(|block| (block, requires_obj))
+							.map(|block| (block, requires_object))
 						}
 						Fields::Unnamed(fields) => {
-							let (idents, declarations, requires_obj) = map_fields(&fields.unnamed, inherit)?;
+							let (requirement, idents, declarations, requires_object) =
+								map_fields(&fields.unnamed, Some(variant_string), tag, inherit)?;
 							parse2(quote_spanned!(variant.span() => {
 								let variant: #krate::Result<Self> = (|| {
+									#requirement
 									#(#declarations)*
 									::std::result::Result::Ok(Self::#variant_ident(#(#idents, )*))
 								})();
 								#handle_result
 							}))
-							.map(|block| (block, requires_obj))
+							.map(|block| (block, requires_object))
 						}
-						Fields::Unit => parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);})).map(|block| (block, false)),
+						Fields::Unit => {
+							if let Some((_, discriminant)) = &variant.discriminant {
+								if unit && repr.is_some() {
+									return parse2(quote_spanned!(
+										variant.fields.span() => {
+											if discriminant == #discriminant {
+												return ::std::result::Result::Ok(Self::#variant_ident);
+											}
+										}
+									))
+									.map(|block| (block, false));
+								}
+							}
+							parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);})).map(|block| (block, false))
+						}
 					}
 				})
 				.collect::<Result<_>>()?;
-			let (variants, requires_obj): (Vec<_>, Vec<_>) = variants.into_iter().unzip();
-			let requires_obj = requires_obj.into_iter().any(|b| b);
+			let (variants, requires_object): (Vec<_>, Vec<_>) = variants.into_iter().unzip();
+			let requires_object = requires_object.into_iter().any(|b| b);
 
-			let error = format!("Value does not match any of the enum {}", ident);
+			let error = format!("Value does not match any of the variants of enum {}", ident);
 
-			parse2(quote!({
+			let mut if_unit = None;
+
+			if unit {
+				if let Some(repr) = repr {
+					if_unit = Some(
+						quote_spanned!(repr.span() => let discriminant: #repr = #krate::conversions::FromValue::from_value(cx, value, true, #krate::conversions::ConversionBehavior::EnforceRange)?;),
+					);
+				}
+			}
+
+			parse2(quote_spanned!(span => {
+				#if_unit
 				#(#variants)*
 
 				::std::result::Result::Err(#krate::Error::new(#error, #krate::ErrorKind::Type))
 			}))
-			.map(|b| (b, requires_obj))
+			.map(|b| (b, requires_object))
 		}
 		Data::Union(_) => Err(Error::new(span, "#[derive(FromValue)] is not implemented for union types")),
 	}
 }
 
-fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(Vec<Ident>, Vec<TokenStream>, bool)> {
+fn map_fields(
+	fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Tag, inherit: bool,
+) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
 	let krate = quote!(::ion);
-	let mut requires_obj = false;
+	let mut is_tagged = None;
+
+	let requirement = match tag {
+		Tag::Untagged(_) => quote!(),
+		Tag::External(kw) => {
+			is_tagged = Some(kw);
+			if let Some(variant) = variant {
+				let error = format!("Expected Object at External Tag {}", variant);
+				quote_spanned!(kw.span() =>
+					let object: #krate::Object = object.get_as(cx, #variant, true, ())
+						.ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type))?;
+				)
+			} else {
+				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
+			}
+		}
+		Tag::Internal { kw, key, .. } => {
+			is_tagged = Some(kw);
+			if let Some(variant) = variant {
+				let missing_error = format!("Expected Internal Tag key {}", key.value());
+				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
+				quote_spanned!(kw.span() =>
+					let key: ::std::string::String = object.get_as(cx, #key, true, ()).ok_or_else(|| #krate::Error::new(#missing_error, #krate::ErrorKind::Type))?;
+					if key != #variant {
+						return Err(#krate::Error::new(#error, #krate::ErrorKind::Type));
+					}
+				)
+			} else {
+				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
+			}
+		}
+	};
+	let mut requires_object = is_tagged.is_some();
+
 	let vec: Vec<_> = fields
 		.iter()
 		.enumerate()
@@ -174,26 +300,23 @@ fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(V
 
 			for attr in attrs {
 				if attr.path.is_ident("ion") {
-					let args: Punctuated<FromValueAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+					let args: Punctuated<FieldAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 					for arg in args {
-						use FromValueAttribute::*;
+						use FieldAttribute as FA;
 						match arg {
-							Inherit(_) => {
+							FA::Inherit(_) => {
 								inherit = true;
 							}
-							Optional(_) => {
-								optional = true;
-							}
-							Convert { expr, .. } => {
+							FA::Convert { expr, .. } => {
 								convert = Some(expr);
 							}
-							Strict(_) => {
+							FA::Strict(_) => {
 								strict = true;
 							}
-							Default { def, .. } => {
+							FA::Default { def, .. } => {
 								default = Some(def);
 							}
-							Parser { expr, .. } => {
+							FA::Parser { expr, .. } => {
 								parser = Some(expr);
 							}
 						}
@@ -204,17 +327,23 @@ fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(V
 			let convert = convert.unwrap_or_else(|| parse_quote!(()));
 
 			let base = if inherit {
-				quote_spanned!(field.span() => let #ident: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, val, #strict || strict, #convert))
+				if is_tagged.is_some() {
+					return Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum"));
+				}
+				quote_spanned!(field.span() => let #ident: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
 			} else if let Some(ref parser) = parser {
-				requires_obj = true;
-				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).and_then(#parser))
+				requires_object = true;
+				let error = format!("Expected Value at Key {}", key);
+				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type)).and_then(#parser))
 			} else {
-				requires_obj = true;
-				quote_spanned!(field.span() => let #ident: #ty = object.get_as(cx, #key, #strict || strict, #convert))
+				requires_object = true;
+				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
+				let ok_or_else = quote!(.ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type)));
+				quote_spanned!(field.span() => let #ident: #ty = object.get_as(cx, #key, #strict || strict, #convert)#ok_or_else)
 			};
 
 			let stmt = if optional {
-				quote_spanned!(field.span() => #base;)
+				quote_spanned!(field.span() => #base.ok();)
 			} else {
 				match default {
 					Some(Some(DefaultValue::Expr(expr))) => {
@@ -224,23 +353,13 @@ fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(V
 								"Cannot have Default Expression with Inherited Field. Use a Closure with One Argument Instead",
 							));
 						} else {
-							quote_spanned!(field.span() => #base.unwrap_or_else(|| #expr);)
+							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 						}
 					}
 					Some(Some(DefaultValue::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
 					Some(Some(DefaultValue::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
 					Some(None) => quote_spanned!(field.span() => #base.unwrap_or_default();),
-					None => {
-						if inherit {
-							quote_spanned!(field.span() => #base?;)
-						} else if parser.is_some() {
-							let error = format!("Failed to obtain or parse {} to type {}", key, format_type(ty));
-							quote_spanned!(field.span() => #base.ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type))?;)
-						} else {
-							let missing_error = format!("Failed to obtain {} of type {}", key, format_type(ty));
-							quote_spanned!(field.span() => #base.ok_or_else(|| #krate::Error::new(#missing_error, #krate::ErrorKind::Type))?;)
-						}
-					}
+					None => quote_spanned!(field.span() => #base?;),
 				}
 			};
 
@@ -249,5 +368,5 @@ fn map_fields(fields: &Punctuated<Field, Token![,]>, inherit: bool) -> Result<(V
 		.collect::<Result<_>>()?;
 
 	let (idents, declarations) = vec.into_iter().unzip();
-	Ok((idents, declarations, requires_obj))
+	Ok((requirement, idents, declarations, requires_object))
 }

@@ -215,14 +215,14 @@ pub mod class {
 
 macro_rules! typedarray_to_bytes {
 	($body:expr) => {
-		None
+		Err(Error::new("Expected TypedArray or ArrayBuffer", ErrorKind::Type))
 	};
 	($body:expr, [$arr:ident, true]$(, $($rest:tt)*)?) => {
 		paste::paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
-				Some(Bytes::copy_from_slice(arr.as_slice()))
+				Ok(Bytes::copy_from_slice(arr.as_slice()))
 			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
-				Some(Bytes::copy_from_slice(arr.as_slice()))
+				Ok(Bytes::copy_from_slice(arr.as_slice()))
 			} else {
 				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
@@ -232,10 +232,10 @@ macro_rules! typedarray_to_bytes {
 		paste::paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Some(Bytes::copy_from_slice(bytes))
+				Ok(Bytes::copy_from_slice(bytes))
 			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
 				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Some(Bytes::copy_from_slice(bytes))
+				Ok(Bytes::copy_from_slice(bytes))
 			} else {
 				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
@@ -243,12 +243,10 @@ macro_rules! typedarray_to_bytes {
 	};
 }
 
-pub(crate) unsafe fn parse_body<'cx, 'v>(cx: &'cx Context, body: Value<'v>) -> Option<Bytes>
-where
-	'cx: 'v,
+pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes>
 {
 	if body.is_string() {
-		Some(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
+		Ok(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
 	} else if body.is_object() {
 		let body = body.to_object(cx);
 
@@ -258,16 +256,16 @@ where
 				let mut unboxed = Value::undefined(cx);
 
 				if Unbox(**cx, body.handle().into(), unboxed.handle_mut().into()) {
-					return Some(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
+					return Ok(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
 				}
 			}
 		} else {
-			return None;
+			return Err(Error::new("Failed to Get Class of Input", ErrorKind::Type));
 		}
 
 		typedarray_to_bytes!(**body, [ArrayBuffer, true], [ArrayBufferView, true])
 	} else {
-		None
+		Err(Error::new("Expected Body to be String or Object", ErrorKind::Type))
 	}
 }
 

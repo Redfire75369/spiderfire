@@ -128,10 +128,8 @@ impl<'a> Array<'a> {
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T) -> bool {
-		let mut val = Value::undefined(cx);
-		unsafe { value.to_value(cx, &mut val) };
-		self.set(cx, index, &val)
+	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
+		self.set(cx, index, unsafe { &value.as_value(cx) })
 	}
 
 	/// Defines the [JSVal] at the given index of the [Array] with the given attributes.
@@ -142,10 +140,8 @@ impl<'a> Array<'a> {
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define_as<'cx, T: ToValue<'cx>>(&mut self, cx: &'cx Context, index: u32, value: T, attrs: PropertyFlags) -> bool {
-		let mut val = Value::undefined(cx);
-		unsafe { value.to_value(cx, &mut val) };
-		self.define(cx, index, &val, attrs)
+	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags) -> bool {
+		self.define(cx, index, unsafe { &value.as_value(cx) }, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.

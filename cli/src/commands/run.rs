@@ -10,7 +10,7 @@ use runtime::config::Config;
 
 use crate::evaluate::{eval_module, eval_script};
 
-pub async fn run(path: &str) {
+pub(crate) async fn run(path: &str) {
 	if Config::global().script {
 		eval_script(Path::new(path)).await;
 	} else {

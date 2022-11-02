@@ -93,16 +93,14 @@ impl<'p> Promise<'p> {
 				unsafe {
 					let future = future.take().unwrap();
 					match future.await {
-						Ok(v) => {
-							let mut value = Value::undefined(cx);
-							v.to_value(cx, &mut value);
+						Ok(output) => {
+							let value = output.as_value(cx);
 							if let Err(Some(error)) = resolve.call(cx, &null, &[value]) {
 								println!("{}", error.format(cx));
 							}
 						}
-						Err(v) => {
-							let mut value = Value::undefined(cx);
-							v.to_value(cx, &mut value);
+						Err(error) => {
+							let value = error.as_value(cx);
 							if let Err(Some(error)) = reject.call(cx, &null, &[value]) {
 								println!("{}", error.format(cx));
 							}

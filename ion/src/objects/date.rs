@@ -9,7 +9,6 @@ use std::ops::Deref;
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::jsapi::{ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, NewDateObject, ObjectIsDate};
-use mozjs::jsval::{JSVal, ObjectValue};
 use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local};
@@ -41,9 +40,12 @@ impl<'d> Date<'d> {
 		}
 	}
 
-	/// Converts a [Date] to a [JSVal].
-	pub fn to_value(&self) -> JSVal {
-		ObjectValue(*self.date)
+	/// Creates a [Date] from a [*mut JSObject].
+	///
+	/// ### Safety
+	/// Object must be a Date.
+	pub unsafe fn from_unchecked(object: Local<'d, *mut JSObject>) -> Date<'d> {
+		Date { date: object }
 	}
 
 	/// Checks if the [Date] is a valid date.

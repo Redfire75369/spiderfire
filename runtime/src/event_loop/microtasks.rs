@@ -35,8 +35,7 @@ impl Microtask {
 	pub fn run(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		match self {
 			Microtask::Promise(promise) => unsafe {
-				let mut value = Value::undefined(cx);
-				promise.to_value(cx, &mut value);
+				let value = promise.as_value(cx);
 
 				let mut rval = Value::undefined(cx);
 				let args = HandleValueArray::new();

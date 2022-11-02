@@ -131,8 +131,8 @@ impl NativeModule for PathM {
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut path = Object::new(cx);
 		if path.define_methods(cx, FUNCTIONS)
-			&& path.define_as(cx, "separator", String::from(SEPARATOR), PropertyFlags::CONSTANT_ENUMERATED)
-			&& path.define_as(cx, "delimiter", String::from(DELIMITER), PropertyFlags::CONSTANT_ENUMERATED)
+			&& path.define_as(cx, "separator", SEPARATOR, PropertyFlags::CONSTANT_ENUMERATED)
+			&& path.define_as(cx, "delimiter", DELIMITER, PropertyFlags::CONSTANT_ENUMERATED)
 		{
 			return Some(path);
 		}

@@ -20,7 +20,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-pub enum Command {
+pub(crate) enum Command {
 	#[command(about = "Prints Cache Statistics")]
 	Cache {
 		#[arg(help = "Clears the Cache", short, long)]

@@ -51,10 +51,7 @@ fn print_indent(is_stderr: bool) {
 	});
 }
 
-fn print_args<'cx, 'v>(cx: &'cx Context, args: &[Value<'v>], stderr: bool)
-where
-	'cx: 'v,
-{
+fn print_args<'cx: 'v, 'v>(cx: &'cx Context, args: &[Value<'v>], stderr: bool) {
 	let indents = get_indents();
 	for value in args.iter() {
 		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
@@ -76,10 +73,7 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn log<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values.as_slice(), false);
@@ -88,10 +82,7 @@ where
 }
 
 #[js_fn]
-fn warn<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn warn<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values.as_slice(), true);
@@ -100,10 +91,7 @@ where
 }
 
 #[js_fn]
-fn error<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn error<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values.as_slice(), true);
@@ -112,10 +100,7 @@ where
 }
 
 #[js_fn]
-fn debug<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn debug<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values.as_slice(), false);
@@ -124,10 +109,7 @@ where
 }
 
 #[js_fn]
-fn assert<'cx, 'v>(cx: &'cx Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn assert<'cx: 'v, 'v>(cx: &'cx Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -169,10 +151,7 @@ fn clear() {
 }
 
 #[js_fn]
-unsafe fn trace<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+unsafe fn trace<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -197,10 +176,7 @@ where
 }
 
 #[js_fn]
-fn group<'cx, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn group<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
@@ -283,10 +259,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog<'cx, 'v>(cx: &'cx Context, label: Option<String>, #[ion(varargs)] values: Vec<Value<'v>>)
-where
-	'cx: 'v,
-{
+fn timeLog<'cx: 'v, 'v>(cx: &'cx Context, label: Option<String>, #[ion(varargs)] values: Vec<Value<'v>>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -337,10 +310,7 @@ fn timeEnd(label: Option<String>) {
 }
 
 #[js_fn]
-unsafe fn table<'cx, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>)
-where
-	'cx: 'v,
-{
+unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
 	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -471,10 +441,7 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define<'cx, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool
-where
-	'cx: 'o,
-{
+pub fn define<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	let mut console = Object::new(cx);
-	console.define_methods(cx, METHODS) && global.define_as(cx, "console", console, PropertyFlags::CONSTANT_ENUMERATED)
+	console.define_methods(cx, METHODS) && global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
 }

@@ -40,9 +40,7 @@ impl<'v> Value<'v> {
 
 	/// Creates a [Value] from a string.
 	pub fn string<'cx>(cx: &'cx Context, str: &str) -> Value<'cx> {
-		let mut value = Value::from(cx.root_value(UndefinedValue()));
-		unsafe { str.to_value(cx, &mut value) };
-		value
+		unsafe { str.as_value(cx) }
 	}
 
 	/// Creates a [Value] from an [Object].
@@ -65,10 +63,7 @@ impl<'v> Value<'v> {
 		Value::from(cx.root_value(NullValue()))
 	}
 
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx>
-	where
-		'cx: 'v,
-	{
+	pub fn to_object<'cx: 'v>(&self, cx: &'cx Context) -> Object<'cx> {
 		cx.root_object(self.value.to_object()).into()
 	}
 

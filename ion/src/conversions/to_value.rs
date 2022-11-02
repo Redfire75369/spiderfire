@@ -16,6 +16,12 @@ use crate::{Array, Context, Date, Function, Object, Promise, Value};
 
 pub trait ToValue<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value);
+
+	unsafe fn as_value(&self, cx: &'cx Context) -> Value<'cx> {
+		let mut value = Value::undefined(cx);
+		self.to_value(cx, &mut value);
+		value
+	}
 }
 
 impl ToValue<'_> for () {

@@ -59,11 +59,6 @@ impl<'f> Function<'f> {
 		cx.root_object(unsafe { JS_GetFunctionObject(self.handle().get()) }).into()
 	}
 
-	/// Converts the [Function] to a [JSVal].
-	pub fn to_value<'cx>(&self, cx: &'cx Context) -> Value<'cx> {
-		Value::object(cx, &self.to_object(cx))
-	}
-
 	/// Converts the [Function] to a [String].
 	pub fn to_string(&self, cx: &Context) -> String {
 		unsafe {

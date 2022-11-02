@@ -46,10 +46,10 @@ pub(crate) enum Parameter {
 }
 
 pub(crate) struct Parameters {
-	pub parameters: Vec<Parameter>,
-	pub idents: Vec<Ident>,
-	pub nargs: (usize, usize),
-	pub this: Option<Ident>,
+	pub(crate) parameters: Vec<Parameter>,
+	pub(crate) idents: Vec<Ident>,
+	pub(crate) nargs: (usize, usize),
+	pub(crate) this: Option<Ident>,
 }
 
 impl Parameter {

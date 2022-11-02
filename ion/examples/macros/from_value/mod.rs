@@ -1,1 +1,2 @@
+mod enumeration;
 mod structure;

@@ -14,7 +14,7 @@ mod eval;
 mod repl;
 mod run;
 
-pub async fn handle_command(command: Option<Command>) {
+pub(crate) async fn handle_command(command: Option<Command>) {
 	match command {
 		Some(Command::Cache { clear }) => {
 			if !clear {

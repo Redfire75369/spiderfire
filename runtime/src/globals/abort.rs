@@ -106,13 +106,7 @@ mod controller {
 		}
 
 		pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
-			let none = reason.is_none();
-			let mut reason = reason.unwrap_or_else(|| Value::undefined(cx));
-			if none {
-				unsafe {
-					Error::new("AbortError", None).to_value(cx, &mut reason);
-				}
-			}
+			let reason = reason.unwrap_or_else(|| unsafe { Error::new("AbortError", None).as_value(cx) });
 			self.sender.send_replace(Some(**reason));
 		}
 	}
@@ -170,13 +164,7 @@ mod signal {
 		}
 
 		pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> AbortSignal {
-			let none = reason.is_none();
-			let mut reason = reason.unwrap_or_else(|| Value::undefined(cx));
-			if none {
-				unsafe {
-					Error::new("AbortError", None).to_value(cx, &mut reason);
-				}
-			}
+			let reason = reason.unwrap_or_else(|| unsafe { Error::new("AbortError", None).as_value(cx) });
 			AbortSignal { signal: Signal::Abort(**reason) }
 		}
 
@@ -185,11 +173,7 @@ mod signal {
 			let terminate = Arc::new(AtomicBool::new(false));
 			let terminate2 = terminate.clone();
 
-			let mut error = Value::null(cx);
-			unsafe {
-				Error::new(&format!("Timeout Error: {}ms", time), None).to_value(cx, &mut error);
-			}
-			let error = **error;
+			let error = unsafe { **Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx) };
 			let callback = Box::new(move || {
 				sender.send_replace(Some(error));
 			});

@@ -168,10 +168,7 @@ pub trait ClassInitialiser {
 	}
 }
 
-pub unsafe fn class_from_value<'cx, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T>
-where
-	'cx: 'v,
-{
+pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
 	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
 		T::get_private(cx, &object, None).map(|c| c.clone())

@@ -30,7 +30,7 @@ pub fn define<'cx>(cx: &'cx Context, global: &mut Object<'cx>) -> bool {
 	global.define_as(
 		cx,
 		"queueMicrotask",
-		Function::from_spec(cx, &FUNCTION),
+		&Function::from_spec(cx, &FUNCTION),
 		PropertyFlags::CONSTANT_ENUMERATED,
 	)
 }

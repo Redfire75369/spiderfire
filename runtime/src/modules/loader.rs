@@ -62,7 +62,7 @@ impl ModuleData {
 		if let Some(path) = self.path.as_ref() {
 			data.set_as(cx, "path", path);
 		} else {
-			data.set_as(cx, "path", ());
+			data.set_as(cx, "path", &());
 		}
 
 		data
@@ -85,8 +85,7 @@ impl<'cx> Module<'cx> {
 				let data = ModuleData {
 					path: path.and_then(Path::to_str).map(String::from),
 				};
-				let mut private = Value::undefined(cx);
-				data.to_object(cx).to_value(cx, &mut private);
+				let private = data.to_object(cx).as_value(cx);
 				SetModulePrivate(**module, &**private);
 
 				let module = Module { module, data };
@@ -205,8 +204,7 @@ pub unsafe extern "C" fn module_metadata(mut cx: *mut JSContext, private_data: H
 
 	if let Some(path) = data.path.as_ref() {
 		let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
-		let mut value = Value::undefined(&cx);
-		url.as_str().to_value(&cx, &mut value);
+		let value = url.as_str().as_value(&cx);
 		if !JS_SetProperty(*cx, meta, "url\0".as_ptr() as *const i8, value.handle().into()) {
 			return false;
 		}
