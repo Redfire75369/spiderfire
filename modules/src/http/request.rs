@@ -243,8 +243,7 @@ macro_rules! typedarray_to_bytes {
 	};
 }
 
-pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes>
-{
+pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes> {
 	if body.is_string() {
 		Ok(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
 	} else if body.is_object() {

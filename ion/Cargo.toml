@@ -15,7 +15,7 @@ indent = "0.1.1"
 ion-proc = { path = "../ion-proc", optional = true }
 libffi = "3.0.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
-mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "4cd3f5b81f4c363c039631bf870e61a00c983f63" }
+mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs", rev = "062d3dc473b66e2c4053b690ce1df45083351519" }
 sourcemap = { version = "6.2.0", optional = true }
 typed-arena = "2.0.1"
 

@@ -40,6 +40,7 @@ pub mod local;
 mod objects;
 pub mod spec;
 mod stack;
+pub mod symbol;
 pub mod utils;
 mod value;
 

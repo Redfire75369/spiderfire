@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::mem::{take, transmute};
 use std::ops::Deref;
 
-use mozjs::jsapi::{JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted};
+use mozjs::jsapi::{JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
@@ -23,8 +23,6 @@ pub enum GCType {
 	Script,
 	PropertyKey,
 	Function,
-	// TODO: Add Symbol Rooting
-	// TOOD: Waiting on https://github.com/servo/mozjs/issues/306
 	Symbol,
 }
 
@@ -36,6 +34,7 @@ struct RootedArena {
 	scripts: Arena<Rooted<*mut JSScript>>,
 	property_keys: Arena<Rooted<PropertyKey>>,
 	functions: Arena<Rooted<*mut JSFunction>>,
+	symbols: Arena<Rooted<*mut Symbol>>,
 }
 
 #[derive(Default)]
@@ -47,6 +46,7 @@ struct LocalArena<'a> {
 	scripts: Arena<RootedGuard<'a, *mut JSScript>>,
 	property_keys: Arena<RootedGuard<'a, PropertyKey>>,
 	functions: Arena<RootedGuard<'a, *mut JSFunction>>,
+	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
 pub struct Context<'c> {
@@ -55,7 +55,7 @@ pub struct Context<'c> {
 	local: LocalArena<'static>,
 }
 
-macro_rules! impl_root_method {
+macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
 			pub fn $fn_name<'cx>(&'cx self, ptr: $pointer) -> Local<'cx, $pointer> {
@@ -80,13 +80,14 @@ impl Context<'_> {
 		}
 	}
 
-	impl_root_method! {
+	impl_root_methods! {
 		(root_value, JSVal, values, Value),
 		(root_object, *mut JSObject, objects, Object),
 		(root_string, *mut JSString, strings, String),
 		(root_script, *mut JSScript, scripts, Script),
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
 		(root_function, *mut JSFunction, functions, Function),
+		(root_symbol, *mut Symbol, symbols, Symbol),
 	}
 }
 
@@ -111,7 +112,6 @@ macro_rules! impl_drop {
 						let _ = $key.next();
 					}
 				)*
-				GCType::Symbol => (),
 			}
 		}
 	}
@@ -127,6 +127,7 @@ impl Drop for Context<'_> {
 			(*mut JSScript, scripts, Script),
 			(PropertyKey, property_keys, PropertyKey),
 			(*mut JSFunction, functions, Function),
+			(*mut Symbol, symbols, Symbol),
 		}
 	}
 }
