@@ -17,9 +17,10 @@ use mozjs::jsapi::{
 use mozjs::jsval::{NullValue, UndefinedValue};
 use mozjs::rust::{Handle, IdVector, MutableHandle};
 
-use crate::{Context, Exception, Function, Local, NativeFunction, Value};
+use crate::{Context, Exception, Function, Local, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
+use crate::functions::NativeFunction;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Key {

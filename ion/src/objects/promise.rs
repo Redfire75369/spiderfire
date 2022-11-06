@@ -19,7 +19,7 @@ use mozjs::rust::{Handle, HandleObject, MutableHandle};
 
 use crate::{Arguments, Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
-use crate::error::ThrowException;
+use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
 
 #[derive(Debug)]

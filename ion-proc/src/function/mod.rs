@@ -73,16 +73,16 @@ pub(crate) fn error_handler() -> TokenStream {
 				true
 			},
 			::std::result::Result::Ok(::std::result::Result::Err(error)) => {
-				#krate::error::ThrowException::throw(&error, cx);
+				#krate::exception::ThrowException::throw(&error, cx);
 				false
 			}
 			::std::result::Result::Err(unwind_error) => {
 				if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::error::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
 				} else if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::error::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
 				} else {
-					#krate::error::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None), cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

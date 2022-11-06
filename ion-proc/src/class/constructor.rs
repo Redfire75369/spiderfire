@@ -63,16 +63,16 @@ pub(crate) fn error_handler() -> TokenStream {
 				true
 			},
 			Ok(Err(error)) => {
-				#krate::error::ThrowException::throw(&error, cx);
+				#krate::exception::ThrowException::throw(&error, cx);
 				false
 			}
 			Err(unwind_error) => {
 				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::error::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
 				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::error::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
 				} else {
-					#krate::error::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", None), cx);
+					#krate::exception::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", None), cx);
 					::std::mem::forget(unwind_error);
 				}
 				false

@@ -5,9 +5,10 @@
  */
 
 use std::mem::transmute;
+
+use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsapi::SymbolCode as JSSymbolCode;
-use mozjs::jsapi::{NewSymbol, GetSymbolFor, GetWellKnownSymbol, GetSymbolCode, GetSymbolDescription};
 
 use crate::{Context, Local};
 use crate::conversions::{FromValue, ToValue};
@@ -48,12 +49,6 @@ impl SymbolCode {
 	}
 }
 
-impl From<WellKnownSymbolCode> for SymbolCode {
-	fn from(code: WellKnownSymbolCode) -> SymbolCode {
-		SymbolCode::WellKnown(code)
-	}
-}
-
 impl From<JSSymbolCode> for SymbolCode {
 	fn from(code: JSSymbolCode) -> SymbolCode {
 		if (code as u32) < JSSymbolCode::Limit as u32 {
@@ -67,6 +62,12 @@ impl From<JSSymbolCode> for SymbolCode {
 				_ => unreachable!(),
 			}
 		}
+	}
+}
+
+impl From<WellKnownSymbolCode> for SymbolCode {
+	fn from(code: WellKnownSymbolCode) -> SymbolCode {
+		SymbolCode::WellKnown(code)
 	}
 }
 
@@ -88,6 +89,7 @@ impl From<SymbolCode> for JSSymbolCode {
 	}
 }
 
+#[derive(Debug)]
 pub struct Symbol<'s> {
 	symbol: Local<'s, *mut JSSymbol>,
 }

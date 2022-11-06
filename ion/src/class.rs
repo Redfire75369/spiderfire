@@ -15,8 +15,9 @@ use mozjs::jsapi::{
 	JSObject, JSPropertySpec, SetPrivate,
 };
 
-use crate::{Arguments, Context, Error, ErrorKind, Function, NativeFunction, Object, Result, Value};
+use crate::{Arguments, Context, Error, ErrorKind, Function, Object, Result, Value};
 use crate::conversions::FromValue;
+use crate::functions::NativeFunction;
 
 // TODO: Move into Context Wrapper
 thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefCell::new(HashMap::new()));

@@ -4,7 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, jsstr_to_string};
+use std::string::String as RustString;
+
+use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 pub use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
 	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction, JSObject, JSString, RootedObject,
@@ -13,7 +15,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 
-use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, Value};
+use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Value};
 
 pub trait FromValue<'cx>: Sized {
 	type Config;
@@ -114,18 +116,27 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 	}
 }
 
-impl<'cx> FromValue<'cx> for String {
+impl<'cx> FromValue<'cx> for String<'cx> {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<String>
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<String<'cx>>
 	where
 		'cx: 'v,
 	{
-		if strict && !value.is_string() {
-			return Err(Error::new("Expected String in Strict Conversion", ErrorKind::Type));
-		}
+		<*mut JSString>::from_value(cx, value, strict, config).map(|str| String::from(cx.root_string(str)))
+	}
+}
 
-		Ok(jsstr_to_string(**cx, ToString(**cx, value.handle())))
+impl<'cx> FromValue<'cx> for RustString {
+	type Config = ();
+
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<RustString>
+	where
+		'cx: 'v,
+	{
+		// TODO: Replace with Result::flatten once stabilised
+		String::from_value(cx, value, strict, config)
+			.map(|s| s.to_owned_string(cx).ok_or_else(|| Error::new("Expected Linear String", ErrorKind::Type)))?
 	}
 }
 
@@ -229,21 +240,11 @@ impl<'cx> FromValue<'cx> for Promise<'cx> {
 impl<'cx> FromValue<'cx> for *mut JSFunction {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<*mut JSFunction>
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<*mut JSFunction>
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
-			return Err(Error::new("Expected Function", ErrorKind::Type));
-		}
-
-		let function_obj = value.to_object(cx);
-		if let Some(function) = Function::from_object(cx, &*function_obj) {
-			AssertSameCompartment(**cx, **function_obj);
-			Ok(**function)
-		} else {
-			Err(Error::new("Expected Function", ErrorKind::Type))
-		}
+		Function::from_value(cx, value, strict, config).map(|f| **f)
 	}
 }
 

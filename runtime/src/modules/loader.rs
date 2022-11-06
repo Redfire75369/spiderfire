@@ -23,7 +23,7 @@ use url::Url;
 
 use ion::{Context, Error, ErrorReport, Object, Promise, Value};
 use ion::conversions::{FromValue, ToValue};
-use ion::error::ThrowException;
+use ion::exception::ThrowException;
 
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;

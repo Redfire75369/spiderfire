@@ -13,10 +13,10 @@ use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Location, Object, Stack, Value};
+use crate::{Context, Error, ErrorKind, Object, Stack, Value};
 use crate::conversions::ToValue;
-use crate::error::ThrowException;
 use crate::format::{format_value, NEWLINE};
+use crate::stack::Location;
 
 #[derive(Clone, Debug)]
 pub enum Exception {
@@ -232,4 +232,8 @@ impl ErrorReport {
 		}
 		string
 	}
+}
+
+pub trait ThrowException {
+	fn throw(&self, cx: &Context);
 }

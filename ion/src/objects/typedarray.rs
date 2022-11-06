@@ -10,7 +10,7 @@ use mozjs::typedarray::CreateWith;
 
 use crate::{Context, Error, Object, Value};
 use crate::conversions::ToValue;
-use crate::error::ThrowException;
+use crate::exception::ThrowException;
 
 macro_rules! impl_typedarray_wrapper {
 	($typedarray:ident, $ty:ty) => {

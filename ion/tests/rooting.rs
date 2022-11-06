@@ -1,9 +1,8 @@
 use std::ptr;
 
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
+use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, JSContext, OnNewGlobalHookOption};
+use mozjs::jsval::JSVal;
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
-use mozjs_sys::jsapi::JSContext;
-use mozjs_sys::jsval::JSVal;
 
 use ion::{Arguments, Context, Function, Object, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
