@@ -81,9 +81,9 @@ impl<T: GCMethods + RootKind> Deref for Local<'_, T> {
 
 	fn deref(&self) -> &T {
 		match self {
-			Local::Rooted(rooted) => &***rooted,
-			Local::Mutable(handle) => &**handle,
-			Local::Handle(handle) => &**handle,
+			Local::Rooted(rooted) => rooted,
+			Local::Mutable(handle) => handle,
+			Local::Handle(handle) => handle,
 		}
 	}
 }
@@ -91,8 +91,8 @@ impl<T: GCMethods + RootKind> Deref for Local<'_, T> {
 impl<T: GCMethods + RootKind> DerefMut for Local<'_, T> {
 	fn deref_mut(&mut self) -> &mut T {
 		match self {
-			Local::Rooted(rooted) => &mut ***rooted,
-			Local::Mutable(handle) => &mut **handle,
+			Local::Rooted(rooted) => rooted,
+			Local::Mutable(handle) => handle,
 			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
 		}
 	}

@@ -154,7 +154,7 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 }
 
 pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
-	let expected_args = if is_setter { 1 } else { 0 };
+	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
 	} else {

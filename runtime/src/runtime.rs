@@ -116,9 +116,9 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 
 		EVENT_LOOP.with(|eloop| {
 			let mut eloop = eloop.borrow_mut();
-			(*eloop).microtasks = event_loop.microtasks.clone();
-			(*eloop).futures = event_loop.futures.clone();
-			(*eloop).macrotasks = event_loop.macrotasks.clone();
+			eloop.microtasks = event_loop.microtasks.clone();
+			eloop.futures = event_loop.futures.clone();
+			eloop.macrotasks = event_loop.macrotasks.clone();
 		});
 
 		if self.modules {

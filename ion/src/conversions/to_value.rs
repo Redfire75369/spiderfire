@@ -8,11 +8,15 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JS_GetFunctionObject, JS_WrapValue, JSFunction, JSObject, JSString};
-use mozjs::jsval::{BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, UInt32Value, UndefinedValue};
+use mozjs::jsapi::{JS_GetFunctionObject, JSFunction, JSObject, JSString};
+use mozjs::jsapi::Symbol as JSSymbol;
+use mozjs::jsval::{
+	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue, UInt32Value, UndefinedValue,
+};
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
+use mozjs_sys::jsapi::JS_WrapValue;
 
-use crate::{Array, Context, Date, Function, Object, Promise, String, Value};
+use crate::{Array, Context, Date, Function, Object, Promise, String, Symbol, Value};
 
 pub trait ToValue<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value);
@@ -151,6 +155,18 @@ impl<'cx> ToValue<'cx> for *mut JSFunction {
 }
 
 impl<'cx> ToValue<'cx> for Function<'cx> {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		(**self).to_value(cx, value);
+	}
+}
+
+impl ToValue<'_> for *mut JSSymbol {
+	unsafe fn to_value(&self, _: &Context, value: &mut Value) {
+		value.handle_mut().set(SymbolValue(&**self));
+	}
+}
+
+impl<'cx> ToValue<'cx> for Symbol<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}

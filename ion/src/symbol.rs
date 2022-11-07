@@ -5,6 +5,7 @@
  */
 
 use std::mem::transmute;
+use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 use mozjs::jsapi::Symbol as JSSymbol;
@@ -128,5 +129,25 @@ impl<'s> Symbol<'s> {
 		} else {
 			None
 		}
+	}
+}
+
+impl<'o> From<Local<'o, *mut JSSymbol>> for Symbol<'o> {
+	fn from(symbol: Local<'o, *mut JSSymbol>) -> Symbol<'o> {
+		Symbol { symbol }
+	}
+}
+
+impl<'o> Deref for Symbol<'o> {
+	type Target = Local<'o, *mut JSSymbol>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.symbol
+	}
+}
+
+impl<'o> DerefMut for Symbol<'o> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.symbol
 	}
 }

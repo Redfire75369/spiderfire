@@ -70,6 +70,7 @@ impl ModuleData {
 }
 
 impl<'cx> Module<'cx> {
+	#[allow(clippy::result_large_err)]
 	pub fn compile(cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());

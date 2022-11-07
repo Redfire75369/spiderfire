@@ -15,7 +15,7 @@ use crate::event_loop::microtasks::Microtask;
 #[js_fn]
 fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = (*event_loop.borrow()).microtasks.clone() {
+		if let Some(queue) = event_loop.borrow().microtasks.clone() {
 			queue.enqueue(**cx, Microtask::User(**callback));
 			Ok(())
 		} else {

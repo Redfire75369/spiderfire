@@ -180,7 +180,7 @@ mod signal {
 
 			let duration = Duration::milliseconds(time as i64);
 			EVENT_LOOP.with(|event_loop| {
-				if let Some(queue) = (*event_loop.borrow_mut()).macrotasks.as_mut() {
+				if let Some(queue) = event_loop.borrow_mut().macrotasks.as_mut() {
 					queue.enqueue(Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)), None);
 				}
 			});

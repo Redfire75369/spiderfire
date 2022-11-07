@@ -50,7 +50,7 @@ pub(crate) async fn eval_script(path: &Path) {
 	if let Some((script, _)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
 		if let Some(sourcemap) = sourcemap {
-			save_sourcemap(&path, sourcemap);
+			save_sourcemap(path, sourcemap);
 		}
 		let result = Script::compile_and_evaluate(rt.cx(), path, &script);
 
@@ -81,7 +81,7 @@ pub(crate) async fn eval_module(path: &Path) {
 	if let Some((script, filename)) = read_script(path) {
 		let (script, sourcemap) = cache(path, script);
 		if let Some(sourcemap) = sourcemap {
-			save_sourcemap(&path, sourcemap);
+			save_sourcemap(path, sourcemap);
 		}
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 

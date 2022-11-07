@@ -212,13 +212,13 @@ impl Parameters {
 						} else {
 							nargs.1 += 1;
 						}
-						get_ident(&**pat)
+						get_ident(pat)
 					}
 					Parameter::This { pat, .. } => {
 						if let Pat::Ident(ident) = &**pat {
 							this = Some(ident.ident.clone());
 							if ident.ident != "self" {
-								get_ident(&**pat)
+								get_ident(pat)
 							} else {
 								None
 							}
@@ -226,7 +226,7 @@ impl Parameters {
 							None
 						}
 					}
-					Parameter::Context(pat, _) | Parameter::Arguments(pat, _) | Parameter::VarArgs { pat, .. } => get_ident(&**pat),
+					Parameter::Context(pat, _) | Parameter::Arguments(pat, _) | Parameter::VarArgs { pat, .. } => get_ident(pat),
 				};
 
 				if let Some(ident) = ident {

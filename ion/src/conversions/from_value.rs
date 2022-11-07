@@ -12,10 +12,11 @@ use mozjs::jsapi::{
 	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction, JSObject, JSString, RootedObject,
 	RootedValue,
 };
+use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 
-use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Value};
+use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Symbol, Value};
 
 pub trait FromValue<'cx>: Sized {
 	type Config;
@@ -260,12 +261,38 @@ impl<'cx> FromValue<'cx> for Function<'cx> {
 		}
 
 		let function_obj = value.to_object(cx);
-		if let Some(function) = Function::from_object(cx, &*function_obj) {
+		if let Some(function) = Function::from_object(cx, &function_obj) {
 			AssertSameCompartment(**cx, **function_obj);
 			Ok(function)
 		} else {
 			Err(Error::new("Expected Function", ErrorKind::Type))
 		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for *mut JSSymbol {
+	type Config = ();
+
+	unsafe fn from_value<'v>(_: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<*mut JSSymbol>
+	where
+		'cx: 'v,
+	{
+		if value.is_symbol() {
+			Ok(value.to_symbol())
+		} else {
+			Err(Error::new("Expected Symbol", ErrorKind::Type))
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for Symbol<'cx> {
+	type Config = ();
+
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: Self::Config) -> Result<Symbol<'cx>>
+	where
+		'cx: 'v,
+	{
+		<*mut JSSymbol>::from_value(cx, value, strict, config).map(|s| cx.root_symbol(s).into())
 	}
 }
 
@@ -345,7 +372,7 @@ where
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
 		let object = value.to_object(cx);
-		if strict && !Array::is_array(cx, &*object) {
+		if strict && !Array::is_array(cx, &object) {
 			return Err(Error::new("Expected Array", ErrorKind::Type));
 		}
 
