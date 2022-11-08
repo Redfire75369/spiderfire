@@ -59,6 +59,7 @@ pub struct ColorConfig {
 	pub array: Color,
 	pub object: Color,
 	pub date: Color,
+	pub symbol: Color,
 }
 
 impl Default for ColorConfig {
@@ -72,6 +73,7 @@ impl Default for ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			symbol: Color::Magenta,
 		}
 	}
 }
@@ -88,6 +90,7 @@ impl ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			symbol: Color::White,
 		}
 	}
 }

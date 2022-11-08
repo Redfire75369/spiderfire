@@ -14,7 +14,7 @@ use mozjs::jsapi::SymbolCode as JSSymbolCode;
 use crate::{Context, Local};
 use crate::conversions::{FromValue, ToValue};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum WellKnownSymbolCode {
 	IsConcatSpreadable,
@@ -32,12 +32,33 @@ pub enum WellKnownSymbolCode {
 	MatchAll,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum SymbolCode {
 	WellKnown(WellKnownSymbolCode),
 	PrivateNameSymbol,
 	InSymbolRegistry,
 	UniqueSymbol,
+}
+
+impl WellKnownSymbolCode {
+	pub fn identifier(&self) -> &'static str {
+		use WellKnownSymbolCode as WKSC;
+		match self {
+			WKSC::IsConcatSpreadable => "isConcatSpreadable",
+			WKSC::Iterator => "iterator",
+			WKSC::Match => "match",
+			WKSC::Replace => "replace",
+			WKSC::Search => "search",
+			WKSC::Species => "species",
+			WKSC::HasInstance => "hasInstance",
+			WKSC::Split => "split",
+			WKSC::ToPrimitive => "toPrimitive",
+			WKSC::ToStringTag => "toStringTag",
+			WKSC::Unscopables => "unscopables",
+			WKSC::AsyncIterator => "asyncIterator",
+			WKSC::MatchAll => "matchAll",
+		}
+	}
 }
 
 impl SymbolCode {
@@ -117,15 +138,17 @@ impl<'s> Symbol<'s> {
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
-	pub unsafe fn code(&self) -> SymbolCode {
-		GetSymbolCode(self.symbol.handle().into()).into()
+	pub fn code(&self) -> SymbolCode {
+		unsafe { GetSymbolCode(self.symbol.handle().into()).into() }
 	}
 
-	pub unsafe fn description(&self, cx: &Context) -> Option<String> {
-		let description = GetSymbolDescription(self.symbol.handle().into());
+	pub fn description(&self, cx: &Context) -> Option<String> {
+		let description = unsafe { GetSymbolDescription(self.symbol.handle().into()) };
 		if !description.is_null() {
-			let description = description.as_value(cx);
-			String::from_value(cx, &description, true, ()).ok()
+			unsafe {
+				let description = description.as_value(cx);
+				String::from_value(cx, &description, true, ()).ok()
+			}
 		} else {
 			None
 		}
@@ -149,5 +172,50 @@ impl<'o> Deref for Symbol<'o> {
 impl<'o> DerefMut for Symbol<'o> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.symbol
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use mozjs::jsapi::SymbolCode as JSSymbolCode;
+	use crate::symbol::{SymbolCode, WellKnownSymbolCode};
+
+	macro_rules! convert_codes {
+		($(($js:expr, $native:expr)$(,)?)*) => {
+			$(
+				assert_eq!($js, JSSymbolCode::from($native));
+				assert_eq!($native, SymbolCode::from($js));
+			)*
+		}
+	}
+
+	#[test]
+	fn code_conversion() {
+		use JSSymbolCode as JSSC;
+		use SymbolCode as SC;
+		use WellKnownSymbolCode as WKSC;
+
+		// Well Known Symbol Codes
+		convert_codes! {
+			(JSSC::isConcatSpreadable, SC::WellKnown(WKSC::IsConcatSpreadable)),
+			(JSSC::iterator, SC::WellKnown(WKSC::Iterator)),
+			(JSSC::match_, SC::WellKnown(WKSC::Match)),
+			(JSSC::replace, SC::WellKnown(WKSC::Replace)),
+			(JSSC::search, SC::WellKnown(WKSC::Search)),
+			(JSSC::species, SC::WellKnown(WKSC::Species)),
+			(JSSC::hasInstance, SC::WellKnown(WKSC::HasInstance)),
+			(JSSC::toPrimitive, SC::WellKnown(WKSC::ToPrimitive)),
+			(JSSC::toStringTag, SC::WellKnown(WKSC::ToStringTag)),
+			(JSSC::unscopables, SC::WellKnown(WKSC::Unscopables)),
+			(JSSC::asyncIterator, SC::WellKnown(WKSC::AsyncIterator)),
+			(JSSC::matchAll, SC::WellKnown(WKSC::MatchAll)),
+		}
+
+		// Other Symbol Codes
+		convert_codes! {
+			(JSSC::PrivateNameSymbol, SC::PrivateNameSymbol),
+			(JSSC::InSymbolRegistry, SC::InSymbolRegistry),
+			(JSSC::UniqueSymbol, SC::UniqueSymbol),
+		}
 	}
 }
