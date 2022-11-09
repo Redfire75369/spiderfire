@@ -18,6 +18,7 @@ pub mod date;
 pub mod function;
 pub mod object;
 pub mod primitive;
+pub mod promise;
 pub mod symbol;
 
 pub const INDENT: &str = "  ";

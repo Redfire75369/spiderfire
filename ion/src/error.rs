@@ -8,7 +8,7 @@ use std::{error, ptr};
 use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey, JSString};
+use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey};
 use mozjs::jsval::UndefinedValue;
 
 use crate::{Context, Object, Stack, Value};
@@ -146,11 +146,11 @@ impl Error {
 
 				let file_name = cx.root_string(file.to_string());
 
-				rooted!(in(**cx) let mut message: *mut JSString);
-				if !self.message.is_empty() {
-					let message_val = self.message.as_value(cx);
-					message.set(message_val.to_string());
-				}
+				let message = (!self.message.is_empty()).then(|| {
+					let value = self.message.as_value(cx);
+					crate::String::from(cx.root_string(value.to_string()))
+				});
+				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
 
 				let mut error = Value::from(cx.root_value(UndefinedValue()));
 

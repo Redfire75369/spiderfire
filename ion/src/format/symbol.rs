@@ -21,7 +21,7 @@ pub fn format_symbol(cx: &Context, cfg: Config, symbol: &Symbol) -> String {
 
 			match code {
 				SymbolCode::InSymbolRegistry => format!("{}{}", "Symbol.for(".color(cfg.colors.symbol), description),
-				SymbolCode::UniqueSymbol => format!("{}{}", "Symbol".color(cfg.colors.symbol), description),
+				SymbolCode::UniqueSymbol => format!("{}{}", "Symbol(".color(cfg.colors.symbol), description),
 				_ => unreachable!(),
 			}
 		}

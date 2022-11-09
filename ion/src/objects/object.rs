@@ -31,9 +31,9 @@ pub enum Key {
 
 impl Display for Key {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match *self {
+		match self {
 			Key::Int(int) => f.write_str(&int.to_string()),
-			Key::String(ref string) => f.write_str(string),
+			Key::String(string) => f.write_str(string),
 			Key::Void => panic!("Cannot convert void key into string."),
 		}
 	}

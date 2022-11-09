@@ -59,6 +59,7 @@ pub struct ColorConfig {
 	pub array: Color,
 	pub object: Color,
 	pub date: Color,
+	pub promise: Color,
 	pub symbol: Color,
 }
 
@@ -73,6 +74,7 @@ impl Default for ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			promise: Color::Yellow,
 			symbol: Color::Magenta,
 		}
 	}
@@ -90,6 +92,7 @@ impl ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			promise: Color::White,
 			symbol: Color::White,
 		}
 	}

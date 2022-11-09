@@ -130,20 +130,20 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Returns the ID of the [Promise].
-	pub fn get_id(&self) -> u64 {
+	pub fn id(&self) -> u64 {
 		unsafe { GetPromiseID(self.handle().into()) }
 	}
 
 	/// Returns the state of the [Promise].
 	///
-	/// The state can be `Pending`, `Fulfilled` (Resolved) and `Rejected`.
-	pub fn get_state(&self) -> PromiseState {
+	/// The state can be `Pending`, `Fulfilled` and `Rejected`.
+	pub fn state(&self) -> PromiseState {
 		unsafe { GetPromiseState(self.handle().into()) }
 	}
 
 	/// Returns the result of the [Promise].
-	pub fn result(&self) -> JSVal {
-		unsafe { GetPromiseResult(self.handle().into()) }
+	pub fn result<'cx>(&self, cx: &'cx Context) -> Value<'cx> {
+		Value::from(cx.root_value(unsafe { GetPromiseResult(self.handle().into()) }))
 	}
 
 	/// Adds Reactions to the [Promise]

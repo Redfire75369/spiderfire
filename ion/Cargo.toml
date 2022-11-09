@@ -29,7 +29,6 @@ macros = ["dep:ion-proc"]
 sourcemap = ["dep:sourcemap"]
 
 [lib]
-test = false
 doctest = false
 
 [[test]]
@@ -41,7 +40,6 @@ path = "tests/objects/date.rs"
 [[test]]
 name = "object"
 path = "tests/objects/object.rs"
-
 [[test]]
 name = "rooting"
 path = "tests/rooting.rs"

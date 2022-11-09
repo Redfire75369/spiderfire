@@ -10,9 +10,9 @@ use std::fmt::Write;
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
-use mozjs::jsval::ObjectValue;
 
-use crate::{Array, Context, Date, Function, Object};
+use crate::{Array, Context, Date, Function, Object, Promise};
+use crate::conversions::ToValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
@@ -20,10 +20,11 @@ use crate::format::class::format_class_object;
 use crate::format::Config;
 use crate::format::date::format_date;
 use crate::format::function::format_function;
+use crate::format::promise::format_promise;
 
 /// Formats an [Object], depending on its class, as a [String] using the given [Config].
 /// The object is passed to other formatting functions such as [format_array] and [format_date].
-pub fn format_object(cx: &Context, cfg: Config, object: Object) -> String {
+pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
 	unsafe {
 		use ESClass as ESC;
 		let mut class = ESC::Other;
@@ -31,20 +32,18 @@ pub fn format_object(cx: &Context, cfg: Config, object: Object) -> String {
 			return String::from("");
 		}
 
-		// TODO: Add Formatting for Errors and Promises
+		// TODO: Add Formatting for Errors
 		match class {
 			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &Object::from(object.into_local()), class),
 			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
 			ESC::Object => format_object_raw(cx, cfg, &Object::from(object.into_local())),
 			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
-			ESC::Function => {
-				let function = Function::from_object(cx, &object).unwrap();
-				format_function(cx, cfg, &function)
-			}
+			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()),
+			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &object).unwrap()),
 			ESC::Other => format_class_object(cx, cfg, &object),
 			_ => {
-				rooted!(in(**cx) let rval = ObjectValue(**object));
-				jsstr_to_string(**cx, JS_ValueToSource(**cx, rval.handle().into()))
+				let value = object.as_value(cx);
+				jsstr_to_string(**cx, JS_ValueToSource(**cx, value.handle().into()))
 			}
 		}
 	}
