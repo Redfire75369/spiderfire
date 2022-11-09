@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-// TODO: Add Support for JSExternalString
-
 use std::{ptr, slice};
 use std::ops::{Deref, Range};
 use std::string::String as RustString;
@@ -16,9 +14,12 @@ use mozjs::jsapi::{
 	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString, JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt,
 	JS_GetTwoByteStringCharsAndLength, JS_NewDependentString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
-use utf16string::WStr;
+use utf16string::{WStr, WString};
 
 use crate::{Context, Local};
+use crate::string::external::new_external_string;
+
+mod external;
 
 #[derive(Debug)]
 pub struct String<'s> {
@@ -39,6 +40,10 @@ impl<'s> String<'s> {
 		} else {
 			None
 		}
+	}
+
+	pub fn new_external<'cx>(cx: &'cx Context, string: WString<NativeEndian>) -> Result<String<'cx>, WString<NativeEndian>> {
+		new_external_string(cx, string)
 	}
 
 	pub fn slice<'cx: 's>(&self, cx: &'cx Context, range: &Range<usize>) -> Option<String<'s>> {

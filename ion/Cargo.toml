@@ -32,6 +32,12 @@ sourcemap = ["dep:sourcemap"]
 doctest = false
 
 [[test]]
+name = "conversions-from-value"
+path = "tests/conversions/from.rs"
+[[test]]
+name = "rooting"
+path = "tests/rooting.rs"
+[[test]]
 name = "array"
 path = "tests/objects/array.rs"
 [[test]]
@@ -40,9 +46,6 @@ path = "tests/objects/date.rs"
 [[test]]
 name = "object"
 path = "tests/objects/object.rs"
-[[test]]
-name = "rooting"
-path = "tests/rooting.rs"
 
 [[example]]
 name = "macros"

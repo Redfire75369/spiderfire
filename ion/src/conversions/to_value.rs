@@ -8,13 +8,12 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JS_GetFunctionObject, JSFunction, JSObject, JSString};
+use mozjs::jsapi::{JS_GetFunctionObject, JSFunction, JSObject, JSString, JS_WrapValue};
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue, UInt32Value, UndefinedValue,
 };
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
-use mozjs_sys::jsapi::JS_WrapValue;
 
 use crate::{Array, Context, Date, Function, Object, Promise, String, Symbol, Value};
 
