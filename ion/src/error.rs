@@ -171,6 +171,23 @@ impl Error {
 		}
 		None
 	}
+
+	pub fn format(&self) -> String {
+		let Error { kind, message, location, .. } = self;
+		if let Some(location) = location {
+			let Location { file, lineno, column } = location;
+			if !file.is_empty() {
+				return if *lineno == 0 {
+					format!("{} at {} - {}", kind, file, message)
+				} else if *column == 0 {
+					format!("{} at {}:{} - {}", kind, file, lineno, message)
+				} else {
+					format!("{} at {}:{}:{} - {}", kind, file, lineno, column, message)
+				};
+			}
+		}
+		format!("{} - {}", kind, message)
+	}
 }
 
 impl Display for Error {

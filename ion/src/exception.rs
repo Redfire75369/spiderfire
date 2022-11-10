@@ -101,22 +101,7 @@ impl Exception {
 	/// Formats the exception as an error message.
 	pub fn format(&self, cx: &Context) -> String {
 		match self {
-			Exception::Error(error) => {
-				let Error { kind, message, location, .. } = error;
-				if let Some(location) = location {
-					let Location { file, lineno, column } = location;
-					if !file.is_empty() {
-						return if *lineno == 0 {
-							format!("Uncaught {} at {} - {}", kind, file, message)
-						} else if *column == 0 {
-							format!("Uncaught {} at {}:{} - {}", kind, file, lineno, message)
-						} else {
-							format!("Uncaught {} at {}:{}:{} - {}", kind, file, lineno, column, message)
-						};
-					}
-				}
-				format!("Uncaught {} - {}", kind, message)
-			}
+			Exception::Error(error) => format!("Uncaught {}", error.format()),
 			Exception::Other(value) => {
 				format!(
 					"Uncaught Exception - {}",

@@ -11,7 +11,7 @@ use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
 
-use crate::{Array, Context, Date, Function, Object, Promise};
+use crate::{Array, Context, Date, Exception, Function, Object, Promise};
 use crate::conversions::ToValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
@@ -41,6 +41,13 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()),
 			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &object).unwrap()),
 			ESC::Other => format_class_object(cx, cfg, &object),
+			ESC::Error => {
+				let exception = Exception::from_object(cx, &object);
+				match exception {
+					Exception::Error(error) => error.format(),
+					_ => panic!("Expected Error"),
+				}
+			}
 			_ => {
 				let value = object.as_value(cx);
 				jsstr_to_string(**cx, JS_ValueToSource(**cx, value.handle().into()))
