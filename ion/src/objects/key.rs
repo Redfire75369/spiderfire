@@ -17,17 +17,6 @@ pub enum Key<'k> {
 	Void,
 }
 
-impl Key<'_> {
-	#[allow(clippy::inherent_to_string)]
-	pub fn to_string(&self) -> String {
-		match self {
-			Key::Int(i) => i.to_string(),
-			Key::String(str) => str.clone(),
-			_ => panic!("Expected String or Integer Key only."),
-		}
-	}
-}
-
 impl Hash for Key<'_> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		discriminant(self).hash(state);

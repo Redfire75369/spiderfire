@@ -9,7 +9,6 @@ use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
 use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey};
-use mozjs::jsval::UndefinedValue;
 
 use crate::{Context, Object, Stack, Value};
 use crate::conversions::ToValue;
@@ -152,7 +151,7 @@ impl Error {
 				});
 				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
 
-				let mut error = Value::from(cx.root_value(UndefinedValue()));
+				let mut error = Value::undefined(cx);
 
 				if CreateError(
 					**cx,

@@ -63,10 +63,10 @@ impl Exception {
 		unsafe {
 			let mut class = ESClass::Other;
 			if GetBuiltinClass(**cx, exception.handle().into(), &mut class) && class == ESClass::Error {
-				let message = exception.get_as::<String>(cx, "message", true, ()).unwrap_or_default();
-				let file = exception.get_as::<String>(cx, "fileName", true, ()).unwrap();
-				let lineno = exception.get_as::<u32>(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
-				let column = exception.get_as::<u32>(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
+				let message: String = exception.get_as(cx, "message", true, ()).unwrap_or_default();
+				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
+				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
+				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
 
 				let location = Location { file, lineno, column };
 				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(exception.handle().get()));

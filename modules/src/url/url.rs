@@ -52,17 +52,14 @@ mod class {
 		pub fn format(&self, cx: &Context, options: Option<Object>) -> Result<String> {
 			let mut url = self.url.clone();
 
-			let auth = options
-				.as_ref()
-				.and_then(|options| options.get_as::<bool>(cx, "auth", true, ()))
-				.unwrap_or(true);
+			let auth = options.as_ref().and_then(|options| options.get_as(cx, "auth", true, ())).unwrap_or(true);
 			let fragment = options
 				.as_ref()
-				.and_then(|options| options.get_as::<bool>(cx, "fragment", true, ()))
+				.and_then(|options| options.get_as(cx, "fragment", true, ()))
 				.unwrap_or(true);
 			let search = options
 				.as_ref()
-				.and_then(|options| options.get_as::<bool>(cx, "search", true, ()))
+				.and_then(|options| options.get_as(cx, "search", true, ()))
 				.unwrap_or(true);
 
 			if !auth {

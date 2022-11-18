@@ -8,7 +8,7 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JS_GetFunctionObject, JSFunction, JSObject, JSString, JS_WrapValue};
+use mozjs::jsapi::{JS_GetFunctionObject, JS_WrapValue, JSFunction, JSObject, JSString};
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue, UInt32Value, UndefinedValue,

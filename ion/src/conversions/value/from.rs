@@ -13,7 +13,7 @@ use mozjs::jsapi::{
 	RootedValue,
 };
 use mozjs::jsapi::Symbol as JSSymbol;
-use mozjs::jsval::{JSVal, UndefinedValue};
+use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 
 use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Symbol, Value};
@@ -395,7 +395,7 @@ where
 
 		let mut ret = vec![];
 
-		let mut value = Value::from(cx.root_value(UndefinedValue()));
+		let mut value = Value::undefined(cx);
 		loop {
 			let mut done = false;
 			if !iterator.next(value.handle_mut().into(), &mut done) {

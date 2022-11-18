@@ -11,7 +11,7 @@ use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
 
-use crate::{Array, Context, Date, Exception, Function, Key, Object, Promise};
+use crate::{Array, Context, Date, Exception, Function, Object, Promise};
 use crate::conversions::ToValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
@@ -73,10 +73,7 @@ pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
 			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 			for (i, key) in keys.into_iter().enumerate().take(length) {
-				if let Key::Symbol(_) | Key::Void = &key {
-					continue;
-				}
-				let value = object.get(cx, &key.to_string()).unwrap();
+				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
 				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
@@ -94,10 +91,7 @@ pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
 			let mut string = "{ ".color(color).to_string();
 			let len = length.clamp(0, 3);
 			for (i, key) in keys.into_iter().enumerate().take(len) {
-				if let Key::Symbol(_) | Key::Void = &key {
-					continue;
-				}
-				let value = object.get(cx, &key.to_string()).unwrap();
+				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
 

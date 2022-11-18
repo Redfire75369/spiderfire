@@ -48,7 +48,7 @@ impl ModuleData {
 	fn from_module(cx: &Context, module: Handle<JSVal>) -> Option<ModuleData> {
 		if module.get().is_object() {
 			let module = Object::from(cx.root_object(module.get().to_object()));
-			let path = module.get_as::<String>(cx, "path", true, ());
+			let path: Option<String> = module.get_as(cx, "path", true, ());
 
 			Some(ModuleData { path })
 		} else {

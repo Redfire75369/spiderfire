@@ -357,7 +357,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 			let mut has_values = false;
 
 			for row in rows.iter() {
-				let value = object.get(cx, &row.to_string()).unwrap();
+				let value = object.get(cx, &row).unwrap();
 				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 					let obj_keys = object.keys(cx, None);
 					keys.extend(obj_keys);
@@ -384,12 +384,12 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 		table.add_row(Row::new(header_row));
 
 		for row in rows.iter() {
-			let value = object.get(cx, &row.to_string()).unwrap();
-			let mut table_row = vec![TableCell::new_with_alignment(row.to_string(), 1, Alignment::Center)];
+			let value = object.get(cx, &row).unwrap();
+			let mut table_row = vec![TableCell::new_with_alignment(format_key(cx, Default::default(), row), 1, Alignment::Center)];
 
 			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 				for column in columns.iter() {
-					if let Some(value) = object.get(cx, &column.to_string()) {
+					if let Some(value) = object.get(cx, &column) {
 						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
 						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))
 					} else {
