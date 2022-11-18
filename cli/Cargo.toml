@@ -7,11 +7,11 @@ license = "MPL-2.0"
 
 [dependencies]
 colored = "2.0.0"
-clap = { version = "4.0.10", features = ["derive"] }
+clap = { version = "4.0.26", features = ["derive"] }
 dunce = "1.0.3"
 ion = { path = "../ion" }
 modules = { path = "../modules" }
-mozjs = { package = "mozjs", git = "https://github.com/servo/rust-mozjs" }
+mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 runtime = { path = "../runtime", features = ["promise-logger"] }
 rustyline = "10.0.0"
 rustyline-derive = "0.7.0"

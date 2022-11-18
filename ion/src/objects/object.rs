@@ -5,11 +5,9 @@
  */
 
 use std::ffi::CString;
-use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use mozjs::conversions::jsstr_to_string;
-use mozjs::glue::{RUST_JSID_IS_INT, RUST_JSID_IS_STRING, RUST_JSID_TO_INT, RUST_JSID_TO_STRING};
 use mozjs::jsapi::{
 	CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunction, JS_DefineFunctions, JS_DefineProperty, JS_DeleteProperty1, JS_GetProperty,
 	JS_HasOwnProperty, JS_HasProperty, JS_NewPlainObject, JS_SetProperty, JSFunctionSpec, JSObject,
@@ -17,27 +15,10 @@ use mozjs::jsapi::{
 use mozjs::jsval::{NullValue, UndefinedValue};
 use mozjs::rust::{Handle, IdVector, MutableHandle};
 
-use crate::{Context, Exception, Function, Local, Value};
+use crate::{Context, Exception, Function, Key, Local, Symbol, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::functions::NativeFunction;
-
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub enum Key {
-	Int(i32),
-	String(String),
-	Void,
-}
-
-impl Display for Key {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Key::Int(int) => f.write_str(&int.to_string()),
-			Key::String(string) => f.write_str(string),
-			Key::Void => panic!("Cannot convert void key into string."),
-		}
-	}
-}
 
 #[derive(Debug)]
 pub struct Object<'o> {
@@ -173,21 +154,21 @@ impl<'o> Object<'o> {
 
 	/// Returns a [Vec] of the keys of the [Object].
 	/// Each [Key] can be a [String], integer or void.
-	pub fn keys(&self, cx: &Context, flags: Option<IteratorFlags>) -> Vec<Key> {
+	pub fn keys<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> Vec<Key<'cx>> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(**cx) };
 		unsafe { GetPropertyKeys(**cx, self.handle().into(), flags.bits(), ids.handle_mut()) };
 		ids.iter()
 			.map(|id| {
-				rooted!(in(**cx) let id = *id);
-				unsafe {
-					if RUST_JSID_IS_INT(id.handle().into()) {
-						Key::Int(RUST_JSID_TO_INT(id.handle().into()))
-					} else if RUST_JSID_IS_STRING(id.handle().into()) {
-						Key::String(jsstr_to_string(**cx, RUST_JSID_TO_STRING(id.handle().into())))
-					} else {
-						Key::Void
-					}
+				if id.is_int() {
+					Key::Int(id.to_int())
+				} else if id.is_string() {
+					Key::String(unsafe { jsstr_to_string(**cx, id.to_string()) })
+				} else if id.is_symbol() {
+					Key::Symbol(Symbol::from(cx.root_symbol(id.to_symbol())))
+				} else {
+					assert!(id.is_void());
+					Key::Void
 				}
 			})
 			.collect()

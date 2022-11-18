@@ -20,6 +20,7 @@ use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
+use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
 
 use crate::cache::map::find_sourcemap;
@@ -311,7 +312,7 @@ fn timeEnd(label: Option<String>) {
 
 #[js_fn]
 unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
-	fn sort_keys(unsorted: Vec<Key>) -> IndexSet<Key> {
+	fn sort_keys<'cx>(cx: &'cx Context, unsorted: Vec<Key>) -> IndexSet<Key<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
 
@@ -323,10 +324,10 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 			};
 		}
 
-		combine_keys(indexes, headers)
+		combine_keys(cx, indexes, headers)
 	}
 
-	fn combine_keys(indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<Key> {
+	fn combine_keys<'cx>(_: &'cx Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<Key<'cx>> {
 		let mut indexes: Vec<i32> = indexes.into_iter().collect();
 		indexes.sort_unstable();
 
@@ -349,7 +350,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 				keys.insert(key);
 			}
 
-			(sort_keys(rows), sort_keys(keys.into_iter().collect()), false)
+			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter().collect()), false)
 		} else {
 			let rows = object.keys(cx, None);
 			let mut keys = IndexSet::<Key>::new();
@@ -365,7 +366,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 				}
 			}
 
-			(sort_keys(rows), sort_keys(keys.into_iter().collect()), has_values)
+			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter().collect()), has_values)
 		};
 
 		let mut table = Table::new();
@@ -374,7 +375,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 		let mut header_row = vec![TableCell::new_with_alignment("Indices", 1, Alignment::Center)];
 		let mut headers = columns
 			.iter()
-			.map(|column| TableCell::new_with_alignment(column, 1, Alignment::Center))
+			.map(|column| TableCell::new_with_alignment(format_key(cx, Default::default(), column), 1, Alignment::Center))
 			.collect();
 		header_row.append(&mut headers);
 		if has_values {

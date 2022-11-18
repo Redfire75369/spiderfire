@@ -16,6 +16,7 @@ pub mod class;
 mod config;
 pub mod date;
 pub mod function;
+pub mod key;
 pub mod object;
 pub mod primitive;
 pub mod promise;

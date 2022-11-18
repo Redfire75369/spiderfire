@@ -246,7 +246,7 @@ fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object, unique:
 		let key = match key {
 			Key::Int(i) => i.to_string(),
 			Key::String(s) => s,
-			Key::Void => continue,
+			_ => continue,
 		};
 
 		let name = HeaderName::from_str(&key.to_lowercase())?;

@@ -23,15 +23,15 @@ fn date() {
 	let mut cx = runtime.cx();
 	let cx = Context::new(&mut cx);
 
-	let epoch = Date::from_date(&cx, Utc.timestamp_millis(EPOCH));
-	let post_epoch = Date::from_date(&cx, Utc.timestamp_millis(POST_EPOCH));
-	let pre_epoch = Date::from_date(&cx, Utc.timestamp_millis(PRE_EPOCH));
+	let epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(EPOCH).unwrap());
+	let post_epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(POST_EPOCH).unwrap());
+	let pre_epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(PRE_EPOCH).unwrap());
 
 	assert!(epoch.is_valid(&cx));
 	assert!(post_epoch.is_valid(&cx));
 	assert!(pre_epoch.is_valid(&cx));
 
-	assert_eq!(Some(Utc.timestamp_millis(EPOCH)), epoch.to_date(&cx));
-	assert_eq!(Some(Utc.timestamp_millis(POST_EPOCH)), post_epoch.to_date(&cx));
-	assert_eq!(Some(Utc.timestamp_millis(PRE_EPOCH)), pre_epoch.to_date(&cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(EPOCH).unwrap()), epoch.to_date(&cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(POST_EPOCH).unwrap()), post_epoch.to_date(&cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(PRE_EPOCH).unwrap()), pre_epoch.to_date(&cx));
 }

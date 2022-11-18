@@ -11,7 +11,7 @@ use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
 
-use crate::{Array, Context, Date, Exception, Function, Object, Promise};
+use crate::{Array, Context, Date, Exception, Function, Key, Object, Promise};
 use crate::conversions::ToValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
@@ -20,6 +20,7 @@ use crate::format::class::format_class_object;
 use crate::format::Config;
 use crate::format::date::format_date;
 use crate::format::function::format_function;
+use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 
 /// Formats an [Object], depending on its class, as a [String] using the given [Config].
@@ -72,10 +73,13 @@ pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
 			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 			for (i, key) in keys.into_iter().enumerate().take(length) {
+				if let Key::Symbol(_) | Key::Void = &key {
+					continue;
+				}
 				let value = object.get(cx, &key.to_string()).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
-				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
+				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
 
 				if i != length - 1 {
 					string.push_str(&",".color(color));
@@ -90,9 +94,12 @@ pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
 			let mut string = "{ ".color(color).to_string();
 			let len = length.clamp(0, 3);
 			for (i, key) in keys.into_iter().enumerate().take(len) {
+				if let Key::Symbol(_) | Key::Void = &key {
+					continue;
+				}
 				let value = object.get(cx, &key.to_string()).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
-				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
+				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
 
 				if i != len - 1 {
 					string.push_str(&", ".color(color));

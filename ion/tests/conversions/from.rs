@@ -210,7 +210,7 @@ unsafe fn test_objects(cx: &Context) {
 	let result = Array::from_value(cx, &value, true, ());
 	assert!(result.is_ok());
 
-	let timestamp = Utc.timestamp_millis(Utc::now().timestamp_millis());
+	let timestamp = Utc.timestamp_millis_opt(Utc::now().timestamp_millis()).unwrap();
 	let date = Date::from_date(cx, timestamp);
 	let value = date.as_value(cx);
 	let result = Date::from_value(cx, &value, true, ());

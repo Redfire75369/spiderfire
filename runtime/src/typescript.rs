@@ -68,7 +68,7 @@ pub fn compile_typescript_script(filename: &str, source: &str) -> Result<(String
 	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
 	emitter.emit_script(&script).map_err(|_| Error::Emission)?;
 
-	let sourcemap = source_map.build_source_map(&mut mappings);
+	let sourcemap = source_map.build_source_map(&mappings);
 
 	Ok((String::from_utf8(buffer)?, sourcemap))
 }
@@ -104,7 +104,7 @@ pub fn compile_typescript_module(filename: &str, source: &str) -> Result<(String
 	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
 	emitter.emit_module(&module).map_err(|_| Error::Emission)?;
 
-	let sourcemap = source_map.build_source_map(&mut mappings);
+	let sourcemap = source_map.build_source_map(&mappings);
 
 	Ok((String::from_utf8(buffer)?, sourcemap))
 }

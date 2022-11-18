@@ -8,9 +8,9 @@ license = "MPL-2.0"
 [dependencies]
 convert_case = "0.6.0"
 quote = "1.0.21"
-prettyplease = "0.1.19"
-proc-macro2 = "1.0.46"
-syn = { version = "1.0.101", features = ["extra-traits", "full", "visit-mut"] }
+prettyplease = "0.1.21"
+proc-macro2 = "1.0.47"
+syn = { version = "1.0.103", features = ["extra-traits", "full", "visit-mut"] }
 
 [lib]
 proc-macro = true
