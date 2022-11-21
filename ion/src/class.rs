@@ -22,6 +22,7 @@ use crate::functions::NativeFunction;
 // TODO: Move into Context Wrapper
 thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefCell::new(HashMap::new()));
 
+/// Stores information about a native class created for JS.
 #[derive(Copy, Clone, Debug)]
 pub struct ClassInfo {
 	#[allow(dead_code)]
@@ -150,7 +151,7 @@ pub trait ClassInitialiser {
 			let ptr = JS_GetInstancePrivate(**cx, object.handle().into(), Self::class(), args) as *mut Self;
 			if !ptr.is_null() {
 				let private = Box::from_raw(ptr);
-				SetPrivate(object.handle().get(), ptr::null_mut() as *mut c_void);
+				SetPrivate(***object, ptr::null_mut() as *mut c_void);
 				Ok(private)
 			} else {
 				Err(Error::new(
@@ -169,6 +170,7 @@ pub trait ClassInitialiser {
 	}
 }
 
+/// Converts an instance of a native class into its native value, by cloning it.
 pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
 	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {

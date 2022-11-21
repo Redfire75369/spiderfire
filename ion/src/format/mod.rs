@@ -25,7 +25,7 @@ pub mod symbol;
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
-/// Formats a [JSVal] as a [String] with the given [Config].
+/// Formats a [Value] as a [String] with the given [configuration](Config).
 pub fn format_value<'cx: 'v, 'v>(cx: &'cx Context, cfg: Config, value: &Value<'v>) -> String {
 	if !value.is_object() {
 		format_primitive(cx, cfg, value)

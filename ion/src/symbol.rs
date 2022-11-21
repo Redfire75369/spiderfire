@@ -14,6 +14,10 @@ use mozjs::jsapi::SymbolCode as JSSymbolCode;
 use crate::{Context, Local};
 use crate::conversions::{FromValue, ToValue};
 
+/// Represents a well-known symbol code.
+///
+/// Each of these refer to a property on the `Symbol` global object.
+/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol#static_properties) for more details.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum WellKnownSymbolCode {
@@ -32,6 +36,8 @@ pub enum WellKnownSymbolCode {
 	MatchAll,
 }
 
+/// Represents the code of a [Symbol].
+/// The code can be a [WellKnownSymbolCode], a private name symbol, a symbol within the registry, or a unique symbol.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum SymbolCode {
 	WellKnown(WellKnownSymbolCode),
@@ -41,6 +47,9 @@ pub enum SymbolCode {
 }
 
 impl WellKnownSymbolCode {
+	/// Converts a [WellKnownSymbolCode] into its corresponding identifier.
+	///
+	/// These identifiers refer to the property names on the `Symbol` global object.
 	pub fn identifier(&self) -> &'static str {
 		use WellKnownSymbolCode as WKSC;
 		match self {
@@ -62,6 +71,7 @@ impl WellKnownSymbolCode {
 }
 
 impl SymbolCode {
+	/// Checks if a [SymbolCode] is a well-known symbol code.
 	pub fn well_known(&self) -> Option<WellKnownSymbolCode> {
 		if let SymbolCode::WellKnown(code) = self {
 			Some(*code)
@@ -111,12 +121,16 @@ impl From<SymbolCode> for JSSymbolCode {
 	}
 }
 
+/// Represents a symbol in the JS Runtime.
+///
+/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol) for more details.
 #[derive(Debug)]
 pub struct Symbol<'s> {
 	symbol: Local<'s, *mut JSSymbol>,
 }
 
 impl<'s> Symbol<'s> {
+	/// Creates a new unique symbol with a given description.
 	pub fn new<'cx>(cx: &'cx Context, description: &str) -> Symbol<'cx> {
 		let description = unsafe { description.as_value(cx) };
 		let description = cx.root_string(description.to_string());
@@ -125,6 +139,7 @@ impl<'s> Symbol<'s> {
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
+	/// Gets a [Symbol] from the symbol registry with a given key.
 	pub fn for_key<'cx>(cx: &'cx Context, key: &str) -> Symbol<'cx> {
 		let key = unsafe { key.as_value(cx) };
 		let key = cx.root_string(key.to_string());
@@ -133,15 +148,20 @@ impl<'s> Symbol<'s> {
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
+	/// Creates a well-known symbol with its corresponding code.
 	pub fn well_known<'cx>(cx: &'cx Context, code: WellKnownSymbolCode) -> Symbol<'cx> {
 		let symbol = unsafe { GetWellKnownSymbol(**cx, code.into()) };
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
+	/// Returns the identifying code of a [Symbol].
 	pub fn code(&self) -> SymbolCode {
 		unsafe { GetSymbolCode(self.symbol.handle().into()).into() }
 	}
 
+	/// Returns the description of a [Symbol].
+	///
+	/// Returns [None] for well-known symbols.
 	pub fn description(&self, cx: &Context) -> Option<String> {
 		let description = unsafe { GetSymbolDescription(self.symbol.handle().into()) };
 		if !description.is_null() {
@@ -178,6 +198,7 @@ impl<'o> DerefMut for Symbol<'o> {
 #[cfg(test)]
 mod tests {
 	use mozjs::jsapi::SymbolCode as JSSymbolCode;
+
 	use crate::symbol::{SymbolCode, WellKnownSymbolCode};
 
 	macro_rules! convert_codes {

@@ -12,6 +12,8 @@ use mozjs::jsval::JSVal;
 use crate::{Context, Local, Value};
 
 /// Function Arguments
+///
+/// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
 #[derive(Debug)]
 pub struct Arguments<'cx> {
 	values: Vec<Value<'cx>>,
@@ -21,7 +23,7 @@ pub struct Arguments<'cx> {
 }
 
 impl<'cx> Arguments<'cx> {
-	/// Creates new [Arguments] from raw argument,
+	/// Creates new [Arguments] from raw arguments,
 	pub fn new(cx: &'cx Context, argc: u32, vp: *mut JSVal) -> Arguments<'cx> {
 		unsafe {
 			let call_args = CallArgs::from_vp(vp, argc);
@@ -39,7 +41,8 @@ impl<'cx> Arguments<'cx> {
 		self.values.len()
 	}
 
-	/// Gets the handle of the value at the given index.
+	/// Gets the [Value] at the given index.
+	///
 	/// Returns [None] if the given index is larger than the number of arguments.
 	pub fn value(&self, index: usize) -> Option<&Value<'cx>> {
 		if index < self.len() {
@@ -48,7 +51,7 @@ impl<'cx> Arguments<'cx> {
 		None
 	}
 
-	/// Returns a range of handles within the arguments.
+	/// Returns a [Vec<&Value>] of arguments based on the indices of the iterator.
 	pub fn range<'a, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>>
 	where
 		'cx: 'a,
@@ -61,7 +64,7 @@ impl<'cx> Arguments<'cx> {
 		&mut self.this
 	}
 
-	/// Returns the mutable return value of the function.
+	/// Returns the return [Value] of the function.
 	pub fn rval(&mut self) -> &mut Value<'cx> {
 		&mut self.rval
 	}
@@ -71,6 +74,7 @@ impl<'cx> Arguments<'cx> {
 		self.call_args.constructing_()
 	}
 
+	/// Returns the raw [CallArgs].
 	pub fn call_args(&self) -> CallArgs {
 		self.call_args
 	}

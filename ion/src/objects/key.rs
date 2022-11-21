@@ -9,6 +9,7 @@ use std::mem::discriminant;
 
 use crate::Symbol;
 
+/// Represents the key on an object.
 #[derive(Debug)]
 pub enum Key<'k> {
 	Int(i32),

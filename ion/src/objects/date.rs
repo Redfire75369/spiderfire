@@ -13,18 +13,21 @@ use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local};
 
+/// Represents a `Date` in the JS Runtime.
+///
+/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date) for more details.
 #[derive(Debug)]
 pub struct Date<'d> {
 	date: Local<'d, *mut JSObject>,
 }
 
 impl<'d> Date<'d> {
-	/// Creates a new Date Object with the current time.
+	/// Creates a new [Date] with the current time.
 	pub fn new<'cx>(cx: &'cx Context) -> Date<'cx> {
 		Date::from_date(cx, Utc::now())
 	}
 
-	/// Creates a new Date Object with the given time.
+	/// Creates a new [Date] with the given time.
 	pub fn from_date<'cx>(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
 		Date {
 			date: cx.root_object(unsafe { NewDateObject(**cx, ClippedTime { t: time.timestamp_millis() as f64 }) }),
@@ -40,7 +43,7 @@ impl<'d> Date<'d> {
 		}
 	}
 
-	/// Creates a [Date] from a [*mut JSObject].
+	/// Creates a [Date] from an object.
 	///
 	/// ### Safety
 	/// Object must be a Date.
@@ -78,14 +81,14 @@ impl<'d> Date<'d> {
 		self.date.handle_mut()
 	}
 
-	/// Checks if a [*mut JSObject] is a date.
+	/// Checks if a [*mut] [JSObject] is a date.
 	pub fn is_date_raw(cx: &Context, object: *mut JSObject) -> bool {
 		rooted!(in(**cx) let object = object);
 		let mut is_date = false;
 		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date
 	}
 
-	/// Checks if a [*mut JSObject] is a date.
+	/// Checks if an object is a date.
 	pub fn is_date(cx: &Context, object: &Local<*mut JSObject>) -> bool {
 		let mut is_date = false;
 		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date

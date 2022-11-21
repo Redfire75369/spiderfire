@@ -15,6 +15,7 @@ use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::stack::Location;
 
+/// Represents the types of errors that can be thrown and are recognised in the JS Runtime.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorKind {
 	Normal,
@@ -25,13 +26,15 @@ pub enum ErrorKind {
 	Reference,
 	Syntax,
 	Type,
-	Compile,
-	Link,
-	Runtime,
+	WasmCompile,
+	WasmLink,
+	WasmRuntime,
 	None,
 }
 
 impl ErrorKind {
+	/// Converts a prototype key into an [ErrorKind].
+	/// Returns [ErrorKind::None] for unrecognised prototype keys.
 	pub fn from_proto_key(key: JSProtoKey) -> ErrorKind {
 		use JSProtoKey::{
 			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError, JSProto_LinkError,
@@ -47,13 +50,16 @@ impl ErrorKind {
 			JSProto_ReferenceError => EK::Reference,
 			JSProto_SyntaxError => EK::Syntax,
 			JSProto_TypeError => EK::Type,
-			JSProto_CompileError => EK::Compile,
-			JSProto_LinkError => EK::Link,
-			JSProto_RuntimeError => EK::Runtime,
+			JSProto_CompileError => EK::WasmCompile,
+			JSProto_LinkError => EK::WasmLink,
+			JSProto_RuntimeError => EK::WasmRuntime,
 			_ => EK::None,
 		}
 	}
 
+	/// Converts an [ErrorKind] into a an exception type.
+	///
+	/// Note that [`ErrorKind::None`] is converted to [`JSEXN_ERR`](JSExnType::JSEXN_ERR).
 	pub fn to_exception_type(&self) -> JSExnType {
 		use ErrorKind as EK;
 		use JSExnType as JSET;
@@ -66,9 +72,9 @@ impl ErrorKind {
 			EK::Reference => JSET::JSEXN_REFERENCEERR,
 			EK::Syntax => JSET::JSEXN_SYNTAXERR,
 			EK::Type => JSET::JSEXN_TYPEERR,
-			EK::Compile => JSET::JSEXN_WASMCOMPILEERROR,
-			EK::Link => JSET::JSEXN_WASMLINKERROR,
-			EK::Runtime => JSET::JSEXN_WASMRUNTIMEERROR,
+			EK::WasmCompile => JSET::JSEXN_WASMCOMPILEERROR,
+			EK::WasmLink => JSET::JSEXN_WASMLINKERROR,
+			EK::WasmRuntime => JSET::JSEXN_WASMRUNTIMEERROR,
 			EK::None => JSET::JSEXN_ERR,
 		}
 	}
@@ -86,16 +92,19 @@ impl Display for ErrorKind {
 			EK::Reference => "ReferenceError",
 			EK::Syntax => "SyntaxError",
 			EK::Type => "TypeError",
-			EK::Compile => "CompileError",
-			EK::Link => "LinkError",
-			EK::Runtime => "CompileError",
+			EK::WasmCompile => "CompileError",
+			EK::WasmLink => "LinkError",
+			EK::WasmRuntime => "CompileError",
 			EK::None => "Not an Error",
 		};
 		f.write_str(str)
 	}
 }
 
-/// Represents errors that can be thrown in the runtime.
+/// Represents errors in the JS Runtime
+/// Contains information about the type of error, the error message and the error location.
+///
+/// If created from an error object, it also contains the error object.
 #[derive(Clone, Debug)]
 pub struct Error {
 	pub kind: ErrorKind,

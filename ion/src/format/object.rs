@@ -23,7 +23,8 @@ use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 
-/// Formats an [Object], depending on its class, as a [String] using the given [Config].
+/// Formats an [Object], depending on its class, as a [String] using the given [configuration](Config).
+///
 /// The object is passed to other formatting functions such as [format_array] and [format_date].
 pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
 	unsafe {
@@ -37,7 +38,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 		match class {
 			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &Object::from(object.into_local()), class),
 			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
-			ESC::Object => format_object_raw(cx, cfg, &Object::from(object.into_local())),
+			ESC::Object => format_plain_object(cx, cfg, &Object::from(object.into_local())),
 			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
 			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()),
 			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &object).unwrap()),
@@ -57,10 +58,11 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 	}
 }
 
-/// Formats an [Object] as a [String] using the given [Config].
+/// Formats an [Object] as a [String] using the given [configuration](Config).
+///
 /// Disregards the class of the object.
-pub fn format_object_raw(cx: &Context, cfg: Config, object: &Object) -> String {
-	let color = cfg.colors.object;
+pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String {
+	let color = cfg.colours.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));
 		let length = keys.len();

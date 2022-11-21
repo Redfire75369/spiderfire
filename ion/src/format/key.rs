@@ -10,11 +10,12 @@ use crate::{Context, Key};
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
+/// Formats an object [Key] as a [String] with the given [configuration](Config),
 pub fn format_key(cx: &Context, cfg: Config, key: &Key) -> String {
 	match key {
-		Key::Int(i) => i.to_string().color(cfg.colors.object).to_string(),
-		Key::String(str) => format!("\"{}\"", str).color(cfg.colors.string).to_string(),
-		Key::Symbol(symbol) => format!("[{}]", format_symbol(cx, cfg, symbol)).color(cfg.colors.symbol).to_string(),
-		Key::Void => "<void>".color(cfg.colors.object).to_string(),
+		Key::Int(i) => i.to_string().color(cfg.colours.object).to_string(),
+		Key::String(str) => format!("\"{}\"", str).color(cfg.colours.string).to_string(),
+		Key::Symbol(symbol) => format!("[{}]", format_symbol(cx, cfg, symbol)).color(cfg.colours.symbol).to_string(),
+		Key::Void => "<void>".color(cfg.colours.object).to_string(),
 	}
 }

@@ -12,9 +12,9 @@ use crate::{Array, Context};
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::Config;
 
-/// Formats an [Array] as a [String] using the given [Config].
+/// Formats an [Array] as a [String] using the given [configuration](Config).
 pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
-	let color = cfg.colors.array;
+	let color = cfg.colours.array;
 	if cfg.depth < 5 {
 		let vec = array.to_vec(cx);
 		let length = vec.len();

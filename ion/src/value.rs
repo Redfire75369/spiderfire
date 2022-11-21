@@ -45,12 +45,12 @@ impl<'v> Value<'v> {
 
 	/// Creates a [Value] from an [Object].
 	pub fn object<'cx>(cx: &'cx Context, object: &Object) -> Value<'cx> {
-		Value::from(cx.root_value(ObjectValue(object.handle().get())))
+		Value::from(cx.root_value(ObjectValue(***object)))
 	}
 
 	/// Creates a [Value] from an [Array].
 	pub fn array<'cx>(cx: &'cx Context, array: &Array) -> Value<'cx> {
-		Value::from(cx.root_value(ObjectValue(array.handle().get())))
+		Value::from(cx.root_value(ObjectValue(***array)))
 	}
 
 	/// Creates an `undefined` [Value].
@@ -58,15 +58,20 @@ impl<'v> Value<'v> {
 		Value::from(cx.root_value(UndefinedValue()))
 	}
 
-	/// Creates an `null` [Value].
+	/// Creates a `null` [Value].
 	pub fn null<'cx>(cx: &'cx Context) -> Value<'cx> {
 		Value::from(cx.root_value(NullValue()))
 	}
 
+	/// Converts a [Value] to an [Object].
+	///
+	/// ### Panics
+	/// This panics if the [Value] is not an object.
 	pub fn to_object<'cx: 'v>(&self, cx: &'cx Context) -> Object<'cx> {
 		cx.root_object(self.value.to_object()).into()
 	}
 
+	/// Forms a [Handle] to the [Value].
 	pub fn handle<'a>(&'a self) -> Handle<'a, JSVal>
 	where
 		'v: 'a,
@@ -74,6 +79,7 @@ impl<'v> Value<'v> {
 		self.value.handle()
 	}
 
+	/// Forms a [MutableHandle] to the [Value].
 	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, JSVal>
 	where
 		'v: 'a,

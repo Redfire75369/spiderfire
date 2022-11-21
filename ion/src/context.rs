@@ -15,6 +15,7 @@ use typed_arena::Arena;
 
 use crate::Local;
 
+/// Represents Types that can be Rooted in SpiderMonkey
 #[allow(dead_code)]
 pub enum GCType {
 	Value,
@@ -26,6 +27,7 @@ pub enum GCType {
 	Symbol,
 }
 
+/// Holds Rooted Values
 #[derive(Default)]
 struct RootedArena {
 	values: Arena<Rooted<JSVal>>,
@@ -37,6 +39,7 @@ struct RootedArena {
 	symbols: Arena<Rooted<*mut Symbol>>,
 }
 
+/// Holds RootedGuards which have been converted to [Local]s
 #[derive(Default)]
 struct LocalArena<'a> {
 	order: RefCell<Vec<GCType>>,
@@ -49,6 +52,9 @@ struct LocalArena<'a> {
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
+/// Represents the thread-local state of the runtime.
+///
+/// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
 pub struct Context<'c> {
 	context: &'c mut *mut JSContext,
 	rooted: RootedArena,
@@ -58,6 +64,7 @@ pub struct Context<'c> {
 macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
+			/// Roots a [$pointer], as a $gc_type, and returns a [Local] to it.
 			pub fn $fn_name<'cx>(&'cx self, ptr: $pointer) -> Local<'cx, $pointer> {
 				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
 				self.local.order.borrow_mut().push(GCType::$gc_type);
@@ -72,6 +79,7 @@ macro_rules! impl_root_methods {
 }
 
 impl Context<'_> {
+	/// Creates a new [Context] with a given lifetime.
 	pub fn new(context: &mut *mut JSContext) -> Context {
 		Context {
 			context,
@@ -118,6 +126,7 @@ macro_rules! impl_drop {
 }
 
 impl Drop for Context<'_> {
+	/// Drops the rooted values in reverse-order to maintain LIFO destruction in the Linked List.
 	fn drop(&mut self) {
 		impl_drop! {
 			[self],

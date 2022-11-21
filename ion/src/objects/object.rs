@@ -17,22 +17,27 @@ use mozjs::jsval::NullValue;
 use mozjs::rust::{Handle, IdVector, MutableHandle};
 
 use crate::{Context, Exception, Function, Key, Local, Symbol, Value};
-use crate::conversions::{FromValue, ToKey, ToValue};
+use crate::conversions::{FromValue, IntoKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::functions::NativeFunction;
 
+/// Represents an [Object] in the JS Runtime.
+///
+/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) for more details.
 #[derive(Debug)]
 pub struct Object<'o> {
 	object: Local<'o, *mut JSObject>,
 }
 
 impl<'o> Object<'o> {
-	/// Creates an empty [Object].
+	/// Creates a plain empty [Object].
 	pub fn new<'cx>(cx: &'cx Context) -> Object<'cx> {
 		Object::from(cx.root_object(unsafe { JS_NewPlainObject(**cx) }))
 	}
 
 	/// Creates a `null` "Object".
+	///
+	/// Most operations on this will result in an error, so be wary of where it is used.
 	pub fn null<'cx>(cx: &'cx Context) -> Object<'cx> {
 		Object::from(cx.root_object(NullValue().to_object_or_null()))
 	}
@@ -42,9 +47,9 @@ impl<'o> Object<'o> {
 		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(**cx) }))
 	}
 
-	/// Checks if the [Object] has a value at the given key.
-	pub fn has<'cx, K: ToKey<'cx> + ?Sized>(&self, cx: &'cx Context, key: &K) -> bool {
-		let key = key.to_key(cx);
+	/// Checks if the [Object] has a value at the given [key](Key).
+	pub fn has<'cx, K: IntoKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+		let key = key.into_key(cx);
 		let mut found = false;
 		if unsafe { JS_HasPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
 			found
@@ -54,10 +59,11 @@ impl<'o> Object<'o> {
 		}
 	}
 
-	/// Checks if the [Object] has its own value at the given key.
+	/// Checks if the [Object] has its own value at the given [key](Key).
+	///
 	/// An object owns its properties if they are not inherited from a prototype.
-	pub fn has_own<'cx, K: ToKey<'cx> + ?Sized>(&self, cx: &'cx Context, key: &K) -> bool {
-		let key = key.to_key(cx);
+	pub fn has_own<'cx, K: IntoKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+		let key = key.into_key(cx);
 		let mut found = false;
 		if unsafe { JS_HasOwnPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
 			found
@@ -67,11 +73,12 @@ impl<'o> Object<'o> {
 		}
 	}
 
-	/// Gets the [JSVal] at the given key of the [Object].
-	/// Returns [None] if there is no value at the given key.
-	pub fn get<'cx, K: ToKey<'cx> + ?Sized>(&self, cx: &'cx Context, key: &K) -> Option<Value<'cx>> {
-		if self.has(cx, key) {
-			let key = key.to_key(cx);
+	/// Gets the [Value] at the given key of the [Object].
+	///
+	/// Returns [None] if there is no value at the given [key](Key).
+	pub fn get<'cx, K: IntoKey<'cx>>(&self, cx: &'cx Context, key: K) -> Option<Value<'cx>> {
+		let key = key.into_key(cx);
+		if self.has(cx, cx.root_property_key(*key)) {
 			let mut rval = Value::undefined(cx);
 			unsafe { JS_GetPropertyById(**cx, self.handle().into(), key.handle().into(), rval.handle_mut().into()) };
 			Some(rval)
@@ -81,28 +88,31 @@ impl<'o> Object<'o> {
 	}
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
-	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub fn get_as<'cx, K: ToKey<'cx> + ?Sized, T: FromValue<'cx>>(&self, cx: &'cx Context, key: &K, strict: bool, config: T::Config) -> Option<T> {
+	/// Returns [None] if the object does not contain the [key](Key) or conversion to the Rust type fails.
+	pub fn get_as<'cx, K: IntoKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
 		self.get(cx, key).and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
 	}
 
-	/// Sets the [JSVal] at the given key of the [Object].
+	/// Sets the [Value] at the given [key](Key) of the [Object].
+	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set<'cx, K: ToKey<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: &K, value: &Value) -> bool {
-		let key = key.to_key(cx);
+	pub fn set<'cx, K: IntoKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
+		let key = key.into_key(cx);
 		unsafe { JS_SetPropertyById(**cx, self.handle().into(), key.handle().into(), value.handle().into()) }
 	}
 
-	/// Sets the Rust type at the given key of the [Object].
+	/// Sets the Rust type at the given [key](Key) of the [Object].
+	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<'cx, K: ToKey<'cx> + ?Sized, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: &K, value: &T) -> bool {
+	pub fn set_as<'cx, K: IntoKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
 		self.set(cx, key, unsafe { &value.as_value(cx) })
 	}
 
-	/// Defines the [JSVal] at the given key of the [Object] with the given attributes.
+	/// Defines the [Value] at the given [key](Key) of the [Object] with the given attributes.
+	///
 	/// Returns `false` if the property cannot be defined.
-	pub fn define<'cx, K: ToKey<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: &K, value: &Value, attrs: PropertyFlags) -> bool {
-		let key = key.to_key(cx);
+	pub fn define<'cx, K: IntoKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags) -> bool {
+		let key = key.into_key(cx);
 		unsafe {
 			JS_DefinePropertyById2(
 				**cx,
@@ -114,45 +124,52 @@ impl<'o> Object<'o> {
 		}
 	}
 
-	/// Defines the Rust type at the given key of the [Object] with the given attributes.
+	/// Defines the Rust type at the given [key](Key) of the [Object] with the given attributes.
+	///
 	/// Returns `false` if the property cannot be defined.
-	pub fn define_as<'cx, K: ToKey<'cx> + ?Sized, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, key: &K, value: &T, attrs: PropertyFlags,
-	) -> bool {
+	pub fn define_as<'cx, K: IntoKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags) -> bool {
 		self.define(cx, key, unsafe { &value.as_value(cx) }, attrs)
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].
+	///
 	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
-	pub fn define_method<'cx, K: ToKey<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, key: &K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
+	pub fn define_method<'cx, K: IntoKey<'cx>>(
+		&mut self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
 	) -> Function<'cx> {
-		let key = key.to_key(cx);
+		let key = key.into_key(cx);
 		cx.root_function(unsafe { JS_DefineFunctionById(**cx, self.handle().into(), key.handle().into(), Some(method), nargs, attrs.bits() as u32) })
 			.into()
 	}
 
 	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
+	///
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
+	///
 	/// They can be created through [function_spec](crate::function_spec).
 	pub fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
 		unsafe { JS_DefineFunctions(**cx, self.handle().into(), methods.as_ptr()) }
 	}
 
+	/// Defines methods on the [Object] using the given [JSFunctionSpecWithHelp]s.
+	///
+	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
 	pub fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
 		unsafe { JS_DefineFunctionsWithHelp(**cx, self.handle().into(), methods.as_ptr()) }
 	}
 
-	/// Deletes the [JSVal] at the given index.
+	/// Deletes the [Value] at the given index.
+	///
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete<'cx: 'o, K: ToKey<'cx> + ?Sized>(&self, cx: &'cx Context, key: &K) -> bool {
-		let key = key.to_key(cx);
+	pub fn delete<'cx: 'o, K: IntoKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+		let key = key.into_key(cx);
 		let mut result = MaybeUninit::uninit();
 		unsafe { JS_DeletePropertyById(**cx, self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
 	}
 
 	/// Returns a [Vec] of the keys of the [Object].
-	/// Each [Key] can be a [String], integer or void.
+	///
+	/// Each [Key] can be a [String], [Symbol], integer or void.
 	pub fn keys<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> Vec<Key<'cx>> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(**cx) };

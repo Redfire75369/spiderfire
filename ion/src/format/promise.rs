@@ -11,6 +11,7 @@ use crate::{Context, Promise};
 use crate::format::Config;
 
 // TODO: Add Support for Formatting Fulfilled Values and Rejected Reasons
+/// Formats a [Promise] as a [String] with the given [configuration](Config).
 pub fn format_promise(_cx: &Context, cfg: Config, promise: &Promise) -> String {
 	let state = promise.state();
 	let base = match state {
@@ -18,5 +19,5 @@ pub fn format_promise(_cx: &Context, cfg: Config, promise: &Promise) -> String {
 		PromiseState::Fulfilled => "Promise { <fulfilled> }",
 		PromiseState::Rejected => "Promise { <rejected> }",
 	};
-	base.color(cfg.colors.promise).to_string()
+	base.color(cfg.colours.promise).to_string()
 }

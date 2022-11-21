@@ -10,7 +10,7 @@ use crate::{Context, Object, Value};
 use crate::format::Config;
 use crate::format::primitive::format_primitive;
 
-/// Formats a boxed primitive ([Object]) as a [String] using the given [Config].
+/// Formats a boxed primitive ([Object]) as a [String] using the given [configuration](Config).
 /// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt`.
 ///
 /// ### Unimplemented
