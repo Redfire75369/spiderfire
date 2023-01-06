@@ -3,7 +3,6 @@ use ion::js_class;
 
 #[js_class]
 mod class {
-	use std::mem::drop;
 
 	use ion::{Context, Function, Object, Result, Value};
 	use ion::conversions::{ConversionBehavior, FromValue};
@@ -52,11 +51,6 @@ mod class {
 			self.toggle = toggle;
 			toggle
 		}
-
-		#[ion(alias = ["close"])]
-		pub fn destroy(self: Box<Self>) {
-			drop(self);
-		}
 	}
 }
 
@@ -65,5 +59,4 @@ fn ensure_callable() {
 	toggle.get_toggle();
 	toggle.set_toggle(true);
 	toggle.reset();
-	toggle.destroy();
 }

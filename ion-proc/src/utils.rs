@@ -6,7 +6,7 @@
 
 use prettyplease::unparse;
 use proc_macro2::Ident;
-use syn::{GenericArgument, GenericParam, Generics, parse2, Pat, PathArguments, Type, TypeParamBound, TypePath};
+use syn::{GenericParam, Generics, parse2, Pat, Type, TypeParamBound, TypePath};
 
 pub(crate) fn type_ends_with<I: ?Sized>(ty: &TypePath, ident: &I) -> bool
 where
@@ -25,18 +25,6 @@ pub(crate) fn extract_last_argument(ty: &Type) -> Option<Ident> {
 	} else {
 		None
 	}
-}
-
-pub(crate) fn extract_type_argument(ty: &TypePath, index: usize) -> Option<Box<Type>> {
-	if !ty.path.segments.is_empty() && ty.path.segments.len() > index {
-		let last = ty.path.segments.last().unwrap();
-		if let PathArguments::AngleBracketed(angle_bracketed) = &last.arguments {
-			if let Some(GenericArgument::Type(ty)) = angle_bracketed.args.iter().nth(index) {
-				return Some(Box::new(ty.clone()));
-			}
-		}
-	}
-	None
 }
 
 pub(crate) fn add_trait_bounds(generics: &mut Generics, bound: &TypeParamBound) {

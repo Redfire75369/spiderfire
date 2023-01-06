@@ -11,13 +11,12 @@ use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
 use crate::function::attribute::ParameterAttribute;
-use crate::utils::{extract_type_argument, format_pat, type_ends_with};
+use crate::utils::{format_pat, type_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ThisKind {
 	Ref(Option<Lifetime>, Option<Token![mut]>),
-	Box,
 	Owned,
 }
 
@@ -184,9 +183,6 @@ impl Parameter {
 					ThisKind::Ref(lt, mutability) => Ok(parse2(quote!(
 						let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(cx, &#this, ::std::option::Option::Some(args))?;
 					))?),
-					ThisKind::Box => Ok(parse2(quote!(
-						let #pat: ::std::boxed::Box<#ty> = <#ty as #krate::ClassInitialiser>::take_private(cx, &#this, ::std::option::Option::Some(args))?;
-					))?),
 					ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 				}
 			}
@@ -266,10 +262,6 @@ impl Parameters {
 						index = Some(i);
 						parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap()
 					}
-					ThisKind::Box => {
-						index = Some(i);
-						parse2(quote_spanned!(pat.span() => #pat: Box<#ty>)).unwrap()
-					}
 					ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
 				},
 				Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
@@ -326,10 +318,6 @@ pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {
 
 pub(crate) fn parse_this(pat: Box<Pat>, ty: Box<Type>, is_class: bool, span: Span) -> Result<Parameter> {
 	match *ty {
-		Type::Path(path) if type_ends_with(&path, "Box") => {
-			let ty = extract_type_argument(&path, 0).unwrap();
-			Ok(Parameter::This { pat, ty, kind: ThisKind::Box })
-		}
 		Type::Reference(reference) => {
 			let ty = reference.elem;
 			Ok(Parameter::This {

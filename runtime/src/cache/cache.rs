@@ -124,9 +124,9 @@ impl Cache {
 			write(&destination_file, &destination)?;
 			write(&map_file, sourcemap_str)?;
 
-			write(&source_hash_file, &source_hash)?;
-			write(&destination_hash_file, &hash(&destination, None))?;
-			write(&map_hash_file, &hash(sourcemap_str, None))?;
+			write(source_hash_file, source_hash)?;
+			write(destination_hash_file, hash(&destination, None))?;
+			write(map_hash_file, hash(sourcemap_str, None))?;
 
 			Ok((destination, sourcemap))
 		} else {

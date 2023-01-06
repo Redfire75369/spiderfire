@@ -70,13 +70,13 @@ fn extension(path: String) -> Option<String> {
 #[js_fn]
 fn withFileName(path: String, file_name: String) -> String {
 	let path = Path::new(&path);
-	String::from(path.with_file_name(&file_name).to_str().unwrap())
+	String::from(path.with_file_name(file_name).to_str().unwrap())
 }
 
 #[js_fn]
 fn withExtension(path: String, extension: String) -> String {
 	let path = Path::new(&path);
-	String::from(path.with_extension(&extension).to_str().unwrap())
+	String::from(path.with_extension(extension).to_str().unwrap())
 }
 
 #[js_fn]
@@ -96,12 +96,12 @@ fn hasRoot(path: String) -> bool {
 
 #[js_fn]
 fn startsWith(path: String, prefix: String) -> bool {
-	Path::new(&path).starts_with(&prefix)
+	Path::new(&path).starts_with(prefix)
 }
 
 #[js_fn]
 fn endsWith(path: String, prefix: String) -> bool {
-	Path::new(&path).ends_with(&prefix)
+	Path::new(&path).ends_with(prefix)
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[

@@ -142,26 +142,6 @@ pub trait ClassInitialiser {
 		}
 	}
 
-	fn take_private(cx: &Context, object: &Object, args: Option<&Arguments>) -> Result<Box<Self>>
-	where
-		Self: Sized,
-	{
-		unsafe {
-			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			let ptr = JS_GetInstancePrivate(**cx, object.handle().into(), Self::class(), args) as *mut Self;
-			if !ptr.is_null() {
-				let private = Box::from_raw(ptr);
-				SetPrivate(***object, ptr::null_mut() as *mut c_void);
-				Ok(private)
-			} else {
-				Err(Error::new(
-					&format!("Could not get private value in {}. It may have been destroyed.", Self::NAME),
-					None,
-				))
-			}
-		}
-	}
-
 	fn instance_of(cx: &Context, object: &Object, args: Option<&Arguments>) -> bool {
 		unsafe {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);

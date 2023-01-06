@@ -18,5 +18,5 @@ use crate::format::Config;
 /// }
 /// ```
 pub fn format_function(cx: &Context, cfg: Config, function: &Function) -> String {
-	indent_by((2 * (cfg.indentation + cfg.depth)) as usize, &function.to_string(cx))
+	indent_by((2 * (cfg.indentation + cfg.depth)) as usize, function.to_string(cx))
 }
