@@ -120,7 +120,7 @@ jobs:
           strip ./target/release/spiderfire
 
       - name: Build Windows
-        if: matrix.id == 'windows'
+        if: matrix.id == 'windows' && matrix.rust != 'beta'
         shell: cmd
         env:
           CARGO_HOME: ${{ github.workspace }}\..\.cargo
