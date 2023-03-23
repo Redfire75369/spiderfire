@@ -37,7 +37,7 @@ jobs:
         env:
           MOZILLA_BUILD_LINK: https://ftp.mozilla.org/pub/mozilla/libraries/win32
           MOZILLA_BUILD_VERSION: 3.4
-          LLVM_VERSION: 14.0.6
+          LLVM_VERSION: 15.0.7
         run: |
           Start-BitsTransfer -Source $env:MOZILLA_BUILD_LINK/MozillaBuildSetup-$env:MOZILLA_BUILD_VERSION.exe -Destination ./MozillaBuildSetup.exe
           .\MozillaBuildSetup.exe /S | Out-Null
