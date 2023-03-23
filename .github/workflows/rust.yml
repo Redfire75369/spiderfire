@@ -34,7 +34,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Get LLVM version from rustc
         run: |
-          echo "LLVM_VERSION=$(rustc -vV | sed -n 's|LLVM version: ||p' | cut -d. -f1)" >> $GITHUB_ENV
+          echo "LLVM_VERSION=$(rustc -vV | sed -n 's|LLVM version: ||p')" >> $GITHUB_ENV
         shell: bash
         
       - name: Install Dependencies on Windows
