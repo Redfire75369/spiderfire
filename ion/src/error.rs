@@ -7,14 +7,15 @@
 use std::{error, ptr};
 use std::fmt::{Display, Formatter};
 
-use mozjs::conversions::ToJSValConvertible;
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSProtoKey, JSString};
-use mozjs::jsval::JSVal;
-use mozjs::rust::MutableHandleValue;
+use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey};
 
-use crate::{Context, Location, Object, Stack};
+use crate::{Context, Object, Stack, Value};
+use crate::conversions::ToValue;
+use crate::exception::ThrowException;
+use crate::stack::Location;
 
+/// Represents the types of errors that can be thrown and are recognised in the JS Runtime.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorKind {
 	Normal,
@@ -25,93 +26,97 @@ pub enum ErrorKind {
 	Reference,
 	Syntax,
 	Type,
-	Compile,
-	Link,
-	Runtime,
+	WasmCompile,
+	WasmLink,
+	WasmRuntime,
 	None,
 }
 
-/// Represents errors that can be thrown in the runtime.
-#[derive(Clone, Debug)]
-pub struct Error {
-	pub kind: ErrorKind,
-	pub message: String,
-	pub location: Option<Location>,
-	pub object: Option<Object>,
-}
-
-pub trait ThrowException {
-	fn throw(&self, cx: Context);
-}
-
 impl ErrorKind {
+	/// Converts a prototype key into an [ErrorKind].
+	/// Returns [ErrorKind::None] for unrecognised prototype keys.
 	pub fn from_proto_key(key: JSProtoKey) -> ErrorKind {
 		use JSProtoKey::{
 			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError, JSProto_LinkError,
 			JSProto_RangeError, JSProto_ReferenceError, JSProto_RuntimeError, JSProto_SyntaxError, JSProto_TypeError,
 		};
-		use ErrorKind::*;
+		use ErrorKind as EK;
 		match key {
-			JSProto_Error => Normal,
-			JSProto_InternalError => Internal,
-			JSProto_AggregateError => Aggregate,
-			JSProto_EvalError => Eval,
-			JSProto_RangeError => Range,
-			JSProto_ReferenceError => Reference,
-			JSProto_SyntaxError => Syntax,
-			JSProto_TypeError => Type,
-			JSProto_CompileError => Compile,
-			JSProto_LinkError => Link,
-			JSProto_RuntimeError => Runtime,
-			_ => None,
+			JSProto_Error => EK::Normal,
+			JSProto_InternalError => EK::Internal,
+			JSProto_AggregateError => EK::Aggregate,
+			JSProto_EvalError => EK::Eval,
+			JSProto_RangeError => EK::Range,
+			JSProto_ReferenceError => EK::Reference,
+			JSProto_SyntaxError => EK::Syntax,
+			JSProto_TypeError => EK::Type,
+			JSProto_CompileError => EK::WasmCompile,
+			JSProto_LinkError => EK::WasmLink,
+			JSProto_RuntimeError => EK::WasmRuntime,
+			_ => EK::None,
 		}
 	}
 
+	/// Converts an [ErrorKind] into a an exception type.
+	///
+	/// Note that [`ErrorKind::None`] is converted to [`JSEXN_ERR`](JSExnType::JSEXN_ERR).
 	pub fn to_exception_type(&self) -> JSExnType {
-		use ErrorKind::*;
-		use JSExnType::*;
+		use ErrorKind as EK;
+		use JSExnType as JSET;
 		match self {
-			Normal => JSEXN_ERR,
-			Internal => JSEXN_INTERNALERR,
-			Aggregate => JSEXN_AGGREGATEERR,
-			Eval => JSEXN_EVALERR,
-			Range => JSEXN_RANGEERR,
-			Reference => JSEXN_REFERENCEERR,
-			Syntax => JSEXN_SYNTAXERR,
-			Type => JSEXN_TYPEERR,
-			Compile => JSEXN_WASMCOMPILEERROR,
-			Link => JSEXN_WASMLINKERROR,
-			Runtime => JSEXN_WASMRUNTIMEERROR,
-			None => JSEXN_ERR,
+			EK::Normal => JSET::JSEXN_ERR,
+			EK::Internal => JSET::JSEXN_INTERNALERR,
+			EK::Aggregate => JSET::JSEXN_AGGREGATEERR,
+			EK::Eval => JSET::JSEXN_EVALERR,
+			EK::Range => JSET::JSEXN_RANGEERR,
+			EK::Reference => JSET::JSEXN_REFERENCEERR,
+			EK::Syntax => JSET::JSEXN_SYNTAXERR,
+			EK::Type => JSET::JSEXN_TYPEERR,
+			EK::WasmCompile => JSET::JSEXN_WASMCOMPILEERROR,
+			EK::WasmLink => JSET::JSEXN_WASMLINKERROR,
+			EK::WasmRuntime => JSET::JSEXN_WASMRUNTIMEERROR,
+			EK::None => JSET::JSEXN_ERR,
 		}
 	}
 }
 
 impl Display for ErrorKind {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		use ErrorKind::*;
+		use ErrorKind as EK;
 		let str = match self {
-			Normal => "Error",
-			Internal => "InternalError",
-			Aggregate => "AggregateError",
-			Eval => "EvalError",
-			Range => "RangeError",
-			Reference => "ReferenceError",
-			Syntax => "SyntaxError",
-			Type => "TypeError",
-			Compile => "CompileError",
-			Link => "LinkError",
-			Runtime => "CompileError",
-			None => "Not an Error",
+			EK::Normal => "Error",
+			EK::Internal => "InternalError",
+			EK::Aggregate => "AggregateError",
+			EK::Eval => "EvalError",
+			EK::Range => "RangeError",
+			EK::Reference => "ReferenceError",
+			EK::Syntax => "SyntaxError",
+			EK::Type => "TypeError",
+			EK::WasmCompile => "CompileError",
+			EK::WasmLink => "LinkError",
+			EK::WasmRuntime => "CompileError",
+			EK::None => "Not an Error",
 		};
 		f.write_str(str)
 	}
 }
 
+/// Represents errors in the JS Runtime
+/// Contains information about the type of error, the error message and the error location.
+///
+/// If created from an error object, it also contains the error object.
+#[derive(Clone, Debug)]
+pub struct Error {
+	pub kind: ErrorKind,
+	pub message: String,
+	pub location: Option<Location>,
+	pub object: Option<*mut JSObject>,
+}
+
 impl Error {
-	pub fn new(message: &str, kind: Option<ErrorKind>) -> Error {
+	pub fn new<T: Into<Option<ErrorKind>>>(message: &str, kind: T) -> Error {
 		Error {
-			kind: kind.unwrap_or(ErrorKind::Normal),
+			kind: kind.into().unwrap_or(ErrorKind::Normal),
 			message: String::from(message),
 			location: None,
 			object: None,
@@ -127,9 +132,9 @@ impl Error {
 		}
 	}
 
-	pub fn to_object(&self, cx: Context) -> Option<Object> {
+	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		if let Some(object) = self.object {
-			return Some(object);
+			return Some(cx.root_object(object).into());
 		}
 		if self.kind != ErrorKind::None {
 			unsafe {
@@ -143,23 +148,22 @@ impl Error {
 					.map(|location| (&*location.file, location.lineno, location.column))
 					.unwrap_or_default();
 
-				rooted!(in(cx) let stack = *stack.object.unwrap());
+				let stack = Object::from(cx.root_object(stack.object.unwrap()));
 
-				rooted!(in(cx) let mut file_name: JSVal);
-				file.to_jsval(cx, file_name.handle_mut());
-				rooted!(in(cx) let file_name = file_name.get().to_string());
+				let file = file.as_value(cx);
 
-				rooted!(in(cx) let mut message: *mut JSString);
-				if !self.message.is_empty() {
-					rooted!(in(cx) let mut message_val: JSVal);
-					self.message.to_jsval(cx, message_val.handle_mut());
-					message.set(message_val.get().to_string());
-				}
+				let file_name = cx.root_string(file.to_string());
 
-				rooted!(in(cx) let mut error: JSVal);
+				let message = (!self.message.is_empty()).then(|| {
+					let value = self.message.as_value(cx);
+					crate::String::from(cx.root_string(value.to_string()))
+				});
+				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
+
+				let mut error = Value::undefined(cx);
 
 				if CreateError(
-					cx,
+					**cx,
 					exception_type,
 					stack.handle().into(),
 					file_name.handle().into(),
@@ -169,35 +173,28 @@ impl Error {
 					message.handle().into(),
 					error.handle_mut().into(),
 				) {
-					return Some(Object::from(error.get().to_object()));
+					return Some(error.to_object(cx));
 				}
 			}
 		}
 		None
 	}
-}
 
-impl ThrowException for Error {
-	fn throw(&self, cx: Context) {
-		unsafe {
-			use ErrorKind::*;
-			match self.kind {
-				Normal => JS_ReportErrorUTF8(cx, format!("{}\0", self.message).as_ptr() as *const i8),
-				Internal => throw_internal_error(cx, &self.message),
-				Range => throw_range_error(cx, &self.message),
-				Type => throw_type_error(cx, &self.message),
-				None => (),
-				_ => unimplemented!("Throwing Exception for this is not implemented"),
+	pub fn format(&self) -> String {
+		let Error { kind, message, location, .. } = self;
+		if let Some(location) = location {
+			let Location { file, lineno, column } = location;
+			if !file.is_empty() {
+				return if *lineno == 0 {
+					format!("{} at {} - {}", kind, file, message)
+				} else if *column == 0 {
+					format!("{} at {}:{} - {}", kind, file, lineno, message)
+				} else {
+					format!("{} at {}:{}:{} - {}", kind, file, lineno, column, message)
+				};
 			}
 		}
-	}
-}
-
-impl ToJSValConvertible for Error {
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		if let Some(object) = self.to_object(cx) {
-			rval.set(object.to_value());
-		}
+		format!("{} - {}", kind, message)
 	}
 }
 
@@ -210,5 +207,27 @@ impl Display for Error {
 impl<E: error::Error> From<E> for Error {
 	fn from(error: E) -> Error {
 		Error::new(&error.to_string(), None)
+	}
+}
+
+impl ThrowException for Error {
+	fn throw(&self, cx: &Context) {
+		unsafe {
+			use ErrorKind as EK;
+			match self.kind {
+				EK::Normal => JS_ReportErrorUTF8(**cx, format!("{}\0", self.message).as_ptr() as *const i8),
+				EK::Internal => throw_internal_error(**cx, &self.message),
+				EK::Range => throw_range_error(**cx, &self.message),
+				EK::Type => throw_type_error(**cx, &self.message),
+				EK::None => (),
+				_ => unimplemented!("Throwing Exception for this is not implemented"),
+			}
+		}
+	}
+}
+
+impl<'cx> ToValue<'cx> for Error {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		self.to_object(cx).to_value(cx, value)
 	}
 }

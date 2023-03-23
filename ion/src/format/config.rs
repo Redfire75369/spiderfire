@@ -8,11 +8,11 @@ use colored::Color;
 
 use crate::flags::IteratorFlags;
 
-/// Configuration Object for formatting values
+/// Configuration Object for Formatting Values
 #[derive(Clone, Copy, Debug, Derivative)]
 #[derivative(Default)]
 pub struct Config {
-	pub colors: ColorConfig,
+	pub colours: ColourConfig,
 	#[derivative(Default(value = "IteratorFlags::empty()"))]
 	pub iteration: IteratorFlags,
 	pub depth: u16,
@@ -23,8 +23,9 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn colors(self, colors: ColorConfig) -> Config {
-		Config { colors, ..self }
+	/// Replaces the colors in the [configuration](Config).
+	pub fn colors(self, colours: ColourConfig) -> Config {
+		Config { colours, ..self }
 	}
 
 	pub fn iteration(self, iteration: IteratorFlags) -> Config {
@@ -50,7 +51,7 @@ impl Config {
 
 /// Configuration Object for the colours used when formatting values as specific types.
 #[derive(Clone, Copy, Debug)]
-pub struct ColorConfig {
+pub struct ColourConfig {
 	pub boolean: Color,
 	pub number: Color,
 	pub string: Color,
@@ -59,11 +60,13 @@ pub struct ColorConfig {
 	pub array: Color,
 	pub object: Color,
 	pub date: Color,
+	pub promise: Color,
+	pub symbol: Color,
 }
 
-impl Default for ColorConfig {
+impl Default for ColourConfig {
 	fn default() -> Self {
-		ColorConfig {
+		ColourConfig {
 			boolean: Color::Cyan,
 			number: Color::Blue,
 			string: Color::Green,
@@ -72,14 +75,16 @@ impl Default for ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			promise: Color::Yellow,
+			symbol: Color::Magenta,
 		}
 	}
 }
 
-impl ColorConfig {
+impl ColourConfig {
 	/// Returns [ColorConfig] where all formatted strings are white.
-	pub fn white() -> ColorConfig {
-		ColorConfig {
+	pub fn white() -> ColourConfig {
+		ColourConfig {
 			boolean: Color::White,
 			number: Color::White,
 			string: Color::White,
@@ -88,6 +93,8 @@ impl ColorConfig {
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
+			promise: Color::White,
+			symbol: Color::White,
 		}
 	}
 }

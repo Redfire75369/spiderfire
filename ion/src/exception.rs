@@ -4,27 +4,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::conversions::{ConversionBehavior, ToJSValConvertible};
+use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
 	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetBuiltinClass, GetPendingExceptionStack, IdentifyStandardInstance,
-	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException,
+	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException, Rooted,
 };
-use mozjs::jsval::{JSVal, UndefinedValue};
-use mozjs::rust::MutableHandleValue;
-use mozjs_sys::jsgc::Rooted;
+use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Location, Object, Stack};
-use crate::error::ThrowException;
+use crate::{Context, Error, ErrorKind, Object, Stack, Value};
+use crate::conversions::ToValue;
 use crate::format::{format_value, NEWLINE};
+use crate::stack::Location;
 
+/// Represents an exception in the JS Runtime.
+/// The exception can be an [Error], or any [Value].
 #[derive(Clone, Debug)]
 pub enum Exception {
 	Error(Error),
 	Other(JSVal),
 }
 
+/// Represents an error report, containing an exception and optionally its [stacktrace](Stack).
 #[derive(Clone, Debug)]
 pub struct ErrorReport {
 	pub exception: Exception,
@@ -32,14 +34,14 @@ pub struct ErrorReport {
 }
 
 impl Exception {
-	/// Gets an exception from the runtime.
+	/// Gets an [Exception] from the runtime.
 	/// Returns [None] if there is no pending exception.
-	pub fn new(cx: Context) -> Option<Exception> {
+	pub fn new(cx: &Context) -> Option<Exception> {
 		unsafe {
-			if JS_IsExceptionPending(cx) {
-				rooted!(in(cx) let mut exception = UndefinedValue());
-				if JS_GetPendingException(cx, exception.handle_mut().into()) {
-					let exception = Exception::from_value(cx, exception.get());
+			if JS_IsExceptionPending(**cx) {
+				let mut exception = Value::undefined(cx);
+				if JS_GetPendingException(**cx, exception.handle_mut().into()) {
+					let exception = Exception::from_value(cx, &exception);
 					Exception::clear(cx);
 					Some(exception)
 				} else {
@@ -51,45 +53,48 @@ impl Exception {
 		}
 	}
 
-	pub fn from_value(cx: Context, value: JSVal) -> Exception {
+	/// Converts a [Value] into an [Exception].
+	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Exception {
 		if value.is_object() {
-			Exception::from_object(cx, Object::from(value.to_object()))
+			let object = value.to_object(cx);
+			Exception::from_object(cx, &object)
 		} else {
-			Exception::Other(value)
+			Exception::Other(***value)
 		}
 	}
 
-	pub fn from_object(cx: Context, exception: Object) -> Exception {
+	/// Converts an [Object] into an [Exception].
+	/// If the object is an error object, it is parsed as an [Error] first.
+	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
 		unsafe {
-			rooted!(in(cx) let exc = *exception);
-
 			let mut class = ESClass::Other;
-			if GetBuiltinClass(cx, exc.handle().into(), &mut class) && class == ESClass::Error {
-				let message = exception.get_as::<String>(cx, "message", ()).unwrap_or_default();
-				let file = exception.get_as::<String>(cx, "fileName", ()).unwrap();
-				let lineno = exception.get_as::<u32>(cx, "lineNumber", ConversionBehavior::Clamp).unwrap();
-				let column = exception.get_as::<u32>(cx, "columnNumber", ConversionBehavior::Clamp).unwrap();
+			if GetBuiltinClass(**cx, exception.handle().into(), &mut class) && class == ESClass::Error {
+				let message: String = exception.get_as(cx, "message", true, ()).unwrap_or_default();
+				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
+				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
+				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
 
 				let location = Location { file, lineno, column };
-				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(*exception));
+				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(***exception));
 				let error = Error {
 					kind,
 					message,
 					location: Some(location),
-					object: Some(exception),
+					object: Some(***exception),
 				};
 				Exception::Error(error)
 			} else {
-				Exception::Other(exception.to_value())
+				Exception::Other(ObjectValue(***exception))
 			}
 		}
 	}
 
-	/// Clears all exceptions within the runtime.
-	pub fn clear(cx: Context) {
-		unsafe { JS_ClearPendingException(cx) };
+	/// Clears all pending exceptions within the runtime.
+	pub fn clear(cx: &Context) {
+		unsafe { JS_ClearPendingException(**cx) };
 	}
 
+	/// If the [Exception] is an [Error], the error location is mapped according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
 		if let Exception::Error(Error { location: Some(location), .. }) = self {
@@ -100,60 +105,44 @@ impl Exception {
 		}
 	}
 
-	/// Formats the exception as an error message.
-	pub fn format(&self, cx: Context) -> String {
+	/// Formats the [Exception] as an error message.
+	pub fn format(&self, cx: &Context) -> String {
 		match self {
-			Exception::Error(error) => {
-				let Error { kind, message, location, .. } = error;
-				if let Some(location) = location {
-					let Location { file, lineno, column } = location;
-					if !file.is_empty() {
-						return if *lineno == 0 {
-							format!("Uncaught {} at {} - {}", kind, file, message)
-						} else if *column == 0 {
-							format!("Uncaught {} at {}:{} - {}", kind, file, lineno, message)
-						} else {
-							format!("Uncaught {} at {}:{}:{} - {}", kind, file, lineno, column, message)
-						};
-					}
-				}
-				format!("Uncaught {} - {}", kind, message)
-			}
+			Exception::Error(error) => format!("Uncaught {}", error.format()),
 			Exception::Other(value) => {
-				format!("Uncaught Exception - {}", format_value(cx, Default::default(), *value))
+				format!(
+					"Uncaught Exception - {}",
+					format_value(cx, Default::default(), &cx.root_value(*value).into())
+				)
 			}
 		}
 	}
 }
 
 impl ThrowException for Exception {
-	fn throw(&self, cx: Context) {
+	fn throw(&self, cx: &Context) {
 		match self {
 			Exception::Error(error) => {
 				if let Error { object: Some(object), .. } = error {
-					rooted!(in(cx) let exc = object.to_value());
-					unsafe { JS_SetPendingException(cx, exc.handle().into(), ExceptionStackBehavior::DoNotCapture) }
+					let exception = Value::from(cx.root_value(ObjectValue(*object)));
+					unsafe { JS_SetPendingException(**cx, exception.handle().into(), ExceptionStackBehavior::DoNotCapture) }
 				} else {
 					error.throw(cx);
 				}
 			}
 			Exception::Other(value) => {
-				rooted!(in(cx) let value = *value);
-				unsafe { JS_SetPendingException(cx, value.handle().into(), ExceptionStackBehavior::Capture) }
+				let value = Value::from(cx.root_value(*value));
+				unsafe { JS_SetPendingException(**cx, value.handle().into(), ExceptionStackBehavior::Capture) }
 			}
 		}
 	}
 }
 
-impl ToJSValConvertible for Exception {
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
+impl<'cx> ToValue<'cx> for Exception {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		match self {
-			Exception::Error(err) => {
-				if let Some(object) = err.to_object(cx) {
-					rval.set(object.to_value());
-				}
-			}
-			Exception::Other(value) => rval.set(*value),
+			Exception::Error(error) => error.to_value(cx, value),
+			Exception::Other(other) => value.handle_mut().set(*other),
 		}
 	}
 }
@@ -167,28 +156,29 @@ impl<E: Into<Error>> From<E> for Exception {
 impl ErrorReport {
 	/// Creates a new [ErrorReport] with an [Exception] from the runtime.
 	/// Returns [None] if there is no pending exception.
-	pub fn new(cx: Context) -> Option<ErrorReport> {
+	pub fn new(cx: &Context) -> Option<ErrorReport> {
 		Exception::new(cx).map(|exception| ErrorReport { exception, stack: None })
 	}
 
-	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the error.
+	/// Creates a new [ErrorReport] with an [Exception] and [Error]'s exception stack.
 	/// Returns [None] if there is no pending exception.
-	pub fn new_with_error_stack(cx: Context) -> Option<ErrorReport> {
+	pub fn new_with_error_stack(cx: &Context) -> Option<ErrorReport> {
 		ErrorReport::new(cx).map(|report| ErrorReport::from_exception_with_error_stack(cx, report.exception))
 	}
 
 	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the runtime.
 	/// Returns [None] if there is no pending exception.
-	pub fn new_with_exception_stack(cx: Context) -> Option<ErrorReport> {
+	pub fn new_with_exception_stack(cx: &Context) -> Option<ErrorReport> {
 		unsafe {
-			if JS_IsExceptionPending(cx) {
+			if JS_IsExceptionPending(**cx) {
 				let mut exception_stack = ExceptionStack {
 					exception_: Rooted::new_unrooted(),
 					stack_: Rooted::new_unrooted(),
 				};
-				if GetPendingExceptionStack(cx, &mut exception_stack) {
-					let exception = Exception::from_value(cx, exception_stack.exception_.ptr);
-					let stack = Stack::from_object(cx, Object::from(exception_stack.stack_.ptr));
+				if GetPendingExceptionStack(**cx, &mut exception_stack) {
+					let exception = Value::from(cx.root_value(exception_stack.exception_.ptr));
+					let exception = Exception::from_value(cx, &exception);
+					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
 					Exception::clear(cx);
 					Some(ErrorReport { exception, stack })
 				} else {
@@ -200,15 +190,17 @@ impl ErrorReport {
 		}
 	}
 
-	pub fn from(exception: Exception, stack: Option<Stack>) -> ErrorReport {
-		ErrorReport { exception, stack }
+	/// Creates an [ErrorReport] from an existing [Exception] and optionally a [Stack].
+	pub fn from<S: Into<Option<Stack>>>(exception: Exception, stack: S) -> ErrorReport {
+		ErrorReport { exception, stack: stack.into() }
 	}
 
-	pub fn from_exception_with_error_stack(cx: Context, exception: Exception) -> ErrorReport {
+	/// Creates an [ErrorReport] from an existing [Exception], with the [Error]'s exception stack.
+	pub fn from_exception_with_error_stack(cx: &Context, exception: Exception) -> ErrorReport {
 		let stack = if let Exception::Error(Error { object: Some(object), .. }) = exception {
 			unsafe {
-				rooted!(in(cx) let exc = *object);
-				Stack::from_object(cx, Object::from(ExceptionStackOrNull(exc.handle().into())))
+				rooted!(in(**cx) let exc = object);
+				Stack::from_object(cx, ExceptionStackOrNull(exc.handle().into()))
 			}
 		} else {
 			None
@@ -216,6 +208,7 @@ impl ErrorReport {
 		ErrorReport { exception, stack }
 	}
 
+	/// Transforms the location of the [Exception] and the [Stack] if it exists, according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
 		self.exception.transform_with_sourcemap(sourcemap);
@@ -224,7 +217,8 @@ impl ErrorReport {
 		}
 	}
 
-	pub fn format(&self, cx: Context) -> String {
+	/// Formats the [ErrorReport] as a [String] that can be printed.
+	pub fn format(&self, cx: &Context) -> String {
 		let mut string = self.exception.format(cx);
 		if let Some(ref stack) = self.stack {
 			if !stack.is_empty() {
@@ -234,4 +228,8 @@ impl ErrorReport {
 		}
 		string
 	}
+}
+
+pub trait ThrowException {
+	fn throw(&self, cx: &Context);
 }

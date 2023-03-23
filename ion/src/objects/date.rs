@@ -8,115 +8,97 @@ use std::ops::Deref;
 
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
-use mozjs::conversions::{ConversionResult, FromJSValConvertible, ToJSValConvertible};
-use mozjs::error::throw_type_error;
-use mozjs::jsapi::{AssertSameCompartment, ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, JSTracer, NewDateObject, ObjectIsDate};
-use mozjs::jsval::{JSVal, ObjectValue};
-use mozjs::rust::{CustomTrace, HandleValue, maybe_wrap_object_value, MutableHandleValue};
+use mozjs::jsapi::{ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, NewDateObject, ObjectIsDate};
+use mozjs::rust::{Handle, MutableHandle};
 
-use crate::Context;
+use crate::{Context, Local};
 
-#[derive(Clone, Copy, Debug)]
-pub struct Date {
-	obj: *mut JSObject,
+/// Represents a `Date` in the JS Runtime.
+///
+/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date) for more details.
+#[derive(Debug)]
+pub struct Date<'d> {
+	date: Local<'d, *mut JSObject>,
 }
 
-impl Date {
+impl<'d> Date<'d> {
 	/// Creates a new [Date] with the current time.
-	pub fn new(cx: Context) -> Date {
+	pub fn new<'cx>(cx: &'cx Context) -> Date<'cx> {
 		Date::from_date(cx, Utc::now())
 	}
 
 	/// Creates a new [Date] with the given time.
-	pub fn from_date(cx: Context, time: DateTime<Utc>) -> Date {
-		Date::from(cx, unsafe { NewDateObject(cx, ClippedTime { t: time.timestamp_millis() as f64 }) }).unwrap()
+	pub fn from_date<'cx>(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
+		Date {
+			date: cx.root_object(unsafe { NewDateObject(**cx, ClippedTime { t: time.timestamp_millis() as f64 }) }),
+		}
 	}
 
-	/// Creates a [Date] from a [*mut JSObject].
-	pub fn from(cx: Context, obj: *mut JSObject) -> Option<Date> {
-		if Date::is_date_raw(cx, obj) {
-			Some(Date { obj })
+	/// Creates a [Date] from an object.
+	pub fn from(cx: &Context, object: Local<'d, *mut JSObject>) -> Option<Date<'d>> {
+		if Date::is_date(cx, &object) {
+			Some(Date { date: object })
 		} else {
 			None
 		}
 	}
 
-	/// Creates a [Date] from a [JSVal].
-	pub fn from_value(cx: Context, val: JSVal) -> Option<Date> {
-		if val.is_object() {
-			Date::from(cx, val.to_object())
-		} else {
-			None
-		}
-	}
-
-	/// Converts a [Date] to a [JSVal].
-	pub fn to_value(&self) -> JSVal {
-		ObjectValue(self.obj)
+	/// Creates a [Date] from an object.
+	///
+	/// ### Safety
+	/// Object must be a Date.
+	pub unsafe fn from_unchecked(object: Local<'d, *mut JSObject>) -> Date<'d> {
+		Date { date: object }
 	}
 
 	/// Checks if the [Date] is a valid date.
-	pub fn is_valid(&self, cx: Context) -> bool {
-		rooted!(in(cx) let obj = self.obj);
+	pub fn is_valid(&self, cx: &Context) -> bool {
 		let mut is_valid = true;
-		(unsafe { DateIsValid(cx, obj.handle().into(), &mut is_valid) }) && is_valid
+		(unsafe { DateIsValid(**cx, self.date.handle().into(), &mut is_valid) }) && is_valid
 	}
 
 	/// Converts the [Date] to a [DateTime].
-	pub fn to_date(&self, cx: Context) -> Option<DateTime<Utc>> {
-		rooted!(in(cx) let obj = self.obj);
+	pub fn to_date(&self, cx: &Context) -> Option<DateTime<Utc>> {
 		let mut milliseconds: f64 = f64::MAX;
-		if !unsafe { DateGetMsecSinceEpoch(cx, obj.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
+		if !unsafe { DateGetMsecSinceEpoch(**cx, self.date.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
 			None
 		} else {
-			Some(Utc.timestamp_millis(milliseconds as i64))
+			Utc.timestamp_millis_opt(milliseconds as i64).single()
 		}
 	}
 
-	/// Checks if a [*mut JSObject] is a date.
-	pub fn is_date_raw(cx: Context, obj: *mut JSObject) -> bool {
-		rooted!(in(cx) let mut robj = obj);
+	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
+	where
+		'd: 's,
+	{
+		self.date.handle()
+	}
+
+	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
+	where
+		'd: 'a,
+	{
+		self.date.handle_mut()
+	}
+
+	/// Checks if a [*mut] [JSObject] is a date.
+	pub fn is_date_raw(cx: &Context, object: *mut JSObject) -> bool {
+		rooted!(in(**cx) let object = object);
 		let mut is_date = false;
-		(unsafe { ObjectIsDate(cx, robj.handle_mut().into(), &mut is_date) }) && is_date
+		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date
+	}
+
+	/// Checks if an object is a date.
+	pub fn is_date(cx: &Context, object: &Local<*mut JSObject>) -> bool {
+		let mut is_date = false;
+		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date
 	}
 }
 
-impl FromJSValConvertible for Date {
-	type Config = ();
-	#[inline]
-	unsafe fn from_jsval(cx: Context, value: HandleValue, _: ()) -> Result<ConversionResult<Date>, ()> {
-		if !value.is_object() {
-			throw_type_error(cx, "JSVal is not an object");
-			return Err(());
-		}
-
-		AssertSameCompartment(cx, value.to_object());
-		if let Some(date) = Date::from(cx, value.to_object()) {
-			Ok(ConversionResult::Success(date))
-		} else {
-			Err(())
-		}
-	}
-}
-
-impl ToJSValConvertible for Date {
-	#[inline]
-	unsafe fn to_jsval(&self, cx: Context, mut rval: MutableHandleValue) {
-		rval.set(self.to_value());
-		maybe_wrap_object_value(cx, rval);
-	}
-}
-
-impl Deref for Date {
-	type Target = *mut JSObject;
+impl<'d> Deref for Date<'d> {
+	type Target = Local<'d, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.obj
-	}
-}
-
-unsafe impl CustomTrace for Date {
-	fn trace(&self, tracer: *mut JSTracer) {
-		self.obj.trace(tracer)
+		&self.date
 	}
 }

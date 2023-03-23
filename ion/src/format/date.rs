@@ -9,10 +9,10 @@ use colored::Colorize;
 use crate::{Context, Date};
 use crate::format::Config;
 
-/// Formats a [Date] as a [String] using the given [Config]
-pub fn format_date(cx: Context, cfg: Config, date: Date) -> String {
+/// Formats a [Date] as a [String] using the given [configuration](Config).
+pub fn format_date(cx: &Context, cfg: Config, date: &Date) -> String {
 	if let Some(date) = date.to_date(cx) {
-		date.to_string().color(cfg.colors.date).to_string()
+		date.to_string().color(cfg.colours.date).to_string()
 	} else {
 		panic!("Failed to unbox Date");
 	}

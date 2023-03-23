@@ -4,29 +4,35 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::RangeBounds;
+use std::fmt::Debug;
 
-use mozjs::jsapi::{CallArgs, Handle, MutableHandle, UndefinedHandleValue};
-use mozjs::jsval::{JSVal, UndefinedValue};
+use mozjs::jsapi::CallArgs;
+use mozjs::jsval::JSVal;
+
+use crate::{Context, Local, Value};
 
 /// Function Arguments
-#[derive(Clone, Debug)]
-pub struct Arguments {
-	values: Vec<Handle<JSVal>>,
-	this: Handle<JSVal>,
-	rval: MutableHandle<JSVal>,
+///
+/// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
+#[derive(Debug)]
+pub struct Arguments<'cx> {
+	values: Vec<Value<'cx>>,
+	this: Value<'cx>,
+	rval: Value<'cx>,
 	call_args: CallArgs,
 }
 
-impl Arguments {
-	/// Creates new [Arguments] from raw argument,
-	pub fn new(argc: u32, vp: *mut JSVal) -> Arguments {
-		let call_args = unsafe { CallArgs::from_vp(vp, argc) };
-		let values = (0..argc).map(|i| call_args.get(i)).collect();
-		let this = call_args.thisv();
-		let rval = call_args.rval();
+impl<'cx> Arguments<'cx> {
+	/// Creates new [Arguments] from raw arguments,
+	pub fn new(cx: &'cx Context, argc: u32, vp: *mut JSVal) -> Arguments<'cx> {
+		unsafe {
+			let call_args = CallArgs::from_vp(vp, argc);
+			let values = (0..argc).map(|i| cx.root_value(call_args.get(i).get()).into()).collect();
+			let this = cx.root_value(call_args.thisv().get()).into();
+			let rval = Local::from_raw_handle_mut(call_args.rval()).into();
 
-		Arguments { values, this, rval, call_args }
+			Arguments { values, this, rval, call_args }
+		}
 	}
 
 	/// Returns the number of arguments passed to the function.
@@ -35,65 +41,32 @@ impl Arguments {
 		self.values.len()
 	}
 
-	/// Gets the handle of the value at the given index.
+	/// Gets the [Value] at the given index.
+	///
 	/// Returns [None] if the given index is larger than the number of arguments.
-	pub fn handle(&self, index: usize) -> Option<Handle<JSVal>> {
+	pub fn value(&self, index: usize) -> Option<&Value<'cx>> {
 		if index < self.len() {
-			return Some(self.values[index]);
+			return Some(&self.values[index]);
 		}
 		None
 	}
 
-	/// Gets the handle of the value at the given index.
-	/// Returns `undefined` if the given index is larger than the number of arguments.
-	pub fn handle_or_undefined(&self, index: usize) -> Handle<JSVal> {
-		if index < self.len() {
-			return self.values[index];
-		}
-		unsafe { UndefinedHandleValue }
-	}
-
-	/// Gets the value at the given index.
-	/// Returns [None] if the given index is larger than the number of arguments.
-	pub fn value(&self, index: usize) -> Option<JSVal> {
-		if index < self.len() {
-			return Some(self.values[index].get());
-		}
-		None
-	}
-
-	/// Gets the value at the given index.
-	/// Returns `undefined` if the given index is larger than the number of arguments.
-	pub fn value_or_undefined(&self, index: usize) -> JSVal {
-		if index < self.len() {
-			return self.values[index].get();
-		}
-		UndefinedValue()
-	}
-
-	/// Returns a range of values within the arguments.
-	pub fn range<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<JSVal> {
+	/// Returns a [Vec<&Value>] of arguments based on the indices of the iterator.
+	pub fn range<'a, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>>
+	where
+		'cx: 'a,
+	{
 		range.filter_map(|index| self.value(index)).collect()
 	}
 
-	/// Returns a range of handles within the arguments.
-	pub fn range_handles<R: Iterator<Item = usize> + RangeBounds<usize>>(&self, range: R) -> Vec<Handle<JSVal>> {
-		range.filter_map(|index| self.handle(index)).collect()
-	}
-
-	/// Returns a [Vec] with all arguments
-	pub fn range_full(&self) -> Vec<JSVal> {
-		self.values.iter().map(|value| value.get()).collect()
-	}
-
 	/// Returns the `this` value of the function.
-	pub fn this(&self) -> Handle<JSVal> {
-		self.this
+	pub fn this(&mut self) -> &mut Value<'cx> {
+		&mut self.this
 	}
 
-	/// Returns the mutable return value of the function.
-	pub fn rval(&self) -> MutableHandle<JSVal> {
-		self.rval
+	/// Returns the return [Value] of the function.
+	pub fn rval(&mut self) -> &mut Value<'cx> {
+		&mut self.rval
 	}
 
 	/// Returns true if the function was called with `new`,
@@ -101,6 +74,7 @@ impl Arguments {
 		self.call_args.constructing_()
 	}
 
+	/// Returns the raw [CallArgs].
 	pub fn call_args(&self) -> CallArgs {
 		self.call_args
 	}

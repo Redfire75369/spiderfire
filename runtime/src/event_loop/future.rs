@@ -6,18 +6,20 @@
 
 use std::cell::RefCell;
 use std::future::Future;
+use std::mem::transmute;
 use std::pin::Pin;
 use std::task;
 use std::task::Poll;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mozjs::rust::HandleObject;
+use mozjs::jsapi::JSFunction;
 
 use ion::{Context, ErrorReport, Function, Object, Value};
-use ion::conversions::BoxedIntoJSVal;
+use ion::conversions::BoxedIntoValue;
 
-pub type NativeFuture = Pin<Box<dyn Future<Output = (Function, Function, Result<BoxedIntoJSVal, BoxedIntoJSVal>)> + 'static>>;
+pub type NativeFuture =
+	Pin<Box<dyn Future<Output = (*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue<'static>, BoxedIntoValue<'static>>)> + 'static>>;
 
 #[derive(Default)]
 pub struct FutureQueue {
@@ -25,8 +27,8 @@ pub struct FutureQueue {
 }
 
 impl FutureQueue {
-	pub fn run_futures(&self, cx: Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
-		let mut results: Vec<(Function, Function, Result<BoxedIntoJSVal, BoxedIntoJSVal>)> = Vec::new();
+	pub fn run_futures<'cx>(&self, cx: &'cx Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
+		let mut results: Vec<(*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue, BoxedIntoValue>)> = Vec::new();
 
 		let mut queue = self.queue.borrow_mut();
 		while let Poll::Ready(Some(item)) = queue.poll_next_unpin(wcx) {
@@ -34,18 +36,22 @@ impl FutureQueue {
 		}
 
 		for (resolve, reject, result) in results {
-			let null = Object::from(HandleObject::null().get());
-			rooted!(in(cx) let mut value = *Value::undefined());
+			let null = Object::null(cx);
+			let mut value = Value::undefined(cx);
 
 			unsafe {
 				match result {
 					Ok(o) => {
-						o.into_jsval(cx, value.handle_mut());
-						resolve.call(cx, null, vec![value.get()])?;
+						let o: BoxedIntoValue<'cx> = transmute(o);
+						o.into_value(cx, &mut value);
+						let resolve = Function::from(cx.root_function(resolve));
+						resolve.call(cx, &null, &[value])?;
 					}
 					Err(e) => {
-						e.into_jsval(cx, value.handle_mut());
-						reject.call(cx, null, vec![value.get()])?;
+						let e: BoxedIntoValue<'cx> = transmute(e);
+						e.into_value(cx, &mut value);
+						let reject = Function::from(cx.root_function(reject));
+						reject.call(cx, &null, &[value])?;
 					}
 				}
 			}

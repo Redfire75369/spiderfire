@@ -7,10 +7,10 @@
 use rustyline::{Config, Result};
 use rustyline::config::Builder;
 use rustyline::validate::{MatchingBracketValidator, ValidationContext, ValidationResult, Validator};
-use rustyline_derive::{Completer, Helper, Hinter, Highlighter};
+use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 #[derive(Completer, Helper, Hinter, Highlighter)]
-pub struct ReplHelper;
+pub(crate) struct ReplHelper;
 
 impl Validator for ReplHelper {
 	fn validate(&self, ctx: &mut ValidationContext) -> Result<ValidationResult> {
@@ -18,7 +18,7 @@ impl Validator for ReplHelper {
 	}
 }
 
-pub fn rustyline_config() -> Config {
+pub(crate) fn rustyline_config() -> Config {
 	let builder = Builder::new();
 	builder.tab_stop(4).build()
 }

@@ -6,6 +6,9 @@
 
 use std::path::{Component, Path, PathBuf};
 
+/// Normalises a [Path] by removing all `./` and resolving all `../` simplistically.
+///
+/// This function does not follow symlinks and may result in unexpected behaviour.
 pub fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
 	let mut buf = PathBuf::new();
 	let segments = path.as_ref().components();

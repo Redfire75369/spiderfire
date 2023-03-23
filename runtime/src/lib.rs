@@ -8,8 +8,6 @@
 
 #[macro_use]
 extern crate ion;
-#[macro_use]
-extern crate mozjs;
 
 pub use crate::runtime::*;
 

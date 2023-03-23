@@ -11,14 +11,14 @@ pub mod console;
 pub mod microtasks;
 pub mod timers;
 
-pub fn init_globals(cx: Context, global: Object) -> bool {
+pub fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	console::define(cx, global)
 }
 
-pub fn init_timers(cx: Context, global: Object) -> bool {
+pub fn init_timers<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	timers::define(cx, global) && abort::define(cx, global)
 }
 
-pub fn init_microtasks(cx: Context, global: Object) -> bool {
+pub fn init_microtasks<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	microtasks::define(cx, global)
 }

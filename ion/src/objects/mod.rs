@@ -8,15 +8,18 @@ use mozjs::jsapi::{JSCLASS_RESERVED_SLOTS_MASK, JSCLASS_RESERVED_SLOTS_SHIFT};
 
 pub use array::Array;
 pub use date::Date;
-pub use object::{Key, Object};
+pub use key::Key;
+pub use object::Object;
 pub use promise::Promise;
 
 mod array;
 mod date;
+mod key;
 mod object;
 mod promise;
+pub mod typedarray;
 
-/// Returns bitmasked representation of reserved slots for a class
+/// Returns the bitmasked representation of reserved slots for a class
 pub const fn class_reserved_slots(slots: u32) -> u32 {
 	(slots & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
 }

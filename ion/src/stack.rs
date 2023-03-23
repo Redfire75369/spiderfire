@@ -9,7 +9,7 @@ use std::fmt::{Display, Formatter};
 use std::mem::MaybeUninit;
 
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSString, StackFormat};
+use mozjs::jsapi::{BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSObject, JSString, StackFormat};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
@@ -17,6 +17,7 @@ use crate::{Context, Object};
 use crate::format::{INDENT, NEWLINE};
 use crate::utils::normalise_path;
 
+/// Represents a location in a source file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location {
 	pub file: String,
@@ -24,19 +25,24 @@ pub struct Location {
 	pub column: u32,
 }
 
+/// Represents a single stack record of a [stacktrace](Stack).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StackRecord {
 	pub function: Option<String>,
 	pub location: Location,
 }
 
+/// Represents a stacktrace.
+///
+/// Holds a stack object if cretead from an [Object].
 #[derive(Clone, Debug)]
 pub struct Stack {
 	pub records: Vec<StackRecord>,
-	pub object: Option<Object>,
+	pub object: Option<*mut JSObject>,
 }
 
 impl Location {
+	/// Transforms a [Location], according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
 		if self.lineno != 0 && self.column != 0 {
@@ -49,6 +55,7 @@ impl Location {
 }
 
 impl StackRecord {
+	/// Transforms a [StackRecord], according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
 		self.location.transform_with_sourcemap(sourcemap);
@@ -69,6 +76,7 @@ impl Display for StackRecord {
 }
 
 impl Stack {
+	/// Creates a [Stack] from a string.
 	pub fn from_string(string: &str) -> Stack {
 		let mut records = Vec::new();
 		for line in string.lines() {
@@ -89,21 +97,25 @@ impl Stack {
 		Stack { records, object: None }
 	}
 
-	pub fn from_object(cx: Context, stack: Object) -> Option<Stack> {
+	/// Creates a [Stack] from an object.
+	pub fn from_object(cx: &Context, stack: *mut JSObject) -> Option<Stack> {
 		stack_to_string(cx, stack).as_deref().map(Stack::from_string).map(|mut s| {
 			s.object = Some(stack);
 			s
 		})
 	}
 
-	pub fn from_capture(cx: Context) -> Option<Stack> {
+	/// Captures the [Stack] of the [Context].
+	pub fn from_capture(cx: &Context) -> Option<Stack> {
 		capture_stack(cx, None).and_then(|stack| Stack::from_object(cx, stack))
 	}
 
+	/// Returns `true` if the stack contains no [records](StackRecord)
 	pub fn is_empty(&self) -> bool {
 		self.records.is_empty()
 	}
 
+	/// Transforms a [Stack] with the given [SourceMap], by applying it to each of its [records](StackRecord).
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {
 		for record in &mut self.records {
@@ -111,6 +123,7 @@ impl Stack {
 		}
 	}
 
+	/// Formats the [Stack] as a String.
 	pub fn format(&self) -> String {
 		let mut string = String::from("");
 		for record in &self.records {
@@ -129,7 +142,7 @@ impl Display for Stack {
 	}
 }
 
-fn capture_stack(cx: Context, max_frames: Option<u32>) -> Option<Object> {
+fn capture_stack(cx: &Context, max_frames: Option<u32>) -> Option<*mut JSObject> {
 	unsafe {
 		let mut capture = MaybeUninit::uninit();
 		match max_frames {
@@ -138,29 +151,29 @@ fn capture_stack(cx: Context, max_frames: Option<u32>) -> Option<Object> {
 		};
 		let mut capture = capture.assume_init();
 
-		rooted!(in(cx) let mut stack = *Object::null());
-		if CaptureCurrentStack(cx, stack.handle_mut().into(), &mut capture) {
-			Some(Object::from(stack.get()))
+		let mut stack = Object::null(cx);
+		if CaptureCurrentStack(**cx, stack.handle_mut().into(), &mut capture) {
+			Some(**stack)
 		} else {
 			None
 		}
 	}
 }
 
-fn stack_to_string(cx: Context, stack: Object) -> Option<String> {
+fn stack_to_string(cx: &Context, stack: *mut JSObject) -> Option<String> {
 	unsafe {
-		rooted!(in(cx) let stack = *stack);
-		rooted!(in(cx) let mut string: *mut JSString);
+		rooted!(in(**cx) let stack = stack);
+		rooted!(in(**cx) let mut string: *mut JSString);
 
 		if BuildStackString(
-			cx,
+			**cx,
 			ptr::null_mut(),
 			stack.handle().into(),
 			string.handle_mut().into(),
 			0,
 			StackFormat::SpiderMonkey,
 		) {
-			Some(jsstr_to_string(cx, string.get()))
+			Some(jsstr_to_string(**cx, string.get()))
 		} else {
 			None
 		}

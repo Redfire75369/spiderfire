@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::{Ident, TokenStream};
-use syn::{FnArg, ItemFn, LitStr, parse2, Result, ReturnType, Type};
+use syn::{FnArg, GenericParam, ItemFn, parse2, Result, ReturnType, Type, WhereClause};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -13,21 +13,20 @@ use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
-pub(crate) fn impl_wrapper_fn(
-	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
-) -> Result<(ItemFn, ItemFn, Parameters)> {
+pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
 
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty, class_ty.is_some())?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = &parameters.idents;
 	let statements = parameters.to_statements(class_ty.is_some())?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
 	let argument_checker = argument_checker(&function.sig.ident, parameters.nargs.0);
-	let constructing_checker = constructing_checker(is_constructor);
 
-	let wrapper_args: [FnArg; 2] = [parse_quote!(cx: #krate::Context), parse_quote!(args: &#krate::Arguments)];
+	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
+	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
+	let wrapper_args: [FnArg; 2] = [parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)];
 
 	let mut output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
@@ -36,10 +35,7 @@ pub(crate) fn impl_wrapper_fn(
 	let inner_output = output.clone();
 	let mut wrapper_output = output.clone();
 
-	let mut result = quote!(match result {
-		::std::result::Result::Ok(o) => ::std::result::Result::Ok(o.into()),
-		::std::result::Result::Err(e) => ::std::result::Result::Err(e.into()),
-	});
+	let mut result = quote!(result.map_err(::std::convert::Into::into));
 	let mut async_result = result.clone();
 
 	let mut is_result = false;
@@ -63,8 +59,8 @@ pub(crate) fn impl_wrapper_fn(
 			async_result = quote!(result);
 		}
 
-		output = parse_quote!(::std::result::Result::<#krate::Promise, #krate::Exception>);
-		wrapper_output = parse_quote!(::std::result::Result::<#krate::Promise, #krate::Exception>);
+		output = parse_quote!(::std::result::Result::<#krate::Promise<'cx>, #krate::Exception>);
+		wrapper_output = parse_quote!(::std::result::Result::<#krate::Promise<'cx>, #krate::Exception>);
 	}
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -102,31 +98,8 @@ pub(crate) fn impl_wrapper_fn(
 		});
 	}
 
-	if is_constructor {
-		let constructor_result = if !is_result {
-			quote!(let result = ::std::result::Result::<#inner_output, ::ion::Exception>::Ok(result);)
-		} else {
-			TokenStream::new()
-		};
-		result = quote!(
-			#constructor_result
-			let result = result.map(|result| unsafe {
-				let b = ::std::boxed::Box::new(result);
-				::mozjs::rooted!(in(cx) let this = ::mozjs::jsapi::JS_NewObjectForConstructor(cx, &CLASS, &args.call_args()));
-				::mozjs::jsapi::SetPrivate(this.get(), Box::into_raw(b) as *mut ::std::ffi::c_void);
-				::mozjs::conversions::ToJSValConvertible::to_jsval(&this.get(), cx, ::mozjs::rust::MutableHandle::from_raw(args.rval()));
-			});
-			match result {
-				::std::result::Result::Ok(_) => ::std::result::Result::Ok(()),
-				::std::result::Result::Err(e) => ::std::result::Result::Err(e.into()),
-			}
-		);
-		wrapper_output = parse_quote!(::std::result::Result::<(), #krate::Exception>);
-	}
-
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
-		#constructing_checker
 		#(#statements)*
 		#wrapper_inner
 
@@ -137,6 +110,8 @@ pub(crate) fn impl_wrapper_fn(
 
 	function.sig.ident = Ident::new("wrapper", function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
+	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
+	function.sig.generics.where_clause = Some(wrapper_where);
 	function.sig.output = parse_quote!(-> #wrapper_output);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
@@ -151,8 +126,7 @@ pub(crate) fn argument_checker(ident: &Ident, nargs: usize) -> TokenStream {
 		let krate = quote!(::ion);
 
 		let plural = if nargs == 1 { "" } else { "s" };
-		let error_msg = format!("{}() requires at least {} argument{}", ident, nargs, plural);
-		let error = LitStr::new(&error_msg, ident.span());
+		let error = format!("{}() requires at least {} argument{}", ident, nargs, plural);
 		quote!(
 			if args.len() < #nargs {
 				return ::std::result::Result::Err(#krate::Error::new(#error, ::std::option::Option::None).into());
@@ -160,19 +134,5 @@ pub(crate) fn argument_checker(ident: &Ident, nargs: usize) -> TokenStream {
 		)
 	} else {
 		TokenStream::new()
-	}
-}
-
-pub(crate) fn constructing_checker(is_constructor: bool) -> Option<TokenStream> {
-	let krate = quote!(::ion);
-
-	if is_constructor {
-		Some(quote!(
-			if !args.is_constructing() {
-				return ::std::result::Result::Err(#krate::Error::new("Constructor must be called with \"new\".", ::std::option::Option::None).into());
-			}
-		))
-	} else {
-		None
 	}
 }

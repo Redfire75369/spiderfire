@@ -10,7 +10,7 @@ use std::path::Path;
 
 use runtime::cache::Cache;
 
-pub fn cache_statistics() {
+pub(crate) fn cache_statistics() {
 	if let Some(cache) = Cache::new() {
 		println!("Location: {}", cache.dir().display());
 		match cache_size(cache.dir()) {

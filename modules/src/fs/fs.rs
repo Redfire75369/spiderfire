@@ -86,7 +86,7 @@ unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
 	check_is_file(path)?;
-	if let Ok(bytes) = fs::read(&path) {
+	if let Ok(bytes) = fs::read(path) {
 		Ok(Uint8Array { buf: bytes })
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
@@ -98,7 +98,7 @@ async fn readString(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
 	check_is_file(path)?;
-	if let Ok(str) = tokio::fs::read_to_string(&path).await {
+	if let Ok(str) = tokio::fs::read_to_string(path).await {
 		Ok(str)
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
@@ -110,7 +110,7 @@ fn readStringSync(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
 	check_is_file(path)?;
-	if let Ok(str) = fs::read_to_string(&path) {
+	if let Ok(str) = fs::read_to_string(path) {
 		Ok(str)
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
@@ -388,13 +388,13 @@ impl NativeModule for FileSystem {
 	const NAME: &'static str = "fs";
 	const SOURCE: &'static str = include_str!("fs.js");
 
-	fn module(cx: Context) -> Option<Object> {
+	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut fs = Object::new(cx);
 		let mut sync = Object::new(cx);
 
 		if fs.define_methods(cx, ASYNC_FUNCTIONS)
 			&& sync.define_methods(cx, SYNC_FUNCTIONS)
-			&& fs.define(cx, "sync", sync.to_value(), PropertyFlags::CONSTANT_ENUMERATED)
+			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
 		{
 			return Some(fs);
 		}

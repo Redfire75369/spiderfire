@@ -4,8 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::CString;
+
 use proc_macro2::{Ident, TokenStream};
-use syn::{ImplItemConst, LitStr, Type};
+use syn::{ImplItemConst, Type};
 
 use crate::utils::type_ends_with;
 
@@ -42,17 +44,15 @@ impl Property {
 
 	pub(crate) fn to_spec(&self, class: Ident) -> TokenStream {
 		let krate = quote!(::ion);
+		let name = String::from_utf8(CString::new(class.to_string()).unwrap().into_bytes_with_nul()).unwrap();
 		match self {
 			Property::Int32(ident) => {
-				let name = LitStr::new(&(format!("{}\0", ident)), ident.span());
 				quote!(#krate::spec::create_property_spec_int(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Property::Double(ident) => {
-				let name = LitStr::new(&(format!("{}\0", ident)), ident.span());
 				quote!(#krate::spec::create_property_spec_double(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Property::String(ident) => {
-				let name = LitStr::new(&(format!("{}\0", ident)), ident.span());
 				// TODO: Null-Terminate Constant
 				quote!(#krate::spec::create_property_spec_string(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}

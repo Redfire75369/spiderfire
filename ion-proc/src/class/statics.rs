@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::CString;
 use std::collections::HashMap;
+use std::ffi::CString;
 
 use convert_case::{Case, Casing};
 use proc_macro2::Ident;
@@ -16,8 +16,7 @@ use crate::class::method::Method;
 use crate::class::property::Property;
 
 pub(crate) fn class_spec(literal: &LitStr) -> ItemStatic {
-	let name = CString::new(literal.value()).unwrap().into_string().unwrap();
-	let name = LitStr::new(&name, literal.span());
+	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
@@ -42,11 +41,10 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 			(*method.names)
 				.iter()
 				.map(|name| {
-					let mut string = name.value();
-					if string.is_case(Case::Snake) {
-						string = string.to_case(Case::Camel);
+					let mut name = name.value();
+					if name.is_case(Case::Snake) {
+						name = name.to_case(Case::Camel);
 					}
-					let name = LitStr::new(&string, name.span());
 
 					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
 				})
@@ -95,7 +93,7 @@ pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, 
 				&CLASS
 			}
 
-			fn constructor() -> (::ion::NativeFunction, ::core::primitive::u32) {
+			fn constructor() -> (::ion::functions::NativeFunction, ::core::primitive::u32) {
 				(#constructor_ident, #constructor_nargs)
 			}
 

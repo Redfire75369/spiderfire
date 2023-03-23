@@ -6,8 +6,9 @@
 
 use std::path::Path;
 
-use mozjs::rust::JSEngine;
+use mozjs::rust::{JSEngine, Runtime};
 
+use ion::Context;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::modules::Module;
 use runtime::RuntimeBuilder;
@@ -18,11 +19,15 @@ const SCRIPT: &str = include_str!("scripts/module-import.js");
 #[test]
 fn modules() {
 	CONFIG.set(Config::default().log_level(LogLevel::Debug)).unwrap();
+
 	let engine = JSEngine::init().unwrap();
-	let builder = RuntimeBuilder::<()>::new().modules();
-	let rt = builder.build(engine.handle());
+	let rt = Runtime::new(engine.handle());
+	let mut cx = rt.cx();
+
+	let cx = Context::new(&mut cx);
+	let _rt = RuntimeBuilder::<()>::new().modules().build(&cx);
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
-	let result = Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT);
+	let result = Module::compile(&cx, FILE_NAME, Some(Path::new(&path)), SCRIPT);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }

@@ -5,32 +5,34 @@
  */
 
 use std::future::Future;
+use std::mem::transmute;
 
 use futures::channel::oneshot::channel;
+use mozjs::jsapi::JSFunction;
 
-use ion::{Context, Error, Function, Promise};
-use ion::conversions::{BoxedIntoJSVal, IntoJSVal};
+use ion::{Context, Error, Promise};
+use ion::conversions::{BoxedIntoValue, IntoValue};
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::future::NativeFuture;
 
-pub fn future_to_promise<F, O, E>(cx: Context, future: F) -> Option<Promise>
+pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
 where
 	F: Future<Output = Result<O, E>> + 'static + Send,
-	O: IntoJSVal + 'static,
-	E: IntoJSVal + 'static,
+	O: IntoValue<'cx> + 'static,
+	E: IntoValue<'cx> + 'static,
 {
-	let (tx, rx) = channel::<(UnsafeAssertSend<Function>, UnsafeAssertSend<Function>)>();
+	let (tx, rx) = channel::<(UnsafeAssertSend<*mut JSFunction>, UnsafeAssertSend<*mut JSFunction>)>();
 
 	let future = async move {
 		let (resolve, reject) = rx.await.unwrap();
 		let result = future.await;
 
-		let result: Result<BoxedIntoJSVal, BoxedIntoJSVal> = match result {
+		let result: Result<BoxedIntoValue, BoxedIntoValue> = match result {
 			Ok(o) => Ok(Box::new(o)),
 			Err(e) => Err(Box::new(e)),
 		};
-		(resolve.into_inner(), reject.into_inner(), result)
+		(resolve.into_inner(), reject.into_inner(), unsafe { transmute(result) })
 	};
 
 	let future: NativeFuture = Box::pin(future);
@@ -42,7 +44,7 @@ where
 	});
 
 	Promise::new_with_executor(cx, move |_, resolve, reject| {
-		tx.send(unsafe { (UnsafeAssertSend::new(resolve), UnsafeAssertSend::new(reject)) })
+		tx.send(unsafe { (UnsafeAssertSend::new(**resolve), UnsafeAssertSend::new(**reject)) })
 			.map_err(|_| Error::new("Failed to send resolve and reject through channel", None))
 	})
 }

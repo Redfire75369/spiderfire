@@ -9,10 +9,10 @@ use std::fmt::Write;
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource, JSObject};
-use mozjs::jsval::ObjectValue;
+use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
 
-use crate::{Context, Object};
+use crate::{Array, Context, Date, Exception, Function, Object, Promise};
+use crate::conversions::ToValue;
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
@@ -20,38 +20,49 @@ use crate::format::class::format_class_object;
 use crate::format::Config;
 use crate::format::date::format_date;
 use crate::format::function::format_function;
+use crate::format::key::format_key;
+use crate::format::promise::format_promise;
 
-/// Formats an [Object], depending on its class, as a [String] using the given [Config].
+/// Formats an [Object], depending on its class, as a [String] using the given [configuration](Config).
+///
 /// The object is passed to other formatting functions such as [format_array] and [format_date].
-pub fn format_object(cx: Context, cfg: Config, object: *mut JSObject) -> String {
-	rooted!(in(cx) let robj = object);
-
+pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
 	unsafe {
-		use ESClass::*;
-		let mut class = Other;
-		if !GetBuiltinClass(cx, robj.handle().into(), &mut class) {
-			return std::string::String::from("");
+		use ESClass as ESC;
+		let mut class = ESC::Other;
+		if !GetBuiltinClass(**cx, object.handle().into(), &mut class) {
+			return String::from("");
 		}
 
+		// TODO: Add Formatting for Errors
 		match class {
-			Boolean | Number | String | BigInt => format_boxed(cx, cfg, object, class),
-			Array => format_array(cx, cfg, crate::Array::from(cx, object).unwrap()),
-			Object => format_object_raw(cx, cfg, crate::Object::from(object)),
-			Date => format_date(cx, cfg, crate::Date::from(cx, object).unwrap()),
-			Function => format_function(cx, cfg, crate::Function::from_object(object).unwrap()),
-			Other => format_class_object(cx, cfg, crate::Object::from(object)),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &Object::from(object.into_local()), class),
+			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
+			ESC::Object => format_plain_object(cx, cfg, &Object::from(object.into_local())),
+			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
+			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()),
+			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &object).unwrap()),
+			ESC::Other => format_class_object(cx, cfg, &object),
+			ESC::Error => {
+				let exception = Exception::from_object(cx, &object);
+				match exception {
+					Exception::Error(error) => error.format(),
+					_ => panic!("Expected Error"),
+				}
+			}
 			_ => {
-				rooted!(in(cx) let rval = ObjectValue(object));
-				jsstr_to_string(cx, JS_ValueToSource(cx, rval.handle().into()))
+				let value = object.as_value(cx);
+				jsstr_to_string(**cx, JS_ValueToSource(**cx, value.handle().into()))
 			}
 		}
 	}
 }
 
-/// Formats an [Object] as a [String] using the given [Config].
+/// Formats an [Object] as a [String] using the given [configuration](Config).
+///
 /// Disregards the class of the object.
-pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
-	let color = cfg.colors.object;
+pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String {
+	let color = cfg.colours.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));
 		let length = keys.len();
@@ -64,10 +75,10 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
 			for (i, key) in keys.into_iter().enumerate().take(length) {
-				let value = object.get(cx, &key.to_string()).unwrap();
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
+				let value = object.get(cx, &key).unwrap();
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
-				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
+				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
 
 				if i != length - 1 {
 					string.push_str(&",".color(color));
@@ -82,9 +93,9 @@ pub fn format_object_raw(cx: Context, cfg: Config, object: Object) -> String {
 			let mut string = "{ ".color(color).to_string();
 			let len = length.clamp(0, 3);
 			for (i, key) in keys.into_iter().enumerate().take(len) {
-				let value = object.get(cx, &key.to_string()).unwrap();
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value);
-				write!(string, "{}: {}", key.to_string().color(color), value_string).unwrap();
+				let value = object.get(cx, &key).unwrap();
+				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
+				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
 
 				if i != len - 1 {
 					string.push_str(&", ".color(color));

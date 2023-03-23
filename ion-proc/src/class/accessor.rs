@@ -6,6 +6,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::ffi::CString;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
@@ -67,7 +68,7 @@ impl Accessor {
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
 			let getter = parse2(quote!(
-				fn #getter_ident(&self) -> #krate::Result<#ty> {
+				fn #getter_ident(#[ion(this)] this: &#class_ty) -> #krate::Result<#ty> {
 					Ok(this.#ident)
 				}
 			))
@@ -75,12 +76,12 @@ impl Accessor {
 			let (mut getter, _) = impl_accessor(&getter, class_ty, true, false)?;
 			getter.names = names.clone();
 
-			if readonly {
+			if !readonly {
 				let convert = conversion.unwrap_or_else(|| parse_quote!(()));
-				let setter_ident = readonly.then(|| Ident::new(&format!("set_{}", ident), ident.span()));
+				let setter_ident = Ident::new(&format!("set_{}", ident), ident.span());
 
 				let setter = parse2(quote!(
-					fn #setter_ident(&mut self, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
+					fn #setter_ident(#[ion(this)] this: &mut #class_ty, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
 						this.#ident = #ident;
 						Ok(())
 					}
@@ -106,21 +107,21 @@ impl Accessor {
 				let getter = getter.method.sig.ident.clone();
 				let setter = setter.method.sig.ident.clone();
 
-				let name = LitStr::new(&name.to_string(), name.span());
+				let name = name.to_string();
 				quote!(#krate::property_spec_getter_setter!(#getter, #setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Accessor(Some(getter), None) => {
 				let getter = getter.method.sig.ident.clone();
-				let name = LitStr::new(&name.to_string(), name.span());
+				let name = name.to_string();
 				quote!(#krate::property_spec_getter!(#getter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Accessor(None, Some(setter)) => {
 				let setter = setter.method.sig.ident.clone();
-				let name = LitStr::new(&name.to_string(), name.span());
+				let name = name.to_string();
 				quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 			}
 			Accessor(None, None) => {
-				let name = LitStr::new(&format!("{}\0", name), name.span());
+				let name = String::from_utf8(CString::new(name.to_string()).unwrap().into_bytes_with_nul()).unwrap();
 				quote!(
 					#krate::spec::create_property_spec_accessor(
 						#name,
@@ -153,7 +154,7 @@ pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
 }
 
 pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
-	let expected_args = if is_setter { 1 } else { 0 };
+	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
 	} else {
@@ -162,7 +163,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_set
 	let error = Error::new_spanned(&method.sig, error_message);
 
 	let (accessor, parameters) = impl_method(method.clone(), ty, keep_inner, |sig| {
-		let parameters = Parameters::parse(&sig.inputs, Some(ty), true)?;
+		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
 				if let Type::Path(_) = &**ty {

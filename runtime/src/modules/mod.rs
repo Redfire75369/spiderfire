@@ -31,7 +31,7 @@ impl ModuleError {
 		ModuleError { kind, report }
 	}
 
-	pub fn format(&self, cx: Context) -> String {
+	pub fn format(&self, cx: &Context) -> String {
 		self.report.format(cx)
 	}
 }

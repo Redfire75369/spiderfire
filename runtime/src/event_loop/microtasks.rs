@@ -11,16 +11,17 @@ use std::rc::Rc;
 
 use mozjs::glue::{CreateJobQueue, JobQueueTraps};
 use mozjs::jsapi::{
-	Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSObject, SetJobQueue, UndefinedHandleValue,
+	Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject, SetJobQueue,
+	UndefinedHandleValue,
 };
-use mozjs::jsval::UndefinedValue;
 
-use ion::{Context, ErrorReport, Function, Object};
+use ion::{Context, ErrorReport, Function, Object, Value};
+use ion::conversions::ToValue;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Microtask {
-	Promise(Object),
-	User(Function),
+	Promise(*mut JSObject),
+	User(*mut JSFunction),
 	None,
 }
 
@@ -31,21 +32,23 @@ pub struct MicrotaskQueue {
 }
 
 impl Microtask {
-	pub fn run(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		match self {
 			Microtask::Promise(promise) => unsafe {
-				rooted!(in(cx) let promise = promise.to_value());
-				rooted!(in(cx) let mut rval = UndefinedValue());
+				let value = promise.as_value(cx);
+
+				let mut rval = Value::undefined(cx);
 				let args = HandleValueArray::new();
 
-				if Call(cx, UndefinedHandleValue, promise.handle().into(), &args, rval.handle_mut().into()) {
+				if Call(**cx, UndefinedHandleValue, value.handle().into(), &args, rval.handle_mut().into()) {
 					Ok(())
 				} else {
 					Err(ErrorReport::new_with_exception_stack(cx))
 				}
 			},
 			Microtask::User(callback) => {
-				callback.call(cx, Object::global(cx), Vec::new())?;
+				let callback = Function::from(cx.root_function(*callback));
+				callback.call(cx, &Object::global(cx), &[])?;
 				Ok(())
 			}
 			Microtask::None => Ok(()),
@@ -54,14 +57,14 @@ impl Microtask {
 }
 
 impl MicrotaskQueue {
-	pub fn enqueue(&self, cx: Context, microtask: Microtask) {
+	pub fn enqueue(&self, cx: *mut JSContext, microtask: Microtask) {
 		{
 			self.queue.borrow_mut().push_back(microtask);
 		}
 		unsafe { JobQueueMayNotBeEmpty(cx) }
 	}
 
-	pub fn run_jobs(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run_jobs(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		if self.draining.get() {
 			return Ok(());
 		}
@@ -73,7 +76,7 @@ impl MicrotaskQueue {
 		}
 
 		self.draining.set(false);
-		unsafe { JobQueueIsEmpty(cx) };
+		unsafe { JobQueueIsEmpty(**cx) };
 
 		Ok(())
 	}
@@ -87,17 +90,17 @@ impl MicrotaskQueue {
 	}
 }
 
-unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: Context) -> *mut JSObject {
+unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: *mut JSContext) -> *mut JSObject {
 	CurrentGlobalOrNull(cx)
 }
 
 unsafe extern "C" fn enqueue_promise_job(
-	extra: *const c_void, cx: Context, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
+	extra: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
 	_: Handle<*mut JSObject>,
 ) -> bool {
 	let queue = &*(extra as *const MicrotaskQueue);
 	if !job.is_null() {
-		queue.enqueue(cx, Microtask::Promise(Object::from(job.get())))
+		queue.enqueue(cx, Microtask::Promise(job.get()))
 	} else {
 		queue.enqueue(cx, Microtask::None)
 	};
@@ -115,11 +118,11 @@ static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
 	empty: Some(empty),
 };
 
-pub(crate) fn init_microtask_queue(cx: Context) -> Rc<MicrotaskQueue> {
+pub(crate) fn init_microtask_queue(cx: &Context) -> Rc<MicrotaskQueue> {
 	let microtask_queue = Rc::new(MicrotaskQueue::default());
 	unsafe {
 		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, &*microtask_queue as *const _ as *const c_void);
-		SetJobQueue(cx, queue);
+		SetJobQueue(**cx, queue);
 	}
 	microtask_queue
 }

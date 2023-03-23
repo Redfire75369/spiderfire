@@ -6,14 +6,16 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::{DateTime, Duration, Utc};
+use mozjs::jsapi::JSFunction;
 use mozjs::jsval::JSVal;
 
-use ion::{Context, ErrorReport, Function, Object};
+use ion::{Context, ErrorReport, Function, Object, Value};
 
 pub struct SignalMacrotask {
 	callback: Box<dyn FnOnce()>,
@@ -32,7 +34,7 @@ impl SignalMacrotask {
 }
 
 impl Debug for SignalMacrotask {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("SignalMacrotask")
 			.field("terminate", &self.terminate.as_ref())
 			.field("scheduled", &self.scheduled)
@@ -42,7 +44,7 @@ impl Debug for SignalMacrotask {
 
 #[derive(Debug)]
 pub struct TimerMacrotask {
-	callback: Function,
+	callback: *mut JSFunction,
 	arguments: Vec<JSVal>,
 	repeat: bool,
 	scheduled: DateTime<Utc>,
@@ -53,7 +55,7 @@ pub struct TimerMacrotask {
 impl TimerMacrotask {
 	pub fn new(callback: Function, arguments: Vec<JSVal>, repeat: bool, duration: Duration) -> TimerMacrotask {
 		TimerMacrotask {
-			callback,
+			callback: **callback,
 			arguments,
 			repeat,
 			duration,
@@ -72,13 +74,16 @@ impl TimerMacrotask {
 
 #[derive(Debug)]
 pub struct UserMacrotask {
-	callback: Function,
+	callback: *mut JSFunction,
 	scheduled: DateTime<Utc>,
 }
 
 impl UserMacrotask {
 	pub fn new(callback: Function) -> UserMacrotask {
-		UserMacrotask { callback, scheduled: Utc::now() }
+		UserMacrotask {
+			callback: **callback,
+			scheduled: Utc::now(),
+		}
 	}
 }
 
@@ -98,7 +103,7 @@ pub struct MacrotaskQueue {
 }
 
 impl Macrotask {
-	pub fn run(self, cx: Context) -> Result<Option<Macrotask>, Option<ErrorReport>> {
+	pub fn run(self, cx: &Context) -> Result<Option<Macrotask>, Option<ErrorReport>> {
 		if let Macrotask::Signal(signal) = self {
 			(signal.callback)();
 			return Ok(None);
@@ -109,7 +114,10 @@ impl Macrotask {
 			_ => unreachable!(),
 		};
 
-		callback.call(cx, Object::global(cx), args).map(|_| (Some(self)))
+		let callback = Function::from(cx.root_function(callback));
+		let args: Vec<_> = args.into_iter().map(|value| Value::from(cx.root_value(value))).collect();
+
+		callback.call(cx, &Object::global(cx), args.as_slice()).map(|_| (Some(self)))
 	}
 
 	fn terminate(&self) -> bool {
@@ -129,7 +137,7 @@ impl Macrotask {
 }
 
 impl MacrotaskQueue {
-	pub fn run_jobs(&self, cx: Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run_jobs(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		self.find_next();
 		while let Some(next) = self.next.get() {
 			let macrotask = { self.map.borrow_mut().remove_entry(&next) };

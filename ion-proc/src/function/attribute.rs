@@ -11,6 +11,7 @@ mod keywords {
 	custom_keyword!(this);
 	custom_keyword!(varargs);
 	custom_keyword!(convert);
+	custom_keyword!(strict);
 }
 
 #[allow(dead_code)]
@@ -23,23 +24,26 @@ pub(crate) enum ParameterAttribute {
 		eq: Token![=],
 		conversion: Box<Expr>,
 	},
+	Strict(keywords::strict),
 }
 
 impl Parse for ParameterAttribute {
 	fn parse(input: ParseStream) -> Result<ParameterAttribute> {
-		use ParameterAttribute::*;
+		use ParameterAttribute as PA;
 
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::this) {
-			Ok(This(input.parse()?))
+			Ok(PA::This(input.parse()?))
 		} else if lookahead.peek(keywords::varargs) {
-			Ok(VarArgs(input.parse()?))
+			Ok(PA::VarArgs(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
-			Ok(Convert {
+			Ok(PA::Convert {
 				convert: input.parse()?,
 				eq: input.parse()?,
 				conversion: input.parse()?,
 			})
+		} else if lookahead.peek(keywords::strict) {
+			Ok(PA::Strict(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}

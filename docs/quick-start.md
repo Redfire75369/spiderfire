@@ -16,7 +16,7 @@
 
 Get a list of available subcommands and flags.
 
-```bash
+```shell
 # windows
 ./spiderfire.exe --help
 
@@ -26,7 +26,7 @@ Get a list of available subcommands and flags.
 
 Start a Javascript repl, exit by pressing `Ctrl + C` twice.
 
-```bash
+```shell
 # windows
 ./spiderfire.exe repl
 
@@ -36,7 +36,7 @@ Start a Javascript repl, exit by pressing `Ctrl + C` twice.
 
 Evaluate an inline Javascript expression.
 
-```bash
+```shell
 # windows
 ./spiderfire.exe eval console.log('Hello there');
 
@@ -46,7 +46,7 @@ Evaluate an inline Javascript expression.
 
 Run a Javascript file.
 
-```bash
+```shell
 # windows
 ./spiderfire.exe run <your-file.js>
 

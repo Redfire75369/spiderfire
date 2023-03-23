@@ -13,10 +13,10 @@ use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::microtasks::Microtask;
 
 #[js_fn]
-fn queueMicrotask(cx: Context, callback: Function) -> Result<()> {
+fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = (*event_loop.borrow()).microtasks.clone() {
-			queue.enqueue(cx, Microtask::User(callback));
+		if let Some(queue) = event_loop.borrow().microtasks.clone() {
+			queue.enqueue(**cx, Microtask::User(**callback));
 			Ok(())
 		} else {
 			Err(Error::new("Microtask Queue has not been initialised.", None))
@@ -26,11 +26,11 @@ fn queueMicrotask(cx: Context, callback: Function) -> Result<()> {
 
 const FUNCTION: JSFunctionSpec = function_spec!(queueMicrotask, 0);
 
-pub fn define(cx: Context, mut global: Object) -> bool {
+pub fn define<'cx>(cx: &'cx Context, global: &mut Object<'cx>) -> bool {
 	global.define_as(
 		cx,
 		"queueMicrotask",
-		Function::from_spec(cx, &FUNCTION),
+		&Function::from_spec(cx, &FUNCTION),
 		PropertyFlags::CONSTANT_ENUMERATED,
 	)
 }

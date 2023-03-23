@@ -9,7 +9,7 @@ use indent::indent_by;
 use crate::{Context, Function};
 use crate::format::Config;
 
-/// Formats a [Function] as a [String], using the given [Config].
+/// Formats a [Function] as a [String], using the given [configuration](Config).
 ///
 /// ### Format
 /// ```js
@@ -17,6 +17,6 @@ use crate::format::Config;
 ///   <#body>
 /// }
 /// ```
-pub fn format_function(cx: Context, cfg: Config, function: Function) -> String {
-	indent_by((2 * (cfg.indentation + cfg.depth)) as usize, &function.to_string(cx))
+pub fn format_function(cx: &Context, cfg: Config, function: &Function) -> String {
+	indent_by((2 * (cfg.indentation + cfg.depth)) as usize, function.to_string(cx))
 }
