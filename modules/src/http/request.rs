@@ -19,17 +19,12 @@ use runtime::globals::abort::AbortSignal;
 use crate::http::client::ClientRequestOptions;
 use crate::http::header::HeadersInit;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum Redirection {
+	#[default]
 	Follow,
 	Error,
 	Manual,
-}
-
-impl Default for Redirection {
-	fn default() -> Redirection {
-		Redirection::Follow
-	}
 }
 
 impl<'cx> FromValue<'cx> for Redirection {

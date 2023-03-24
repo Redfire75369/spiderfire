@@ -49,7 +49,7 @@ impl<'f> Function<'f> {
 	/// Creates a new [Function] from an object.
 	///
 	/// Returns [None] if the object is not a function.
-	pub fn from_object<'cx, 'o>(cx: &'cx Context, obj: &Local<'o, *mut JSObject>) -> Option<Function<'cx>> {
+	pub fn from_object<'cx>(cx: &'cx Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'cx>> {
 		if Function::is_function_raw(**obj) {
 			Some(Function {
 				function: cx.root_function(unsafe { JS_GetObjectFunction(**obj) }),

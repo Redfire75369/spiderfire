@@ -43,8 +43,9 @@ pub struct ClientOptions {
 	retry_cancelled: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum ClientRequestOptions {
+	#[default]
 	Global,
 	New,
 	Client(Client),
@@ -58,12 +59,6 @@ impl ClientRequestOptions {
 			CRO::New => default_client(),
 			CRO::Client(client) => client.client.clone(),
 		}
-	}
-}
-
-impl Default for ClientRequestOptions {
-	fn default() -> ClientRequestOptions {
-		ClientRequestOptions::Global
 	}
 }
 

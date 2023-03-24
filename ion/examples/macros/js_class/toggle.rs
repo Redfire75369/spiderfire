@@ -55,7 +55,7 @@ mod class {
 }
 
 fn ensure_callable() {
-	let mut toggle = Box::new(Toggle::default());
+	let mut toggle = Box::<Toggle>::default();
 	toggle.get_toggle();
 	toggle.set_toggle(true);
 	toggle.reset();

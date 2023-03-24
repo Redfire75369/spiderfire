@@ -4,8 +4,6 @@ on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
-  SCCACHE_LINK: https://github.com/mozilla/sccache/releases/download
-  SCCACHE_VERSION: v0.3.0
   SHELL: /bin/bash
 
 jobs:
@@ -14,32 +12,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macOS-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         rust: [stable, beta]
         include:
           - os: windows-latest
             id: windows
-            sccache-path: C:\Users\runneradmin\Mozilla\sccache
           - os: macos-latest
             id: macos
-            sccache-path: /Users/runner/Library/Caches/Mozilla.sccache
           - os: ubuntu-latest
             id: linux
-            sccache-path: /home/runner/.cache/sccache
     env:
       CCACHE: sccache
       SCCACHE_CACHE_SIZE: 3G
-      SCCACHE_DIR: ${{ matrix.sccache-path }}
+      SCCACHE_GHA_ENABLED: "true"
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Dependencies on Windows
         if: matrix.id == 'windows'
         env:
           MOZILLA_BUILD_LINK: https://ftp.mozilla.org/pub/mozilla/libraries/win32
           MOZILLA_BUILD_VERSION: 3.4
-          LLVM_VERSION: 14.0.6
+          LLVM_VERSION: 15.0.7
         run: |
           Start-BitsTransfer -Source $env:MOZILLA_BUILD_LINK/MozillaBuildSetup-$env:MOZILLA_BUILD_VERSION.exe -Destination ./MozillaBuildSetup.exe
           .\MozillaBuildSetup.exe /S | Out-Null
@@ -51,8 +46,8 @@ jobs:
 
       - name: Install Dependencies on OS X
         if: matrix.id == 'macos'
-        run: |
-          brew install python autoconf@2.13 llvm sccache yasm
+        run: brew install python autoconf@2.13 llvm sccache yasm
+
       ## TODO: Remove when Homebrew Python 3.10 is supported
       ## TODO: Waiting on https://github.com/servo/rust-mozjs/issues/559
       - name: Install Python 3.9
@@ -66,14 +61,7 @@ jobs:
 
       - name: Install Dependencies on Linux
         if: matrix.id == 'linux'
-        run: |
-          sudo apt install autoconf2.13 clang llvm -y
-          SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
-          mkdir -p $HOME/.local/bin
-          curl -L "$SCCACHE_LINK/$SCCACHE_VERSION/$SCCACHE_FILE.tar.gz" | tar xz
-          chmod +x $SCCACHE_FILE/sccache
-          mv -f $SCCACHE_FILE/sccache $HOME/.local/bin/sccache
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        run: sudo apt install clang llvm -y
 
       - name: Install Rust Toolchain
         uses: actions-rs/toolchain@v1
@@ -87,6 +75,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
       - name: Cache Cargo Cache and Git Database
         uses: actions/cache@v2
         with:
@@ -94,18 +85,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
           key: cargo-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ matrix.id }}-
-      - name: Cache sccache Cache
-        uses: actions/cache@v2
-        with:
-          path: ${{ matrix.sccache-path }}
-          key: sccache-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            sccache-${{ matrix.id }}-
-
-      - name: Start sccache Server
-        run: sccache --start-server
+          restore-keys: cargo-${{ matrix.id }}-
 
       - name: Build POSIX
         if: matrix.id == 'macos' || matrix.id == 'linux'
@@ -137,11 +117,6 @@ jobs:
           just test-release -vv
           rename .\target\release\cli.exe spiderfire.exe
 
-      - name: Stop sccache Server
-        run: |
-          sccache --show-stats
-          sccache --stop-server || true
-
       - name: Upload Executables as Artifacts
         uses: actions/upload-artifact@v2
         if: matrix.rust == 'stable'
@@ -155,19 +130,13 @@ jobs:
     env:
       CCACHE: sccache
       SCCACHE_CACHE_SIZE: 1G
-      SCCACHE_DIR: /home/runner/.cache/sccache
+      SCCACHE_GHA_ENABLED: "true"
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
       - name: Install Dependencies on Linux
-        run: |
-          sudo apt install autoconf2.13 clang llvm -y
-          SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
-          mkdir -p $HOME/.local/bin
-          curl -L "$SCCACHE_LINK/$SCCACHE_VERSION/$SCCACHE_FILE.tar.gz" | tar xz
-          chmod +x $SCCACHE_FILE/sccache
-          mv -f $SCCACHE_FILE/sccache $HOME/.local/bin/sccache
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        run: sudo apt install clang llvm -y
 
       - name: Install Rust Toolchain
         uses: actions-rs/toolchain@v1
@@ -181,6 +150,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
       - name: Cache Cargo Cache and Git Database
         uses: actions/cache@v2
         with:
@@ -188,28 +160,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
           key: cargo-lint-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-lint-
-      - name: Cache sccache Cache
-        uses: actions/cache@v2
-        with:
-          path: /home/runner/.cache/sccache
-          key: sccache-lint-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            sccache-lint-
-
-      - name: Start sccache Server
-        run: sccache --start-server
+          restore-keys: cargo-lint-
 
       - name: Lint
         env:
           CC: clang
           CXX: clang++
           RUSTC_WRAPPER: sccache
-        run: |
-          just lint
-
-      - name: Stop sccache Server
-        run: |
-          sccache --show-stats
-          sccache --stop-server || true
+        run: just lint
