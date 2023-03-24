@@ -18,17 +18,14 @@ pub use controller::AbortController;
 use ion::{ClassInitialiser, Context, Object};
 pub use signal::AbortSignal;
 
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Signal {
 	#[default]
- None,
+	None,
 	Abort(JSVal),
 	Receiver(Receiver<Option<JSVal>>),
 	Timeout(Receiver<Option<JSVal>>, Arc<AtomicBool>),
 }
-
-
 
 pub struct SignalFuture {
 	inner: Signal,

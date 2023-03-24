@@ -43,11 +43,10 @@ pub struct ClientOptions {
 	retry_cancelled: bool,
 }
 
-#[derive(Clone)]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub enum ClientRequestOptions {
 	#[default]
- Global,
+	Global,
 	New,
 	Client(Client),
 }
@@ -62,8 +61,6 @@ impl ClientRequestOptions {
 		}
 	}
 }
-
-
 
 impl<'cx> FromValue<'cx> for ClientRequestOptions {
 	type Config = ();
