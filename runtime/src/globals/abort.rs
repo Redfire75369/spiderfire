@@ -19,18 +19,16 @@ use ion::{ClassInitialiser, Context, Object};
 pub use signal::AbortSignal;
 
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub enum Signal {
-	None,
+	#[default]
+ None,
 	Abort(JSVal),
 	Receiver(Receiver<Option<JSVal>>),
 	Timeout(Receiver<Option<JSVal>>, Arc<AtomicBool>),
 }
 
-impl Default for Signal {
-	fn default() -> Self {
-		Signal::None
-	}
-}
+
 
 pub struct SignalFuture {
 	inner: Signal,

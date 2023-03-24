@@ -44,8 +44,10 @@ pub struct ClientOptions {
 }
 
 #[derive(Clone)]
+#[derive(Default)]
 pub enum ClientRequestOptions {
-	Global,
+	#[default]
+ Global,
 	New,
 	Client(Client),
 }
@@ -61,11 +63,7 @@ impl ClientRequestOptions {
 	}
 }
 
-impl Default for ClientRequestOptions {
-	fn default() -> ClientRequestOptions {
-		ClientRequestOptions::Global
-	}
-}
+
 
 impl<'cx> FromValue<'cx> for ClientRequestOptions {
 	type Config = ();

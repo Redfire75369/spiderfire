@@ -20,17 +20,15 @@ use crate::http::client::ClientRequestOptions;
 use crate::http::header::HeadersInit;
 
 #[derive(Copy, Clone, Debug)]
+#[derive(Default)]
 pub enum Redirection {
-	Follow,
+	#[default]
+ Follow,
 	Error,
 	Manual,
 }
 
-impl Default for Redirection {
-	fn default() -> Redirection {
-		Redirection::Follow
-	}
-}
+
 
 impl<'cx> FromValue<'cx> for Redirection {
 	type Config = ();
