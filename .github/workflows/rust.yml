@@ -117,9 +117,6 @@ jobs:
           just test-release -vv
           rename .\target\release\cli.exe spiderfire.exe
 
-      - name: sccache Statistics
-        run: ${SCCACHE_PATH} --show-stats
-
       - name: Upload Executables as Artifacts
         uses: actions/upload-artifact@v2
         if: matrix.rust == 'stable'
@@ -171,6 +168,3 @@ jobs:
           CXX: clang++
           RUSTC_WRAPPER: sccache
         run: just lint
-
-      - name: sccache Statistics
-        run: ${SCCACHE_PATH} --show-stats
