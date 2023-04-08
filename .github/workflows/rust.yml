@@ -106,7 +106,6 @@ jobs:
           LINKER: lld-link.exe
           NATIVE_WIN32_PYTHON: C:\mozilla-build\python\python.exe
           PYTHON3: C:\mozilla-build\python3\python3.exe
-          LIBCLANG_PATH: C:\ProgramData\scoop\apps\llvm\current\lib
         run: |
           just build-release -vv
           just test-release -vv
