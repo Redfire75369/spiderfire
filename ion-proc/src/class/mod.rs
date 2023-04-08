@@ -246,7 +246,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	};
 
 	let class_name = class_name.unwrap_or_else(|| LitStr::new(&class.ident.to_string(), class.ident.span()));
-	let class_spec = class_spec(&class_name);
+	let class_spec = class_spec(&class.ident, &class_name);
 
 	let method_specs = methods_to_specs(&methods, false);
 	let static_method_specs = methods_to_specs(&static_methods, true);

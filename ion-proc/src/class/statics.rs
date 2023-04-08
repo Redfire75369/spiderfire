@@ -15,13 +15,14 @@ use crate::class::accessor::Accessor;
 use crate::class::method::Method;
 use crate::class::property::Property;
 
-pub(crate) fn class_spec(literal: &LitStr) -> ItemStatic {
+pub(crate) fn class_spec(class: &Ident, literal: &LitStr) -> ItemStatic {
 	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
+	let krate = quote!(::ion);
 
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
 			name: #name.as_ptr() as *const ::core::primitive::i8,
-			flags: ::mozjs::jsapi::JSCLASS_HAS_PRIVATE,
+			flags: #krate::objects::class_reserved_slots(<#class as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
 			cOps: ::std::ptr::null_mut(),
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
@@ -88,6 +89,8 @@ pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, 
 	parse2(quote!(
 		impl #krate::ClassInitialiser for #class_ident {
 			const NAME: &'static str = #name_str;
+
+			const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
 
 			fn class() -> &'static ::mozjs::jsapi::JSClass {
 				&CLASS

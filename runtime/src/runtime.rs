@@ -111,8 +111,7 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 			init_timers(cx, &mut global);
 		}
 
-		let options = unsafe { &mut *ContextOptionsRef(**cx) };
-		options.set_topLevelAwait_(true);
+		let _options = unsafe { &mut *ContextOptionsRef(**cx) };
 
 		EVENT_LOOP.with(|eloop| {
 			let mut eloop = eloop.borrow_mut();

@@ -8,7 +8,7 @@ use std::{error, ptr};
 use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey};
+use mozjs::jsapi::{CreateError, UndefinedHandleValue, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey};
 
 use crate::{Context, Object, Stack, Value};
 use crate::conversions::ToValue;
@@ -171,6 +171,7 @@ impl Error {
 					column,
 					ptr::null_mut(),
 					message.handle().into(),
+					UndefinedHandleValue,
 					error.handle_mut().into(),
 				) {
 					return Some(error.to_object(cx));

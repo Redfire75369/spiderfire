@@ -200,7 +200,7 @@ pub mod class {
 		{
 			let object = Object::from_value(cx, value, true, ())?;
 			if Request::instance_of(cx, &object, None) {
-				Request::get_private(cx, &object, None).and_then(|c| c.clone())
+				Request::get_private(&object).clone()
 			} else {
 				Err(Error::new("Expected Request", ErrorKind::Type))
 			}

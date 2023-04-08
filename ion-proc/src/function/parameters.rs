@@ -173,20 +173,29 @@ impl Parameter {
 		}
 	}
 
-	pub(crate) fn to_class_statement(&self, index: &mut usize) -> Result<Stmt> {
+	pub(crate) fn to_class_statement(&self, index: &mut usize) -> Result<Vec<Stmt>> {
 		let krate = quote!(::ion);
 		match self {
 			Parameter::This { pat, ty, kind } => {
 				let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
-				let this = quote!(#krate::Object::from(#krate::Local::from_marked(&args.this().handle().get().to_object())));
 				match kind {
-					ThisKind::Ref(lt, mutability) => Ok(parse2(quote!(
-						let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(cx, &#this, ::std::option::Option::Some(args))?;
-					))?),
+					ThisKind::Ref(lt, mutability) => {
+						Ok(vec![
+							parse2(quote!(
+								let this = args.this().handle().get().to_object();
+							))?,
+							parse2(quote!(
+								let this = #krate::Object::from(#krate::Local::from_marked(&this));
+							))?,
+							parse2(quote!(
+								let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&this);
+							))?
+						])
+					},
 					ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 				}
 			}
-			param => param.to_statement(index),
+			param => param.to_statement(index).map(|s| vec![s]),
 		}
 	}
 }
@@ -237,16 +246,21 @@ impl Parameters {
 
 	pub(crate) fn to_statements(&self, is_class: bool) -> Result<Vec<Stmt>> {
 		let mut index = 0;
-		self.parameters
-			.iter()
-			.map(|parameter| {
-				if !is_class {
-					parameter.to_statement(&mut index)
-				} else {
-					parameter.to_class_statement(&mut index)
-				}
-			})
-			.collect::<Result<_>>()
+		Ok(
+			self.parameters
+				.iter()
+				.map(|parameter| {
+					if !is_class {
+						parameter.to_statement(&mut index).map(|s| vec![s])
+					} else {
+						parameter.to_class_statement(&mut index)
+					}
+				})
+				.collect::<Result<Vec<Vec<_>>>>()?
+				.into_iter()
+				.flatten()
+				.collect()
+		)
 	}
 
 	pub(crate) fn to_args(&self) -> Vec<FnArg> {
