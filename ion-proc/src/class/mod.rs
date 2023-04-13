@@ -16,6 +16,7 @@ use crate::class::attribute::{ClassAttribute, MethodAttribute};
 use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
+use crate::class::operations::{class_finalise, class_ops};
 use crate::class::property::Property;
 use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
 use crate::utils::extract_last_argument;
@@ -25,6 +26,7 @@ pub(crate) mod attribute;
 pub(crate) mod automatic;
 pub(crate) mod constructor;
 pub(crate) mod method;
+pub(crate) mod operations;
 pub(crate) mod property;
 pub(crate) mod statics;
 
@@ -248,6 +250,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let class_name = class_name.unwrap_or_else(|| LitStr::new(&class.ident.to_string(), class.ident.span()));
 	let class_spec = class_spec(&class.ident, &class_name);
 
+	let finalise_operation = class_finalise(&class.ident);
+	let class_ops = class_ops();
+
 	let method_specs = methods_to_specs(&methods, false);
 	let static_method_specs = methods_to_specs(&static_methods, true);
 	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
@@ -289,6 +294,8 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		content.push(Item::Impl(implementation));
 	}
 
+	content.push(Item::Fn(finalise_operation));
+	content.push(Item::Static(class_ops));
 	content.push(Item::Static(class_spec));
 	content.push(Item::Static(method_specs));
 	content.push(Item::Static(property_specs));

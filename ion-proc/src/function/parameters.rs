@@ -182,10 +182,7 @@ impl Parameter {
 					ThisKind::Ref(lt, mutability) => {
 						Ok(vec![
 							parse2(quote!(
-								let this = args.this().handle().get().to_object();
-							))?,
-							parse2(quote!(
-								let this = #krate::Object::from(#krate::Local::from_marked(&this));
+								let this = args.this().to_object(cx);
 							))?,
 							parse2(quote!(
 								let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&this);

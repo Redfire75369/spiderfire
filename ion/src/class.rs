@@ -119,7 +119,7 @@ pub trait ClassInitialiser {
 		CLASS_INFOS.with(|infos| {
 			let infos = infos.borrow();
 			let info = (*infos).get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-			let b = Box::new(native);
+			let b = Box::new(Some(native));
 			unsafe {
 				let obj = JS_NewObjectWithGivenProto(**cx, Self::class(), Handle::from_marked_location(&info.prototype));
 				JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(b) as *mut c_void));
@@ -135,7 +135,7 @@ pub trait ClassInitialiser {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(***object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
-			&mut *(value.to_private() as *mut Self)
+			(&mut *(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
 		}
 	}
 
