@@ -111,7 +111,7 @@ pub fn compile_typescript_module(filename: &str, source: &str) -> Result<(String
 
 fn initialise_parser<'a>(
 	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, input: StringInput<'a>,
-) -> (Handler, Parser<Capturing<Lexer<'a, StringInput<'a>>>>) {
+) -> (Handler, Parser<Capturing<Lexer<'a>>>) {
 	let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(source_map));
 	let lexer = Lexer::new(Syntax::Typescript(Default::default()), EsVersion::Es2022, input, Some(comments));
 	let capturing = Capturing::new(lexer);

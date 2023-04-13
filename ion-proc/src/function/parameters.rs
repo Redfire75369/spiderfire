@@ -6,6 +6,7 @@
 
 use proc_macro2::{Ident, Span};
 use syn::{Error, Expr, FnArg, GenericArgument, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
+use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
@@ -84,7 +85,7 @@ impl Parameter {
 						let mut strict = false;
 
 						for attr in &pat_ty.attrs {
-							if attr.path.is_ident("ion") {
+							if attr.path().is_ident("ion") {
 								let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 								use ParameterAttribute as PA;
@@ -136,7 +137,8 @@ impl Parameter {
 				let lifetime = recv.reference.as_ref().and_then(|(_, l)| l.as_ref());
 				let mutability = recv.mutability;
 				let this = <Token![self]>::default();
-				let this = parse2(quote!(#this)).unwrap();
+				let parser = Pat::parse_single;
+				let this = Box::new(parser.parse2(quote!(#this)).unwrap());
 				let ty = class_ty.unwrap();
 
 				let ty = parse2(quote!(&#lifetime #mutability #ty)).unwrap();

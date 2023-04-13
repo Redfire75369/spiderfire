@@ -70,7 +70,7 @@ impl Parse for Aliases {
 				alias: input.parse()?,
 				eq: input.parse()?,
 				bracket: bracketed!(inner in input),
-				aliases: inner.parse_terminated(<LitStr as Parse>::parse)?,
+				aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
 			};
 			Ok(aliases)
 		} else {
