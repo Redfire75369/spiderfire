@@ -6,7 +6,7 @@
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, NestedMeta, parse2, Result, Type};
+use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -35,7 +35,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	let mut inherit = false;
 	let mut repr = None;
 	for attr in &input.attrs {
-		if attr.path.is_ident("ion") {
+		if attr.path().is_ident("ion") {
 			let args: Punctuated<DataAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 			for arg in args {
@@ -48,8 +48,8 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 					}
 				}
 			}
-		} else if attr.path.is_ident("repr") {
-			let meta = attr.parse_meta()?;
+		} else if attr.path().is_ident("repr") {
+			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 			let allowed_reprs: Vec<Ident> = vec![
 				parse_quote!(i8),
 				parse_quote!(i16),
@@ -60,26 +60,18 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 				parse_quote!(u32),
 				parse_quote!(u64),
 			];
-			match meta {
-				Meta::List(list) => {
-					for meta in list.nested {
-						match meta {
-							NestedMeta::Meta(Meta::Path(meta)) => {
-								for allowed_repr in &allowed_reprs {
-									if meta.is_ident(allowed_repr) {
-										if repr.is_none() {
-											repr = Some(meta.segments.last().unwrap().ident.clone());
-										} else {
-											return Err(Error::new(meta.span(), "Only One Representation Allowed in #[repr]"));
-										}
-									}
-								}
+			for meta in nested {
+				if let Meta::Path(path) = &meta {
+					for allowed_repr in &allowed_reprs {
+						if path.is_ident(allowed_repr) {
+							if repr.is_none() {
+								repr = Some(path.get_ident().unwrap().clone());
+							} else {
+								return Err(Error::new(meta.span(), "Only One Representation Allowed in #[repr]"));
 							}
-							_ => return Err(Error::new(meta.span(), "Expected Structured Meta Path in #[repr]")),
 						}
 					}
 				}
-				_ => return Err(Error::new(meta.span(), "Expected List Meta for #[repr]")),
 			}
 		}
 	}
@@ -143,7 +135,7 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 					let mut inherit = inherit;
 
 					for attr in &variant.attrs {
-						if attr.path.is_ident("ion") {
+						if attr.path().is_ident("ion") {
 							let args: Punctuated<VariantAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 							for arg in args {
@@ -299,7 +291,7 @@ fn map_fields(
 			let mut inherit = inherit;
 
 			for attr in attrs {
-				if attr.path.is_ident("ion") {
+				if attr.path().is_ident("ion") {
 					let args: Punctuated<FieldAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 					for arg in args {
 						use FieldAttribute as FA;

@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use quote::ToTokens;
-use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, NestedMeta, parse2, Result, Visibility};
+use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2, Result, Visibility};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -56,7 +56,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 					for (j, item) in (*imp.items).iter().enumerate() {
 						match item {
-							ImplItem::Method(method) => {
+							ImplItem::Fn(method) => {
 								let mut method: ItemFn = parse2(method.to_token_stream())?;
 								match &method.vis {
 									Visibility::Public(_) => (),
@@ -71,7 +71,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 								let mut internal = None;
 
 								for (index, attr) in method.attrs.iter().enumerate() {
-									if attr.path.is_ident("ion") {
+									if attr.path().is_ident("ion") {
 										let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 										for arg in args {
@@ -97,7 +97,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 								impl_items_to_remove.push(j);
 								if let Some(internal) = internal {
 									method.attrs.remove(internal);
-									impl_items_to_add.push(ImplItem::Method(parse2(method.to_token_stream())?));
+									impl_items_to_add.push(ImplItem::Fn(parse2(method.to_token_stream())?));
 								} else {
 									for index in indexes {
 										method.attrs.remove(index);
@@ -187,17 +187,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 	// TODO: Check for `impl Clone for T`
 	let is_clone = (*class.attrs).iter().any(|attr| {
-		if attr.path.is_ident("derive") {
-			let meta = attr.parse_meta().unwrap();
-			if let Meta::List(list) = meta {
-				return list.nested.iter().any(|meta| {
-					if let NestedMeta::Meta(Meta::Path(path)) = meta {
-						path.is_ident("Clone")
-					} else {
-						false
-					}
-				});
-			}
+		if attr.path().is_ident("derive") {
+			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated).unwrap();
+			return nested.iter().any(|meta| meta.path().is_ident("Clone"));
 		}
 		false
 	});
@@ -210,7 +202,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 	let mut class_attrs_to_remove = Vec::new();
 	for (index, attr) in (*class.attrs).iter().enumerate() {
-		if attr.path.is_ident("ion") {
+		if attr.path().is_ident("ion") {
 			let args: Punctuated<ClassAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 			for arg in args {
@@ -317,7 +309,7 @@ fn add_methods(content: &mut Vec<Item>, imp: &mut ItemImpl, methods: Vec<Method>
 	for method in methods {
 		content.push(Item::Fn(method.method));
 		if let Some(inner) = method.inner {
-			imp.items.push(ImplItem::Method(parse2(inner.to_token_stream()).unwrap()))
+			imp.items.push(ImplItem::Fn(parse2(inner.to_token_stream()).unwrap()))
 		}
 	}
 }

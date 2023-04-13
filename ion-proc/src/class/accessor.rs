@@ -35,7 +35,7 @@ impl Accessor {
 
 			let mut indexes = Vec::new();
 			for (index, attr) in field.attrs.iter().enumerate() {
-				if attr.path.is_ident("ion") {
+				if attr.path().is_ident("ion") {
 					let args: Punctuated<PropertyAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 					for arg in args {
