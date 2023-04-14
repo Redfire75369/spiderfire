@@ -10,11 +10,11 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr;
 
-use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JSClass, JSFunction, JSFunctionSpec, JSObject,
-	JSPropertySpec, JS_SetReservedSlot,
-};
 use mozjs::glue::JS_GetReservedSlot;
+use mozjs::jsapi::{
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
+	JSObject, JSPropertySpec,
+};
 use mozjs::jsval::PrivateValue;
 use mozjs_sys::jsval::UndefinedValue;
 
@@ -128,14 +128,14 @@ pub trait ClassInitialiser {
 		})
 	}
 
-	fn get_private<'a>(object: &'a Object) -> &'a mut Self
+	fn get_private<'a>(object: &'a mut Object) -> &'a mut Self
 	where
 		Self: Sized,
 	{
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(***object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
-			(&mut *(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
+			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
 		}
 	}
 
@@ -149,9 +149,9 @@ pub trait ClassInitialiser {
 
 /// Converts an instance of a native class into its native value, by cloning it.
 pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
-	let object = Object::from_value(cx, value, true, ()).unwrap();
+	let mut object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
-		Ok(T::get_private(&object).clone())
+		Ok(T::get_private(&mut object).clone())
 	} else {
 		Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 	}
