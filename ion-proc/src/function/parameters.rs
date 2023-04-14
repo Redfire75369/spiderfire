@@ -181,16 +181,14 @@ impl Parameter {
 			Parameter::This { pat, ty, kind } => {
 				let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 				match kind {
-					ThisKind::Ref(lt, mutability) => {
-						Ok(vec![
-							parse2(quote!(
-								let this = args.this().to_object(cx);
-							))?,
-							parse2(quote!(
-								let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&this);
-							))?
-						])
-					},
+					ThisKind::Ref(lt, mutability) => Ok(vec![
+						parse2(quote!(
+							let mut this = args.this().to_object(cx);
+						))?,
+						parse2(quote!(
+							let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&mut this);
+						))?,
+					]),
 					ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 				}
 			}
@@ -245,21 +243,20 @@ impl Parameters {
 
 	pub(crate) fn to_statements(&self, is_class: bool) -> Result<Vec<Stmt>> {
 		let mut index = 0;
-		Ok(
-			self.parameters
-				.iter()
-				.map(|parameter| {
-					if !is_class {
-						parameter.to_statement(&mut index).map(|s| vec![s])
-					} else {
-						parameter.to_class_statement(&mut index)
-					}
-				})
-				.collect::<Result<Vec<Vec<_>>>>()?
-				.into_iter()
-				.flatten()
-				.collect()
-		)
+		Ok(self
+			.parameters
+			.iter()
+			.map(|parameter| {
+				if !is_class {
+					parameter.to_statement(&mut index).map(|s| vec![s])
+				} else {
+					parameter.to_class_statement(&mut index)
+				}
+			})
+			.collect::<Result<Vec<Vec<_>>>>()?
+			.into_iter()
+			.flatten()
+			.collect())
 	}
 
 	pub(crate) fn to_args(&self) -> Vec<FnArg> {

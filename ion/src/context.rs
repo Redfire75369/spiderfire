@@ -7,8 +7,10 @@
 use std::cell::RefCell;
 use std::mem::{take, transmute};
 use std::ops::Deref;
+use std::ptr;
 
-use mozjs::jsapi::{JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
+use mozjs::gc::RootedTraceableSet;
+use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
@@ -51,6 +53,8 @@ struct LocalArena<'a> {
 	functions: Arena<RootedGuard<'a, *mut JSFunction>>,
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
+
+thread_local!(static PERSISTENT_ROOTED_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
 /// Represents the thread-local state of the runtime.
 ///
@@ -96,6 +100,29 @@ impl Context<'_> {
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
 		(root_function, *mut JSFunction, functions, Function),
 		(root_symbol, *mut Symbol, symbols, Symbol),
+	}
+
+	pub unsafe fn root_persistent_object(&self, object: *mut JSObject) -> Local<'static, *mut JSObject> {
+		let heap = *Heap::boxed(object);
+		PERSISTENT_ROOTED_OBJECTS.with(|persistent| {
+			let mut persistent = persistent.borrow_mut();
+			persistent.push(heap);
+			let ptr = &persistent[persistent.len() - 1];
+			RootedTraceableSet::add(ptr);
+		});
+		Local::from_marked(&object)
+	}
+
+	pub unsafe fn unroot_persistent_object(&self, object: *mut JSObject) {
+		PERSISTENT_ROOTED_OBJECTS.with(|persistent| {
+			let mut persistent = persistent.borrow_mut();
+			let idx = match persistent.iter().rposition(|x| ptr::eq(x.get_unsafe() as *const _, object as *const _)) {
+				Some(idx) => idx,
+				None => return,
+			};
+			let heap = persistent.remove(idx);
+			RootedTraceableSet::remove(&heap);
+		});
 	}
 }
 

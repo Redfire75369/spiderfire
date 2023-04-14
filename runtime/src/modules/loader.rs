@@ -14,8 +14,8 @@ use std::ptr;
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JS_SetProperty, JSContext, JSObject, ModuleEvaluate, ModuleLink, ReadOnlyCompileOptions,
-	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	CompileModule, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JS_SetProperty, JSContext, JSObject, ModuleEvaluate, ModuleLink,
+	ReadOnlyCompileOptions, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
