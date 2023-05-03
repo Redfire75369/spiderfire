@@ -21,6 +21,7 @@ mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = { version = "6.2.3", optional = true }
 typed-arena = "2.0.2"
 utf16string = "0.2.0"
+send_wrapper = "0.6.0"
 
 [features]
 default = []
