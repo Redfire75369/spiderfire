@@ -219,22 +219,19 @@ impl ThisParameter {
 
 	pub(crate) fn to_async_class_statements(&self) -> Result<(Stmt, Vec<Stmt>)> {
 		let krate = quote!(::ion);
-		match self {
-			Parameter::This { pat, ty, kind } => {
-				let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
-				match kind {
-					ThisKind::Ref(lt, mutability) => Ok(vec![
-						parse2(quote!(
-							let mut this = args.this().to_object(cx);
-						))?,
-						parse2(quote!(
-							let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&mut this);
-						))?,
-					]),
-					ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
-				}
-			}
-			param => param.to_statement(index).map(|s| vec![s]),
+		let ThisParameter { pat, ty, kind } = self;
+
+		let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
+		match kind {
+			ThisKind::Ref(_, mutability) => Ok((
+				parse2(quote!(let #pat: &'static #mutability #ty;))?,
+				vec![
+					parse2(quote!(let mut this2 = this.take().unwrap().take().into();))?,
+					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&mut this2));))?,
+					parse2(quote!(this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(this2.into_local()));))?,
+				],
+			)),
+			ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 		}
 	}
 }
@@ -302,20 +299,34 @@ impl Parameters {
 
 	pub(crate) fn to_statements(&self) -> Result<Vec<Stmt>> {
 		let mut index = 0;
-		Ok(self
-			.parameters
+		self.parameters
 			.iter()
-			.map(|parameter| {
-				if !is_class {
-					parameter.to_statement(&mut index).map(|s| vec![s])
+			.map(|parameter| parameter.to_statement(&mut index))
+			.collect::<Result<Vec<_>>>()
+	}
+
+	pub(crate) fn get_this_ident(&self) -> Option<Ident> {
+		self.this.as_ref().map(|x| x.1.clone())
+	}
+
+	pub(crate) fn to_this_statements(&self, is_class: bool, is_async: bool) -> Result<TokenStream> {
+		match &self.this {
+			Some((this, _)) => {
+				if is_class && is_async {
+					let (pre, inner) = this.to_async_class_statements()?;
+					Ok(quote!(
+						#pre
+						{
+							#(#inner)*
+						}
+					))
 				} else {
-					parameter.to_class_statement(&mut index)
+					let statements = this.to_statements(is_class)?;
+					Ok(quote!(#(#statements)*))
 				}
-			})
-			.collect::<Result<Vec<Vec<_>>>>()?
-			.into_iter()
-			.flatten()
-			.collect())
+			}
+			None => Ok(TokenStream::default()),
+		}
 	}
 
 		if let Some((ThisParameter { pat, ty, kind }, _, index)) = &self.this {
