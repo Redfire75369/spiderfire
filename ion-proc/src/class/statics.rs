@@ -23,7 +23,7 @@ pub(crate) fn class_spec(class: &Ident, literal: &LitStr) -> ItemStatic {
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
 			name: #name.as_ptr() as *const ::core::primitive::i8,
 			flags: #krate::objects::class_reserved_slots(<#class as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
-			cOps: ::std::ptr::null_mut(),
+			cOps: &OPERATIONS as *const _ as *mut _,
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
 			oOps: ::std::ptr::null_mut(),
