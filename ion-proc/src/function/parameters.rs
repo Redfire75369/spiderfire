@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Expr, FnArg, GenericArgument, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
+use proc_macro2::{Span, TokenStream};
+use syn::{Error, Expr, FnArg, GenericArgument, Ident, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -48,7 +48,7 @@ pub(crate) struct ThisParameter {
 
 pub(crate) struct Parameters {
 	pub(crate) parameters: Vec<Parameter>,
-	pub(crate) this: Option<(ThisParameter, Ident)>,
+	pub(crate) this: Option<(ThisParameter, Ident, usize)>,
 	pub(crate) idents: Vec<Ident>,
 	pub(crate) nargs: (usize, usize),
 }
@@ -239,18 +239,19 @@ impl ThisParameter {
 impl Parameters {
 	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>) -> Result<Parameters> {
 		let mut nargs = (0, 0);
-		let mut this: Option<(ThisParameter, Ident)> = None;
+		let mut this = None;
 		let mut idents = Vec::new();
 
 		let parameters: Vec<_> = parameters
 			.iter()
-			.filter_map(|arg| {
+			.enumerate()
+			.filter_map(|(i, arg)| {
 				let this_param = ThisParameter::from_arg(arg, ty);
 				match this_param {
 					Ok(Some(this_param)) => {
 						if let Pat::Ident(ident) = &*this_param.pat {
 							let ident2 = ident.ident.clone();
-							this = Some((this_param, ident2));
+							this = Some((this_param, ident2, i));
 						}
 						return None;
 					}
@@ -310,7 +311,7 @@ impl Parameters {
 
 	pub(crate) fn to_this_statements(&self, is_class: bool, is_async: bool) -> Result<TokenStream> {
 		match &self.this {
-			Some((this, _)) => {
+			Some((this, _, _)) => {
 				if is_class && is_async {
 					let (pre, inner) = this.to_async_class_statements()?;
 					Ok(quote!(
@@ -330,12 +331,7 @@ impl Parameters {
 
 	pub(crate) fn to_args(&self) -> Vec<FnArg> {
 		let mut args = Vec::with_capacity(self.this.is_some() as usize + self.parameters.len());
-		if let Some((ThisParameter { pat, ty, kind }, _)) = &self.this {
-			args.push(match kind {
-				ThisKind::Ref(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
-				ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
-			});
-		}
+
 		args.extend(
 			self.parameters
 				.iter()
@@ -347,7 +343,28 @@ impl Parameters {
 				})
 				.collect::<Vec<_>>(),
 		);
+
+		if let Some((ThisParameter { pat, ty, kind }, _, index)) = &self.this {
+			args.insert(
+				*index,
+				match kind {
+					ThisKind::Ref(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
+					ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
+				},
+			);
+		}
+
 		args
+	}
+
+	pub(crate) fn to_idents(&self) -> Vec<Ident> {
+		let mut idents = self.idents.clone();
+		if let Some((_, ident, index)) = &self.this {
+			if ident != &Into::<Ident>::into(<Token![self]>::default()) {
+				idents.insert(*index, ident.clone());
+			}
+		}
+		idents
 	}
 }
 
