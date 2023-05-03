@@ -1,6 +1,6 @@
 edition = "2021"
 force_explicit_abi = true
-fn_args_layout = "Compressed"
+fn_params_layout = "Compressed"
 hard_tabs = true
 match_arm_leading_pipes = "Never"
 max_width = 150

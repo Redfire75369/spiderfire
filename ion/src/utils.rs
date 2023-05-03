@@ -6,6 +6,8 @@
 
 use std::path::{Component, Path, PathBuf};
 
+pub use send_wrapper::SendWrapper;
+
 /// Normalises a [Path] by removing all `./` and resolving all `../` simplistically.
 ///
 /// This function does not follow symlinks and may result in unexpected behaviour.

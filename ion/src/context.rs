@@ -54,7 +54,7 @@ struct LocalArena<'a> {
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
-thread_local!(static PERSISTENT_ROOTED_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
+thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
 /// Represents the thread-local state of the runtime.
 ///
@@ -102,9 +102,9 @@ impl Context<'_> {
 		(root_symbol, *mut Symbol, symbols, Symbol),
 	}
 
-	pub unsafe fn root_persistent_object(&self, object: *mut JSObject) -> Local<'static, *mut JSObject> {
+	pub unsafe fn root_persistent_object(object: *mut JSObject) -> Local<'static, *mut JSObject> {
 		let heap = *Heap::boxed(object);
-		PERSISTENT_ROOTED_OBJECTS.with(|persistent| {
+		HEAP_OBJECTS.with(|persistent| {
 			let mut persistent = persistent.borrow_mut();
 			persistent.push(heap);
 			let ptr = &persistent[persistent.len() - 1];
@@ -113,8 +113,8 @@ impl Context<'_> {
 		Local::from_marked(&object)
 	}
 
-	pub unsafe fn unroot_persistent_object(&self, object: *mut JSObject) {
-		PERSISTENT_ROOTED_OBJECTS.with(|persistent| {
+	pub unsafe fn unroot_persistent_object(object: *mut JSObject) {
+		HEAP_OBJECTS.with(|persistent| {
 			let mut persistent = persistent.borrow_mut();
 			let idx = match persistent.iter().rposition(|x| ptr::eq(x.get_unsafe() as *const _, object as *const _)) {
 				Some(idx) => idx,

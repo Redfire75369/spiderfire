@@ -45,7 +45,7 @@ pub(crate) async fn start_repl() {
 			Err(error) => terminate += handle_error(error),
 		}
 
-		repl.add_history_entry(&input);
+		repl.add_history_entry(&input).unwrap();
 
 		if terminate == 1 && input.is_empty() {
 			println!("Press Ctrl+C again or Ctrl+D to exit.");
