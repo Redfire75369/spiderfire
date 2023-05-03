@@ -21,7 +21,7 @@ pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, kee
 	}
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
-	let idents = parameters.to_idents();
+	let idents = &parameters.idents;
 	let statements = parameters.to_statements()?;
 	let this_statements = parameters.to_this_statements(class_ty.is_some(), false)?;
 
@@ -163,10 +163,9 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 		quote!(let mut this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
 			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(**args.this().to_object(cx))));)
 	});
-	let unrooter = parameters
-		.this
-		.is_some()
-		.then(|| quote!(#krate::Context::unroot_persistent_object(*this.take().unwrap().take());));
+	let unrooter = parameters.this.is_some().then(|| {
+		quote!(#krate::Context::unroot_persistent_object(*this.take().unwrap().take());)
+	});
 
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
