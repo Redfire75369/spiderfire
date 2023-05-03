@@ -166,9 +166,8 @@ impl ThisParameter {
 
 								use ParameterAttribute as PA;
 								for arg in args {
-									match arg {
-										PA::This(_) => return parse_this(pat, ty, class_ty.is_some(), span).map(Some),
-										_ => (),
+									if let PA::This(_) = arg {
+										return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
 									}
 								}
 							}
