@@ -21,7 +21,7 @@ pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, kee
 	}
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
-	let idents = &parameters.idents;
+	let idents = parameters.to_idents();
 	let statements = parameters.to_statements()?;
 	let this_statements = parameters.to_this_statements(class_ty.is_some(), false)?;
 
