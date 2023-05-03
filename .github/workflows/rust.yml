@@ -89,8 +89,8 @@ jobs:
           CXX: clang++
           RUSTC_WRAPPER: sccache
         run: |
-          just build-release -vv
-          just test-release -vv
+          just build-release -vv --color=never
+          just test-release -vv --color=never
           mv ./target/release/cli ./target/release/spiderfire
           strip ./target/release/spiderfire
 
@@ -107,8 +107,8 @@ jobs:
           NATIVE_WIN32_PYTHON: C:\mozilla-build\python\python.exe
           PYTHON3: C:\mozilla-build\python3\python3.exe
         run: |
-          just build-release -vv
-          just test-release -vv
+          just build-release -vv --color=never
+          just test-release -vv --color=never
           rename .\target\release\cli.exe spiderfire.exe
 
       - name: Upload Executables as Artifacts
