@@ -311,7 +311,7 @@ impl Parameters {
 
 	pub(crate) fn to_this_statements(&self, is_class: bool, is_async: bool) -> Result<TokenStream> {
 		match &self.this {
-			Some((this, _)) => {
+			Some((this, _, _)) => {
 				if is_class && is_async {
 					let (pre, inner) = this.to_async_class_statements()?;
 					Ok(quote!(
@@ -328,6 +328,21 @@ impl Parameters {
 			None => Ok(TokenStream::default()),
 		}
 	}
+
+	pub(crate) fn to_args(&self) -> Vec<FnArg> {
+		let mut args = Vec::with_capacity(self.this.is_some() as usize + self.parameters.len());
+
+		args.extend(
+			self.parameters
+				.iter()
+				.map(|parameter| match parameter {
+					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
+						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
+					}
+					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
+				})
+				.collect::<Vec<_>>(),
+		);
 
 		if let Some((ThisParameter { pat, ty, kind }, _, index)) = &self.this {
 			args.insert(
