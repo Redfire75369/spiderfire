@@ -104,13 +104,14 @@ impl Context<'_> {
 
 	pub unsafe fn root_persistent_object(object: *mut JSObject) -> Local<'static, *mut JSObject> {
 		let heap = *Heap::boxed(object);
-		HEAP_OBJECTS.with(|persistent| {
+		let handle = HEAP_OBJECTS.with(|persistent| {
 			let mut persistent = persistent.borrow_mut();
 			persistent.push(heap);
 			let ptr = &persistent[persistent.len() - 1];
 			RootedTraceableSet::add(ptr);
+			ptr.handle()
 		});
-		Local::from_marked(&object)
+		Local::from_raw_handle(handle)
 	}
 
 	pub unsafe fn unroot_persistent_object(object: *mut JSObject) {
