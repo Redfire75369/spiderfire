@@ -278,7 +278,7 @@ pub(crate) fn clone_request(request: &hyper::Request<Body>) -> Result<hyper::Req
 }
 
 pub(crate) fn check_url_scheme(url: &Url) -> Result<()> {
-	if url.scheme() == "http" {
+	if url.scheme() == "https" || url.scheme() == "http" {
 		Ok(())
 	} else {
 		Err(Error::new("Invalid Scheme", None))

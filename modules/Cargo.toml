@@ -20,6 +20,7 @@ tokio = { version = "1.27.0", features = ["fs", "rt"] }
 tokio-stream = { version = "0.1.12", features = ["fs"] }
 runtime = { path = "../runtime" }
 url = "2.3.1"
+hyper-rustls = { version = "0.24.0", default-features = false, features = ["http1", "logging", "tls12", "webpki-tokio"] }
 
 [dev-dependencies]
 tokio = { version = "1.27.0", features = ["macros", "rt"] }

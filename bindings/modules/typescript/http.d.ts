@@ -70,6 +70,10 @@ declare module "http" {
 		get bodyUsed(): boolean;
 		get headers(): Headers;
 
+		get url(): string;
+		get redirected(): boolean;
+		get locations(): string[];
+
 		arrayBuffer(): Promise<ArrayBuffer>;
 		text(): Promise<string>;
 	}
