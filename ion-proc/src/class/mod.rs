@@ -16,7 +16,7 @@ use crate::class::attribute::{ClassAttribute, MethodAttribute};
 use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
-use crate::class::operations::{class_finalise, class_ops};
+use crate::class::operations::{class_finalise, class_ops, class_trace};
 use crate::class::property::Property;
 use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
 use crate::utils::extract_last_argument;
@@ -41,6 +41,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let mut accessors = HashMap::new();
 	let mut static_properties = Vec::new();
 	let mut static_accessors = HashMap::new();
+
+	let mut has_clone = false;
+	let mut has_trace = false;
 
 	let mut content_to_remove = Vec::new();
 	for (i, item) in (**content).iter().enumerate() {
@@ -164,6 +167,10 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					}
 
 					implementation = Some(imp);
+				} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Clone)) {
+					has_clone = true;
+				} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Traceable)) {
+					has_trace = true;
 				} else {
 					content_to_remove.pop();
 				}
@@ -185,8 +192,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		return Err(Error::new(module.span(), "Expected Struct within Module"));
 	};
 
-	// TODO: Check for `impl Clone for T`
-	let is_clone = (*class.attrs).iter().any(|attr| {
+	let has_clone = has_clone || (*class.attrs).iter().any(|attr| {
 		if attr.path().is_ident("derive") {
 			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated).unwrap();
 			return nested.iter().any(|meta| meta.path().is_ident("Clone"));
@@ -243,7 +249,8 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let class_spec = class_spec(&class.ident, &class_name);
 
 	let finalise_operation = class_finalise(&class.ident);
-	let class_ops = class_ops();
+	let trace_operation = has_trace.then(|| class_trace(&class.ident));
+	let class_ops = class_ops(has_trace);
 
 	let method_specs = methods_to_specs(&methods, false);
 	let static_method_specs = methods_to_specs(&static_methods, true);
@@ -251,7 +258,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
 
 	let from_value = if impl_from_value {
-		if is_clone {
+		if has_clone {
 			Some(from_value(&class.ident))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic FromValue Implementation"));
@@ -260,7 +267,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		None
 	};
 	let to_value = if impl_to_value {
-		if is_clone {
+		if has_clone {
 			Some(to_value(&class.ident, true))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic ToValue Implementation"));
@@ -287,6 +294,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	}
 
 	content.push(Item::Fn(finalise_operation));
+	if let Some(trace_operation) = trace_operation {
+		content.push(Item::Fn(trace_operation))
+	}
 	content.push(Item::Static(class_ops));
 	content.push(Item::Static(class_spec));
 	content.push(Item::Static(method_specs));
