@@ -50,9 +50,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		content_to_remove.push(i);
 		match item {
 			Item::Struct(str) if class.is_none() => class = Some(str.clone()),
-			Item::Impl(imp) if implementation.is_none() => {
+			Item::Impl(imp) => {
 				let impl_ty = extract_last_argument(&imp.self_ty);
-				if imp.trait_.is_none() && impl_ty.is_some() && impl_ty.as_ref() == class.as_ref().map(|c| &c.ident) {
+				if implementation.is_none() && imp.trait_.is_none() && impl_ty.is_some() && impl_ty.as_ref() == class.as_ref().map(|c| &c.ident) {
 					let mut impl_items_to_remove = Vec::new();
 					let mut impl_items_to_add = Vec::new();
 					let mut imp = imp.clone();
@@ -167,12 +167,13 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					}
 
 					implementation = Some(imp);
-				} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Clone)) {
-					has_clone = true;
-				} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Traceable)) {
-					has_trace = true;
 				} else {
 					content_to_remove.pop();
+					if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Clone)) {
+						has_clone = true;
+					} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Traceable)) {
+						has_trace = true;
+					}
 				}
 			}
 			_ => {

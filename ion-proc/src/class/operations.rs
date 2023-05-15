@@ -24,12 +24,12 @@ pub(crate) fn class_finalise(class: &Ident) -> ItemFn {
 pub(crate) fn class_trace(class: &Ident) -> ItemFn {
 	let krate = quote!(::ion);
 	parse_quote!(
-		unsafe extern "C" fn trace_operation(this: *mut ::mozjs::jsapi::JSObject, trc: *mut ::mozjs::jsapi::JSTracer) {
+		unsafe extern "C" fn trace_operation(trc: *mut ::mozjs::jsapi::JSTracer, this: *mut ::mozjs::jsapi::JSObject) {
 			let mut value = ::mozjs::jsval::NullValue();
 			::mozjs::glue::JS_GetReservedSlot(this, <#class as #krate::class::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
 			if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
 				let private = &*(value.to_private() as *mut Option<#class>);
-				::mozjs::gc::Traceable::trace(private);
+				::mozjs::gc::Traceable::trace(private, trc);
 			}
 		}
 	)

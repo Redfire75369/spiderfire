@@ -7,9 +7,11 @@
 use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{Context, Object, Result};
-use ion::ClassInitialiser;
+use ion::{ClassInitialiser, Context, Object, Result};
 use runtime::modules::NativeModule;
+
+pub use class::*;
+use crate::url::search_params::URLSearchParams;
 
 #[js_class]
 mod class {
@@ -241,7 +243,8 @@ impl NativeModule for UrlM {
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut url = Object::new(cx);
 		if url.define_methods(cx, FUNCTIONS) {
-			class::URL::init_class(cx, &mut url);
+			URL::init_class(cx, &mut url);
+			URLSearchParams::init_class(cx, &mut url);
 			return Some(url);
 		}
 		None

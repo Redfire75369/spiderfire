@@ -6,4 +6,5 @@
 
 pub use self::url::*;
 
+mod search_params;
 mod url;
