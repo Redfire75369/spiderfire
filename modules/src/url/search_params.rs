@@ -19,7 +19,8 @@ mod class {
 	}
 
 	// TODO: Allow URLSearchParams to be formed with just a string of query pairs
-	// TODO: Implement URLSearchParams.prototype.set and URLSearchParams.prototype.delete
+	// TODO: Implement URLSearchParams.prototype.set, URLSearchParams.prototype.delete, and URLSearchParams.prototype.sort
+	// TODO: URLSearchParams.prototype.toString and URLSearchParams.prototype.toJSON
 	// TODO: Implement [Symbol.iterator] for URLSearchParams
 	impl URLSearchParams {
 		pub(crate) fn from_url(url: Rc<RefCell<Url>>) -> URLSearchParams {
