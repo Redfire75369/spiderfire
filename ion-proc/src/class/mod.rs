@@ -193,13 +193,14 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		return Err(Error::new(module.span(), "Expected Struct within Module"));
 	};
 
-	let has_clone = has_clone || (*class.attrs).iter().any(|attr| {
-		if attr.path().is_ident("derive") {
-			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated).unwrap();
-			return nested.iter().any(|meta| meta.path().is_ident("Clone"));
-		}
-		false
-	});
+	let has_clone = has_clone
+		|| (*class.attrs).iter().any(|attr| {
+			if attr.path().is_ident("derive") {
+				let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated).unwrap();
+				return nested.iter().any(|meta| meta.path().is_ident("Clone"));
+			}
+			false
+		});
 
 	let mut class_name = None;
 	let mut has_constructor = true;

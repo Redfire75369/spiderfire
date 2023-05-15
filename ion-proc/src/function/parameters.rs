@@ -38,6 +38,7 @@ pub(crate) enum Parameter {
 	},
 	Context(Box<Pat>, Box<Type>),
 	Arguments(Box<Pat>, Box<Type>),
+	This(Box<Pat>, Box<Type>)
 }
 
 pub(crate) struct ThisParameter {
@@ -54,7 +55,7 @@ pub(crate) struct Parameters {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg) -> Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg, is_constructor: bool) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let PatType { pat, ty, .. } = pat_ty.clone();
@@ -91,6 +92,9 @@ impl Parameter {
 								PA::Strict(_) => {
 									strict = true;
 								}
+								PA::This(_) if is_constructor => {
+									return Ok(Parameter::This(pat, ty));
+								}
 								_ => (),
 							}
 						}
@@ -122,7 +126,7 @@ impl Parameter {
 
 	pub(crate) fn get_type_without_lifetimes(&self) -> Type {
 		use Parameter as P;
-		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty)) = self;
+		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty) | P::This(_, ty)) = self;
 		let mut ty = *ty.clone();
 		let mut lifetime_remover = LifetimeRemover;
 		visit_type_mut(&mut lifetime_remover, &mut ty);
@@ -141,12 +145,13 @@ impl Parameter {
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(*index, pat, &ty, conversion, *strict),
 			P::Context(pat, _) => parse2(quote!(let #pat: #ty = cx;)),
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = args;)),
+			P::This(pat, _) => parse2(quote!(let #pat: #ty = this;)),
 		}
 	}
 }
 
 impl ThisParameter {
-	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>) -> Result<Option<ThisParameter>> {
+	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>, is_constructor: bool) -> Result<Option<ThisParameter>> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
@@ -160,14 +165,16 @@ impl ThisParameter {
 						parse_this(pat, ty, true, span).map(Some)
 					}
 					_ => {
-						for attr in &pat_ty.attrs {
-							if attr.path().is_ident("ion") {
-								let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+						if !is_constructor {
+							for attr in &pat_ty.attrs {
+								if attr.path().is_ident("ion") {
+									let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
-								use ParameterAttribute as PA;
-								for arg in args {
-									if let PA::This(_) = arg {
-										return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
+									use ParameterAttribute as PA;
+									for arg in args {
+										if let PA::This(_) = arg {
+											return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
+										}
 									}
 								}
 							}
@@ -237,7 +244,7 @@ impl ThisParameter {
 }
 
 impl Parameters {
-	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>) -> Result<Parameters> {
+	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_constructor: bool) -> Result<Parameters> {
 		let mut nargs = (0, 0);
 		let mut this = None;
 		let mut idents = Vec::new();
@@ -246,7 +253,7 @@ impl Parameters {
 			.iter()
 			.enumerate()
 			.filter_map(|(i, arg)| {
-				let this_param = ThisParameter::from_arg(arg, ty);
+				let this_param = ThisParameter::from_arg(arg, ty, is_constructor);
 				match this_param {
 					Ok(Some(this_param)) => {
 						if let Pat::Ident(ident) = &*this_param.pat {
@@ -258,7 +265,7 @@ impl Parameters {
 					Err(e) => return Some(Err(e)),
 					_ => (),
 				}
-				let param = Parameter::from_arg(arg);
+				let param = Parameter::from_arg(arg, is_constructor);
 				match param {
 					Ok(Parameter::Regular { pat, ty, conversion, strict, option }) => {
 						if option.is_none() {
@@ -288,6 +295,12 @@ impl Parameters {
 							idents.push(ident);
 						}
 						Some(Ok(Parameter::Arguments(pat, ty)))
+					}
+					Ok(Parameter::This(pat, ty)) => {
+						if let Some(ident) = get_ident(&pat) {
+							idents.push(ident);
+						}
+						Some(Ok(Parameter::This(pat, ty)))
 					}
 					Err(e) => Some(Err(e)),
 				}
@@ -339,7 +352,7 @@ impl Parameters {
 					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
 						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
 					}
-					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
+					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) | Parameter::This(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
 				})
 				.collect::<Vec<_>>(),
 		);

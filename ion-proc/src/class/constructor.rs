@@ -14,7 +14,7 @@ use crate::function::wrapper::impl_wrapper_fn;
 
 pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
 	let krate = quote!(::ion);
-	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ty), false)?;
+	let (wrapper, inner, parameters) = impl_wrapper_fn(constructor.clone(), Some(ty), false, true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
@@ -26,6 +26,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	let body = parse_quote!({
 		let cx = &#krate::Context::new(&mut cx);
 		let mut args = #krate::Arguments::new(cx, argc, vp);
+		let mut this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(**cx, &CLASS, &args.call_args())));
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
@@ -33,7 +34,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 				return ::std::result::Result::Err(#krate::Error::new("Constructor must be called with \"new\".", ::std::option::Option::None).into());
 			}
 
-			wrapper(cx, &mut args)
+			wrapper(cx, &mut args, &mut this)
 		}));
 		#error_handler
 	});
@@ -57,7 +58,6 @@ pub(crate) fn error_handler(ty: &Type) -> TokenStream {
 		match result {
 			Ok(Ok(value)) => {
 				let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
-				let this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(**cx, &CLASS, &args.call_args())));
 				::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
 				#krate::conversions::ToValue::to_value(&this, cx, args.rval());
 				true

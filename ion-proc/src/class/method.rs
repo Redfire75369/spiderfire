@@ -38,7 +38,7 @@ where
 	F: FnOnce(&Signature) -> Result<()>,
 {
 	let krate = quote!(::ion);
-	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner, false)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
