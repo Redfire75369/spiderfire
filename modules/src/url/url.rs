@@ -39,8 +39,11 @@ mod class {
 			Ok(URL { url })
 		}
 
-		pub fn origin(&self) -> String {
-			self.url.origin().ascii_serialization()
+		pub fn canParse(input: String, base: Option<String>) -> bool {
+			let options = Url::options();
+			let base = base.as_ref().and_then(|base| Url::parse(base).ok());
+			options.base_url(base.as_ref());
+			options.parse(&input).is_ok()
 		}
 
 		pub fn toString(&self) -> String {
@@ -150,6 +153,11 @@ mod class {
 			self.url
 				.set_host(hostname.as_deref())
 				.map_err(|error| Error::new(&error.to_string(), None))
+		}
+
+		#[ion(get)]
+		pub fn origin(&self) -> String {
+			self.url.origin().ascii_serialization()
 		}
 
 		#[ion(get)]
