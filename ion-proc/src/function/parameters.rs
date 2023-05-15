@@ -38,7 +38,7 @@ pub(crate) enum Parameter {
 	},
 	Context(Box<Pat>, Box<Type>),
 	Arguments(Box<Pat>, Box<Type>),
-	This(Box<Pat>, Box<Type>)
+	This(Box<Pat>, Box<Type>),
 }
 
 pub(crate) struct ThisParameter {
@@ -352,7 +352,9 @@ impl Parameters {
 					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
 						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
 					}
-					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) | Parameter::This(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
+					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) | Parameter::This(pat, ty) => {
+						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
+					}
 				})
 				.collect::<Vec<_>>(),
 		);

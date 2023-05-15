@@ -35,7 +35,13 @@ mod class {
 		}
 
 		pub fn getAll(&self, key: String) -> Vec<String> {
-			self.url.borrow().query_pairs().into_owned().filter(|(k, _)| k == &key).map(|(_, v)| v).collect()
+			self.url
+				.borrow()
+				.query_pairs()
+				.into_owned()
+				.filter(|(k, _)| k == &key)
+				.map(|(_, v)| v)
+				.collect()
 		}
 
 		pub fn has(&self, key: String, value: Option<String>) -> bool {

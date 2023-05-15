@@ -19,15 +19,15 @@ mod class {
 	use std::cmp::Ordering;
 	use std::rc::Rc;
 
-	use ion::ClassInitialiser;
-
-	use crate::url::search_params::URLSearchParams;
 	use mozjs::conversions::ConversionBehavior::EnforceRange;
 	use mozjs::gc::Traceable;
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 	use url::Url;
 
 	use ion::{Context, Error, Object, Result};
+	use ion::ClassInitialiser;
+
+	use crate::url::search_params::URLSearchParams;
 
 	#[allow(clippy::upper_case_acronyms)]
 	#[ion(from_value, to_value)]
@@ -117,7 +117,10 @@ mod class {
 
 		#[ion(set)]
 		pub fn set_protocol(&mut self, protocol: String) -> Result<()> {
-			self.url.borrow_mut().set_scheme(&protocol).map_err(|_| Error::new("Invalid Protocol", None))
+			self.url
+				.borrow_mut()
+				.set_scheme(&protocol)
+				.map_err(|_| Error::new("Invalid Protocol", None))
 		}
 
 		#[ion(get)]
@@ -165,7 +168,8 @@ mod class {
 
 		#[ion(set)]
 		pub fn set_hostname(&mut self, hostname: Option<String>) -> Result<()> {
-			self.url.borrow_mut()
+			self.url
+				.borrow_mut()
 				.set_host(hostname.as_deref())
 				.map_err(|error| Error::new(&error.to_string(), None))
 		}
@@ -213,7 +217,10 @@ mod class {
 
 		#[ion(set)]
 		pub fn set_password(&mut self, password: Option<String>) -> Result<()> {
-			self.url.borrow_mut().set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL", None))
+			self.url
+				.borrow_mut()
+				.set_password(password.as_deref())
+				.map_err(|_| Error::new("Invalid URL", None))
 		}
 
 		#[ion(get)]
@@ -246,7 +253,7 @@ mod class {
 		fn clone(&self) -> URL {
 			URL {
 				url: Rc::clone(&self.url),
-				search_params: Heap::boxed(self.search_params.get())
+				search_params: Heap::boxed(self.search_params.get()),
 			}
 		}
 	}
