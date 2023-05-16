@@ -13,11 +13,14 @@ use runtime::modules::NativeModule;
 
 use crate::url::search_params::URLSearchParams;
 
-#[derive(FromValue)]
+#[derive(Default, FromValue)]
 pub struct FormatOptions {
-	auth: Option<bool>,
-	fragment: Option<bool>,
-	search: Option<bool>,
+	#[ion(default)]
+	auth: bool,
+	#[ion(default)]
+	fragment: bool,
+	#[ion(default)]
+	search: bool,
 }
 
 #[js_class]
@@ -69,17 +72,14 @@ mod class {
 		pub fn format(&self, options: Option<FormatOptions>) -> Result<String> {
 			let mut url = self.url.borrow().clone();
 
-			let auth = options.as_ref().and_then(|o| o.auth).unwrap_or(false);
-			let fragment = options.as_ref().and_then(|o| o.fragment).unwrap_or(false);
-			let search = options.as_ref().and_then(|o| o.search).unwrap_or(false);
-
-			if !auth {
+			let options = options.unwrap_or_default();
+			if !options.auth {
 				url.set_username("").map_err(|_| Error::new("Invalid URL", None))?;
 			}
-			if !fragment {
+			if !options.fragment {
 				url.set_fragment(None);
 			}
-			if !search {
+			if !options.search {
 				url.set_query(None);
 			}
 
