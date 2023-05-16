@@ -7,5 +7,6 @@
 export const domainToASCII = ______urlInternal______.domainToASCII;
 export const domainToUnicode = ______urlInternal______.domainToUnicode;
 export const URL = ______urlInternal______.URL;
+export const URLSearchParams = ______urlInternal______.URLSearchParams;
 
 export default Object.freeze(______urlInternal______);
