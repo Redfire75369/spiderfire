@@ -78,5 +78,10 @@ mod class {
 			}
 			Ok(string)
 		}
+
+		#[ion(get)]
+		pub fn get_encoding(&self) -> String {
+			String::from(self.decoder.encoding().name())
+		}
 	}
 }

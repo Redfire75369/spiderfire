@@ -5,11 +5,14 @@
  */
 
 use decode::TextDecoder;
+use encode::TextEncoder;
 use ion::{ClassInitialiser, Context, Object};
 
 mod decode;
+mod encode;
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
 	TextDecoder::init_class(cx, global);
+	TextEncoder::init_class(cx, global);
 	true
 }
