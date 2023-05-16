@@ -58,14 +58,6 @@ mod class {
 			options.parse(&input).is_ok()
 		}
 
-		pub fn toString(&self) -> String {
-			self.url.borrow().to_string()
-		}
-
-		pub fn toJSON(&self) -> String {
-			self.url.borrow().to_string()
-		}
-
 		pub fn format(&self, cx: &Context, options: Option<Object>) -> Result<String> {
 			let mut url = self.url.borrow().clone();
 
@@ -90,6 +82,11 @@ mod class {
 			}
 
 			Ok(url.to_string())
+		}
+
+		#[ion(alias = ["toJSON"])]
+		pub fn toString(&self) -> String {
+			self.url.borrow().to_string()
 		}
 
 		#[ion(get)]
@@ -175,7 +172,7 @@ mod class {
 		}
 
 		#[ion(get)]
-		pub fn origin(&self) -> String {
+		pub fn get_origin(&self) -> String {
 			self.url.borrow().origin().ascii_serialization()
 		}
 
