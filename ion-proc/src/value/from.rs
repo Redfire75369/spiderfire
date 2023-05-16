@@ -267,7 +267,7 @@ fn map_fields(
 		.iter()
 		.enumerate()
 		.map(|(index, field)| {
-			let (ident, key) = if let Some(ref ident) = field.ident {
+			let (ident, mut key) = if let Some(ref ident) = field.ident {
 				(ident.clone(), ident.to_string().to_case(Case::Camel))
 			} else {
 				let ident = Ident::new(&format!("var{}", index), field.span());
@@ -296,6 +296,9 @@ fn map_fields(
 					for arg in args {
 						use FieldAttribute as FA;
 						match arg {
+							FA::Name { name, .. } => {
+								key = name.value();
+							}
 							FA::Inherit(_) => {
 								inherit = true;
 							}

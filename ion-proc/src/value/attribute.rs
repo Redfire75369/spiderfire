@@ -13,6 +13,7 @@ mod keywords {
 
 	custom_keyword!(inherit);
 
+	custom_keyword!(name);
 	custom_keyword!(convert);
 	custom_keyword!(strict);
 	custom_keyword!(parser);
@@ -119,6 +120,11 @@ impl Parse for VariantAttribute {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum FieldAttribute {
+	Name {
+		kw: keywords::name,
+		eq: Token![=],
+		name: LitStr,
+	},
 	Inherit(keywords::inherit),
 	Convert {
 		kw: keywords::convert,
@@ -143,7 +149,13 @@ impl Parse for FieldAttribute {
 		use FieldAttribute as FA;
 
 		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::inherit) {
+		if lookahead.peek(keywords::name) {
+			Ok(FA::Name {
+				kw: input.parse()?,
+				eq: input.parse()?,
+				name: input.parse()?,
+			})
+		} else if lookahead.peek(keywords::inherit) {
 			Ok(FA::Inherit(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
 			Ok(FA::Convert {

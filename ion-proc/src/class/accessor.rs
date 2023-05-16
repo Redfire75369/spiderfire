@@ -206,7 +206,9 @@ pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor
 	if let Fields::Named(fields) = &mut class.fields {
 		return fields.named.iter_mut().try_for_each(|field| {
 			if let Some(accessor) = Accessor::from_field(field, &ty)? {
-				accessors.insert(field.ident.as_ref().unwrap().to_string(), accessor);
+				for name in &accessor.0.as_ref().unwrap().names {
+					insert_accessor(accessors, name.value(), accessor.0.clone(), accessor.1.clone());
+				}
 			}
 			Ok(())
 		});
