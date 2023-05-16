@@ -8,11 +8,12 @@ use ion::{Context, Object};
 
 pub mod abort;
 pub mod console;
+pub mod encoding;
 pub mod microtasks;
 pub mod timers;
 
 pub fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
-	console::define(cx, global)
+	console::define(cx, global) && encoding::define(cx, global)
 }
 
 pub fn init_timers<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {

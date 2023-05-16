@@ -55,8 +55,8 @@ pub(crate) fn error_handler(ty: &Type) -> TokenStream {
 		use ::std::prelude::v1::*;
 
 		match result {
-			Ok(Ok(_)) => {
-				let b = ::std::boxed::Box::new(::std::option::Option::Some(result));
+			Ok(Ok(value)) => {
+				let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
 				let this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(**cx, &CLASS, &args.call_args())));
 				::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
 				#krate::conversions::ToValue::to_value(&this, cx, args.rval());
