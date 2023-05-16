@@ -13,6 +13,13 @@ use runtime::modules::NativeModule;
 
 use crate::url::search_params::URLSearchParams;
 
+#[derive(FromValue)]
+pub struct FormatOptions {
+	auth: Option<bool>,
+	fragment: Option<bool>,
+	search: Option<bool>,
+}
+
 #[js_class]
 mod class {
 	use std::cell::RefCell;
@@ -24,9 +31,10 @@ mod class {
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 	use url::Url;
 
-	use ion::{Context, Error, Object, Result};
+	use ion::{Context, Error, Result};
 	use ion::ClassInitialiser;
 
+	use crate::url::FormatOptions;
 	use crate::url::search_params::URLSearchParams;
 
 	#[allow(clippy::upper_case_acronyms)]
@@ -58,18 +66,12 @@ mod class {
 			options.parse(&input).is_ok()
 		}
 
-		pub fn format(&self, cx: &Context, options: Option<Object>) -> Result<String> {
+		pub fn format(&self, options: Option<FormatOptions>) -> Result<String> {
 			let mut url = self.url.borrow().clone();
 
-			let auth = options.as_ref().and_then(|options| options.get_as(cx, "auth", true, ())).unwrap_or(true);
-			let fragment = options
-				.as_ref()
-				.and_then(|options| options.get_as(cx, "fragment", true, ()))
-				.unwrap_or(true);
-			let search = options
-				.as_ref()
-				.and_then(|options| options.get_as(cx, "search", true, ()))
-				.unwrap_or(true);
+			let auth = options.as_ref().and_then(|o| o.auth).unwrap_or(false);
+			let fragment = options.as_ref().and_then(|o| o.fragment).unwrap_or(false);
+			let search = options.as_ref().and_then(|o| o.search).unwrap_or(false);
 
 			if !auth {
 				url.set_username("").map_err(|_| Error::new("Invalid URL", None))?;
