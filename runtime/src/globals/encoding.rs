@@ -4,7 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use class::*;
+pub use decode::*;
+pub use encode::*;
+use ion::{ClassInitialiser, Context, Object, Value};
+use ion::conversions::ToValue;
 
 #[derive(Default, FromValue)]
 pub struct TextDecoderOptions {
@@ -20,14 +23,28 @@ pub struct TextDecodeOptions {
 	stream: bool,
 }
 
+pub struct EncodeResult {
+	read: u64,
+	written: u64,
+}
+
+impl<'cx> ToValue<'cx> for EncodeResult {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		let mut object = Object::new(cx);
+		object.set_as(cx, "read", &self.read);
+		object.set_as(cx, "written", &self.written);
+		object.to_value(cx, value);
+	}
+}
+
 #[js_class]
-mod class {
+mod decode {
 	use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 	use mozjs::typedarray::ArrayBufferView;
 
 	use ion::{Error, ErrorKind, Result};
 
-	use crate::globals::encoding::decode::{TextDecodeOptions, TextDecoderOptions};
+	use crate::globals::encoding::{TextDecodeOptions, TextDecoderOptions};
 
 	pub struct TextDecoder {
 		decoder: Decoder,
@@ -84,4 +101,51 @@ mod class {
 			String::from(self.decoder.encoding().name())
 		}
 	}
+}
+
+#[js_class]
+mod encode {
+	use encoding_rs::{Encoder, UTF_8};
+
+	use ion::typedarray::Uint8Array;
+
+	use crate::globals::encoding::EncodeResult;
+
+	pub struct TextEncoder {
+		encoder: Encoder,
+	}
+
+	impl TextEncoder {
+		#[ion(constructor)]
+		pub fn constructor() -> TextEncoder {
+			TextEncoder { encoder: UTF_8.new_encoder() }
+		}
+
+		pub fn encode(&mut self, input: Option<String>) -> Uint8Array {
+			let input = input.unwrap_or_default();
+			let mut buf = Vec::with_capacity(self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap());
+			let (_, _, _) = self.encoder.encode_from_utf8_to_vec(&input, &mut buf, true);
+			Uint8Array { buf }
+		}
+
+		pub unsafe fn encodeInto(&mut self, input: String, destination: mozjs::typedarray::Uint8Array) -> EncodeResult {
+			let mut destination = destination;
+			let (_, read, written, _) = self.encoder.encode_from_utf8(&input, destination.as_mut_slice(), true);
+			EncodeResult {
+				read: read as u64,
+				written: written as u64,
+			}
+		}
+
+		#[ion(get)]
+		pub fn get_encoding(&self) -> String {
+			String::from(self.encoder.encoding().name())
+		}
+	}
+}
+
+pub fn define(cx: &Context, global: &mut Object) -> bool {
+	TextDecoder::init_class(cx, global);
+	TextEncoder::init_class(cx, global);
+	true
 }
