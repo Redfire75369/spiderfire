@@ -9,19 +9,20 @@ license = "MPL-2.0"
 bitflags = "2.1.0"
 byteorder = "1.4.3"
 bytemuck = "1.13.1"
-chrono = "0.4.24"
-colored = "2.0.0"
-derivative = "2.2.0"
-futures = { version = "0.3.28", features = ["executor"] }
-indent = "0.1.1"
+futures = { workspace = true, features = ["executor"] }
 ion-proc = { path = "../ion-proc", optional = true }
 libffi = "3.2.0"
-mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
-sourcemap = { version = "6.2.3", optional = true }
+sourcemap = { workspace = true, optional = true }
 typed-arena = "2.0.2"
 utf16string = "0.2.0"
 send_wrapper = "0.6.0"
+
+colored.workspace = true
+chrono.workspace = true
+derivative.workspace = true
+indent.workspace = true
+mozjs.workspace = true
+mozjs_sys.workspace = true
 
 [features]
 default = []
