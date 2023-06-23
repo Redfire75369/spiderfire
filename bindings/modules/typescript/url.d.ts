@@ -17,6 +17,8 @@ declare module "url" {
 	export class URL {
 		constructor(url: string, base?: string);
 
+		static canParse(url: string, base?: string): boolean;
+
 		get href(): string;
 		set href(href: string);
 
@@ -49,9 +51,21 @@ declare module "url" {
 
 		get origin(): string;
 
+		get searchParams(): URLSearchParams;
+
+		format(options?: FormatOptions): string;
 		toString(): string;
 		toJSON(): string;
-		format(options?: FormatOptions): string;
+	}
+
+	export class URLSearchParams {
+		append(key: string, value: string);
+
+		get(key: string): string | null;
+		getAll(key: string): string[];
+		has(key: string, value?: string): boolean;
+
+		size(): number;
 	}
 
 	namespace Url {
@@ -62,6 +76,7 @@ declare module "url" {
 			domainToUnicode,
 
 			URL,
+			URLSearchParams
 		};
 	}
 

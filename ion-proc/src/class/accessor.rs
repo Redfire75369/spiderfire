@@ -163,7 +163,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_set
 	let error = Error::new_spanned(&method.sig, error_message);
 
 	let (accessor, parameters) = impl_method(method.clone(), ty, keep_inner, |sig| {
-		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
+		let parameters = Parameters::parse(&sig.inputs, Some(ty), false)?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
 				if let Type::Path(_) = &**ty {

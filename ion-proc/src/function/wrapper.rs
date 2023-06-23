@@ -13,14 +13,16 @@ use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
-pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
+pub(crate) fn impl_wrapper_fn(
+	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
+) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
 
 	if function.sig.asyncness.is_some() {
 		return impl_async_wrapper_fn(function, class_ty, keep_inner);
 	}
 
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty, is_constructor)?;
 	let idents = parameters.to_idents();
 	let statements = parameters.to_statements()?;
 	let this_statements = parameters.to_this_statements(class_ty.is_some(), false)?;
@@ -31,7 +33,15 @@ pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, kee
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
-	let wrapper_args: [FnArg; 2] = [parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)];
+	let wrapper_args: Vec<FnArg> = if is_constructor {
+		vec![
+			parse_quote!(cx: &'cx #krate::Context),
+			parse_quote!(args: &'a mut #krate::Arguments<'cx>),
+			parse_quote!(this: &mut #krate::Object<'cx>),
+		]
+	} else {
+		vec![parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)]
+	};
 
 	let mut output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
@@ -107,7 +117,7 @@ pub(crate) fn impl_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, kee
 pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
 
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty, false)?;
 	let idents = &parameters.idents;
 	let statements = parameters.to_statements()?;
 	let this_statements = parameters.to_this_statements(class_ty.is_some(), true)?;
