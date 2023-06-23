@@ -10,10 +10,13 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr;
 
+use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_GetInstancePrivate, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JSClass, JSFunction, JSFunctionSpec,
-	JSObject, JSPropertySpec, SetPrivate,
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
+	JSObject, JSPropertySpec,
 };
+use mozjs::jsval::PrivateValue;
+use mozjs_sys::jsval::UndefinedValue;
 
 use crate::{Arguments, Context, Error, ErrorKind, Function, Object, Result, Value};
 use crate::conversions::FromValue;
@@ -32,6 +35,7 @@ pub struct ClassInfo {
 
 pub trait ClassInitialiser {
 	const NAME: &'static str;
+	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32;
 
 	fn class() -> &'static JSClass;
 
@@ -115,30 +119,23 @@ pub trait ClassInitialiser {
 		CLASS_INFOS.with(|infos| {
 			let infos = infos.borrow();
 			let info = (*infos).get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-			let b = Box::new(native);
+			let b = Box::new(Some(native));
 			unsafe {
 				let obj = JS_NewObjectWithGivenProto(**cx, Self::class(), Handle::from_marked_location(&info.prototype));
-				SetPrivate(obj, Box::into_raw(b) as *mut c_void);
+				JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(b) as *mut c_void));
 				obj
 			}
 		})
 	}
 
-	fn get_private<'a>(cx: &Context, object: &Object, args: Option<&Arguments>) -> Result<&'a mut Self>
+	fn get_private<'a>(object: &'a mut Object) -> &'a mut Self
 	where
 		Self: Sized,
 	{
 		unsafe {
-			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			let ptr = JS_GetInstancePrivate(**cx, object.handle().into(), Self::class(), args) as *mut Self;
-			if !ptr.is_null() {
-				Ok(&mut *ptr)
-			} else {
-				Err(Error::new(
-					&format!("Could not get private value in {}. It may have been destroyed.", Self::NAME),
-					None,
-				))
-			}
+			let mut value = UndefinedValue();
+			JS_GetReservedSlot(***object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
 		}
 	}
 
@@ -152,9 +149,9 @@ pub trait ClassInitialiser {
 
 /// Converts an instance of a native class into its native value, by cloning it.
 pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
-	let object = Object::from_value(cx, value, true, ()).unwrap();
+	let mut object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
-		T::get_private(cx, &object, None).map(|c| c.clone())
+		Ok(T::get_private(&mut object).clone())
 	} else {
 		Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 	}

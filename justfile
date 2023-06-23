@@ -3,22 +3,22 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 default:
     @just --list
 
-build args='':
+build *args:
   cargo build --features debugmozjs {{args}}
 
-build-release args='':
+build-release *args:
   cargo build --release {{args}}
 
-run args='':
+run *args:
   cargo run --features debugmozjs {{args}}
 
-run-release args='':
+run-release *args:
   cargo run --release {{args}}
 
-test args='':
+test *args:
   cargo test --features debugmozjs --locked --no-fail-fast {{args}}
 
-test-release args='':
+test-release *args:
   cargo test --release --locked --no-fail-fast {{args}}
 
 lint:

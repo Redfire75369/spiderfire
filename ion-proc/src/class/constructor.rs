@@ -21,7 +21,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	constructor.attrs.clear();
 	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
-	let error_handler = error_handler();
+	let error_handler = error_handler(ty);
 
 	let body = parse_quote!({
 		let cx = &#krate::Context::new(&mut cx);
@@ -49,16 +49,16 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	Ok((method, parameters))
 }
 
-pub(crate) fn error_handler() -> TokenStream {
+pub(crate) fn error_handler(ty: &Type) -> TokenStream {
 	let krate = quote!(::ion);
 	quote!({
 		use ::std::prelude::v1::*;
 
 		match result {
 			Ok(Ok(_)) => {
-				let b = ::std::boxed::Box::new(result);
+				let b = ::std::boxed::Box::new(::std::option::Option::Some(result));
 				let this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(**cx, &CLASS, &args.call_args())));
-				::mozjs::jsapi::SetPrivate(**this, Box::into_raw(b) as *mut ::std::ffi::c_void);
+				::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
 				#krate::conversions::ToValue::to_value(&this, cx, args.rval());
 				true
 			},

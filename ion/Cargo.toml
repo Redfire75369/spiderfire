@@ -6,21 +6,23 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-bitflags = "1.3.2"
+bitflags = "2.3.2"
 byteorder = "1.4.3"
-bytemuck = "1.12.3"
-chrono = "0.4.23"
-colored = "2.0.0"
-derivative = "2.2.0"
-futures = { version = "0.3.25", features = ["executor"] }
-indent = "0.1.1"
+bytemuck = "1.13.1"
+futures = { workspace = true, features = ["executor"] }
 ion-proc = { path = "../ion-proc", optional = true }
-libffi = "3.0.1"
-mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
-sourcemap = { version = "6.2.0", optional = true }
-typed-arena = "2.0.1"
+libffi = "3.2.0"
+sourcemap = { workspace = true, optional = true }
+typed-arena = "2.0.2"
 utf16string = "0.2.0"
+send_wrapper = "0.6.0"
+
+colored.workspace = true
+chrono.workspace = true
+derivative.workspace = true
+indent.workspace = true
+mozjs.workspace = true
+mozjs_sys.workspace = true
 
 [features]
 default = []

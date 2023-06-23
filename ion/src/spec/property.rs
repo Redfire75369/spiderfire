@@ -6,7 +6,8 @@
 
 use mozjs::jsapi::{
 	JSNativeWrapper, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue, JSPropertySpec_AccessorsOrValue_Accessors,
-	JSPropertySpec_Name, JSPropertySpec_ValueWrapper, JSPropertySpec_ValueWrapper__bindgen_ty_1, JSPropertySpec_ValueWrapper_Type,
+	JSPropertySpec_Kind, JSPropertySpec_Name, JSPropertySpec_ValueWrapper, JSPropertySpec_ValueWrapper__bindgen_ty_1,
+	JSPropertySpec_ValueWrapper_Type,
 };
 
 use crate::flags::PropertyFlags;
@@ -18,7 +19,7 @@ pub const fn create_property_spec_accessor(
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
 		attributes_: attrs.bits() as u8,
-		isAccessor_: true,
+		kind_: JSPropertySpec_Kind::NativeAccessor,
 		u: JSPropertySpec_AccessorsOrValue {
 			accessors: JSPropertySpec_AccessorsOrValue_Accessors {
 				getter: JSPropertySpec_Accessor { native: getter },
@@ -33,7 +34,7 @@ pub const fn create_property_spec_string(name: &'static str, string: &'static st
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
 		attributes_: attrs.bits() as u8,
-		isAccessor_: false,
+		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
 				type_: JSPropertySpec_ValueWrapper_Type::String,
@@ -48,7 +49,7 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: Prope
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
 		attributes_: attrs.bits() as u8,
-		isAccessor_: false,
+		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
 				type_: JSPropertySpec_ValueWrapper_Type::Int32,
@@ -63,7 +64,7 @@ pub const fn create_property_spec_double(name: &'static str, double: f64, attrs:
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
 		attributes_: attrs.bits() as u8,
-		isAccessor_: false,
+		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
 				type_: JSPropertySpec_ValueWrapper_Type::Double,

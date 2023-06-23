@@ -6,26 +6,27 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-base64-url = "1.4.13"
-chrono = "0.4.23"
+base64-url = "2.0.0"
 closure = "0.3.0"
-dirs = "4.0.0"
-dunce = "1.0.3"
-futures = "0.3.25"
+dirs = "5.0.1"
 ion = { path = "../ion", features = ["macros", "sourcemap"] }
-indent = "0.1.1"
-indexmap = "1.9.2"
-mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-once_cell = "1.16.0"
-os_str_bytes = "6.4.0"
-sha3 = "0.10.6"
-sourcemap = "6.2.0"
-swc_core = { version = "0.43.23", features = ["common"] }
-swc_common = { version = "0.29.14", features = ["sourcemap", "tty-emitter"] }
-swc_ecmascript = { version = "0.205.90", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
+indexmap = "1.9.3"
+os_str_bytes = "6.5.1"
+sha3 = "0.10.8"
+swc_core = { version = "0.75.48", features = ["common"] }
+swc_common = { version = "0.31.12", features = ["sourcemap", "tty-emitter"] }
+swc_ecmascript = { version = "0.227.37", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
 term-table = "1.3.2"
-tokio = { version = "1.22.0", default-features = false, features = ["sync"] }
-url = "2.3.1"
+tokio = { version = "1.28.2", default-features = false, features = ["sync"] }
+
+chrono.workspace = true
+dunce.workspace = true
+futures.workspace = true
+indent.workspace = true
+mozjs.workspace = true
+once_cell.workspace = true
+sourcemap.workspace = true
+url.workspace = true
 
 [features]
 debugmozjs = ["ion/debugmozjs"]

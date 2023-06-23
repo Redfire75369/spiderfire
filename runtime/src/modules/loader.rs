@@ -14,8 +14,8 @@ use std::ptr;
 use dunce::canonicalize;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	CompileModule, Handle, JS_GetRuntime, JS_SetProperty, JSContext, JSObject, JSString, ModuleEvaluate, ModuleInstantiate, ReadOnlyCompileOptions,
-	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	CompileModule, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JS_SetProperty, JSContext, JSObject, ModuleEvaluate, ModuleLink,
+	ReadOnlyCompileOptions, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -110,7 +110,7 @@ impl<'cx> Module<'cx> {
 	}
 
 	pub fn instantiate(&self, cx: &Context) -> Result<(), ErrorReport> {
-		if unsafe { ModuleInstantiate(**cx, self.module.handle().into()) } {
+		if unsafe { ModuleLink(**cx, self.module.handle().into()) } {
 			Ok(())
 		} else {
 			Err(ErrorReport::new(cx).unwrap())
@@ -188,10 +188,11 @@ impl<'cx> Module<'cx> {
 	}
 }
 
-pub unsafe extern "C" fn resolve_module(mut cx: *mut JSContext, private_data: Handle<JSVal>, specifier: Handle<*mut JSString>) -> *mut JSObject {
+pub unsafe extern "C" fn resolve_module(mut cx: *mut JSContext, private_data: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
 	let cx = Context::new(&mut cx);
 
-	let specifier = jsstr_to_string(*cx, specifier.get());
+	let specifier = GetModuleRequestSpecifier(*cx, request);
+	let specifier = jsstr_to_string(*cx, specifier);
 	let data = ModuleData::from_module(&cx, private_data).unwrap();
 
 	Module::resolve(&cx, &specifier, data)

@@ -3,7 +3,6 @@ use ion::js_class;
 
 #[js_class]
 mod class {
-
 	use ion::{Context, Function, Object, Result, Value};
 	use ion::conversions::{ConversionBehavior, FromValue};
 

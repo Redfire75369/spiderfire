@@ -11,6 +11,7 @@ use mozjs::jsapi::{
 
 bitflags! {
 	/// Represents the flags of properties on an [Object](crate::Object)
+	#[derive(Clone, Copy, Debug)]
 	pub struct PropertyFlags: u16 {
 		/// Allows enumeration through `Object.keys()`, `for...in` and other functions.
 		/// See [Enumerability of Properties](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties#traversing_object_properties) for more information
@@ -21,13 +22,14 @@ bitflags! {
 		const PERMANENT = JSPROP_PERMANENT as u16;
 		const RESOLVING = JSPROP_RESOLVING as u16;
 
-		const CONSTANT = PropertyFlags::READ_ONLY.bits | PropertyFlags::PERMANENT.bits;
-		const CONSTANT_ENUMERATED = PropertyFlags::CONSTANT.bits | PropertyFlags::ENUMERATE.bits;
+		const CONSTANT = PropertyFlags::READ_ONLY.bits() | PropertyFlags::PERMANENT.bits();
+		const CONSTANT_ENUMERATED = PropertyFlags::CONSTANT.bits() | PropertyFlags::ENUMERATE.bits();
 	}
 }
 
 bitflags! {
 	/// Represents the flags when iterating over an [Object](crate::Object).
+	#[derive(Clone, Copy, Debug)]
 	pub struct IteratorFlags: u32 {
 		/// Allows iterating over private properties.
 		const PRIVATE = JSITER_PRIVATE;

@@ -7,8 +7,10 @@
 use std::cell::RefCell;
 use std::mem::{take, transmute};
 use std::ops::Deref;
+use std::ptr;
 
-use mozjs::jsapi::{JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
+use mozjs::gc::RootedTraceableSet;
+use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
@@ -52,6 +54,8 @@ struct LocalArena<'a> {
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
+thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
+
 /// Represents the thread-local state of the runtime.
 ///
 /// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
@@ -65,7 +69,7 @@ macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
 			/// Roots a [$pointer], as a $gc_type, and returns a [Local] to it.
-			pub fn $fn_name<'cx>(&'cx self, ptr: $pointer) -> Local<'cx, $pointer> {
+			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
 				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
 				self.local.order.borrow_mut().push(GCType::$gc_type);
 				Local::from_rooted(
@@ -96,6 +100,30 @@ impl Context<'_> {
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
 		(root_function, *mut JSFunction, functions, Function),
 		(root_symbol, *mut Symbol, symbols, Symbol),
+	}
+
+	pub unsafe fn root_persistent_object(object: *mut JSObject) -> Local<'static, *mut JSObject> {
+		let heap = *Heap::boxed(object);
+		let handle = HEAP_OBJECTS.with(|persistent| {
+			let mut persistent = persistent.borrow_mut();
+			persistent.push(heap);
+			let ptr = &persistent[persistent.len() - 1];
+			RootedTraceableSet::add(ptr);
+			ptr.handle()
+		});
+		Local::from_raw_handle(handle)
+	}
+
+	pub unsafe fn unroot_persistent_object(object: *mut JSObject) {
+		HEAP_OBJECTS.with(|persistent| {
+			let mut persistent = persistent.borrow_mut();
+			let idx = match persistent.iter().rposition(|x| ptr::eq(x.get_unsafe() as *const _, object as *const _)) {
+				Some(idx) => idx,
+				None => return,
+			};
+			let heap = persistent.remove(idx);
+			RootedTraceableSet::remove(&heap);
+		});
 	}
 }
 

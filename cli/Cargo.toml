@@ -6,17 +6,18 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-colored = "2.0.0"
-clap = { version = "4.0.26", features = ["derive"] }
-dunce = "1.0.3"
+clap = { version = "4.3.5", features = ["derive"] }
 ion = { path = "../ion" }
 modules = { path = "../modules" }
-mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 runtime = { path = "../runtime", features = ["promise-logger"] }
-rustyline = "10.0.0"
-rustyline-derive = "0.7.0"
-tokio = { version = "1.22.0", features = ["macros", "rt"] }
-sourcemap = "6.2.0"
+rustyline = "11.0.0"
+rustyline-derive = "0.8.0"
+tokio = { workspace = true, features = ["macros"] }
+
+colored.workspace = true
+dunce.workspace = true
+mozjs.workspace = true
+sourcemap.workspace = true
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
