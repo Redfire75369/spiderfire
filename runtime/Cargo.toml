@@ -13,9 +13,9 @@ ion = { path = "../ion", features = ["macros", "sourcemap"] }
 indexmap = "1.9.3"
 os_str_bytes = "6.5.1"
 sha3 = "0.10.8"
-swc_core = { version = "0.75.48", features = ["common"] }
-swc_common = { version = "0.31.12", features = ["sourcemap", "tty-emitter"] }
-swc_ecmascript = { version = "0.227.37", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
+swc_core = { version = "0.78.22", features = ["common"] }
+swc_common = { version = "0.31.16", features = ["sourcemap", "tty-emitter"] }
+swc_ecmascript = { version = "0.230.21", features = ["codegen", "parser", "transforms", "typescript", "visit"] }
 term-table = "1.3.2"
 tokio = { version = "1.28.2", default-features = false, features = ["sync"] }
 

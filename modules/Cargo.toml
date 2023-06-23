@@ -9,7 +9,7 @@ license = "MPL-2.0"
 bytes = "1.4.0"
 http = "0.2.9"
 hyper = { version = "0.14.26", features = ["client", "http1", "tcp"] }
-idna = "0.3.0"
+idna = "0.4.0"
 ion = { path = "../ion", features = ["macros"] }
 paste = "1.0.12"
 tokio = { workspace = true, features = ["fs"] }
