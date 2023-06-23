@@ -9,14 +9,14 @@ members = [
 
 [workspace.dependencies]
 colored = "2.0.0"
-chrono = "0.4.24"
+chrono = "0.4.26"
 derivative = "2.2.0"
-dunce = "1.0.3"
+dunce = "1.0.4"
 futures = "0.3.28"
 indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
-once_cell = "1.17.1"
+once_cell = "1.18.0"
 sourcemap = "6.2.3"
-tokio = { version = "1.27.0", features = ["rt"] }
-url = "2.3.1"
+tokio = { version = "1.28.2", features = ["rt"] }
+url = "2.4.0"

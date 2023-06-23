@@ -8,12 +8,12 @@ license = "MPL-2.0"
 [dependencies]
 bytes = "1.4.0"
 http = "0.2.9"
-hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
+hyper = { version = "0.14.26", features = ["client", "http1", "tcp"] }
 idna = "0.3.0"
 ion = { path = "../ion", features = ["macros"] }
 paste = "1.0.12"
 tokio = { workspace = true, features = ["fs"] }
-tokio-stream = { version = "0.1.12", features = ["fs"] }
+tokio-stream = { version = "0.1.14", features = ["fs"] }
 runtime = { path = "../runtime" }
 
 derivative.workspace = true
@@ -23,7 +23,7 @@ once_cell.workspace = true
 url.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1.27.0", features = ["macros", "rt"] }
+tokio = { version = "1.28.2", features = ["macros", "rt"] }
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
