@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{ItemFn, LitStr, Result, Signature, Type};
+use syn::{ItemFn, Result, Signature, Type};
 
 use crate::function::{check_abi, error_handler, set_signature};
 use crate::function::parameters::Parameters;
@@ -30,7 +30,7 @@ pub(crate) struct Method {
 	pub(crate) method: ItemFn,
 	pub(crate) inner: Option<ItemFn>,
 	pub(crate) nargs: usize,
-	pub(crate) names: Vec<LitStr>,
+	pub(crate) names: Vec<String>,
 }
 
 pub(crate) fn impl_method<F>(mut method: ItemFn, ty: &Type, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>

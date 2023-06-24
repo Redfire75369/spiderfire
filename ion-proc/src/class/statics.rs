@@ -42,7 +42,7 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 			(*method.names)
 				.iter()
 				.map(|name| {
-					let mut name = name.value();
+					let mut name = name.clone();
 					if name.is_case(Case::Snake) {
 						name = name.to_case(Case::Camel);
 					}
@@ -76,7 +76,7 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 			.unwrap()
 			.names
 			.iter()
-			.for_each(|name| specs.push(accessor.to_spec(Ident::new(&name.value(), class.span()))))
+			.for_each(|name| specs.push(accessor.to_spec(Ident::new(&name, class.span()))))
 	});
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));

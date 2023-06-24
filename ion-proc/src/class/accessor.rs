@@ -10,7 +10,7 @@ use std::ffi::CString;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
-use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type, Visibility};
+use syn::{Error, Field, Fields, ItemFn, ItemStruct, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
 
 use crate::class::attribute::PropertyAttribute;
@@ -43,7 +43,7 @@ impl Accessor {
 							PropertyAttribute::Name(name_) => name = Some(name_.literal),
 							PropertyAttribute::Alias(alias) => {
 								for alias in alias.aliases {
-									names.push(alias);
+									names.push(alias.value());
 								}
 							}
 							PropertyAttribute::Convert { conversion: conversion_expr, .. } => conversion = conversion.or(Some(conversion_expr)),
@@ -63,8 +63,10 @@ impl Accessor {
 				return Ok(None);
 			}
 
-			let name = name.unwrap_or_else(|| LitStr::new(&ident.to_string(), ident.span()));
-			names.insert(0, name);
+			match name {
+				Some(name) => names.insert(0, name.value()),
+				None => names.insert(0, get_accessor_name(ident.to_string(), !readonly)),
+			}
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
 			let getter = parse2(quote!(
@@ -135,8 +137,7 @@ impl Accessor {
 	}
 }
 
-pub(crate) fn get_accessor_name(ident: &Ident, is_setter: bool) -> String {
-	let mut name = ident.to_string();
+pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	let pat_snake = if is_setter { "set_" } else { "get_" };
 	let pat_camel = if is_setter { "set" } else { "get" };
 	if name.starts_with(pat_snake) {
@@ -206,12 +207,11 @@ pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor
 	if let Fields::Named(fields) = &mut class.fields {
 		return fields.named.iter_mut().try_for_each(|field| {
 			if let Some(accessor) = Accessor::from_field(field, &ty)? {
-				insert_accessor(
-					accessors,
-					accessor.0.as_ref().unwrap().names[0].value(),
-					accessor.0.clone(),
-					accessor.1.clone(),
-				);
+				if let Some(getter) = accessor.0.as_ref() {
+					insert_accessor(accessors, getter.names[0].clone(), accessor.0.clone(), accessor.1.clone());
+				} else if let Some(setter) = accessor.1.as_ref() {
+					insert_accessor(accessors, setter.names[0].clone(), accessor.0.clone(), accessor.1.clone());
+				}
 			}
 			Ok(())
 		});

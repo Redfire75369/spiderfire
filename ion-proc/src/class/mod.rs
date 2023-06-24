@@ -57,7 +57,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					let mut impl_items_to_add = Vec::new();
 					let mut imp = imp.clone();
 
-					for (j, item) in (*imp.items).iter().enumerate() {
+					for (j, item) in (&*imp.items).into_iter().enumerate() {
 						match item {
 							ImplItem::Fn(method) => {
 								let mut method: ItemFn = parse2(method.to_token_stream())?;
@@ -84,7 +84,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 												MethodAttribute::Name(name_) => name = Some(name_.literal),
 												MethodAttribute::Alias(alias) => {
 													for alias in alias.aliases {
-														names.push(alias);
+														names.push(alias.value());
 													}
 												}
 												_ => (),
@@ -94,8 +94,17 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 									}
 								}
 
-								let name = name.unwrap_or_else(|| LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span()));
-								names.insert(0, name);
+								match name {
+									Some(name) => names.insert(0, name.value()),
+									None => {
+										if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
+											names.insert(0, get_accessor_name(method.sig.ident.to_string(), kind == Some(MethodKind::Setter)))
+										} else {
+											names.insert(0, method.sig.ident.to_string())
+										}
+									}
+								}
+								let name = names[0].clone();
 
 								impl_items_to_remove.push(j);
 								if let Some(internal) = internal {
@@ -112,7 +121,6 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											constructor = Some(Method { names, ..cons });
 										}
 										Some(MethodKind::Getter) => {
-											let name = get_accessor_name(&method.sig.ident, false);
 											let (getter, parameters) = impl_accessor(&method, &imp.self_ty, false, false)?;
 											let getter = Method { names, ..getter };
 
@@ -123,7 +131,6 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											}
 										}
 										Some(MethodKind::Setter) => {
-											let name = get_accessor_name(&method.sig.ident, true);
 											let (setter, parameters) = impl_accessor(&method, &imp.self_ty, false, true)?;
 											let setter = Method { names, ..setter };
 
