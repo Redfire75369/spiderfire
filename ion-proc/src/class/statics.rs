@@ -69,9 +69,15 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 	};
 
 	let mut specs: Vec<_> = properties.iter().map(|property| property.to_spec(class.clone())).collect();
-	accessors
-		.iter()
-		.for_each(|(name, accessor)| specs.push(accessor.to_spec(Ident::new(name, class.span()))));
+	accessors.iter().for_each(|(_, accessor)| {
+		accessor
+			.0
+			.as_ref()
+			.unwrap()
+			.names
+			.iter()
+			.for_each(|name| specs.push(accessor.to_spec(Ident::new(&name.value(), class.span()))))
+	});
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
 

@@ -15,6 +15,7 @@ use mozjs::jsapi::{
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
+use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
 use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Symbol, Value};
 
@@ -408,5 +409,22 @@ where
 			ret.push(T::from_value(cx, &value, strict, config.clone())?);
 		}
 		Ok(ret)
+	}
+}
+
+impl<'cx, T: TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for TypedArray<T, S> {
+	type Config = ();
+
+	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<TypedArray<T, S>>
+	where
+		'cx: 'v,
+	{
+		if value.is_object() {
+			let object = (**value).to_object();
+			cx.root_object(object);
+			TypedArray::from(object).map_err(|_| Error::new("Expected Typed Array", ErrorKind::Type))
+		} else {
+			Err(Error::new("Expected Object", ErrorKind::Type))
+		}
 	}
 }

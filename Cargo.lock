@@ -1599,6 +1599,7 @@ dependencies = [
  "closure",
  "dirs",
  "dunce",
+ "encoding_rs",
  "futures",
  "indent",
  "indexmap",

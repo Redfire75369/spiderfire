@@ -18,7 +18,7 @@ use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
 #[derive(Debug)]
-pub(crate) struct Accessor(Option<Method>, Option<Method>);
+pub(crate) struct Accessor(pub(crate) Option<Method>, Option<Method>);
 
 impl Accessor {
 	pub(crate) fn from_field(field: &mut Field, class_ty: &Type) -> Result<Option<Accessor>> {
@@ -206,7 +206,12 @@ pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor
 	if let Fields::Named(fields) = &mut class.fields {
 		return fields.named.iter_mut().try_for_each(|field| {
 			if let Some(accessor) = Accessor::from_field(field, &ty)? {
-				accessors.insert(field.ident.as_ref().unwrap().to_string(), accessor);
+				insert_accessor(
+					accessors,
+					accessor.0.as_ref().unwrap().names[0].value(),
+					accessor.0.clone(),
+					accessor.1.clone(),
+				);
 			}
 			Ok(())
 		});

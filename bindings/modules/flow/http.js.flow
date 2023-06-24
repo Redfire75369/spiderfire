@@ -8,9 +8,6 @@ declare module "http" {
 	}
 	declare export type HeadersInit = Headers | HeaderEntries | HeadersObject;
 
-	declare type TypedArray = Int8Array | Int16Array | Int32Array
-		| Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array
-		| Float32Array | Float64Array;
 	declare export type Body = string | String | ArrayBuffer | TypedArray | DataView;
 
 	declare interface RequestOptions {
