@@ -57,7 +57,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					let mut impl_items_to_add = Vec::new();
 					let mut imp = imp.clone();
 
-					for (j, item) in (&*imp.items).into_iter().enumerate() {
+					for (j, item) in imp.items.iter().enumerate() {
 						match item {
 							ImplItem::Fn(method) => {
 								let mut method: ItemFn = parse2(method.to_token_stream())?;

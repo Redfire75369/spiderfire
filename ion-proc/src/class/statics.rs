@@ -76,7 +76,7 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 			.unwrap()
 			.names
 			.iter()
-			.for_each(|name| specs.push(accessor.to_spec(Ident::new(&name, class.span()))))
+			.for_each(|name| specs.push(accessor.to_spec(Ident::new(name, class.span()))))
 	});
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
