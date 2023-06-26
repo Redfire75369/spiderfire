@@ -7,6 +7,7 @@
 use std::time::Duration;
 
 use hyper::client::HttpConnector;
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use once_cell::sync::OnceCell;
 
 pub use class::*;
@@ -14,9 +15,11 @@ use ion::{Context, Value};
 use ion::conversions::ConversionBehavior;
 use ion::conversions::FromValue;
 
-pub(crate) static GLOBAL_CLIENT: OnceCell<hyper::Client<HttpConnector>> = OnceCell::new();
+pub(crate) static GLOBAL_CLIENT: OnceCell<hyper::Client<HttpsConnector<HttpConnector>>> = OnceCell::new();
 
-pub(crate) fn default_client() -> hyper::Client<HttpConnector> {
+pub(crate) fn default_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
+	let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
+
 	let mut client = hyper::Client::builder();
 
 	client.pool_idle_timeout(Duration::from_secs(60));
@@ -24,7 +27,7 @@ pub(crate) fn default_client() -> hyper::Client<HttpConnector> {
 	client.retry_canceled_requests(true);
 	client.set_host(false);
 
-	client.build_http()
+	client.build(https)
 }
 
 #[derive(Derivative, FromValue)]
@@ -52,7 +55,7 @@ pub enum ClientRequestOptions {
 }
 
 impl ClientRequestOptions {
-	pub fn to_client(&self) -> hyper::Client<HttpConnector> {
+	pub fn to_client(&self) -> hyper::Client<HttpsConnector<HttpConnector>> {
 		use ClientRequestOptions as CRO;
 		match self {
 			CRO::Global => GLOBAL_CLIENT.get().unwrap().clone(),
@@ -89,19 +92,23 @@ mod class {
 	use std::time::Duration;
 
 	use hyper::client::HttpConnector;
+	use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 	use crate::http::client::ClientOptions;
 
 	#[derive(Clone)]
 	#[ion(from_value)]
 	pub struct Client {
-		pub(crate) client: hyper::Client<HttpConnector>,
+		pub(crate) client: hyper::Client<HttpsConnector<HttpConnector>>,
 	}
 
 	impl Client {
 		#[ion(constructor)]
 		pub fn constructor(options: Option<ClientOptions>) -> Client {
 			let options = options.unwrap_or_default();
+
+			let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
+
 			let mut client = hyper::Client::builder();
 
 			if options.keep_alive {
@@ -115,15 +122,15 @@ mod class {
 			client.retry_canceled_requests(options.retry_cancelled);
 			client.set_host(false);
 
-			let client = client.build_http();
+			let client = client.build(https);
 			Client { client }
 		}
 	}
 
 	impl Deref for Client {
-		type Target = hyper::Client<HttpConnector>;
+		type Target = hyper::Client<HttpsConnector<HttpConnector>>;
 
-		fn deref(&self) -> &hyper::Client<HttpConnector> {
+		fn deref(&self) -> &hyper::Client<HttpsConnector<HttpConnector>> {
 			&self.client
 		}
 	}

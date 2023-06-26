@@ -67,6 +67,11 @@ pub mod class {
 		}
 
 		#[ion(get)]
+		pub fn get_locations(&self) -> Vec<String> {
+			self.locations.iter().map(|u| String::from(u.as_str())).collect()
+		}
+
+		#[ion(get)]
 		pub fn get_url(&self) -> String {
 			String::from(self.locations[self.locations.len() - 1].as_str())
 		}
