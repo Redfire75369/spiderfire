@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use decode::*;
-pub use encode::*;
+pub use decode::TextDecoder;
+pub use encode::TextEncoder;
 use ion::{ClassInitialiser, Context, Object, Value};
 use ion::conversions::ToValue;
 

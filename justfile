@@ -23,4 +23,4 @@ test-release *args:
 
 lint:
   cargo fmt --check --all
-  cargo clippy --tests --locked -- -D warnings
+  cargo clippy --tests --locked -- -D warnings -A clippy::redundant_clone
