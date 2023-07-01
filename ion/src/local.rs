@@ -9,6 +9,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::Handle as RawHandle;
+use mozjs::jsapi::Heap;
 use mozjs::jsapi::MutableHandle as RawMutableHandle;
 use mozjs::rust::{GCMethods, Handle, MutableHandle, RootedGuard};
 use mozjs_sys::jsgc::RootKind;
@@ -99,6 +100,12 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// The mutable handle must be valid and still be recognised by the Garbage Collector.
 	pub unsafe fn from_raw_handle_mut(handle: RawMutableHandle<T>) -> Local<'local, T> {
 		Local::Mutable(MutableHandle::from_raw(handle))
+	}
+}
+
+impl<'local, T: GCMethods + RootKind + Copy> Local<'local, T> {
+	pub unsafe fn from_heap(heap: &Heap<T>) -> Local<'local, T> {
+		Local::from_raw_handle(heap.handle())
 	}
 }
 

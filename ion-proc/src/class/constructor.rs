@@ -5,12 +5,13 @@
  */
 
 use proc_macro2::TokenStream;
-use syn::{ItemFn, Result, Type};
+use syn::{GenericArgument, ItemFn, PathArguments, Result, ReturnType, Type};
 
 use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
+use crate::utils::type_ends_with;
 
 pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
 	let krate = quote!(::ion);
@@ -21,7 +22,12 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	constructor.attrs.clear();
 	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
-	let error_handler = error_handler(ty);
+	let empty = Box::new(parse_quote!(()));
+	let return_type = match &wrapper.sig.output {
+		ReturnType::Default => &empty,
+		ReturnType::Type(_, ty) => ty,
+	};
+	let error_handler = error_handler(ty, &*return_type);
 
 	let body = parse_quote!({
 		let cx = &#krate::Context::new(&mut cx);
@@ -50,17 +56,40 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	Ok((method, parameters))
 }
 
-pub(crate) fn error_handler(ty: &Type) -> TokenStream {
+pub(crate) fn error_handler(ty: &Type, return_type: &Type) -> TokenStream {
 	let krate = quote!(::ion);
+	let mut if_ok = quote!(
+		let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
+		::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
+		#krate::conversions::ToValue::to_value(&this, cx, args.rval());
+		true
+	);
+	if return_type == &parse_quote!(()) {
+		if_ok = quote!(
+			#krate::conversions::ToValue::to_value(&this, cx, args.rval());
+			true
+		);
+	}
+	if let Type::Path(ty) = &return_type {
+		if type_ends_with(ty, "Result") || type_ends_with(ty, "ResultExc") {
+			if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
+				if let Some(GenericArgument::Type(Type::Tuple(ty))) = args.args.first() {
+					if ty.elems.is_empty() {
+						if_ok = quote!(
+							#krate::conversions::ToValue::to_value(&this, cx, args.rval());
+							true
+						);
+					}
+				}
+			}
+		}
+	}
 	quote!({
 		use ::std::prelude::v1::*;
 
 		match result {
 			Ok(Ok(value)) => {
-				let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
-				::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
-				#krate::conversions::ToValue::to_value(&this, cx, args.rval());
-				true
+				#if_ok
 			},
 			Ok(Err(error)) => {
 				#krate::exception::ThrowException::throw(&error, cx);

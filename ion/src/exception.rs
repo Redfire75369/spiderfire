@@ -94,6 +94,10 @@ impl Exception {
 		unsafe { JS_ClearPendingException(**cx) };
 	}
 
+	pub fn is_pending(cx: &Context) -> bool {
+		unsafe { JS_IsExceptionPending(**cx) }
+	}
+
 	/// If the [Exception] is an [Error], the error location is mapped according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {

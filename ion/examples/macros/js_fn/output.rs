@@ -1,4 +1,4 @@
-use ion::{Array, Context, Exception, js_fn, Object, Result};
+use ion::{Array, Context, js_fn, Object, Result, ResultExc};
 
 #[js_fn]
 fn output_empty() {}
@@ -29,6 +29,6 @@ fn output_result_array<'cx>(cx: &'cx Context) -> Result<Array<'cx>> {
 }
 
 #[js_fn]
-fn output_result_exception() -> std::result::Result<(), Exception> {
+fn output_result_exception() -> ResultExc<()> {
 	Ok(())
 }

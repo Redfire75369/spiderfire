@@ -14,7 +14,7 @@ use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
-	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
+	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_class: bool,
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let krate = quote!(::ion);
 
@@ -22,7 +22,7 @@ pub(crate) fn impl_wrapper_fn(
 		return impl_async_wrapper_fn(function, class_ty, keep_inner);
 	}
 
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty, is_constructor)?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty, is_class)?;
 	let idents = parameters.to_idents();
 	let statements = parameters.to_statements()?;
 	let this_statements = parameters.to_this_statements(class_ty.is_some(), false)?;
@@ -33,7 +33,7 @@ pub(crate) fn impl_wrapper_fn(
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
-	let wrapper_args: Vec<FnArg> = if is_constructor {
+	let wrapper_args: Vec<FnArg> = if is_class {
 		vec![
 			parse_quote!(cx: &'cx #krate::Context),
 			parse_quote!(args: &'a mut #krate::Arguments<'cx>),
@@ -52,20 +52,20 @@ pub(crate) fn impl_wrapper_fn(
 	let mut result = quote!(result.map_err(::std::convert::Into::into));
 
 	if let Type::Path(ty) = &output {
-		if !type_ends_with(ty, "Result") {
-			result = quote!(::std::result::Result::<#ty, #krate::Exception>::Ok(result));
-			wrapper_output = parse_quote!(::std::result::Result::<#ty, #krate::Exception>);
+		if !type_ends_with(ty, "Result") && !type_ends_with(ty, "ResultExc") {
+			result = quote!(#krate::ResultExc::<#ty>::Ok(result));
+			wrapper_output = parse_quote!(#krate::ResultExc::<#ty>);
 		}
 	} else {
-		result = quote!(::std::result::Result::<#output, #krate::Exception>::Ok(result));
-		wrapper_output = parse_quote!(::std::result::Result::<#output, #krate::Exception>);
+		result = quote!(#krate::ResultExc::<#output>::Ok(result));
+		wrapper_output = parse_quote!(#krate::ResultExc::<#output>);
 	}
 
 	if function.sig.asyncness.is_some() {
 		result = quote!(result);
 
-		output = parse_quote!(::std::result::Result::<#krate::Promise<'cx>, #krate::Exception>);
-		wrapper_output = parse_quote!(::std::result::Result::<#krate::Promise<'cx>, #krate::Exception>);
+		output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
+		wrapper_output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
 	}
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -128,17 +128,25 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
-	let wrapper_args: [FnArg; 2] = [parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)];
+	let wrapper_args: Vec<FnArg> = if class_ty.is_some() {
+		vec![
+			parse_quote!(cx: &'cx #krate::Context),
+			parse_quote!(args: &'a mut #krate::Arguments<'cx>),
+			parse_quote!(this: &mut #krate::Object<'cx>),
+		]
+	} else {
+		vec![parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)]
+	};
 
 	let inner_output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
-	let output = quote!(::std::result::Result::<#krate::Promise<'cx>, #krate::Exception>);
+	let output = quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
 
 	let mut is_result = false;
 	if let Type::Path(ty) = &inner_output {
-		if type_ends_with(ty, "Result") {
+		if type_ends_with(ty, "Result") || type_ends_with(ty, "ResultExc") {
 			is_result = true;
 		}
 	}
@@ -146,7 +154,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	let async_result = if is_result {
 		quote!(result)
 	} else {
-		quote!(::std::result::Result::<#inner_output, #krate::Exception>::Ok(result))
+		quote!(#krate::ResultExc::<#inner_output>::Ok(result))
 	};
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -171,7 +179,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(let mut this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(**args.this().to_object(cx))));)
+			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(***this)));)
 	});
 	let unrooter = parameters
 		.this

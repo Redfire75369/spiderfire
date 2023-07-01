@@ -13,12 +13,12 @@ use http::header::{CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LOCATION, CONTENT
 use hyper::Body;
 use url::Url;
 
-use ion::{Error, Exception};
+use ion::{Error, Exception, ResultExc};
 
 use crate::http::{Request, Response};
 use crate::http::request::{add_host_header, clone_request, Redirection};
 
-pub(crate) async fn request_internal(request: Request) -> Result<Response, Exception> {
+pub(crate) async fn request_internal(request: Request) -> ResultExc<Response> {
 	let signal = request.signal.poll();
 	let send = Box::pin(send_requests(request));
 	match select(send, signal).await {
@@ -27,7 +27,7 @@ pub(crate) async fn request_internal(request: Request) -> Result<Response, Excep
 	}
 }
 
-pub(crate) async fn send_requests(mut req: Request) -> Result<Response, Exception> {
+pub(crate) async fn send_requests(mut req: Request) -> ResultExc<Response> {
 	let client = req.client.to_client();
 	let mut redirections = 0;
 

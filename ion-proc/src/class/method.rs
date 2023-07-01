@@ -38,7 +38,7 @@ where
 	F: FnOnce(&Signature) -> Result<()>,
 {
 	let krate = quote!(::ion);
-	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner, false)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner, true)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
@@ -55,9 +55,10 @@ where
 		let body = parse_quote!({
 			let cx = &#krate::Context::new(&mut cx);
 			let mut args = #krate::Arguments::new(cx, argc, vp);
+			let mut this = args.this().to_object(cx);
 
 			#wrapper
-			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args)));
+			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args, &mut this)));
 			#error_handler
 		});
 		method.block = Box::new(body);

@@ -41,6 +41,7 @@ pub(crate) enum Parameter {
 	This(Box<Pat>, Box<Type>),
 }
 
+#[derive(Debug)]
 pub(crate) struct ThisParameter {
 	pat: Box<Pat>,
 	ty: Box<Type>,
@@ -55,7 +56,7 @@ pub(crate) struct Parameters {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg, is_constructor: bool) -> Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg, is_class: bool) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let PatType { pat, ty, .. } = pat_ty.clone();
@@ -92,7 +93,7 @@ impl Parameter {
 								PA::Strict(_) => {
 									strict = true;
 								}
-								PA::This(_) if is_constructor => {
+								PA::This(_) if is_class => {
 									return Ok(Parameter::This(pat, ty));
 								}
 								_ => (),
@@ -151,7 +152,7 @@ impl Parameter {
 }
 
 impl ThisParameter {
-	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>, is_constructor: bool) -> Result<Option<ThisParameter>> {
+	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>, is_class: bool) -> Result<Option<ThisParameter>> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
@@ -165,7 +166,7 @@ impl ThisParameter {
 						parse_this(pat, ty, true, span).map(Some)
 					}
 					_ => {
-						if !is_constructor {
+						if !is_class {
 							for attr in &pat_ty.attrs {
 								if attr.path().is_ident("ion") {
 									let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
@@ -203,24 +204,19 @@ impl ThisParameter {
 		}
 	}
 
-	pub(crate) fn to_statements(&self, is_class: bool) -> Result<Vec<Stmt>> {
+	pub(crate) fn to_statements(&self, is_class: bool) -> Result<Stmt> {
 		let krate = quote!(::ion);
 		let ThisParameter { pat, ty, kind } = self;
 		if is_class {
 			let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 			match kind {
-				ThisKind::Ref(lt, mutability) => Ok(vec![
-					parse2(quote!(
-						let mut this = args.this().to_object(cx);
-					))?,
-					parse2(quote!(
-						let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(&mut this);
-					))?,
-				]),
+				ThisKind::Ref(lt, mutability) => parse2(quote!(
+					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(this);
+				)),
 				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 			}
 		} else {
-			parse2(quote!(let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, args.this(), true, ())?;)).map(|s| vec![s])
+			parse2(quote!(let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, args.this(), true, ())?;))
 		}
 	}
 
@@ -233,8 +229,8 @@ impl ThisParameter {
 			ThisKind::Ref(_, mutability) => Ok((
 				parse2(quote!(let #pat: &'static #mutability #ty;))?,
 				vec![
-					parse2(quote!(let mut this2 = this.take().unwrap().take().into();))?,
-					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&mut this2));))?,
+					parse2(quote!(let this2 = this.take().unwrap().take().into();))?,
+					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&this2));))?,
 					parse2(quote!(this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(this2.into_local()));))?,
 				],
 			)),
@@ -244,7 +240,7 @@ impl ThisParameter {
 }
 
 impl Parameters {
-	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_constructor: bool) -> Result<Parameters> {
+	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_class: bool) -> Result<Parameters> {
 		let mut nargs = (0, 0);
 		let mut this = None;
 		let mut idents = Vec::new();
@@ -253,7 +249,7 @@ impl Parameters {
 			.iter()
 			.enumerate()
 			.filter_map(|(i, arg)| {
-				let this_param = ThisParameter::from_arg(arg, ty, is_constructor);
+				let this_param = ThisParameter::from_arg(arg, ty, is_class);
 				match this_param {
 					Ok(Some(this_param)) => {
 						if let Pat::Ident(ident) = &*this_param.pat {
@@ -265,7 +261,7 @@ impl Parameters {
 					Err(e) => return Some(Err(e)),
 					_ => (),
 				}
-				let param = Parameter::from_arg(arg, is_constructor);
+				let param = Parameter::from_arg(arg, is_class);
 				match param {
 					Ok(Parameter::Regular { pat, ty, conversion, strict, option }) => {
 						if option.is_none() {
@@ -335,7 +331,7 @@ impl Parameters {
 					))
 				} else {
 					let statements = this.to_statements(is_class)?;
-					Ok(quote!(#(#statements)*))
+					Ok(quote!(#statements))
 				}
 			}
 			None => Ok(TokenStream::default()),

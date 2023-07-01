@@ -128,7 +128,8 @@ pub trait ClassInitialiser {
 		})
 	}
 
-	fn get_private<'a>(object: &'a mut Object) -> &'a mut Self
+	#[allow(clippy::mut_from_ref)]
+	fn get_private<'a>(object: &'a Object) -> &'a mut Self
 	where
 		Self: Sized,
 	{
@@ -149,9 +150,9 @@ pub trait ClassInitialiser {
 
 /// Converts an instance of a native class into its native value, by cloning it.
 pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
-	let mut object = Object::from_value(cx, value, true, ()).unwrap();
+	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
-		Ok(T::get_private(&mut object).clone())
+		Ok(T::get_private(&object).clone())
 	} else {
 		Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 	}

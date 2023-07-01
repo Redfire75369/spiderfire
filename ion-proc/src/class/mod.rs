@@ -19,7 +19,7 @@ use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::operations::{class_finalise, class_ops, class_trace};
 use crate::class::property::Property;
 use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
-use crate::utils::extract_last_argument;
+use crate::utils::extract_last_type_segment;
 
 pub(crate) mod accessor;
 pub(crate) mod attribute;
@@ -51,7 +51,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		match item {
 			Item::Struct(str) if class.is_none() => class = Some(str.clone()),
 			Item::Impl(imp) => {
-				let impl_ty = extract_last_argument(&imp.self_ty);
+				let impl_ty = extract_last_type_segment(&imp.self_ty);
 				if implementation.is_none() && imp.trait_.is_none() && impl_ty.is_some() && impl_ty.as_ref() == class.as_ref().map(|c| &c.ident) {
 					let mut impl_items_to_remove = Vec::new();
 					let mut impl_items_to_add = Vec::new();

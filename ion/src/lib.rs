@@ -49,3 +49,4 @@ pub mod utils;
 mod value;
 
 pub type Result<T> = Result2<T, Error>;
+pub type ResultExc<T> = Result2<T, Exception>;

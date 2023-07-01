@@ -16,7 +16,6 @@ use mozjs::jsapi::{
 };
 
 use ion::{Context, ErrorReport, Function, Object, Value};
-use ion::conversions::ToValue;
 
 #[derive(Clone, Debug)]
 pub enum Microtask {
@@ -35,7 +34,8 @@ impl Microtask {
 	pub fn run(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		match self {
 			Microtask::Promise(promise) => unsafe {
-				let value = promise.as_value(cx);
+				let object = Object::from(cx.root_object(*promise));
+				let value = Value::object(cx, &object);
 
 				let mut rval = Value::undefined(cx);
 				let args = HandleValueArray::new();

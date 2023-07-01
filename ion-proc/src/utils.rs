@@ -19,7 +19,7 @@ where
 	}
 }
 
-pub(crate) fn extract_last_argument(ty: &Type) -> Option<Ident> {
+pub(crate) fn extract_last_type_segment(ty: &Type) -> Option<Ident> {
 	if let Type::Path(path) = ty {
 		path.path.segments.last().map(|segment| segment.ident.clone())
 	} else {
