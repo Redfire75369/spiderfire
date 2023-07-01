@@ -11,9 +11,10 @@ pub mod console;
 pub mod encoding;
 pub mod microtasks;
 pub mod timers;
+pub mod url;
 
 pub fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
-	console::define(cx, global) && encoding::define(cx, global)
+	console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global)
 }
 
 pub fn init_timers<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {

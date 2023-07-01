@@ -12,7 +12,5 @@ pub use encoder::TextEncoder;
 use ion::{ClassInitialiser, Context, Object};
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	TextDecoder::init_class(cx, global);
-	TextEncoder::init_class(cx, global);
-	true
+	TextDecoder::init_class(cx, global).0 && TextEncoder::init_class(cx, global).0
 }

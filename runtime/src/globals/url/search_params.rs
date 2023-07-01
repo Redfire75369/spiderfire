@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use class::*;
+pub use search_params::URLSearchParams;
 
 #[js_class]
-mod class {
+mod search_params {
 	use std::cell::RefCell;
 	use std::rc::Rc;
 
