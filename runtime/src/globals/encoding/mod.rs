@@ -4,12 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-mod decoder;
-mod encoder;
+#![allow(clippy::module_inception)]
 
 pub use decoder::TextDecoder;
 pub use encoder::TextEncoder;
 use ion::{ClassInitialiser, Context, Object};
+
+mod decoder;
+mod encoder;
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
 	TextDecoder::init_class(cx, global).0 && TextEncoder::init_class(cx, global).0

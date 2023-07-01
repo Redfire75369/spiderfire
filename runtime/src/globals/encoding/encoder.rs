@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+pub use encoder::TextEncoder;
 use ion::{Context, Object, Value};
 use ion::conversions::ToValue;
-
-pub use encoder::TextEncoder;
 
 pub struct EncodeResult {
 	read: u64,

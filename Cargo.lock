@@ -1631,6 +1631,7 @@ dependencies = [
  "dirs",
  "dunce",
  "encoding_rs",
+ "form_urlencoded",
  "futures",
  "indent",
  "indexmap",

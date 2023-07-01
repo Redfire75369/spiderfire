@@ -10,6 +10,7 @@ base64-url = "2.0.0"
 closure = "0.3.0"
 dirs = "5.0.1"
 encoding_rs = "0.8.32"
+form_urlencoded = "1.2.0"
 ion = { path = "../ion", features = ["macros", "sourcemap"] }
 indexmap = "1.9.3"
 os_str_bytes = "6.5.1"
