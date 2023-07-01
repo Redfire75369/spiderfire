@@ -198,9 +198,9 @@ pub mod class {
 		where
 			'cx: 'v,
 		{
-			let mut object = Object::from_value(cx, value, true, ())?;
+			let object = Object::from_value(cx, value, true, ())?;
 			if Request::instance_of(cx, &object, None) {
-				Request::get_private(&mut object).clone()
+				Request::get_private(&object).clone()
 			} else {
 				Err(Error::new("Expected Request", ErrorKind::Type))
 			}

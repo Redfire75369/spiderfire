@@ -27,7 +27,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 		ReturnType::Default => &empty,
 		ReturnType::Type(_, ty) => ty,
 	};
-	let error_handler = error_handler(ty, &*return_type);
+	let error_handler = error_handler(ty, return_type);
 
 	let body = parse_quote!({
 		let cx = &#krate::Context::new(&mut cx);
