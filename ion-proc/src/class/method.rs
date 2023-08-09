@@ -6,6 +6,7 @@
 
 use syn::{ItemFn, Result, Signature, Type};
 
+use crate::attribute::class::Name;
 use crate::function::{check_abi, error_handler, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
@@ -30,7 +31,7 @@ pub(crate) struct Method {
 	pub(crate) method: ItemFn,
 	pub(crate) inner: Option<ItemFn>,
 	pub(crate) nargs: usize,
-	pub(crate) names: Vec<String>,
+	pub(crate) names: Vec<Name>,
 }
 
 pub(crate) fn impl_method<F>(mut method: ItemFn, ty: &Type, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>

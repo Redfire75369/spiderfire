@@ -11,6 +11,7 @@ use mozjs::jsapi::{
 };
 
 use crate::flags::PropertyFlags;
+use crate::symbol::WellKnownSymbolCode;
 
 /// Creates a [JSPropertySpec] with a getter, setter and attributes.
 pub const fn create_property_spec_accessor(
@@ -63,6 +64,68 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: Prope
 pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		attributes_: attrs.bits() as u8,
+		kind_: JSPropertySpec_Kind::Value,
+		u: JSPropertySpec_AccessorsOrValue {
+			value: JSPropertySpec_ValueWrapper {
+				type_: JSPropertySpec_ValueWrapper_Type::Double,
+				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { double_: double },
+			},
+		},
+	}
+}
+
+/// Creates a [JSPropertySpec] with a getter, setter and attributes.
+pub const fn create_property_spec_symbol_accessor(
+	symbol: WellKnownSymbolCode, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
+) -> JSPropertySpec {
+	JSPropertySpec {
+		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
+		attributes_: attrs.bits() as u8,
+		kind_: JSPropertySpec_Kind::NativeAccessor,
+		u: JSPropertySpec_AccessorsOrValue {
+			accessors: JSPropertySpec_AccessorsOrValue_Accessors {
+				getter: JSPropertySpec_Accessor { native: getter },
+				setter: JSPropertySpec_Accessor { native: setter },
+			},
+		},
+	}
+}
+
+/// Creates a [JSPropertySpec] with a string and attributes.
+pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
+	JSPropertySpec {
+		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
+		attributes_: attrs.bits() as u8,
+		kind_: JSPropertySpec_Kind::Value,
+		u: JSPropertySpec_AccessorsOrValue {
+			value: JSPropertySpec_ValueWrapper {
+				type_: JSPropertySpec_ValueWrapper_Type::String,
+				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { string: string as *const _ as *const i8 },
+			},
+		},
+	}
+}
+
+/// Creates a [JSPropertySpec] with an integer and attributes.
+pub const fn create_property_spec_symbol_int(symbol: WellKnownSymbolCode, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
+	JSPropertySpec {
+		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
+		attributes_: attrs.bits() as u8,
+		kind_: JSPropertySpec_Kind::Value,
+		u: JSPropertySpec_AccessorsOrValue {
+			value: JSPropertySpec_ValueWrapper {
+				type_: JSPropertySpec_ValueWrapper_Type::Int32,
+				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { int32: int },
+			},
+		},
+	}
+}
+
+/// Creates a [JSPropertySpec] with a double and attributes.
+pub const fn create_property_spec_symbol_double(symbol: WellKnownSymbolCode, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
+	JSPropertySpec {
+		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		attributes_: attrs.bits() as u8,
 		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {

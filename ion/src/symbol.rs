@@ -50,7 +50,7 @@ impl WellKnownSymbolCode {
 	/// Converts a [WellKnownSymbolCode] into its corresponding identifier.
 	///
 	/// These identifiers refer to the property names on the `Symbol` global object.
-	pub fn identifier(&self) -> &'static str {
+	pub const fn identifier(&self) -> &'static str {
 		use WellKnownSymbolCode as WKSC;
 		match self {
 			WKSC::IsConcatSpreadable => "isConcatSpreadable",

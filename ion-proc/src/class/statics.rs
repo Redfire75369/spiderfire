@@ -11,6 +11,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::Ident;
 use syn::{ItemImpl, ItemStatic, LitStr, parse2};
 
+use crate::attribute::class::Name;
 use crate::class::accessor::Accessor;
 use crate::class::method::Method;
 use crate::class::property::Property;
@@ -41,13 +42,17 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 			let nargs = method.nargs as u16;
 			(*method.names)
 				.iter()
-				.map(|name| {
-					let mut name = name.clone();
-					if name.is_case(Case::Snake) {
-						name = name.to_case(Case::Camel);
+				.map(|name| match name {
+					Name::String(literal) => {
+						let mut name = literal.value();
+						if name.is_case(Case::Snake) {
+							name = name.to_case(Case::Camel)
+						}
+						quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
 					}
-
-					quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT))
+					Name::Symbol(symbol) => {
+						quote!(#krate::function_spec_symbol!(#ident, #symbol, #nargs, #krate::flags::PropertyFlags::CONSTANT))
+					}
 				})
 				.collect::<Vec<_>>()
 		})
@@ -68,7 +73,7 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 		parse_quote!(PROPERTIES)
 	};
 
-	let mut specs: Vec<_> = properties.iter().map(|property| property.to_spec(class.clone())).collect();
+	let mut specs: Vec<_> = properties.iter().flat_map(|property| property.to_specs(class)).collect();
 	accessors.iter().for_each(|(_, accessor)| {
 		accessor
 			.0
@@ -76,7 +81,7 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 			.unwrap()
 			.names
 			.iter()
-			.for_each(|name| specs.push(accessor.to_spec(Ident::new(name, class.span()))))
+			.for_each(|name| specs.push(accessor.to_spec(Ident::new(&name.to_string(), class.span()))))
 	});
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));

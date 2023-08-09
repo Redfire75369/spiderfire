@@ -14,16 +14,33 @@ mod keywords {
 	custom_keyword!(strict);
 }
 
-#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) struct ConvertAttribute {
+	kw: keywords::convert,
+	eq: Token![=],
+	pub(crate) conversion: Box<Expr>,
+}
+
+impl Parse for ConvertAttribute {
+	fn parse(input: ParseStream) -> Result<ConvertAttribute> {
+		let lookahead = input.lookahead1();
+		if lookahead.peek(keywords::convert) {
+			Ok(ConvertAttribute {
+				kw: input.parse()?,
+				eq: input.parse()?,
+				conversion: input.parse()?,
+			})
+		} else {
+			Err(lookahead.error())
+		}
+	}
+}
+
 #[derive(Debug)]
 pub(crate) enum ParameterAttribute {
 	This(keywords::this),
 	VarArgs(keywords::varargs),
-	Convert {
-		convert: keywords::convert,
-		eq: Token![=],
-		conversion: Box<Expr>,
-	},
+	Convert(ConvertAttribute),
 	Strict(keywords::strict),
 }
 
@@ -37,11 +54,7 @@ impl Parse for ParameterAttribute {
 		} else if lookahead.peek(keywords::varargs) {
 			Ok(PA::VarArgs(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
-			Ok(PA::Convert {
-				convert: input.parse()?,
-				eq: input.parse()?,
-				conversion: input.parse()?,
-			})
+			Ok(PA::Convert(input.parse()?))
 		} else if lookahead.peek(keywords::strict) {
 			Ok(PA::Strict(input.parse()?))
 		} else {

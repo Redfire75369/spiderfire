@@ -4,58 +4,128 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::CString;
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::ToTokens;
+use syn::{ImplItemConst, LitStr, Result, Type};
+use syn::punctuated::Punctuated;
 
-use proc_macro2::{Ident, TokenStream};
-use syn::{ImplItemConst, Type};
-
+use crate::attribute::class::Name;
+use crate::attribute::property::PropertyAttribute;
 use crate::utils::type_ends_with;
 
 #[derive(Clone, Debug)]
-pub(crate) enum Property {
-	Int32(Ident),
-	Double(Ident),
-	String(Ident),
+pub(crate) enum PropertyType {
+	Int32,
+	Double,
+	String,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Property {
+	ty: PropertyType,
+	ident: Ident,
+	names: Vec<Name>,
 }
 
 impl Property {
-	pub(crate) fn from_const(con: &ImplItemConst) -> Option<Property> {
+	pub(crate) fn from_const(mut con: ImplItemConst) -> Result<Option<(ImplItemConst, Property)>> {
+		let mut name = None;
+		let mut names = Vec::new();
+		let mut skip = false;
+
+		for attr in &con.attrs {
+			if attr.path().is_ident("ion") {
+				let args: Punctuated<PropertyAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+
+				for arg in args {
+					match arg {
+						PropertyAttribute::Name(name_) => name = Some(name_.name),
+						PropertyAttribute::Alias(alias) => {
+							for alias in alias.aliases {
+								names.push(Name::String(alias));
+							}
+						}
+						PropertyAttribute::Skip(_) => skip = true,
+					}
+				}
+			}
+		}
+
+		con.attrs.clear();
+		if skip {
+			return Ok(None);
+		}
+
+		let ident = con.ident.clone();
+
+		match name {
+			Some(name) => names.insert(0, name),
+			None => names.insert(0, Name::from_string(&ident.to_string(), ident.span())),
+		}
+
 		match &con.ty {
 			Type::Path(ty) => {
 				if type_ends_with(ty, "i32") {
-					Some(Property::Int32(con.ident.clone()))
+					Ok(Some((con, Property { ty: PropertyType::Int32, ident, names })))
 				} else if type_ends_with(ty, "f64") {
-					Some(Property::Double(con.ident.clone()))
+					Ok(Some((con, Property { ty: PropertyType::Double, ident, names })))
 				} else {
-					None
+					Ok(None)
 				}
 			}
 			Type::Reference(re) => {
 				if let Type::Path(ty) = &*re.elem {
 					if type_ends_with(ty, "str") {
-						return Some(Property::String(con.ident.clone()));
+						return Ok(Some((con, Property { ty: PropertyType::String, ident, names })));
 					}
 				}
-				None
+				Ok(None)
 			}
-			_ => None,
+			_ => Ok(None),
 		}
 	}
 
-	pub(crate) fn to_spec(&self, class: Ident) -> TokenStream {
+	pub(crate) fn to_specs(&self, class: &Ident) -> Vec<TokenStream> {
 		let krate = quote!(::ion);
-		let name = String::from_utf8(CString::new(class.to_string()).unwrap().into_bytes_with_nul()).unwrap();
-		match self {
-			Property::Int32(ident) => {
-				quote!(#krate::spec::create_property_spec_int(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-			Property::Double(ident) => {
-				quote!(#krate::spec::create_property_spec_double(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-			Property::String(ident) => {
-				// TODO: Null-Terminate Constant
-				quote!(#krate::spec::create_property_spec_string(#name, #class::#ident, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-		}
+		let ident = &self.ident;
+
+		self.names
+			.iter()
+			.map(|name| {
+				let mut function_ident = Ident::new("create_property_spec", Span::call_site());
+				let key;
+				let flags;
+				match name {
+					Name::String(literal) => {
+						let mut name = literal.value();
+						if name.is_case(Case::ScreamingSnake) {
+							name = name.to_case(Case::Camel)
+						}
+						key = LitStr::new(&name, literal.span()).into_token_stream();
+						flags = quote!(#krate::flags::PropertyFlags::CONSTANT_ENUMERATED);
+					}
+					Name::Symbol(symbol) => {
+						key = symbol.to_token_stream();
+						function_ident = format_ident!("{}_symbol", function_ident);
+						flags = quote!(#krate::flags::PropertyFlags::CONSTANT);
+					}
+				}
+
+				match self.ty {
+					PropertyType::Int32 => {
+						function_ident = format_ident!("{}_int", function_ident);
+					}
+					PropertyType::Double => {
+						function_ident = format_ident!("{}_double", function_ident);
+					}
+					PropertyType::String => {
+						function_ident = format_ident!("{}_string", function_ident);
+					}
+				}
+
+				quote!(#krate::spec::#function_ident(#key, #class::#ident, #flags))
+			})
+			.collect()
 	}
 }

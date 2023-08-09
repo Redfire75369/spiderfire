@@ -18,6 +18,7 @@ use crate::class::impl_js_class;
 use crate::function::impl_js_fn;
 use crate::value::impl_from_value;
 
+pub(crate) mod attribute;
 pub(crate) mod class;
 pub(crate) mod function;
 pub(crate) mod utils;

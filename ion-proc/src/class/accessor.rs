@@ -13,7 +13,7 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{Error, Field, Fields, ItemFn, ItemStruct, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
 
-use crate::class::attribute::PropertyAttribute;
+use crate::attribute::class::{FieldAttribute, Name};
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
@@ -36,19 +36,19 @@ impl Accessor {
 			let mut indexes = Vec::new();
 			for (index, attr) in field.attrs.iter().enumerate() {
 				if attr.path().is_ident("ion") {
-					let args: Punctuated<PropertyAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+					let args: Punctuated<FieldAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
 					for arg in args {
 						match arg {
-							PropertyAttribute::Name(name_) => name = Some(name_.literal),
-							PropertyAttribute::Alias(alias) => {
+							FieldAttribute::Name(name_) => name = Some(name_.name),
+							FieldAttribute::Alias(alias) => {
 								for alias in alias.aliases {
-									names.push(alias.value());
+									names.push(Name::String(alias));
 								}
 							}
-							PropertyAttribute::Convert { conversion: conversion_expr, .. } => conversion = conversion.or(Some(conversion_expr)),
-							PropertyAttribute::Readonly(_) => readonly = true,
-							PropertyAttribute::Skip(_) => skip = true,
+							FieldAttribute::Convert(convert) => conversion = conversion.or(Some(convert.conversion)),
+							FieldAttribute::Readonly(_) => readonly = true,
+							FieldAttribute::Skip(_) => skip = true,
 						}
 					}
 					indexes.push(index);
@@ -64,8 +64,8 @@ impl Accessor {
 			}
 
 			match name {
-				Some(name) => names.insert(0, name.value()),
-				None => names.insert(0, get_accessor_name(ident.to_string(), !readonly)),
+				Some(name) => names.insert(0, name),
+				None => names.insert(0, Name::from_string(get_accessor_name(ident.to_string(), !readonly), ident.span())),
 			}
 
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
@@ -210,9 +210,9 @@ pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor
 		return fields.named.iter_mut().try_for_each(|field| {
 			if let Some(accessor) = Accessor::from_field(field, &ty)? {
 				if let Some(getter) = accessor.0.as_ref() {
-					insert_accessor(accessors, getter.names[0].clone(), accessor.0.clone(), accessor.1.clone());
+					insert_accessor(accessors, getter.names[0].to_string(), accessor.0.clone(), accessor.1.clone());
 				} else if let Some(setter) = accessor.1.as_ref() {
-					insert_accessor(accessors, setter.names[0].clone(), accessor.0.clone(), accessor.1.clone());
+					insert_accessor(accessors, setter.names[0].to_string(), accessor.0.clone(), accessor.1.clone());
 				}
 			}
 			Ok(())

@@ -5,6 +5,7 @@ use ion::js_class;
 mod class {
 	use ion::{Context, Function, Object, Result, Value};
 	use ion::conversions::{ConversionBehavior, FromValue};
+	use ion::symbol::WellKnownSymbolCode;
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]
@@ -18,6 +19,11 @@ mod class {
 	}
 
 	impl Toggle {
+		pub const DEFAULT_TOGGLED: i32 = 0;
+
+		#[ion(name = WellKnownSymbolCode::ToStringTag)]
+		pub const TO_STRING_TAG: &'static str = "Toggle";
+
 		#[ion(constructor)]
 		pub fn constructor() -> Toggle {
 			Toggle::default()
@@ -54,7 +60,7 @@ mod class {
 }
 
 fn ensure_callable() {
-	let mut toggle = Box::<Toggle>::default();
+	let mut toggle = Toggle::default();
 	toggle.get_toggle();
 	toggle.set_toggle(true);
 	toggle.reset();

@@ -10,7 +10,6 @@ use syn::punctuated::Punctuated;
 
 use crate::function::wrapper::impl_wrapper_fn;
 
-pub(crate) mod attribute;
 pub(crate) mod inner;
 pub(crate) mod parameters;
 pub(crate) mod wrapper;

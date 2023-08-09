@@ -11,8 +11,8 @@ use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
+use crate::attribute::class::{ClassAttribute, MethodAttribute, Name};
 use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
-use crate::class::attribute::{ClassAttribute, MethodAttribute};
 use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
@@ -22,7 +22,6 @@ use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, pro
 use crate::utils::extract_last_type_segment;
 
 pub(crate) mod accessor;
-pub(crate) mod attribute;
 pub(crate) mod automatic;
 pub(crate) mod constructor;
 pub(crate) mod method;
@@ -81,10 +80,10 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											kind = kind.or_else(|| arg.to_kind());
 											match arg {
 												MethodAttribute::Skip(_) => internal = Some(index),
-												MethodAttribute::Name(name_) => name = Some(name_.literal),
+												MethodAttribute::Name(name_) => name = Some(name_.name),
 												MethodAttribute::Alias(alias) => {
 													for alias in alias.aliases {
-														names.push(alias.value());
+														names.push(Name::String(alias));
 													}
 												}
 												_ => (),
@@ -95,12 +94,18 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 								}
 
 								match name {
-									Some(name) => names.insert(0, name.value()),
+									Some(name) => names.insert(0, name),
 									None => {
 										if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
-											names.insert(0, get_accessor_name(method.sig.ident.to_string(), kind == Some(MethodKind::Setter)))
+											names.insert(
+												0,
+												Name::from_string(
+													get_accessor_name(method.sig.ident.to_string(), kind == Some(MethodKind::Setter)),
+													method.sig.ident.span(),
+												),
+											)
 										} else {
-											names.insert(0, method.sig.ident.to_string())
+											names.insert(0, Name::from_string(method.sig.ident.to_string(), method.sig.ident.span()))
 										}
 									}
 								}
@@ -125,9 +130,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											let getter = Method { names, ..getter };
 
 											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name, Some(getter), None);
+												insert_accessor(&mut accessors, name.to_string(), Some(getter), None);
 											} else {
-												insert_accessor(&mut static_accessors, name, Some(getter), None);
+												insert_accessor(&mut static_accessors, name.to_string(), Some(getter), None);
 											}
 										}
 										Some(MethodKind::Setter) => {
@@ -135,9 +140,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											let setter = Method { names, ..setter };
 
 											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name, None, Some(setter));
+												insert_accessor(&mut accessors, name.to_string(), None, Some(setter));
 											} else {
-												insert_accessor(&mut static_accessors, name, None, Some(setter));
+												insert_accessor(&mut static_accessors, name.to_string(), None, Some(setter));
 											}
 										}
 										None => {
@@ -156,8 +161,10 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 							}
 							ImplItem::Const(con) => {
 								if let Visibility::Public(_) = con.vis {
-									if let Some(property) = Property::from_const(con) {
+									if let Some((con, property)) = Property::from_const(con.clone())? {
+										impl_items_to_remove.push(j);
 										static_properties.push(property);
+										impl_items_to_add.push(ImplItem::Const(con));
 									}
 								}
 							}
@@ -222,7 +229,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 			for arg in args {
 				match arg {
-					ClassAttribute::Name(name) => class_name = Some(name.literal),
+					ClassAttribute::Name(name) => class_name = Some(name.name),
 					ClassAttribute::NoConstructor(_) => has_constructor = false,
 					ClassAttribute::FromValue(_) => impl_from_value = true,
 					ClassAttribute::ToValue(_) => impl_to_value = true,

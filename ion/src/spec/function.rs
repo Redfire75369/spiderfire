@@ -9,11 +9,22 @@ use std::ptr;
 use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 
 use crate::flags::PropertyFlags;
+use crate::symbol::WellKnownSymbolCode;
 
 /// Creates a [JSFunctionSpec] with the given native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		call: func,
+		nargs,
+		flags: flags.bits(),
+		selfHostedName: ptr::null_mut(),
+	}
+}
+
+pub const fn create_function_spec_symbol(symbol: WellKnownSymbolCode, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
+	JSFunctionSpec {
+		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		call: func,
 		nargs,
 		flags: flags.bits(),
@@ -40,5 +51,24 @@ macro_rules! function_spec {
 	};
 	($function:expr, $nargs:expr) => {
 		function_spec!($function, ::std::stringify!($function), $nargs)
+	};
+}
+
+#[cfg(feature = "macros")]
+#[macro_export(local_inner_macros)]
+macro_rules! function_spec_symbol {
+	($function:expr, $symbol:expr, $nargs:expr, $flags:expr) => {
+		$crate::spec::create_function_spec_symbol(
+			$symbol,
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($function),
+				info: ::std::ptr::null_mut(),
+			},
+			$nargs,
+			$flags,
+		)
+	};
+	($function:expr, $symbol:expr, $nargs:expr) => {
+		function_spec!($function, $symbol, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
 	};
 }

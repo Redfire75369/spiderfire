@@ -4,11 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{Expr, LitStr, Result};
+use proc_macro2::Span;
+use syn::{Error, ExprPath, LitStr, Result};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Bracket;
 
+use crate::attribute::function::ConvertAttribute;
 use crate::class::method::MethodKind;
 
 mod keywords {
@@ -29,22 +31,57 @@ mod keywords {
 	custom_keyword!(set);
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct Name {
-	pub(crate) name: keywords::name,
-	pub(crate) eq: Token![=],
-	pub(crate) literal: LitStr,
+#[derive(Clone, Debug)]
+pub(crate) enum Name {
+	String(LitStr),
+	Symbol(ExprPath),
+}
+
+impl Name {
+	pub(crate) fn from_string<S: AsRef<str>>(string: S, span: Span) -> Name {
+		Name::String(LitStr::new(string.as_ref(), span))
+	}
+
+	pub(crate) fn to_string(&self) -> String {
+		match self {
+			Name::String(literal) => literal.value(),
+			Name::Symbol(path) => path.path.segments.last().map(|segment| format!("[{}]", segment.ident)).unwrap(),
+		}
+	}
 }
 
 impl Parse for Name {
 	fn parse(input: ParseStream) -> Result<Name> {
+		if let Ok(literal) = input.parse::<LitStr>() {
+			let string = literal.value();
+			if !string.starts_with('[') && !string.ends_with(']') {
+				Ok(Name::String(literal))
+			} else {
+				Err(Error::new(literal.span(), "Function name must not start with '[' or end with ']'"))
+			}
+		} else if let Ok(other) = input.parse() {
+			Ok(Name::Symbol(other))
+		} else {
+			Err(Error::new(input.span(), "Function name is not a string or expression"))
+		}
+	}
+}
+
+#[derive(Debug)]
+pub(crate) struct NameAttribute {
+	kw: keywords::name,
+	eq: Token![=],
+	pub(crate) name: Name,
+}
+
+impl Parse for NameAttribute {
+	fn parse(input: ParseStream) -> Result<NameAttribute> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::name) {
-			Ok(Name {
-				name: input.parse()?,
+			Ok(NameAttribute {
+				kw: input.parse()?,
 				eq: input.parse()?,
-				literal: input.parse()?,
+				name: input.parse()?,
 			})
 		} else {
 			Err(lookahead.error())
@@ -52,21 +89,42 @@ impl Parse for Name {
 	}
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) struct Aliases {
-	pub(crate) alias: keywords::alias,
-	pub(crate) eq: Token![=],
-	pub(crate) bracket: Bracket,
+pub(crate) struct ClassNameAttribute {
+	kw: keywords::name,
+	eq: Token![=],
+	pub(crate) name: LitStr,
+}
+
+impl Parse for ClassNameAttribute {
+	fn parse(input: ParseStream) -> Result<ClassNameAttribute> {
+		let lookahead = input.lookahead1();
+		if lookahead.peek(keywords::name) {
+			Ok(ClassNameAttribute {
+				kw: input.parse()?,
+				eq: input.parse()?,
+				name: input.parse()?,
+			})
+		} else {
+			Err(lookahead.error())
+		}
+	}
+}
+
+#[derive(Debug)]
+pub(crate) struct AliasAttribute {
+	alias: keywords::alias,
+	eq: Token![=],
+	bracket: Bracket,
 	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
 }
 
-impl Parse for Aliases {
-	fn parse(input: ParseStream) -> Result<Aliases> {
+impl Parse for AliasAttribute {
+	fn parse(input: ParseStream) -> Result<AliasAttribute> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::alias) {
 			let inner;
-			let aliases = Aliases {
+			let aliases = AliasAttribute {
 				alias: input.parse()?,
 				eq: input.parse()?,
 				bracket: bracketed!(inner in input),
@@ -83,7 +141,7 @@ impl Parse for Aliases {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum ClassAttribute {
-	Name(Name),
+	Name(ClassNameAttribute),
 	NoConstructor(keywords::no_constructor),
 	FromValue(keywords::from_value),
 	ToValue(keywords::to_value),
@@ -113,37 +171,29 @@ impl Parse for ClassAttribute {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) enum PropertyAttribute {
-	Name(Name),
-	Alias(Aliases),
-	Convert {
-		convert: keywords::convert,
-		eq: Token![=],
-		conversion: Box<Expr>,
-	},
+pub(crate) enum FieldAttribute {
+	Name(NameAttribute),
+	Alias(AliasAttribute),
+	Convert(ConvertAttribute),
 	Readonly(keywords::readonly),
 	Skip(keywords::skip),
 }
 
-impl Parse for PropertyAttribute {
-	fn parse(input: ParseStream) -> Result<PropertyAttribute> {
-		use PropertyAttribute as PA;
+impl Parse for FieldAttribute {
+	fn parse(input: ParseStream) -> Result<FieldAttribute> {
+		use FieldAttribute as FA;
 
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::name) {
-			Ok(PA::Name(input.parse()?))
+			Ok(FA::Name(input.parse()?))
 		} else if lookahead.peek(keywords::alias) {
-			Ok(PA::Alias(input.parse()?))
+			Ok(FA::Alias(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
-			Ok(PA::Convert {
-				convert: input.parse()?,
-				eq: input.parse()?,
-				conversion: input.parse()?,
-			})
+			Ok(FA::Convert(input.parse()?))
 		} else if lookahead.peek(keywords::readonly) {
-			Ok(PA::Readonly(input.parse()?))
+			Ok(FA::Readonly(input.parse()?))
 		} else if lookahead.peek(keywords::skip) {
-			Ok(PA::Skip(input.parse()?))
+			Ok(FA::Skip(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -152,8 +202,8 @@ impl Parse for PropertyAttribute {
 
 #[derive(Debug)]
 pub(crate) enum MethodAttribute {
-	Name(Name),
-	Alias(Aliases),
+	Name(NameAttribute),
+	Alias(AliasAttribute),
 	Constructor(keywords::constructor),
 	Getter(keywords::get),
 	Setter(keywords::set),

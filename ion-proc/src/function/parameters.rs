@@ -11,7 +11,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
-use crate::function::attribute::ParameterAttribute;
+use crate::attribute::function::ParameterAttribute;
 use crate::utils::{format_pat, type_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
@@ -87,8 +87,8 @@ impl Parameter {
 								PA::VarArgs(_) => {
 									vararg = true;
 								}
-								PA::Convert { conversion: conversion_expr, .. } => {
-									conversion = Some(conversion_expr);
+								PA::Convert(convert) => {
+									conversion = Some(convert.conversion);
 								}
 								PA::Strict(_) => {
 									strict = true;
