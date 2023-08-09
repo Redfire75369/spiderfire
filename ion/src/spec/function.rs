@@ -69,6 +69,6 @@ macro_rules! function_spec_symbol {
 		)
 	};
 	($function:expr, $symbol:expr, $nargs:expr) => {
-		function_spec!($function, $symbol, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
+		create_function_spec_symbol!($function, $symbol, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
 	};
 }

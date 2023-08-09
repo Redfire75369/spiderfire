@@ -6,11 +6,11 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::ffi::CString;
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, TokenStream};
-use syn::{Error, Field, Fields, ItemFn, ItemStruct, parse2, Result, Type, Visibility};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::ToTokens;
+use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
 
 use crate::attribute::class::{FieldAttribute, Name};
@@ -103,39 +103,66 @@ impl Accessor {
 		}
 	}
 
-	pub(crate) fn to_spec(&self, name: Ident) -> TokenStream {
+	pub(crate) fn to_specs(&self) -> Vec<TokenStream> {
 		let krate = quote!(::ion);
 
-		match self {
-			Accessor(Some(getter), Some(setter)) => {
-				let getter = getter.method.sig.ident.clone();
-				let setter = setter.method.sig.ident.clone();
+		let names = self.0.as_ref().or(self.1.as_ref()).map(|method| &*method.names).unwrap_or_default();
+		names
+			.iter()
+			.map(|name| {
+				let mut function_ident = Ident::new("property_spec", Span::call_site());
+				let key;
+				let flags;
 
-				let name = name.to_string();
-				quote!(#krate::property_spec_getter_setter!(#getter, #setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-			Accessor(Some(getter), None) => {
-				let getter = getter.method.sig.ident.clone();
-				let name = name.to_string();
-				quote!(#krate::property_spec_getter!(#getter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-			Accessor(None, Some(setter)) => {
-				let setter = setter.method.sig.ident.clone();
-				let name = name.to_string();
-				quote!(#krate::property_spec_setter!(#setter, #name, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
-			}
-			Accessor(None, None) => {
-				let name = String::from_utf8(CString::new(name.to_string()).unwrap().into_bytes_with_nul()).unwrap();
-				quote!(
-					#krate::spec::create_property_spec_accessor(
-						#name,
-						::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-						::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-						#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
-					)
-				)
-			}
-		}
+				match name {
+					Name::String(literal) => {
+						let mut name = literal.value();
+						if name.is_case(Case::ScreamingSnake) {
+							name = name.to_case(Case::Camel)
+						}
+						key = LitStr::new(&name, literal.span()).into_token_stream();
+						flags = quote!(#krate::flags::PropertyFlags::CONSTANT_ENUMERATED);
+					}
+					Name::Symbol(symbol) => {
+						key = symbol.to_token_stream();
+						function_ident = format_ident!("{}_symbol", function_ident);
+						flags = quote!(#krate::flags::PropertyFlags::CONSTANT);
+					}
+				}
+
+				match self {
+					Accessor(Some(getter), Some(setter)) => {
+						let getter = getter.method.sig.ident.clone();
+						let setter = setter.method.sig.ident.clone();
+
+						function_ident = format_ident!("{}_getter_setter", function_ident);
+						quote!(#krate::#function_ident!(#getter, #setter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+					}
+					Accessor(Some(getter), None) => {
+						let getter = getter.method.sig.ident.clone();
+
+						function_ident = format_ident!("{}_getter", function_ident);
+						quote!(#krate::#function_ident!(#getter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+					}
+					Accessor(None, Some(setter)) => {
+						let setter = setter.method.sig.ident.clone();
+						function_ident = format_ident!("{}_getter", function_ident);
+						quote!(#krate::#function_ident!(#setter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+					}
+					Accessor(None, None) => {
+						function_ident = format_ident!("create_{}_accessor", function_ident);
+						quote!(
+							#krate::spec::#function_ident(
+								#key,
+								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+								#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
+							)
+						)
+					}
+				}
+			})
+			.collect()
 	}
 }
 

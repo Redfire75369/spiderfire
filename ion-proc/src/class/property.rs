@@ -96,6 +96,7 @@ impl Property {
 				let mut function_ident = Ident::new("create_property_spec", Span::call_site());
 				let key;
 				let flags;
+
 				match name {
 					Name::String(literal) => {
 						let mut name = literal.value();

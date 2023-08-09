@@ -205,3 +205,72 @@ macro_rules! property_spec_getter_setter {
 		property_spec_getter_setter!($getter, $setter, ::std::stringify!($getter))
 	};
 }
+
+#[cfg(feature = "macros")]
+#[macro_export(local_inner_macros)]
+macro_rules! property_spec_symbol_getter {
+	($getter:expr) => {
+		property_spec_symbol_getter!($getter, ::std::stringify!($getter))
+	};
+	($getter:expr, $symbol:expr) => {
+		property_spec_symbol_getter!($getter, $symbol, $crate::flags::PropertyFlags::ENUMERATE)
+	};
+	($getter:expr, $symbol:expr, $attrs:expr) => {
+		$crate::spec::create_property_spec_symbol_accessor(
+			::std::concat!($symbol, "\0"),
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($getter),
+				info: ::std::ptr::null_mut(),
+			},
+			::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+			$attrs,
+		)
+	};
+}
+
+#[cfg(feature = "macros")]
+#[macro_export(local_inner_macros)]
+macro_rules! property_spec_symbol_setter {
+	($setter:expr) => {
+		property_spec_symbol_setter!($setter, ::std::stringify!($setter))
+	};
+	($setter:expr, $symbol:expr) => {
+		property_spec_symbol_setter!($setter, $symbol, $crate::flags::PropertyFlags::ENUMERATE)
+	};
+	($setter:expr, $symbol:expr, $attrs:expr) => {
+		$crate::spec::create_property_spec_symbol_accessor(
+			::std::concat!($symbol, "\0"),
+			::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($setter),
+				info: ::std::ptr::null_mut(),
+			},
+			$attrs,
+		)
+	};
+}
+
+#[cfg(feature = "macros")]
+#[macro_export(local_inner_macros)]
+macro_rules! property_spec_symbol_getter_setter {
+	($getter:expr, $setter:expr, $symbol:expr, $attrs:expr) => {
+		$crate::spec::create_property_spec_symbol_accessor(
+			::std::concat!($symbol, "\0"),
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($getter),
+				info: ::std::ptr::null_mut(),
+			},
+			::mozjs::jsapi::JSNativeWrapper {
+				op: Some($setter),
+				info: ::std::ptr::null_mut(),
+			},
+			$attrs,
+		)
+	};
+	($getter:expr, $setter:expr, $symbol:expr) => {
+		property_spec_symbol_getter_setter!($getter, $setter, $symbol, $crate::flags::PropertyFlags::ENUMERATE)
+	};
+	($getter:expr, $setter:expr) => {
+		property_spec_symbol_getter_setter!($getter, $setter, ::std::stringify!($getter))
+	};
+}
