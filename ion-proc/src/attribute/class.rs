@@ -43,7 +43,7 @@ impl Name {
 		Name::String(LitStr::new(string.as_ref(), span))
 	}
 
-	pub(crate) fn to_string(&self) -> String {
+	pub(crate) fn as_string(&self) -> String {
 		match self {
 			Name::String(literal) => literal.value(),
 			Name::Symbol(path) => path.path.segments.last().map(|segment| format!("[{}]", segment.ident)).unwrap(),

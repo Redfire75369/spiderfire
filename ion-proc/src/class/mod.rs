@@ -134,9 +134,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											let getter = Method { names, ..getter };
 
 											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name.to_string(), Some(getter), None);
+												insert_accessor(&mut accessors, name.as_string(), Some(getter), None);
 											} else {
-												insert_accessor(&mut static_accessors, name.to_string(), Some(getter), None);
+												insert_accessor(&mut static_accessors, name.as_string(), Some(getter), None);
 											}
 										}
 										Some(MethodKind::Setter) => {
@@ -144,9 +144,9 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											let setter = Method { names, ..setter };
 
 											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name.to_string(), None, Some(setter));
+												insert_accessor(&mut accessors, name.as_string(), None, Some(setter));
 											} else {
-												insert_accessor(&mut static_accessors, name.to_string(), None, Some(setter));
+												insert_accessor(&mut static_accessors, name.as_string(), None, Some(setter));
 											}
 										}
 										None => {

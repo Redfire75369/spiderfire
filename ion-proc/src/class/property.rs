@@ -63,7 +63,7 @@ impl Property {
 
 		match name {
 			Some(name) => names.insert(0, name),
-			None => names.insert(0, Name::from_string(&ident.to_string(), ident.span())),
+			None => names.insert(0, Name::from_string(ident.to_string(), ident.span())),
 		}
 
 		match &con.ty {
