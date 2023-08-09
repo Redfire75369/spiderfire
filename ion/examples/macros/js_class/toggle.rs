@@ -21,9 +21,6 @@ mod class {
 	impl Toggle {
 		pub const DEFAULT_TOGGLED: i32 = 0;
 
-		#[ion(name = WellKnownSymbolCode::ToStringTag)]
-		pub const TO_STRING_TAG: &'static str = "Toggle";
-
 		#[ion(constructor)]
 		pub fn constructor() -> Toggle {
 			Toggle::default()
