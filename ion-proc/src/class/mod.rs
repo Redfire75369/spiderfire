@@ -5,6 +5,7 @@
  */
 
 use std::collections::HashMap;
+use proc_macro2::Ident;
 
 use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2, Result, Visibility};
@@ -17,7 +18,7 @@ use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::operations::{class_finalise, class_ops, class_trace};
-use crate::class::property::Property;
+use crate::class::property::{Property, PropertyType};
 use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
 use crate::utils::extract_last_type_segment;
 
@@ -30,6 +31,8 @@ pub(crate) mod property;
 pub(crate) mod statics;
 
 pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
+	let krate = quote!(::ion);
+
 	let content = &mut module.content.as_mut().unwrap().1;
 
 	let mut class = None;
@@ -37,6 +40,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let mut implementation = None;
 	let mut methods = Vec::new();
 	let mut static_methods = Vec::new();
+	let mut properties = Vec::new();
 	let mut accessors = HashMap::new();
 	let mut static_properties = Vec::new();
 	let mut static_accessors = HashMap::new();
@@ -161,9 +165,13 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 							}
 							ImplItem::Const(con) => {
 								if let Visibility::Public(_) = con.vis {
-									if let Some((con, property)) = Property::from_const(con.clone())? {
+									if let Some((con, property, stat)) = Property::from_const(con.clone())? {
 										impl_items_to_remove.push(j);
-										static_properties.push(property);
+										if stat {
+											static_properties.push(property);
+										} else {
+											properties.push(property);
+										}
 										impl_items_to_add.push(ImplItem::Const(con));
 									}
 								}
@@ -217,10 +225,12 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		});
 
 	let mut class_name = None;
+
 	let mut has_constructor = true;
 	let mut impl_from_value = false;
 	let mut impl_to_value = false;
 	let mut impl_into_value = false;
+	let mut has_string_tag = true;
 
 	let mut class_attrs_to_remove = Vec::new();
 	for (index, attr) in (*class.attrs).iter().enumerate() {
@@ -234,6 +244,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					ClassAttribute::FromValue(_) => impl_from_value = true,
 					ClassAttribute::ToValue(_) => impl_to_value = true,
 					ClassAttribute::IntoValue(_) => impl_into_value = true,
+					ClassAttribute::NoStringTag(_) => has_string_tag = false,
 				}
 			}
 			class_attrs_to_remove.push(index);
@@ -261,6 +272,14 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		return Err(Error::new(module.span(), "Expected Implementation"));
 	};
 
+	if has_string_tag {
+		properties.push(Property {
+			ty: PropertyType::String,
+			ident: Ident::new("TO_STRING_TAG", class.span()),
+			names: vec![Name::Symbol(parse_quote!(#krate::symbol::WellKnownSymbolCode::ToStringTag))],
+		});
+	}
+
 	let class_name = class_name.unwrap_or_else(|| LitStr::new(&class.ident.to_string(), class.ident.span()));
 	let class_spec = class_spec(&class.ident, &class_name);
 
@@ -270,12 +289,14 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 	let method_specs = methods_to_specs(&methods, false);
 	let static_method_specs = methods_to_specs(&static_methods, true);
-	let property_specs = properties_to_specs(&[], &accessors, &class.ident, false);
+	let property_specs = properties_to_specs(&properties, &accessors, &class.ident, false);
 	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
+
+	let ident = &class.ident.clone();
 
 	let from_value = if impl_from_value {
 		if has_clone {
-			Some(from_value(&class.ident))
+			Some(from_value(ident))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic FromValue Implementation"));
 		}
@@ -284,30 +305,34 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	};
 	let to_value = if impl_to_value {
 		if has_clone {
-			Some(to_value(&class.ident, true))
+			Some(to_value(ident, true))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic ToValue Implementation"));
 		}
 	} else if impl_into_value {
-		Some(to_value(&class.ident, false))
+		Some(to_value(ident, false))
 	} else {
 		None
 	};
-	let class_initialiser = class_initialiser(&class.ident, &constructor.method.sig.ident, constructor.nargs as u32);
+	let class_initialiser = class_initialiser(ident, &constructor.method.sig.ident, constructor.nargs as u32);
 
 	let accessors = flatten_accessors(accessors);
 	let static_accessors = flatten_accessors(static_accessors);
 
 	content.push(Item::Struct(class));
 
-	if let Some(mut implementation) = implementation {
-		add_methods(content, &mut implementation, vec![constructor]);
-		add_methods(content, &mut implementation, methods);
-		add_methods(content, &mut implementation, static_methods);
-		add_methods(content, &mut implementation, accessors);
-		add_methods(content, &mut implementation, static_accessors);
-		content.push(Item::Impl(implementation));
-	}
+	let mut implementation = implementation.unwrap_or_else(|| parse_quote!(impl #ident {}));
+
+	let ident_string = LitStr::new(&format!("{}\0", ident), ident.span());
+	implementation
+		.items
+		.push(ImplItem::Const(parse_quote!(const TO_STRING_TAG: &'static str = #ident_string;)));
+	add_methods(content, &mut implementation, vec![constructor]);
+	add_methods(content, &mut implementation, methods);
+	add_methods(content, &mut implementation, static_methods);
+	add_methods(content, &mut implementation, accessors);
+	add_methods(content, &mut implementation, static_accessors);
+	content.push(Item::Impl(implementation));
 
 	content.push(Item::Fn(finalise_operation));
 	if let Some(trace_operation) = trace_operation {

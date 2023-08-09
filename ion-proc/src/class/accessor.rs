@@ -136,18 +136,18 @@ impl Accessor {
 						let setter = setter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter_setter", function_ident);
-						quote!(#krate::#function_ident!(#getter, #setter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+						quote!(#krate::#function_ident!(#getter, #setter, #key, #flags))
 					}
 					Accessor(Some(getter), None) => {
 						let getter = getter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#krate::#function_ident!(#getter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+						quote!(#krate::#function_ident!(#getter, #key, #flags))
 					}
 					Accessor(None, Some(setter)) => {
 						let setter = setter.method.sig.ident.clone();
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#krate::#function_ident!(#setter, #key, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+						quote!(#krate::#function_ident!(#setter, #key, #flags))
 					}
 					Accessor(None, None) => {
 						function_ident = format_ident!("create_{}_accessor", function_ident);
@@ -156,7 +156,7 @@ impl Accessor {
 								#key,
 								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
 								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
-								#krate::flags::PropertyFlags::CONSTANT_ENUMERATED,
+								#flags,
 							)
 						)
 					}

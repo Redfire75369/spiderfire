@@ -14,6 +14,7 @@ mod keywords {
 	custom_keyword!(strict);
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct ConvertAttribute {
 	kw: keywords::convert,

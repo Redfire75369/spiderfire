@@ -23,16 +23,17 @@ pub(crate) enum PropertyType {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Property {
-	ty: PropertyType,
-	ident: Ident,
-	names: Vec<Name>,
+	pub(crate) ty: PropertyType,
+	pub(crate) ident: Ident,
+	pub(crate) names: Vec<Name>,
 }
 
 impl Property {
-	pub(crate) fn from_const(mut con: ImplItemConst) -> Result<Option<(ImplItemConst, Property)>> {
+	pub(crate) fn from_const(mut con: ImplItemConst) -> Result<Option<(ImplItemConst, Property, bool)>> {
 		let mut name = None;
 		let mut names = Vec::new();
 		let mut skip = false;
+		let mut stat = false;
 
 		for attr in &con.attrs {
 			if attr.path().is_ident("ion") {
@@ -47,6 +48,7 @@ impl Property {
 							}
 						}
 						PropertyAttribute::Skip(_) => skip = true,
+						PropertyAttribute::Static(_) => stat = true,
 					}
 				}
 			}
@@ -67,9 +69,9 @@ impl Property {
 		match &con.ty {
 			Type::Path(ty) => {
 				if type_ends_with(ty, "i32") {
-					Ok(Some((con, Property { ty: PropertyType::Int32, ident, names })))
+					Ok(Some((con, Property { ty: PropertyType::Int32, ident, names }, stat)))
 				} else if type_ends_with(ty, "f64") {
-					Ok(Some((con, Property { ty: PropertyType::Double, ident, names })))
+					Ok(Some((con, Property { ty: PropertyType::Double, ident, names }, stat)))
 				} else {
 					Ok(None)
 				}
@@ -77,7 +79,7 @@ impl Property {
 			Type::Reference(re) => {
 				if let Type::Path(ty) = &*re.elem {
 					if type_ends_with(ty, "str") {
-						return Ok(Some((con, Property { ty: PropertyType::String, ident, names })));
+						return Ok(Some((con, Property { ty: PropertyType::String, ident, names }, stat)));
 					}
 				}
 				Ok(None)

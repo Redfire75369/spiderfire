@@ -31,8 +31,7 @@ mod url_class {
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 	use url::Url;
 
-	use ion::{Context, Error, Object, Result};
-	use ion::ClassInitialiser;
+	use ion::{ClassInitialiser, Context, Error, Object, Result};
 
 	use super::FormatOptions;
 	use super::search_params::URLSearchParams;

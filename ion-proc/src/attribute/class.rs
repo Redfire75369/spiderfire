@@ -22,6 +22,7 @@ mod keywords {
 	custom_keyword!(from_value);
 	custom_keyword!(to_value);
 	custom_keyword!(into_value);
+	custom_keyword!(no_string_tag);
 
 	custom_keyword!(convert);
 	custom_keyword!(readonly);
@@ -67,6 +68,7 @@ impl Parse for Name {
 	}
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct NameAttribute {
 	kw: keywords::name,
@@ -89,6 +91,7 @@ impl Parse for NameAttribute {
 	}
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct ClassNameAttribute {
 	kw: keywords::name,
@@ -111,9 +114,10 @@ impl Parse for ClassNameAttribute {
 	}
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct AliasAttribute {
-	alias: keywords::alias,
+	kw: keywords::alias,
 	eq: Token![=],
 	bracket: Bracket,
 	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
@@ -125,7 +129,7 @@ impl Parse for AliasAttribute {
 		if lookahead.peek(keywords::alias) {
 			let inner;
 			let aliases = AliasAttribute {
-				alias: input.parse()?,
+				kw: input.parse()?,
 				eq: input.parse()?,
 				bracket: bracketed!(inner in input),
 				aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
@@ -146,6 +150,7 @@ pub(crate) enum ClassAttribute {
 	FromValue(keywords::from_value),
 	ToValue(keywords::to_value),
 	IntoValue(keywords::into_value),
+	NoStringTag(keywords::no_string_tag),
 }
 
 impl Parse for ClassAttribute {
@@ -163,6 +168,8 @@ impl Parse for ClassAttribute {
 			Ok(CA::ToValue(input.parse()?))
 		} else if lookahead.peek(keywords::into_value) {
 			Ok(CA::IntoValue(input.parse()?))
+		} else if lookahead.peek(keywords::no_string_tag) {
+			Ok(CA::NoStringTag(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}

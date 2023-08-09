@@ -6,6 +6,7 @@
 
 use syn::parse::{Parse, ParseStream};
 use syn::Result;
+use syn::token::Static;
 
 use crate::attribute::class::{AliasAttribute, NameAttribute};
 
@@ -19,6 +20,7 @@ pub(crate) enum PropertyAttribute {
 	Name(NameAttribute),
 	Alias(AliasAttribute),
 	Skip(keywords::skip),
+	Static(Static),
 }
 
 impl Parse for PropertyAttribute {
@@ -32,6 +34,8 @@ impl Parse for PropertyAttribute {
 			Ok(PA::Alias(input.parse()?))
 		} else if lookahead.peek(keywords::skip) {
 			Ok(PA::Skip(input.parse()?))
+		} else if lookahead.peek(Static) {
+			Ok(PA::Static(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
