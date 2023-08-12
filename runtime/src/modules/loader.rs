@@ -44,7 +44,7 @@ impl ModuleLoader for Loader {
 		let str = String::from(path.to_str().unwrap());
 		self.registry
 			.get(&str)
-			.map(|m| *m)
+			.copied()
 			.or_else(|| {
 				if let Ok(script) = read_to_string(&path) {
 					let is_typescript = Config::global().typescript && path.extension() == Some(OsStr::new("ts"));
@@ -71,7 +71,7 @@ impl ModuleLoader for Loader {
 					None
 				}
 			})
-			.unwrap_or_else(|| ptr::null_mut())
+			.unwrap_or_else(ptr::null_mut)
 	}
 
 	fn register<'cx: 'r, 'r>(&mut self, cx: &'cx Context, module: *mut JSObject, request: &ModuleRequest<'r>) -> *mut JSObject {

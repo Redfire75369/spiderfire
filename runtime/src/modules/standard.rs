@@ -60,10 +60,10 @@ pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut 
 	if let Some(module) = module {
 		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT) {
 			let (module, _) = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
-			let loader = unsafe { &mut (&mut *cx.get_private()).module_loader };
+			let loader = unsafe { &mut (*cx.get_private()).module_loader };
 			return loader.as_mut().is_some_and(|loader| unsafe {
 				let request = ModuleRequest::new(cx, M::NAME);
-				(&mut **loader).register(cx, **module.0, &request);
+				(**loader).register(cx, **module.0, &request);
 				true
 			});
 		}
