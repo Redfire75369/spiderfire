@@ -45,12 +45,12 @@ impl<'k> PropertyKey<'k> {
 
 	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Option<PropertyKey<'cx>> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_ValueToId(**cx, value.handle().into(), key.handle_mut().into()) }).then(|| key)
+		(unsafe { JS_ValueToId(**cx, value.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 
 	pub fn to_proto_key(&self, cx: &Context) -> Option<JSProtoKey> {
 		let proto_key = unsafe { JS_IdToProtoKey(**cx, self.handle().into()) };
-		(proto_key != JSProtoKey::JSProto_Null).then(|| proto_key)
+		(proto_key != JSProtoKey::JSProto_Null).then_some(proto_key)
 	}
 
 	pub fn to_owned_key<'cx>(&self, cx: &'cx Context) -> OwnedKey<'cx> {

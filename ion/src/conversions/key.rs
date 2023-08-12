@@ -47,13 +47,13 @@ impl<'cx> ToKey<'cx> for *mut JSString {
 impl<'cx> ToKey<'cx> for String<'cx> {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_StringToId(**cx, self.handle().into(), key.handle_mut().into()) }).then(|| key)
+		(unsafe { JS_StringToId(**cx, self.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 }
 
 impl<'cx> ToKey<'cx> for RustString {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		String::new(cx, &self)?.to_key(cx)
+		String::new(cx, self)?.to_key(cx)
 	}
 }
 
@@ -84,7 +84,7 @@ impl<'cx> ToKey<'cx> for JSVal {
 impl<'cx> ToKey<'cx> for Value<'cx> {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_ValueToId(**cx, self.handle().into(), key.handle_mut().into()) }).then(|| key)
+		(unsafe { JS_ValueToId(**cx, self.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 }
 

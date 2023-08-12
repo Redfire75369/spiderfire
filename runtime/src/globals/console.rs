@@ -332,7 +332,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 		indexes.sort_unstable();
 
 		let mut keys: IndexSet<OwnedKey> = indexes.into_iter().map(OwnedKey::Int).collect();
-		keys.extend(headers.into_iter().map(|header| OwnedKey::String(header)));
+		keys.extend(headers.into_iter().map(OwnedKey::String));
 		keys
 	}
 
