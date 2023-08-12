@@ -137,7 +137,7 @@ impl<'s> String<'s> {
 	/// Converts a [String] to an owned rust [String](RustString).
 	///
 	/// Returns [None] if the string is not linear.
-	pub fn to_owned_string(&self, cx: &Context) -> Option<RustString> {
+	pub fn to_owned(&self, cx: &Context) -> Option<RustString> {
 		if let Some(chars) = self.as_latin1(cx) {
 			let mut string = RustString::with_capacity(chars.len());
 			string.extend(chars.iter().map(|c| *c as char));

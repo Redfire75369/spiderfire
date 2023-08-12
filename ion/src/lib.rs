@@ -40,6 +40,7 @@ pub mod flags;
 pub mod format;
 pub mod functions;
 pub mod local;
+pub mod module;
 pub mod objects;
 pub mod spec;
 pub mod stack;

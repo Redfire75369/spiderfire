@@ -20,7 +20,6 @@ runtime = { path = "../runtime" }
 derivative.workspace = true
 futures.workspace = true
 mozjs.workspace = true
-once_cell.workspace = true
 url.workspace = true
 
 [dev-dependencies]

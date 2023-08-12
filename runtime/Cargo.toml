@@ -26,7 +26,6 @@ dunce.workspace = true
 futures.workspace = true
 indent.workspace = true
 mozjs.workspace = true
-once_cell.workspace = true
 sourcemap.workspace = true
 url.workspace = true
 

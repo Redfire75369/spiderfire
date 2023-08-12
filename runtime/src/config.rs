@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
-pub static CONFIG: OnceCell<Config> = OnceCell::new();
+pub static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LogLevel {

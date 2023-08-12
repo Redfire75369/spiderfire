@@ -13,13 +13,14 @@ use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlob
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 use ion::{Context, ErrorReport, Object};
+use ion::module::init_module_loader;
 
 use crate::event_loop::{EVENT_LOOP, EventLoop};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
-use crate::modules::{init_module_loaders, StandardModules};
+use crate::modules::{Loader, StandardModules};
 
 pub struct Runtime<'c, 'cx> {
 	global: Object<'cx>,
@@ -121,7 +122,8 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		});
 
 		if self.modules {
-			init_module_loaders(cx);
+			let module_loader = Loader::default();
+			init_module_loader(cx, module_loader);
 		}
 
 		if self.standard_modules {

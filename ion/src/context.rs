@@ -4,18 +4,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::mem::{take, transmute};
 use std::ops::Deref;
 use std::ptr;
 
 use mozjs::gc::RootedTraceableSet;
-use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol};
+use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol, JS_GetContextPrivate};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
 
 use crate::Local;
+use crate::module::ModuleLoader;
 
 /// Represents Types that can be Rooted in SpiderMonkey
 #[allow(dead_code)]
@@ -56,6 +57,10 @@ struct LocalArena<'a> {
 
 thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
+pub struct ContextPrivate {
+	pub module_loader: Option<*mut dyn ModuleLoader>,
+}
+
 /// Represents the thread-local state of the runtime.
 ///
 /// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
@@ -63,6 +68,7 @@ pub struct Context<'c> {
 	context: &'c mut *mut JSContext,
 	rooted: RootedArena,
 	local: LocalArena<'static>,
+	private: OnceCell<*mut ContextPrivate>,
 }
 
 macro_rules! impl_root_methods {
@@ -89,7 +95,12 @@ impl Context<'_> {
 			context,
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
+			private: OnceCell::new(),
 		}
+	}
+
+	pub unsafe fn get_private(&self) -> *mut ContextPrivate {
+		self.private.get_or_init(|| JS_GetContextPrivate(*self.context) as *mut ContextPrivate) as *const _ as *mut _
 	}
 
 	impl_root_methods! {

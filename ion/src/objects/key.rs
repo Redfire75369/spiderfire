@@ -57,7 +57,7 @@ impl<'k> PropertyKey<'k> {
 		if self.key.is_int() {
 			OwnedKey::Int(self.key.to_int())
 		} else if self.key.is_string() {
-			OwnedKey::String(String::from(cx.root_string(self.key.to_string())).to_owned_string(cx).unwrap())
+			OwnedKey::String(String::from(cx.root_string(self.key.to_string())).to_owned(cx).unwrap())
 		} else if self.key.is_symbol() {
 			OwnedKey::Symbol(cx.root_symbol(self.to_symbol()).into())
 		} else {

@@ -4,18 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use once_cell::sync::OnceCell;
 
 pub use class::*;
 use ion::{Context, Value};
 use ion::conversions::ConversionBehavior;
 use ion::conversions::FromValue;
 
-pub(crate) static GLOBAL_CLIENT: OnceCell<hyper::Client<HttpsConnector<HttpConnector>>> = OnceCell::new();
+pub(crate) static GLOBAL_CLIENT: OnceLock<hyper::Client<HttpsConnector<HttpConnector>>> = OnceLock::new();
 
 pub(crate) fn default_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
 	let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();

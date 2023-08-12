@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::{Context, ErrorReport};
 pub use loader::*;
 pub use standard::*;
 
@@ -12,26 +11,3 @@ pub use standard::*;
 pub mod handler;
 pub mod loader;
 pub mod standard;
-
-#[derive(Clone, Debug)]
-pub struct ModuleError {
-	pub kind: ModuleErrorKind,
-	pub report: ErrorReport,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ModuleErrorKind {
-	Compilation,
-	Instantiation,
-	Evaluation,
-}
-
-impl ModuleError {
-	fn new(report: ErrorReport, kind: ModuleErrorKind) -> ModuleError {
-		ModuleError { kind, report }
-	}
-
-	pub fn format(&self, cx: &Context) -> String {
-		self.report.format(cx)
-	}
-}

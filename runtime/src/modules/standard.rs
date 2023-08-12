@@ -6,8 +6,7 @@
 
 use ion::{Context, Object};
 use ion::flags::PropertyFlags;
-
-use crate::modules::Module;
+use ion::module::{Module, ModuleRequest};
 
 pub trait StandardModules {
 	fn init<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool;
@@ -60,8 +59,13 @@ pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut 
 
 	if let Some(module) = module {
 		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT) {
-			let module = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
-			return module.0.register(M::NAME);
+			let (module, _) = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
+			let loader = unsafe { &mut (&mut *cx.get_private()).module_loader };
+			return loader.as_mut().is_some_and(|loader| unsafe {
+				let request = ModuleRequest::new(cx, M::NAME);
+				(&mut **loader).register(cx, **module.0, &request);
+				true
+			});
 		}
 	}
 	false
