@@ -312,11 +312,11 @@ fn timeEnd(label: Option<String>) {
 
 #[js_fn]
 unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
-	fn sort_keys<'cx>(cx: &'cx Context, unsorted: Vec<OwnedKey<'cx>>) -> IndexSet<OwnedKey<'cx>> {
+	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
 
-		for key in unsorted.into_iter() {
+		for key in unsorted {
 			match key {
 				OwnedKey::Int(index) => indexes.insert(index),
 				OwnedKey::String(header) => headers.insert(header),
@@ -339,7 +339,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 	let indents = get_indents();
 	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
 		let (rows, columns, has_values) = if let Some(columns) = columns {
-			let rows = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)).collect();
+			let rows = object.keys(cx, None).map(|key| key.to_owned_key(cx));
 			let mut keys = IndexSet::<OwnedKey>::new();
 
 			for column in columns.into_iter() {
@@ -350,23 +350,23 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 				keys.insert(key);
 			}
 
-			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter().collect()), false)
+			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter()), false)
 		} else {
-			let rows: Vec<_> = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)).collect();
+			let rows: Vec<_> = object.keys(cx, None).map(|key| key.to_owned_key(cx)).collect();
 			let mut keys = IndexSet::<OwnedKey>::new();
 			let mut has_values = false;
 
-			for row in rows.iter() {
+			for row in &rows {
 				let value = object.get(cx, row).unwrap();
 				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
-					let obj_keys = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx));
+					let obj_keys = object.keys(cx, None).map(|key| key.to_owned_key(cx));
 					keys.extend(obj_keys);
 				} else {
 					has_values = true;
 				}
 			}
 
-			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter().collect()), has_values)
+			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter()), has_values)
 		};
 
 		let mut table = Table::new();

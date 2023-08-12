@@ -241,8 +241,8 @@ mod class {
 	}
 }
 
-fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object, unique: bool) -> Result<()> {
-	for key in obj.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)) {
+fn append_to_headers<'cx: 'o, 'o>(cx: &'cx Context, headers: &mut HeaderMap, obj: Object<'o>, unique: bool) -> Result<()> {
+	for key in obj.keys(cx, None).map(|key| key.to_owned_key(cx)) {
 		let key = match key {
 			OwnedKey::Int(i) => i.to_string(),
 			OwnedKey::String(s) => s,

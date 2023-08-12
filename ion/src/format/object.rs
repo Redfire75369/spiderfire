@@ -61,7 +61,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 /// Formats an [Object] as a [String] using the given [configuration](Config).
 ///
 /// Disregards the class of the object.
-pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String {
+pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &Object<'o>) -> String {
 	let color = cfg.colours.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));
@@ -74,7 +74,7 @@ pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String
 
 			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
 			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
-			for (i, key) in keys.into_iter().enumerate().take(length) {
+			for (i, key) in keys.enumerate().take(length) {
 				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
@@ -92,7 +92,7 @@ pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String
 		} else {
 			let mut string = "{ ".color(color).to_string();
 			let len = length.clamp(0, 3);
-			for (i, key) in keys.into_iter().enumerate().take(len) {
+			for (i, key) in keys.enumerate().take(len) {
 				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				write!(string, "{}: {}", format_key(cx, cfg, &key.to_owned_key(cx)), value_string).unwrap();

@@ -32,7 +32,7 @@ fn object() {
 	}
 
 	let keys = object.keys(&cx, None);
-	for (i, key) in keys.into_iter().enumerate() {
+	for (i, key) in keys.enumerate() {
 		let expected = format!("key{}", i + 1);
 		assert_eq!(key, OwnedKey::String(expected));
 	}

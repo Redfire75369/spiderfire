@@ -4,19 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::collections::HashMap;
 use std::iter::FusedIterator;
 use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
+use std::slice;
 
 use mozjs::jsapi::{
 	CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp, JS_DefinePropertyById2,
 	JS_DeletePropertyById, JS_GetPropertyById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
 	JSFunctionSpecWithHelp, JSObject,
 };
+use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
 use mozjs::rust::{Handle, IdVector, MutableHandle};
 
-use crate::{Context, Exception, Function, Local, PropertyKey, Value};
+use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
 use crate::conversions::{FromValue, ToKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::functions::NativeFunction;
@@ -167,22 +170,22 @@ impl<'o> Object<'o> {
 		unsafe { JS_DeletePropertyById(**cx, self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
 	}
 
-	/// Returns a [Vec] of the keys of the [Object].
+	/// Returns an iterator of the keys of the [Object].
 	///
 	/// Each [Key] can be a [String], [Symbol] or integer.
-	pub fn keys<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> Vec<PropertyKey<'cx>> {
+	pub fn keys<'c, 'cx: 'o>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(**cx) };
 		unsafe { GetPropertyKeys(**cx, self.handle().into(), flags.bits(), ids.handle_mut()) };
-		ids.iter().map(|id| id.to_key(cx).unwrap()).collect()
+		ObjectKeysIter::new(cx, ids)
 	}
 
-	pub fn iter<'cx: 'o, 's>(&'s self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ObjectIter<'_, 'cx, 's>
-	where
-		'o: 's,
-	{
-		let keys = self.keys(cx, flags);
-		ObjectIter::new(cx, self, keys)
+	pub fn iter<'c, 'cx, 's>(&'s self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectIter<'c, 'cx, 'o, 's> {
+		ObjectIter::new(cx, self, self.keys(cx, flags))
+	}
+
+	pub fn to_hashmap<'cx: 'o>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>> {
+		self.iter(cx, flags).map(|(k, v)| (k.to_owned_key(cx), v)).collect()
 	}
 
 	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
@@ -224,29 +227,43 @@ impl<'o> DerefMut for Object<'o> {
 	}
 }
 
-pub struct ObjectIter<'c, 'cx, 'o> {
+pub struct ObjectKeysIter<'c, 'cx> {
 	cx: &'cx Context<'c>,
-	object: &'o Object<'cx>,
-	keys: Vec<PropertyKey<'cx>>,
+	keys: IdVector,
+	slice: &'static [JSPropertyKey],
 	index: usize,
 	count: usize,
 }
 
-impl<'c, 'cx, 'o> ObjectIter<'c, 'cx, 'o> {
-	fn new(cx: &'cx Context<'c>, object: &'o Object<'cx>, keys: Vec<PropertyKey<'cx>>) -> ObjectIter<'c, 'cx, 'o> {
-		let count = keys.len();
-		ObjectIter { cx, object, keys, index: 0, count }
+impl<'c, 'cx> ObjectKeysIter<'c, 'cx> {
+	fn new(cx: &'cx Context<'c>, keys: IdVector) -> ObjectKeysIter<'c, 'cx> {
+		let keys_slice = &*keys;
+		let count = keys_slice.len();
+		let keys_slice = unsafe { slice::from_raw_parts(keys_slice.as_ptr(), count) };
+		ObjectKeysIter {
+			cx,
+			keys,
+			slice: keys_slice,
+			index: 0,
+			count,
+		}
 	}
 }
 
-impl<'c, 'cx, 'o> Iterator for ObjectIter<'c, 'cx, 'o> {
-	type Item = (PropertyKey<'cx>, Value<'cx>);
+impl<'c, 'cx> Drop for ObjectKeysIter<'c, 'cx> {
+	fn drop(&mut self) {
+		self.slice = &[];
+	}
+}
 
-	fn next(&mut self) -> Option<Self::Item> {
+impl<'c, 'cx> Iterator for ObjectKeysIter<'c, 'cx> {
+	type Item = PropertyKey<'cx>;
+
+	fn next(&mut self) -> Option<PropertyKey<'cx>> {
 		if self.index < self.count {
-			let key = &self.keys[self.index];
+			let key = &self.slice[self.index];
 			self.index += 1;
-			Some((key.to_key(self.cx).unwrap(), self.object.get(self.cx, key).unwrap()))
+			Some(self.cx.root_property_key(*key).into())
 		} else {
 			None
 		}
@@ -257,22 +274,66 @@ impl<'c, 'cx, 'o> Iterator for ObjectIter<'c, 'cx, 'o> {
 	}
 }
 
-impl<'c, 'cx, 'o> DoubleEndedIterator for ObjectIter<'c, 'cx, 'o> {
-	fn next_back(&mut self) -> Option<Self::Item> {
+impl<'c, 'cx> DoubleEndedIterator for ObjectKeysIter<'c, 'cx> {
+	fn next_back(&mut self) -> Option<PropertyKey<'cx>> {
 		if self.index < self.count {
 			self.count -= 1;
 			let key = &self.keys[self.count];
-			Some((key.to_key(self.cx).unwrap(), self.object.get(self.cx, key).unwrap()))
+			Some(self.cx.root_property_key(*key).into())
 		} else {
 			None
 		}
 	}
 }
 
-impl<'c, 'cx, 'o> ExactSizeIterator for ObjectIter<'c, 'cx, 'o> {
+impl<'c, 'cx> ExactSizeIterator for ObjectKeysIter<'c, 'cx> {
 	fn len(&self) -> usize {
 		self.count - self.index
 	}
 }
 
-impl<'c, 'cx, 'o> FusedIterator for ObjectIter<'c, 'cx, 'o> {}
+impl<'c, 'cx> FusedIterator for ObjectKeysIter<'c, 'cx> {}
+
+pub struct ObjectIter<'c, 'cx: 'oo, 'oo, 'o> {
+	cx: &'cx Context<'c>,
+	object: &'o Object<'oo>,
+	keys: ObjectKeysIter<'c, 'cx>,
+}
+
+impl<'c, 'cx: 'oo, 'oo, 'o> ObjectIter<'c, 'cx, 'oo, 'o> {
+	fn new(cx: &'cx Context<'c>, object: &'o Object<'oo>, keys: ObjectKeysIter<'c, 'cx>) -> ObjectIter<'c, 'cx, 'oo, 'o> {
+		ObjectIter { cx, object, keys }
+	}
+}
+
+impl<'c, 'cx: 'oo, 'oo, 'o> Iterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+	type Item = (PropertyKey<'cx>, Value<'cx>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.keys.next().map(|key| {
+			let value = self.object.get(self.cx, &key).unwrap();
+			(key, value)
+		})
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.keys.size_hint()
+	}
+}
+
+impl<'c, 'cx: 'oo, 'oo, 'o> DoubleEndedIterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		self.keys.next_back().map(|key| {
+			let value = self.object.get(self.cx, &key).unwrap();
+			(key, value)
+		})
+	}
+}
+
+impl<'c, 'cx: 'oo, 'oo, 'o> ExactSizeIterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+	fn len(&self) -> usize {
+		self.keys.len()
+	}
+}
+
+impl<'c, 'cx: 'oo, 'oo, 'o> FusedIterator for ObjectIter<'c, 'cx, 'oo, 'o> {}
