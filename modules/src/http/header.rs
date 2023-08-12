@@ -9,7 +9,7 @@ use std::str::FromStr;
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
 
 pub use class::*;
-use ion::{Array, Context, Error, ErrorKind, Key, Object, Result, Value};
+use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
 use ion::conversions::{FromValue, ToValue};
 
 #[derive(FromValue)]
@@ -242,10 +242,10 @@ mod class {
 }
 
 fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object, unique: bool) -> Result<()> {
-	for key in obj.keys(cx, None) {
+	for key in obj.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)) {
 		let key = match key {
-			Key::Int(i) => i.to_string(),
-			Key::String(s) => s,
+			OwnedKey::Int(i) => i.to_string(),
+			OwnedKey::String(s) => s,
 			_ => continue,
 		};
 

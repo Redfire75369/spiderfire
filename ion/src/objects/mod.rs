@@ -8,7 +8,7 @@ use mozjs::jsapi::{JSCLASS_RESERVED_SLOTS_MASK, JSCLASS_RESERVED_SLOTS_SHIFT};
 
 pub use array::Array;
 pub use date::Date;
-pub use key::Key;
+pub use key::{OwnedKey, PropertyKey};
 pub use object::Object;
 pub use promise::Promise;
 

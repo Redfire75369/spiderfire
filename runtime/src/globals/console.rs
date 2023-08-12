@@ -15,7 +15,7 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Key, Object, Stack, Value};
+use ion::{Context, Object, OwnedKey, Stack, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, INDENT};
@@ -312,14 +312,14 @@ fn timeEnd(label: Option<String>) {
 
 #[js_fn]
 unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
-	fn sort_keys<'cx>(cx: &'cx Context, unsorted: Vec<Key>) -> IndexSet<Key<'cx>> {
+	fn sort_keys<'cx>(cx: &'cx Context, unsorted: Vec<OwnedKey<'cx>>) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
 
 		for key in unsorted.into_iter() {
 			match key {
-				Key::Int(index) => indexes.insert(index),
-				Key::String(header) => headers.insert(header),
+				OwnedKey::Int(index) => indexes.insert(index),
+				OwnedKey::String(header) => headers.insert(header),
 				_ => false,
 			};
 		}
@@ -327,39 +327,39 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 		combine_keys(cx, indexes, headers)
 	}
 
-	fn combine_keys<'cx>(_: &'cx Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<Key<'cx>> {
+	fn combine_keys<'cx>(_: &'cx Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes: Vec<i32> = indexes.into_iter().collect();
 		indexes.sort_unstable();
 
-		let mut keys: IndexSet<Key> = indexes.into_iter().map(Key::Int).collect();
-		keys.extend(headers.into_iter().map(Key::String));
+		let mut keys: IndexSet<OwnedKey> = indexes.into_iter().map(OwnedKey::Int).collect();
+		keys.extend(headers.into_iter().map(|header| OwnedKey::String(header)));
 		keys
 	}
 
 	let indents = get_indents();
 	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
 		let (rows, columns, has_values) = if let Some(columns) = columns {
-			let rows = object.keys(cx, None);
-			let mut keys = IndexSet::<Key>::new();
+			let rows = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)).collect();
+			let mut keys = IndexSet::<OwnedKey>::new();
 
 			for column in columns.into_iter() {
 				let key = match column.parse::<i32>() {
-					Ok(int) => Key::Int(int),
-					Err(_) => Key::String(column),
+					Ok(int) => OwnedKey::Int(int),
+					Err(_) => OwnedKey::String(column),
 				};
 				keys.insert(key);
 			}
 
 			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter().collect()), false)
 		} else {
-			let rows = object.keys(cx, None);
-			let mut keys = IndexSet::<Key>::new();
+			let rows: Vec<_> = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx)).collect();
+			let mut keys = IndexSet::<OwnedKey>::new();
 			let mut has_values = false;
 
 			for row in rows.iter() {
 				let value = object.get(cx, row).unwrap();
 				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
-					let obj_keys = object.keys(cx, None);
+					let obj_keys = object.keys(cx, None).into_iter().map(|key| key.to_owned_key(cx));
 					keys.extend(obj_keys);
 				} else {
 					has_values = true;

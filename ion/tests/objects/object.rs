@@ -3,7 +3,7 @@ use std::ptr;
 use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
 
-use ion::{Context, Key, Object, Value};
+use ion::{Context, Object, OwnedKey, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 
@@ -34,7 +34,7 @@ fn object() {
 	let keys = object.keys(&cx, None);
 	for (i, key) in keys.into_iter().enumerate() {
 		let expected = format!("key{}", i + 1);
-		assert_eq!(key, Key::String(expected));
+		assert_eq!(key, OwnedKey::String(expected));
 	}
 
 	assert!(object.delete(&cx, "key1"));

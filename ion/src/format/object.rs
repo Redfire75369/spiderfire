@@ -78,7 +78,7 @@ pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String
 				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
 				string.push_str(&inner_indent);
-				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
+				write!(string, "{}: {}", format_key(cx, cfg, &key.to_owned_key(cx)), value_string).unwrap();
 
 				if i != length - 1 {
 					string.push_str(&",".color(color));
@@ -95,7 +95,7 @@ pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String
 			for (i, key) in keys.into_iter().enumerate().take(len) {
 				let value = object.get(cx, &key).unwrap();
 				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value);
-				write!(string, "{}: {}", format_key(cx, cfg, &key), value_string).unwrap();
+				write!(string, "{}: {}", format_key(cx, cfg, &key.to_owned_key(cx)), value_string).unwrap();
 
 				if i != len - 1 {
 					string.push_str(&", ".color(color));
