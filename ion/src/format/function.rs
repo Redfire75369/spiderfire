@@ -9,7 +9,7 @@ use indent::indent_by;
 use crate::{Context, Function};
 use crate::format::Config;
 
-/// Formats a [Function] as a [String], using the given [configuration](Config).
+/// Formats a [JavaScript Function](Function) as a string, using the given [configuration](Config).
 ///
 /// ### Format
 /// ```js

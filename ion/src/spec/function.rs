@@ -11,7 +11,7 @@ use mozjs::jsapi::{JSFunctionSpec, JSNativeWrapper, JSPropertySpec_Name};
 use crate::flags::PropertyFlags;
 use crate::symbol::WellKnownSymbolCode;
 
-/// Creates a [JSFunctionSpec] with the given native function, number of arguments and flags.
+/// Creates a [function spec](JSFunctionSpec) with the given name, native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -22,6 +22,7 @@ pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nar
 	}
 }
 
+/// Creates a [function spec](JSFunctionSpec) with the given symbol, native function, number of arguments and flags.
 pub const fn create_function_spec_symbol(symbol: WellKnownSymbolCode, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },

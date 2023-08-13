@@ -17,12 +17,14 @@ use mozjs_sys::jsapi::JS::{CompileModule, ModuleEvaluate, ModuleLink, ReadOnlyCo
 use crate::{Context, ErrorReport, Local, Object, Promise, Value};
 use crate::conversions::{FromValue, ToValue};
 
+/// Represents private module data
 #[derive(Clone, Debug)]
 pub struct ModuleData {
 	pub path: Option<String>,
 }
 
 impl ModuleData {
+	/// Creates [ModuleData] based on the private data of a module
 	pub fn from_private<'cx: 'v, 'v>(cx: &'cx Context, private: &Value<'v>) -> Option<ModuleData> {
 		private.is_object().then(|| {
 			let private = private.to_object(cx);
@@ -31,6 +33,7 @@ impl ModuleData {
 		})
 	}
 
+	/// Converts [ModuleData] to an [Object] for storage.
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
 		let mut object = Object::new(cx);
 		object.set_as(cx, "path", &self.path);
@@ -38,30 +41,32 @@ impl ModuleData {
 	}
 }
 
+/// Represents a request by the runtime for a module.
 #[derive(Debug)]
 pub struct ModuleRequest<'r>(Object<'r>);
 
 impl<'r> ModuleRequest<'r> {
+	/// Creates a new [ModuleRequest] with a given specifier.
 	pub fn new<S: AsRef<str>>(cx: &'r Context, specifier: S) -> ModuleRequest<'r> {
 		let specifier = crate::String::new(cx, specifier.as_ref()).unwrap();
 		ModuleRequest(cx.root_object(unsafe { CreateModuleRequest(**cx, specifier.handle().into()) }).into())
 	}
 
+	/// Creates a new [ModuleRequest] from a raw handle.
+	///
+	/// ### Safety
+	/// `request` must be a valid module request object.
 	pub unsafe fn from_raw_request(request: Handle<*mut JSObject>) -> ModuleRequest<'r> {
 		ModuleRequest(Object::from(Local::from_raw_handle(request)))
 	}
 
+	/// Returns the specifier of the request.
 	pub fn specifier<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
 		cx.root_string(unsafe { GetModuleRequestSpecifier(**cx, self.0.handle().into()) }).into()
 	}
 }
 
-#[derive(Clone, Debug)]
-pub struct ModuleError {
-	pub kind: ModuleErrorKind,
-	pub report: ErrorReport,
-}
-
+/// Represents phases of running modules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModuleErrorKind {
 	Compilation,
@@ -69,20 +74,33 @@ pub enum ModuleErrorKind {
 	Evaluation,
 }
 
+/// Represents errors that may occur when running modules.
+#[derive(Clone, Debug)]
+pub struct ModuleError {
+	pub kind: ModuleErrorKind,
+	pub report: ErrorReport,
+}
+
 impl ModuleError {
+	/// Creates a [ModuleError] with a given report and phase.
 	fn new(report: ErrorReport, kind: ModuleErrorKind) -> ModuleError {
 		ModuleError { kind, report }
 	}
 
+	/// Formats the [ModuleError] for printing.
 	pub fn format(&self, cx: &Context) -> String {
 		self.report.format(cx)
 	}
 }
 
+/// Represents a compiled module.
 #[derive(Debug)]
 pub struct Module<'m>(pub Object<'m>);
 
 impl<'cx> Module<'cx> {
+	/// Compiles a [Module] with the given source and filename.
+	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
+	/// The promise is a byproduct of enabling top-level await.
 	#[allow(clippy::result_large_err)]
 	pub fn compile(cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
@@ -121,6 +139,7 @@ impl<'cx> Module<'cx> {
 		}
 	}
 
+	/// Instantiates a [Module]. Generally called by [Module::compile].
 	pub fn instantiate(&self, cx: &Context) -> Result<(), ErrorReport> {
 		if unsafe { ModuleLink(**cx, self.0.handle().into()) } {
 			Ok(())
@@ -129,6 +148,7 @@ impl<'cx> Module<'cx> {
 		}
 	}
 
+	/// Evaluates a [Module]. Generally called by [Module::compile].
 	pub fn evaluate(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
 		let mut rval = Value::undefined(cx);
 		if unsafe { ModuleEvaluate(**cx, self.0.handle().into(), rval.handle_mut().into()) } {
@@ -139,14 +159,20 @@ impl<'cx> Module<'cx> {
 	}
 }
 
+/// Represents an ES module loader.
 pub trait ModuleLoader {
+	/// Given a request and private data of a module, resolves the request into a compiled module object.
+	/// Should return the same module object for a given request.
 	fn resolve<'cx: 'p + 'r, 'p, 'r>(&mut self, cx: &'cx Context, private: &Value<'p>, request: &ModuleRequest<'r>) -> *mut JSObject;
 
+	/// Registers a new module in the module registry. Useful for native modules.
 	fn register<'cx: 'r, 'r>(&mut self, cx: &'cx Context, module: *mut JSObject, request: &ModuleRequest<'r>) -> *mut JSObject;
 
+	/// Returns metadata of a module, used to populate `import.meta`.
 	fn metadata<'cx: 'p + 'm, 'p, 'm>(&self, cx: &'cx Context, private: &Value<'p>, meta: &mut Object<'m>) -> bool;
 }
 
+/// Initialises a module loader in the current runtime.
 pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) {
 	unsafe extern "C" fn resolve(mut cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
 		let cx = Context::new(&mut cx);

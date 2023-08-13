@@ -13,8 +13,7 @@ use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local};
 
-/// Represents a `Date` in the JS Runtime.
-///
+/// Represents a `Date` in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date) for more details.
 #[derive(Debug)]
 pub struct Date<'d> {
@@ -35,6 +34,7 @@ impl<'d> Date<'d> {
 	}
 
 	/// Creates a [Date] from an object.
+	/// Returns [None] if it is not a [Date].
 	pub fn from(cx: &Context, object: Local<'d, *mut JSObject>) -> Option<Date<'d>> {
 		if Date::is_date(cx, &object) {
 			Some(Date { date: object })
@@ -81,7 +81,7 @@ impl<'d> Date<'d> {
 		self.date.handle_mut()
 	}
 
-	/// Checks if a [*mut] [JSObject] is a date.
+	/// Checks if a [raw object](*mut JSObject) is a date.
 	pub fn is_date_raw(cx: &Context, object: *mut JSObject) -> bool {
 		rooted!(in(**cx) let object = object);
 		let mut is_date = false;

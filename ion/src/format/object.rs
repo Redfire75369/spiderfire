@@ -23,9 +23,8 @@ use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 
-/// Formats an [Object], depending on its class, as a [String] using the given [configuration](Config).
-///
-/// The object is passed to other formatting functions such as [format_array] and [format_date].
+/// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
+/// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
 pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
 	unsafe {
 		use ESClass as ESC;
@@ -58,8 +57,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 	}
 }
 
-/// Formats an [Object] as a [String] using the given [configuration](Config).
-///
+/// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
 /// Disregards the class of the object.
 pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &Object<'o>) -> String {
 	let color = cfg.colours.object;

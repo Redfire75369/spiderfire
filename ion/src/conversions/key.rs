@@ -18,6 +18,8 @@ use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
 
 /// Represents types that can be converted to [property keys](PropertyKey).
 pub trait ToPropertyKey<'cx> {
+	/// Converts `self` to a new [`PropertyKey`](PropertyKey).
+	/// Returns `None` when conversion fails.
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>>;
 }
 

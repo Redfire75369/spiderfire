@@ -11,8 +11,7 @@ use mozjs::jsval::JSVal;
 
 use crate::{Context, Local, Value};
 
-/// Function Arguments
-///
+/// Represents Arguments to a [JavaScript Function](crate::Function)
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
 #[derive(Debug)]
 pub struct Arguments<'cx> {
@@ -42,7 +41,6 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Gets the [Value] at the given index.
-	///
 	/// Returns [None] if the given index is larger than the number of arguments.
 	pub fn value(&self, index: usize) -> Option<&Value<'cx>> {
 		if index < self.len() {
@@ -51,7 +49,7 @@ impl<'cx> Arguments<'cx> {
 		None
 	}
 
-	/// Returns a [Vec<&Value>] of arguments based on the indices of the iterator.
+	/// Returns a vector of arguments as [Values](Value) based on the indices of the iterator.
 	pub fn range<'a, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>>
 	where
 		'cx: 'a,
@@ -60,16 +58,18 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns the `this` value of the function.
+	/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this) for more details.
 	pub fn this(&mut self) -> &mut Value<'cx> {
 		&mut self.this
 	}
 
-	/// Returns the return [Value] of the function.
+	/// Returns the return value of the function.
+	/// This value can be modified to change the return value.
 	pub fn rval(&mut self) -> &mut Value<'cx> {
 		&mut self.rval
 	}
 
-	/// Returns true if the function was called with `new`,
+	/// Returns true if the function was called with `new`.
 	pub fn is_constructing(&self) -> bool {
 		self.call_args.constructing_()
 	}

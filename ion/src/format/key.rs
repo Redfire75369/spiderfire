@@ -10,7 +10,7 @@ use crate::{Context, OwnedKey};
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
-/// Formats an object [key](OwnedKey) as a [String] with the given [configuration](Config),
+/// Formats the [key of an object](OwnedKey) as a string with the given [configuration](Config),
 pub fn format_key(cx: &Context, cfg: Config, key: &OwnedKey) -> String {
 	match key {
 		OwnedKey::Int(i) => i.to_string().color(cfg.colours.object).to_string(),

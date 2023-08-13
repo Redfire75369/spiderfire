@@ -22,8 +22,7 @@ use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
 
-/// Represents a [Promise] in the JS Runtime.
-///
+/// Represents a [Promise] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for more details.
 #[derive(Debug)]
 pub struct Promise<'p> {
@@ -31,7 +30,7 @@ pub struct Promise<'p> {
 }
 
 impl<'p> Promise<'p> {
-	/// Creates a new [Promise] which resolves immediately and returns `void`.
+	/// Creates a new [Promise] which never resolves.
 	pub fn new<'cx>(cx: &'cx Context) -> Promise<'cx> {
 		Promise {
 			promise: cx.root_object(unsafe { NewPromiseObject(**cx, HandleObject::null().into()) }),
@@ -39,7 +38,6 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Creates a new [Promise] with an executor.
-	///
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [Value] to resolve or reject the promise with the given value.
 	pub fn new_with_executor<'cx, F>(cx: &'cx Context, executor: F) -> Option<Promise<'cx>>
@@ -80,13 +78,9 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Creates a new [Promise] with a [Future].
-	///
 	/// The future is run to completion on the current thread and cannot interact with an asynchronous runtime.
 	///
-	///
-	/// If the future returns an [Ok], the promise is resolved with the [JSVal] contained within.
-	///
-	/// If the future returns an [Err], the promise is rejected with the [JSVal] contained within.
+	/// The [Result] of the future determines if the promise is resolved or rejected.
 	pub fn block_on_future<'cx, F, Output, Error>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
 	where
 		F: Future<Output = Result<Output, Error>> + 'static,

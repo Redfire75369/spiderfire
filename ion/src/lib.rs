@@ -14,7 +14,7 @@ extern crate derivative;
 #[macro_use]
 extern crate mozjs;
 
-use std::result::Result as Result2;
+use std::result;
 
 pub use class::ClassInitialiser;
 pub use context::{Context, ContextPrivate};
@@ -49,5 +49,5 @@ pub mod symbol;
 pub mod utils;
 mod value;
 
-pub type Result<T> = Result2<T, Error>;
-pub type ResultExc<T> = Result2<T, Exception>;
+pub type Result<T> = result::Result<T, Error>;
+pub type ResultExc<T> = result::Result<T, Exception>;

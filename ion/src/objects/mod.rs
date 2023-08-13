@@ -19,7 +19,7 @@ mod object;
 mod promise;
 pub mod typedarray;
 
-/// Returns the bitmasked representation of reserved slots for a class
+/// Returns the bit-masked representation of reserved slots for a class.
 pub const fn class_reserved_slots(slots: u32) -> u32 {
 	(slots & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
 }

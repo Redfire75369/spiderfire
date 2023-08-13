@@ -14,8 +14,7 @@ use crate::{Context, Local, Object, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::PropertyFlags;
 
-/// Represents an [Array] in the JS Runtime.
-///
+/// Represents an [Array] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.
 #[derive(Debug)]
 pub struct Array<'a> {
@@ -67,7 +66,6 @@ impl<'a> Array<'a> {
 	}
 
 	/// Converts an [Array] to a [Vec].
-	///
 	/// Returns an empty [Vec] if the conversion fails.
 	pub fn to_vec<'cx>(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
 		let value = cx.root_value(ObjectValue(**self.array)).into();
@@ -99,49 +97,42 @@ impl<'a> Array<'a> {
 	}
 
 	/// Gets the [Value] at the given index of the [Array].
-	///
 	/// Returns [None] if there is no value at the given index.
 	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
 		self.array.get(cx, index)
 	}
 
 	/// Gets the value at the given index of the [Array] as a Rust type.
-	///
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
 	pub fn get_as<'cx, T: FromValue<'cx>>(&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config) -> Option<T> {
 		self.array.get_as(cx, index, strict, config)
 	}
 
 	/// Sets the [Value] at the given index of the [Array].
-	///
 	/// Returns `false` if the element cannot be set.
 	pub fn set(&mut self, cx: &Context, index: u32, value: &Value) -> bool {
 		self.array.set(cx, index, value)
 	}
 
 	/// Sets the Rust type at the given index of the [Array].
-	///
 	/// Returns `false` if the element cannot be set.
 	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
 		self.array.set_as(cx, index, value)
 	}
 
 	/// Defines the [Value] at the given index of the [Array] with the given attributes.
-	///
 	/// Returns `false` if the element cannot be defined.
 	pub fn define(&mut self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
 		self.array.define(cx, index, value, attrs)
 	}
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
-	///
 	/// Returns `false` if the element cannot be defined.
 	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags) -> bool {
 		self.array.define_as(cx, index, value, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.
-	///
 	/// Returns `false` if the element cannot be deleted.
 	pub fn delete<'cx: 'a>(&mut self, cx: &'cx Context, index: u32) -> bool {
 		self.array.delete(cx, index)

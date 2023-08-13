@@ -11,7 +11,11 @@ use crate::{Context, Promise};
 use crate::format::Config;
 
 // TODO: Add Support for Formatting Fulfilled Values and Rejected Reasons
-/// Formats a [Promise] as a [String] with the given [configuration](Config).
+/// Formats a [Promise] as a string with the given [configuration](Config).
+/// ### Format
+/// ```js
+/// Promise { <#state> }
+/// ```
 pub fn format_promise(_cx: &Context, cfg: Config, promise: &Promise) -> String {
 	let state = promise.state();
 	let base = match state {

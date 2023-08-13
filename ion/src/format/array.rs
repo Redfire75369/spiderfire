@@ -12,7 +12,7 @@ use crate::{Array, Context};
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::Config;
 
-/// Formats an [Array] as a [String] using the given [configuration](Config).
+/// Formats an [JavaScript Array](Array) as a string using the given [configuration](Config).
 pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 	let color = cfg.colours.array;
 	if cfg.depth < 5 {

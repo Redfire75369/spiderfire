@@ -13,7 +13,7 @@ use mozjs::jsapi::{
 use crate::flags::PropertyFlags;
 use crate::symbol::WellKnownSymbolCode;
 
-/// Creates a [JSPropertySpec] with a getter, setter and attributes.
+/// Creates a [property spec](JSPropertySpec) with a name, getter, setter and attributes.
 pub const fn create_property_spec_accessor(
 	name: &'static str, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
 ) -> JSPropertySpec {
@@ -30,7 +30,7 @@ pub const fn create_property_spec_accessor(
 	}
 }
 
-/// Creates a [JSPropertySpec] with a string and attributes.
+/// Creates a [property spec](JSPropertySpec) with a name, static string and attributes.
 pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -45,7 +45,7 @@ pub const fn create_property_spec_string(name: &'static str, string: &'static st
 	}
 }
 
-/// Creates a [JSPropertySpec] with an integer and attributes.
+/// Creates a [property spec](JSPropertySpec) with a name, integer and attributes.
 pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -60,7 +60,7 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: Prope
 	}
 }
 
-/// Creates a [JSPropertySpec] with a double and attributes.
+/// Creates a [property spec](JSPropertySpec) with a name, double and attributes.
 pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
@@ -75,7 +75,7 @@ pub const fn create_property_spec_double(name: &'static str, double: f64, attrs:
 	}
 }
 
-/// Creates a [JSPropertySpec] with a getter, setter and attributes.
+/// Creates a [property spec](JSPropertySpec) with a symbol, getter, setter and attributes.
 pub const fn create_property_spec_symbol_accessor(
 	symbol: WellKnownSymbolCode, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
 ) -> JSPropertySpec {
@@ -92,7 +92,7 @@ pub const fn create_property_spec_symbol_accessor(
 	}
 }
 
-/// Creates a [JSPropertySpec] with a string and attributes.
+/// Creates a [property spec](JSPropertySpec) with a symbol, static string and attributes.
 pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
@@ -107,7 +107,7 @@ pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, str
 	}
 }
 
-/// Creates a [JSPropertySpec] with an integer and attributes.
+/// Creates a [property spec](JSPropertySpec) with a symbol, integer and attributes.
 pub const fn create_property_spec_symbol_int(symbol: WellKnownSymbolCode, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
@@ -122,7 +122,7 @@ pub const fn create_property_spec_symbol_int(symbol: WellKnownSymbolCode, int: i
 	}
 }
 
-/// Creates a [JSPropertySpec] with a double and attributes.
+/// Creates a [property spec](JSPropertySpec) with a symbol, double and attributes.
 pub const fn create_property_spec_symbol_double(symbol: WellKnownSymbolCode, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },

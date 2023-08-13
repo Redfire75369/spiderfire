@@ -8,7 +8,7 @@ use colored::Color;
 
 use crate::flags::IteratorFlags;
 
-/// Configuration Object for Formatting Values
+/// Represents configuration for formatting
 #[derive(Clone, Copy, Debug, Derivative)]
 #[derivative(Default)]
 pub struct Config {
@@ -49,7 +49,7 @@ impl Config {
 	}
 }
 
-/// Configuration Object for the colours used when formatting values as specific types.
+/// Configuration for the colours used when formatting values as specific types.
 #[derive(Clone, Copy, Debug)]
 pub struct ColourConfig {
 	pub boolean: Color,

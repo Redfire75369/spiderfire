@@ -19,8 +19,13 @@ use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
 use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, String, Symbol, Value};
 
+/// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {
 	type Config;
+
+	/// Converts `value` to the desired type.
+	/// `strict` and `config` determine the strictness of the conversion and specify additional conversion constraints respectively.
+	/// Returns [Err] with the [error](Error) if conversion fails.
 	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: Self::Config) -> Result<Self>
 	where
 		'cx: 'v;

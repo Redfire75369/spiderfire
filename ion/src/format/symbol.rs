@@ -11,6 +11,12 @@ use crate::format::Config;
 use crate::symbol::SymbolCode;
 
 /// Formats a [Symbol] as a [String] with the given [configuration](Config).
+///
+/// ### Format
+/// Well-Known Symbols such as `@@iterator` are formatted as `Symbol.iterator`.
+/// Unique Symbols are formatted as `Symbol(<#symbol>)`.
+/// Registry Symbols are formatted as `Symbol.for(<#symbol>)`.
+/// Private Name Symbols are formatted as `#private`.
 pub fn format_symbol(cx: &Context, cfg: Config, symbol: &Symbol) -> String {
 	let code = symbol.code();
 	match code {

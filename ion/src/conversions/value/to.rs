@@ -19,9 +19,12 @@ use mozjs_sys::jsapi::JS_IdToValue;
 
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, String, Symbol, Value};
 
+/// Represents types that can be converted to JavaScript [Values](Value).
 pub trait ToValue<'cx> {
+	/// Converts `self` to a [`Value`](Value) and stores it in `value`.
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value);
 
+	/// Converts `self` to a new [`Value`](value).
 	unsafe fn as_value(&self, cx: &'cx Context) -> Value<'cx> {
 		let mut value = Value::undefined(cx);
 		self.to_value(cx, &mut value);

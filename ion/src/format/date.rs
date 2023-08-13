@@ -9,7 +9,7 @@ use colored::Colorize;
 use crate::{Context, Date};
 use crate::format::Config;
 
-/// Formats a [Date] as a [String] using the given [configuration](Config).
+/// Formats a [JavaScript Date](Date) as a string using the given [configuration](Config).
 pub fn format_date(cx: &Context, cfg: Config, date: &Date) -> String {
 	if let Some(date) = date.to_date(cx) {
 		date.to_string().color(cfg.colours.date).to_string()

@@ -21,9 +21,8 @@ use crate::string::external::new_external_string;
 
 mod external;
 
-/// Represents a string primitive in the JS Runtime.
-///
-/// Strings in JS are immutable and are copied on modification, other than concatenating and subslicing.
+/// Represents a primitive string in the JS Runtime.
+/// Strings in JS are immutable and are copied on modification, other than concatenating and slicing.
 ///
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String) for more details.
 #[derive(Debug)]
@@ -37,7 +36,7 @@ impl<'s> String<'s> {
 		String::from(cx.root_string(unsafe { JS_GetEmptyString(**cx) }))
 	}
 
-	/// Creates a new [String] with a given string slice, by copying it to the JS Runtime.
+	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
 	pub fn new<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
 		let mut utf16: Vec<u16> = Vec::with_capacity(string.len());
 		utf16.extend(string.encode_utf16());
@@ -49,13 +48,12 @@ impl<'s> String<'s> {
 		}
 	}
 
-	/// Creates a new external string by moving ownership of the string to the JS Runtime.
+	/// Creates a new external string by moving ownership of the UTF-16 string to the JS Runtime.
 	pub fn new_external<'cx>(cx: &'cx Context, string: WString<NativeEndian>) -> Result<String<'cx>, WString<NativeEndian>> {
 		new_external_string(cx, string)
 	}
 
 	/// Returns a slice of a [String] as a new [String].
-	///
 	/// Returns [None] if the string is not linear.
 	pub fn slice<'cx>(&self, cx: &'cx Context, range: &Range<usize>) -> Option<String<'cx>> {
 		self.is_linear().then(|| {
@@ -65,7 +63,6 @@ impl<'s> String<'s> {
 	}
 
 	/// Concatenates two [String]s into a new [String].
-	///
 	/// The resultant [String] is not linear.
 	///
 	/// Returns [None] if either of the two input strings are not linear.
@@ -88,18 +85,17 @@ impl<'s> String<'s> {
 		unsafe { JS_StringIsLinear(***self) }
 	}
 
-	/// Checks if a string is made up of only Latin-1 characters.
+	/// Checks if a string consists of only Latin-1 characters.
 	pub fn is_latin1(&self) -> bool {
 		unsafe { JS_DeprecatedStringHasLatin1Chars(***self) }
 	}
 
-	/// Checks if a string is made of UTF-16 characters.
+	/// Checks if a string consists of UTF-16 characters.
 	pub fn is_utf16(&self) -> bool {
 		!self.is_latin1()
 	}
 
 	/// Returns the UTF-16 codepoint at the given character.
-	///
 	/// Returns [None] if the string is not linear.
 	pub fn char_at(&self, cx: &Context, index: usize) -> Option<u16> {
 		self.is_linear().then(|| unsafe {
@@ -110,7 +106,6 @@ impl<'s> String<'s> {
 	}
 
 	/// Converts the [String] into a [prim@slice] of Latin-1 characters.
-	///
 	/// Returns [None] if the string is not linear or contains non Latin-1 characters.
 	pub fn as_latin1(&self, cx: &Context) -> Option<&'s [u8]> {
 		(self.is_latin1() && self.is_linear()).then(|| unsafe {
@@ -121,7 +116,6 @@ impl<'s> String<'s> {
 	}
 
 	/// Converts the [String] into a [WStr].
-	///
 	/// Returns [None] if the string is not linear or contains only Latin-1 characters.
 	pub fn as_wstr(&self, cx: &Context) -> Option<&'s WStr<NativeEndian>> {
 		(self.is_utf16() && self.is_linear())
@@ -134,8 +128,7 @@ impl<'s> String<'s> {
 			.and_then(|bytes| WStr::from_utf16(bytes).ok())
 	}
 
-	/// Converts a [String] to an owned rust [String](RustString).
-	///
+	/// Converts a [String] to an owned [String](RustString).
 	/// Returns [None] if the string is not linear.
 	pub fn to_owned(&self, cx: &Context) -> Option<RustString> {
 		if let Some(chars) = self.as_latin1(cx) {

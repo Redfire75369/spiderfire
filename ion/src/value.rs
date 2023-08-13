@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use mozjs::jsval::{BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, UInt32Value, UndefinedValue};
 use mozjs::rust::{Handle, MutableHandle};
@@ -12,6 +12,8 @@ use mozjs::rust::{Handle, MutableHandle};
 use crate::{Array, Context, Local, Object};
 use crate::conversions::ToValue;
 
+/// Represents a JavaScript Value in the runtime.
+/// It can represent either a primitive or an object.
 #[derive(Debug)]
 pub struct Value<'v> {
 	value: Local<'v, JSVal>,
@@ -71,7 +73,6 @@ impl<'v> Value<'v> {
 		cx.root_object(self.value.to_object()).into()
 	}
 
-	/// Forms a [Handle] to the [Value].
 	pub fn handle<'a>(&'a self) -> Handle<'a, JSVal>
 	where
 		'v: 'a,
@@ -79,7 +80,6 @@ impl<'v> Value<'v> {
 		self.value.handle()
 	}
 
-	/// Forms a [MutableHandle] to the [Value].
 	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, JSVal>
 	where
 		'v: 'a,
@@ -99,11 +99,5 @@ impl<'v> Deref for Value<'v> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.value
-	}
-}
-
-impl<'v> DerefMut for Value<'v> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.value
 	}
 }

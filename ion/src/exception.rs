@@ -14,9 +14,13 @@ use mozjs::jsval::{JSVal, ObjectValue};
 use sourcemap::SourceMap;
 
 use crate::{Context, Error, ErrorKind, Object, Stack, Value};
-use crate::conversions::ToValue;
+use crate::conversions::{FromValue, ToValue};
 use crate::format::{format_value, NEWLINE};
 use crate::stack::Location;
+
+pub trait ThrowException {
+	fn throw(&self, cx: &Context);
+}
 
 /// Represents an exception in the JS Runtime.
 /// The exception can be an [Error], or any [Value].
@@ -26,15 +30,8 @@ pub enum Exception {
 	Other(JSVal),
 }
 
-/// Represents an error report, containing an exception and optionally its [stacktrace](Stack).
-#[derive(Clone, Debug)]
-pub struct ErrorReport {
-	pub exception: Exception,
-	pub stack: Option<Stack>,
-}
-
 impl Exception {
-	/// Gets an [Exception] from the runtime.
+	/// Gets an [Exception] from the runtime and clears the pending exception.
 	/// Returns [None] if there is no pending exception.
 	pub fn new(cx: &Context) -> Option<Exception> {
 		unsafe {
@@ -64,12 +61,12 @@ impl Exception {
 	}
 
 	/// Converts an [Object] into an [Exception].
-	/// If the object is an error object, it is parsed as an [Error] first.
+	/// If the object is an error object, it is parsed as an [Error].
 	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
 		unsafe {
 			let mut class = ESClass::Other;
 			if GetBuiltinClass(**cx, exception.handle().into(), &mut class) && class == ESClass::Error {
-				let message: String = exception.get_as(cx, "message", true, ()).unwrap_or_default();
+				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
 				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
 				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
 				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
@@ -89,15 +86,18 @@ impl Exception {
 		}
 	}
 
-	/// Clears all pending exceptions within the runtime.
+	/// Clears the pending exception within the runtime.
 	pub fn clear(cx: &Context) {
 		unsafe { JS_ClearPendingException(**cx) };
 	}
 
+	/// Checks if an exception is pending in the runtime.
 	pub fn is_pending(cx: &Context) -> bool {
 		unsafe { JS_IsExceptionPending(**cx) }
 	}
 
+	/// Converts [Exception] to an [Error]
+	/// Returns [Error::none()](Error::none) if the exception is not an [Error].
 	pub fn to_error(&self) -> Error {
 		match self {
 			Exception::Error(error) => error.clone(),
@@ -164,8 +164,15 @@ impl<E: Into<Error>> From<E> for Exception {
 	}
 }
 
+/// Represents an error report, containing an exception and optionally its [stacktrace](Stack).
+#[derive(Clone, Debug)]
+pub struct ErrorReport {
+	pub exception: Exception,
+	pub stack: Option<Stack>,
+}
+
 impl ErrorReport {
-	/// Creates a new [ErrorReport] with an [Exception] from the runtime.
+	/// Creates a new [ErrorReport] with an [Exception] from the runtime and clears the pending exception.
 	/// Returns [None] if there is no pending exception.
 	pub fn new(cx: &Context) -> Option<ErrorReport> {
 		Exception::new(cx).map(|exception| ErrorReport { exception, stack: None })
@@ -228,7 +235,7 @@ impl ErrorReport {
 		}
 	}
 
-	/// Formats the [ErrorReport] as a [String] that can be printed.
+	/// Formats the [ErrorReport] as a string for printing.
 	pub fn format(&self, cx: &Context) -> String {
 		let mut string = self.exception.format(cx);
 		if let Some(ref stack) = self.stack {
@@ -239,8 +246,4 @@ impl ErrorReport {
 		}
 		string
 	}
-}
-
-pub trait ThrowException {
-	fn throw(&self, cx: &Context);
 }

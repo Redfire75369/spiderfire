@@ -11,8 +11,7 @@ use crate::{Context, Symbol, Value};
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
-/// Formats a primitive value as a [String] using the given [configuration](Config).
-///
+/// Formats a primitive value as a string using the given [configuration](Config).
 /// The supported types are `boolean`, `number`, `string`, `symbol`, `null` and `undefined`.
 pub fn format_primitive(cx: &Context, cfg: Config, value: &Value) -> String {
 	let colors = cfg.colours;

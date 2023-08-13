@@ -5,7 +5,7 @@
  */
 
 use std::mem::transmute;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 use mozjs::jsapi::Symbol as JSSymbol;
@@ -48,7 +48,6 @@ pub enum SymbolCode {
 
 impl WellKnownSymbolCode {
 	/// Converts a [WellKnownSymbolCode] into its corresponding identifier.
-	///
 	/// These identifiers refer to the property names on the `Symbol` global object.
 	pub const fn identifier(&self) -> &'static str {
 		use WellKnownSymbolCode as WKSC;
@@ -121,8 +120,7 @@ impl From<SymbolCode> for JSSymbolCode {
 	}
 }
 
-/// Represents a symbol in the JS Runtime.
-///
+/// Represents a symbol in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol) for more details.
 #[derive(Debug)]
 pub struct Symbol<'s> {
@@ -139,7 +137,7 @@ impl<'s> Symbol<'s> {
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
-	/// Gets a [Symbol] from the symbol registry with a given key.
+	/// Gets a [Symbol] from the symbol registry with the given key.
 	pub fn for_key<'cx>(cx: &'cx Context, key: &str) -> Symbol<'cx> {
 		let key = unsafe { key.as_value(cx) };
 		let key = cx.root_string(key.to_string());
@@ -160,7 +158,6 @@ impl<'s> Symbol<'s> {
 	}
 
 	/// Returns the description of a [Symbol].
-	///
 	/// Returns [None] for well-known symbols.
 	pub fn description(&self, cx: &Context) -> Option<String> {
 		let description = unsafe { GetSymbolDescription(self.symbol.handle().into()) };
@@ -186,12 +183,6 @@ impl<'o> Deref for Symbol<'o> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.symbol
-	}
-}
-
-impl<'o> DerefMut for Symbol<'o> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.symbol
 	}
 }
 
