@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::iter::FusedIterator;
 use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use std::slice;
 
 use mozjs::jsapi::{
@@ -20,7 +20,7 @@ use mozjs::jsval::NullValue;
 use mozjs::rust::{Handle, IdVector, MutableHandle};
 
 use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
-use crate::conversions::{FromValue, ToKey, ToValue};
+use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::functions::NativeFunction;
 
@@ -51,7 +51,7 @@ impl<'o> Object<'o> {
 	}
 
 	/// Checks if the [Object] has a value at the given [key](Key).
-	pub fn has<'cx, K: ToKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+	pub fn has<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut found = false;
 		if unsafe { JS_HasPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
@@ -65,7 +65,7 @@ impl<'o> Object<'o> {
 	/// Checks if the [Object] has its own value at the given [key](Key).
 	///
 	/// An object owns its properties if they are not inherited from a prototype.
-	pub fn has_own<'cx, K: ToKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+	pub fn has_own<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut found = false;
 		if unsafe { JS_HasOwnPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
@@ -79,7 +79,7 @@ impl<'o> Object<'o> {
 	/// Gets the [Value] at the given key of the [Object].
 	///
 	/// Returns [None] if there is no value at the given [key](Key).
-	pub fn get<'cx, K: ToKey<'cx>>(&self, cx: &'cx Context, key: K) -> Option<Value<'cx>> {
+	pub fn get<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> Option<Value<'cx>> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
 			let mut rval = Value::undefined(cx);
@@ -92,14 +92,14 @@ impl<'o> Object<'o> {
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the [key](Key) or conversion to the Rust type fails.
-	pub fn get_as<'cx, K: ToKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
+	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
 		self.get(cx, key).and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
 	}
 
 	/// Sets the [Value] at the given [key](Key) of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set<'cx, K: ToKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
+	pub fn set<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
 		let key = key.to_key(cx).unwrap();
 		unsafe { JS_SetPropertyById(**cx, self.handle().into(), key.handle().into(), value.handle().into()) }
 	}
@@ -107,14 +107,14 @@ impl<'o> Object<'o> {
 	/// Sets the Rust type at the given [key](Key) of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<'cx, K: ToKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
+	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
 		self.set(cx, key, unsafe { &value.as_value(cx) })
 	}
 
 	/// Defines the [Value] at the given [key](Key) of the [Object] with the given attributes.
 	///
 	/// Returns `false` if the property cannot be defined.
-	pub fn define<'cx, K: ToKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags) -> bool {
+	pub fn define<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags) -> bool {
 		let key = key.to_key(cx).unwrap();
 		unsafe {
 			JS_DefinePropertyById2(
@@ -130,14 +130,16 @@ impl<'o> Object<'o> {
 	/// Defines the Rust type at the given [key](Key) of the [Object] with the given attributes.
 	///
 	/// Returns `false` if the property cannot be defined.
-	pub fn define_as<'cx, K: ToKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags) -> bool {
+	pub fn define_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
+		&mut self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags,
+	) -> bool {
 		self.define(cx, key, unsafe { &value.as_value(cx) }, attrs)
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].
 	///
 	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
-	pub fn define_method<'cx, K: ToKey<'cx>>(
+	pub fn define_method<'cx, K: ToPropertyKey<'cx>>(
 		&mut self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
 	) -> Function<'cx> {
 		let key = key.to_key(cx).unwrap();
@@ -164,7 +166,7 @@ impl<'o> Object<'o> {
 	/// Deletes the [Value] at the given index.
 	///
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete<'cx: 'o, K: ToKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+	pub fn delete<'cx: 'o, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut result = MaybeUninit::uninit();
 		unsafe { JS_DeletePropertyById(**cx, self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
@@ -218,12 +220,6 @@ impl<'o> Deref for Object<'o> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.object
-	}
-}
-
-impl<'o> DerefMut for Object<'o> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.object
 	}
 }
 

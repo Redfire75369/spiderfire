@@ -6,7 +6,7 @@
 
 use std::hash::{Hash, Hasher};
 use std::mem::discriminant;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsid::{IntId, VoidId};
@@ -15,7 +15,7 @@ use mozjs_sys::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey};
 use mozjs_sys::jsapi::JS::ProtoKeyToId;
 
 use crate::{Context, Local, String, Symbol, Value};
-use crate::conversions::ToKey;
+use crate::conversions::ToPropertyKey;
 
 pub struct PropertyKey<'k> {
 	key: Local<'k, JSPropertyKey>,
@@ -95,12 +95,6 @@ impl<'k> Deref for PropertyKey<'k> {
 
 	fn deref(&self) -> &Local<'k, JSPropertyKey> {
 		&self.key
-	}
-}
-
-impl<'k> DerefMut for PropertyKey<'k> {
-	fn deref_mut(&mut self) -> &mut Local<'k, JSPropertyKey> {
-		&mut self.key
 	}
 }
 

@@ -10,7 +10,7 @@ use std::ops::Deref;
 use std::ptr;
 
 use mozjs::gc::RootedTraceableSet;
-use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol, JS_GetContextPrivate};
+use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol, JS_GetContextPrivate, JS_SetContextPrivate};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
@@ -61,6 +61,12 @@ pub struct ContextPrivate {
 	pub module_loader: Option<*mut dyn ModuleLoader>,
 }
 
+impl Default for ContextPrivate {
+	fn default() -> ContextPrivate {
+		ContextPrivate { module_loader: None }
+	}
+}
+
 /// Represents the thread-local state of the runtime.
 ///
 /// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
@@ -100,7 +106,12 @@ impl Context<'_> {
 	}
 
 	pub unsafe fn get_private(&self) -> *mut ContextPrivate {
-		self.private.get_or_init(|| JS_GetContextPrivate(*self.context) as *mut ContextPrivate) as *const _ as *mut _
+		*self.private.get_or_init(|| JS_GetContextPrivate(*self.context) as *mut ContextPrivate)
+	}
+
+	pub fn set_private(&self, private: ContextPrivate) {
+		let ptr = Box::into_raw(Box::new(private));
+		unsafe { JS_SetContextPrivate(*self.context, ptr as *mut _) };
 	}
 
 	impl_root_methods! {

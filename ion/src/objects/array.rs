@@ -78,6 +78,11 @@ impl<'a> Array<'a> {
 		}
 	}
 
+	/// Converts an [Array] to an [Object].
+	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
+		Object::from(cx.root_object(**self.array))
+	}
+
 	/// Returns the length of the [Array].
 	#[allow(clippy::len_without_is_empty)]
 	pub fn len(&self, cx: &Context) -> u32 {

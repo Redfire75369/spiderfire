@@ -183,19 +183,20 @@ impl Error {
 
 	pub fn format(&self) -> String {
 		let Error { kind, message, location, .. } = self;
+		let message = (!message.is_empty()).then(|| format!(" - {}", message)).unwrap_or(String::new());
 		if let Some(location) = location {
 			let Location { file, lineno, column } = location;
 			if !file.is_empty() {
 				return if *lineno == 0 {
-					format!("{} at {} - {}", kind, file, message)
+					format!("{} at {}{}", kind, file, message)
 				} else if *column == 0 {
-					format!("{} at {}:{} - {}", kind, file, lineno, message)
+					format!("{} at {}:{}{}", kind, file, lineno, message)
 				} else {
-					format!("{} at {}:{}:{} - {}", kind, file, lineno, column, message)
+					format!("{} at {}:{}:{}{}", kind, file, lineno, column, message)
 				};
 			}
 		}
-		format!("{} - {}", kind, message)
+		format!("{}{}", kind, message)
 	}
 }
 

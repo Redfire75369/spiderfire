@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use mozjs::typedarray::CreateWith;
 
@@ -23,12 +23,6 @@ macro_rules! impl_typedarray_wrapper {
 
 			fn deref(&self) -> &Self::Target {
 				&self.buf
-			}
-		}
-
-		impl DerefMut for $typedarray {
-			fn deref_mut(&mut self) -> &mut Self::Target {
-				&mut self.buf
 			}
 		}
 

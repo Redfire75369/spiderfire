@@ -96,7 +96,6 @@ jobs:
 
       - name: Build Windows
         if: matrix.id == 'windows'
-        shell: cmd
         env:
           CARGO_HOME: ${{ github.workspace }}\..\.cargo
           MOZTOOLS_PATH: C:\mozilla-build\msys\bin;C:\mozilla-build\bin
@@ -109,7 +108,7 @@ jobs:
         run: |
           just build-release -vv --color=never
           just test-release -vv --color=never
-          rename .\target\release\cli.exe spiderfire.exe
+          Rename-Item -Path .\target\release\cli.exe -NewName spiderfire.exe
 
       - name: Upload Executables as Artifacts
         uses: actions/upload-artifact@v2

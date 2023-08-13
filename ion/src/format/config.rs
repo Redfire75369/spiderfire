@@ -24,7 +24,7 @@ pub struct Config {
 
 impl Config {
 	/// Replaces the colors in the [configuration](Config).
-	pub fn colors(self, colours: ColourConfig) -> Config {
+	pub fn colours(self, colours: ColourConfig) -> Config {
 		Config { colours, ..self }
 	}
 
@@ -82,7 +82,7 @@ impl Default for ColourConfig {
 }
 
 impl ColourConfig {
-	/// Returns [ColorConfig] where all formatted strings are white.
+	/// Returns [ColourConfig] where all formatted strings are white.
 	pub fn white() -> ColourConfig {
 		ColourConfig {
 			boolean: Color::White,
