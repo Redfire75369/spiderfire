@@ -17,7 +17,7 @@ use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
-use crate::{Array, Context, Date, Error, ErrorKind, Function, Object, Promise, Result, String, Symbol, Value};
+use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, String, Symbol, Value};
 
 pub trait FromValue<'cx>: Sized {
 	type Config;
@@ -60,7 +60,7 @@ macro_rules! impl_from_value_for_integer {
 
 				match <$ty>::from_jsval(**cx, value.handle(), config) {
 					Ok(ConversionResult::Success(number)) => Ok(number),
-					Err(_) => Err(Error::none()),
+					Err(_) => Err(Exception::new(cx).unwrap().to_error()),
 					_ => unreachable!(),
 				}
 			}

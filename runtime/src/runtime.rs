@@ -12,7 +12,7 @@ use futures::task::AtomicWaker;
 use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
-use ion::{Context, ErrorReport, Object};
+use ion::{Context, ContextPrivate, ErrorReport, Object};
 use ion::module::init_module_loader;
 
 use crate::event_loop::{EVENT_LOOP, EventLoop};
@@ -94,6 +94,8 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 		let global_ref = **global;
 		global.set_as(cx, "global", &global_ref);
 		init_globals(cx, &mut global);
+
+		cx.set_private(ContextPrivate::default());
 
 		let mut event_loop = EventLoop {
 			futures: None,

@@ -57,14 +57,9 @@ struct LocalArena<'a> {
 
 thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
+#[derive(Default)]
 pub struct ContextPrivate {
 	pub module_loader: Option<*mut dyn ModuleLoader>,
-}
-
-impl Default for ContextPrivate {
-	fn default() -> ContextPrivate {
-		ContextPrivate { module_loader: None }
-	}
 }
 
 /// Represents the thread-local state of the runtime.

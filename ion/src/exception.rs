@@ -98,6 +98,13 @@ impl Exception {
 		unsafe { JS_IsExceptionPending(**cx) }
 	}
 
+	pub fn to_error(&self) -> Error {
+		match self {
+			Exception::Error(error) => error.clone(),
+			Exception::Other(_) => Error::none(),
+		}
+	}
+
 	/// If the [Exception] is an [Error], the error location is mapped according to the given [SourceMap].
 	#[cfg(feature = "sourcemap")]
 	pub fn transform_with_sourcemap(&mut self, sourcemap: &SourceMap) {

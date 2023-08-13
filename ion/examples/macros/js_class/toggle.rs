@@ -5,7 +5,6 @@ use ion::js_class;
 mod class {
 	use ion::{Context, Function, Object, Result, Value};
 	use ion::conversions::{ConversionBehavior, FromValue};
-	use ion::symbol::WellKnownSymbolCode;
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]
