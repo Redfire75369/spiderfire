@@ -5,18 +5,17 @@
  */
 
 use colored::Colorize;
-use indent::indent_with;
 use mozjs::jsapi::PromiseState;
 
 use crate::{Context, Promise};
 use crate::format::{Config, format_value, INDENT};
 
-// TODO: Add Support for Formatting Fulfilled Values and Rejected Reasons
 /// Formats a [Promise] as a string with the given [configuration](Config).
 /// ### Format
 /// ```js
-/// Promise { <#state> }
+/// Promise { <#state> <#result> }
 /// ```
+#[allow(clippy::unnecessary_to_owned)]
 pub fn format_promise(cx: &Context, cfg: Config, promise: &Promise) -> String {
 	let state = promise.state();
 	let state_string = match state {
@@ -28,21 +27,23 @@ pub fn format_promise(cx: &Context, cfg: Config, promise: &Promise) -> String {
 
 	let mut base = "Promise {".color(cfg.colours.promise).to_string();
 	let result = promise.result(cx);
-	let result_string = format_value(cx, cfg, &result);
-	let result_string = result_string.trim_start();
 
-	if result_string.contains("\n") {
+	if cfg.multiline {
+		let result_string = format_value(cx, cfg.depth(cfg.depth + 1), &result);
+
 		base.push('\n');
 		base.push_str(&INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize));
 		base.push_str(&state_string.to_string());
 		base.push(' ');
-		base.push_str(&indent_with(INDENT, result_string));
+		base.push_str(&result_string);
 		base.push_str(&"\n}".color(cfg.colours.promise).to_string());
 	} else {
+		let result_string = format_value(cx, cfg, &result);
+
 		base.push(' ');
 		base.push_str(&state_string.to_string());
 		base.push(' ');
-		base.push_str(result_string);
+		base.push_str(&result_string);
 		base.push_str(&" }".color(cfg.colours.promise).to_string());
 	}
 

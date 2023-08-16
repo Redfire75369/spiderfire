@@ -59,6 +59,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 
 /// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
 /// Disregards the class of the object.
+#[allow(clippy::unnecessary_to_owned)]
 pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &Object<'o>) -> String {
 	let color = cfg.colours.object;
 	if cfg.depth < 4 {
@@ -79,13 +80,13 @@ pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &
 				write!(string, "{}: {}", format_key(cx, cfg, &key.to_owned_key(cx)), value_string).unwrap();
 
 				if i != length - 1 {
-					string.push_str(&",".color(color));
+					string.push_str(&",".color(color).to_string());
 				}
 				string.push_str(NEWLINE);
 			}
 
 			string.push_str(&outer_indent);
-			string.push_str(&"}".color(color));
+			string.push_str(&"}".color(color).to_string());
 			string
 		} else {
 			let mut string = "{ ".color(color).to_string();
@@ -96,7 +97,7 @@ pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &
 				write!(string, "{}: {}", format_key(cx, cfg, &key.to_owned_key(cx)), value_string).unwrap();
 
 				if i != len - 1 {
-					string.push_str(&", ".color(color));
+					string.push_str(&", ".color(color).to_string());
 				}
 			}
 
@@ -106,7 +107,7 @@ pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &
 				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color)),
 				_ => (),
 			}
-			string.push_str(&"}".color(color));
+			string.push_str(&"}".color(color).to_string());
 
 			string
 		}

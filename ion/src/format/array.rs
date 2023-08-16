@@ -13,6 +13,7 @@ use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::Config;
 
 /// Formats an [JavaScript Array](Array) as a string using the given [configuration](Config).
+#[allow(clippy::unnecessary_to_owned)]
 pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 	let color = cfg.colours.array;
 	if cfg.depth < 5 {
@@ -34,7 +35,7 @@ pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 				string.push_str(&value_string);
 
 				if i != length - 1 {
-					string.push_str(&",".color(color));
+					string.push_str(&",".color(color).to_string());
 				}
 				string.push_str(NEWLINE);
 			}
@@ -49,7 +50,7 @@ pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 			}
 
 			string.push_str(&outer_indent);
-			string.push_str(&"]".color(color));
+			string.push_str(&"]".color(color).to_string());
 			string
 		} else {
 			let mut string = "[ ".color(color).to_string();
@@ -60,7 +61,7 @@ pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 				string.push_str(&value_string);
 
 				if i != len - 1 {
-					string.push_str(&", ".color(color));
+					string.push_str(&", ".color(color).to_string());
 				}
 			}
 
@@ -70,7 +71,7 @@ pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
 				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color)),
 				_ => (),
 			}
-			string.push_str(&"]".color(color));
+			string.push_str(&"]".color(color).to_string());
 
 			string
 		}

@@ -11,6 +11,7 @@ use mozjs::rust::{JSEngine, Runtime};
 use ion::Context;
 use ion::module::Module;
 use runtime::config::{Config, CONFIG, LogLevel};
+use runtime::modules::Loader;
 use runtime::RuntimeBuilder;
 
 const FILE_NAME: &str = "module-import.js";
@@ -25,7 +26,7 @@ fn modules() {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let _rt = RuntimeBuilder::<()>::new().modules(()).build(&cx);
+	let _rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(&cx);
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
 	let result = Module::compile(&cx, FILE_NAME, Some(Path::new(&path)), SCRIPT);
