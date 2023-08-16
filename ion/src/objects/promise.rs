@@ -11,9 +11,10 @@ use std::ops::Deref;
 use futures::executor::block_on;
 use libffi::high::ClosureOnce3;
 use mozjs::jsapi::{
-	AddPromiseReactions, GetPromiseID, GetPromiseResult, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject, PromiseState,
-	RejectPromise, ResolvePromise,
+	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject, PromiseState, RejectPromise,
+	ResolvePromise,
 };
+use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsval::JSVal;
 use mozjs::rust::{Handle, HandleObject, MutableHandle};
 
@@ -147,7 +148,9 @@ impl<'p> Promise<'p> {
 	/// ### Note
 	/// Currently leads to a sefault.
 	pub fn result<'cx>(&self, cx: &'cx Context) -> Value<'cx> {
-		Value::from(cx.root_value(unsafe { GetPromiseResult(self.handle().into()) }))
+		let mut value = Value::undefined(cx);
+		unsafe { JS_GetPromiseResult(self.handle().into(), value.handle_mut().into()) }
+		value
 	}
 
 	/// Adds Reactions to the [Promise]
