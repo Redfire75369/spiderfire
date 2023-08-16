@@ -23,6 +23,7 @@ use runtime::cache::locate_in_cache;
 use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
 use runtime::modules::handler::add_handler_reactions;
+use runtime::modules::Loader;
 use runtime::script::Script;
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
@@ -41,10 +42,10 @@ pub(crate) async fn eval_script(path: &Path) {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let rt = RuntimeBuilder::<Modules>::new()
+	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
-		.standard_modules()
+		.standard_modules(Modules)
 		.build(&cx);
 
 	if let Some((script, _)) = read_script(path) {
@@ -71,11 +72,11 @@ pub(crate) async fn eval_module(path: &Path) {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let rt = RuntimeBuilder::<Modules>::new()
+	let rt = RuntimeBuilder::new()
 		.microtask_queue()
 		.macrotask_queue()
-		.modules()
-		.standard_modules()
+		.modules(Loader::default())
+		.standard_modules(Modules)
 		.build(&cx);
 
 	if let Some((script, filename)) = read_script(path) {

@@ -172,6 +172,20 @@ pub trait ModuleLoader {
 	fn metadata<'cx: 'p + 'm, 'p, 'm>(&self, cx: &'cx Context, private: &Value<'p>, meta: &mut Object<'m>) -> bool;
 }
 
+impl ModuleLoader for () {
+	fn resolve<'cx: 'p + 'r, 'p, 'r>(&mut self, _: &'cx Context, _: &Value<'p>, _: &ModuleRequest<'r>) -> *mut JSObject {
+		ptr::null_mut()
+	}
+
+	fn register<'cx: 'r, 'r>(&mut self, _: &'cx Context, _: *mut JSObject, _: &ModuleRequest<'r>) -> *mut JSObject {
+		ptr::null_mut()
+	}
+
+	fn metadata<'cx: 'p + 'm, 'p, 'm>(&self, _: &'cx Context, _: &Value<'p>, _: &mut Object<'m>) -> bool {
+		true
+	}
+}
+
 /// Initialises a module loader in the current runtime.
 pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) {
 	unsafe extern "C" fn resolve(mut cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {

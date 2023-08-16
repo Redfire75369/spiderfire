@@ -21,10 +21,10 @@ pub(crate) async fn start_repl() {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let rt = RuntimeBuilder::<Modules>::new()
+	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
-		.standard_modules()
+		.standard_modules(Modules)
 		.build(&cx);
 
 	let mut repl = match Editor::with_config(rustyline_config()) {

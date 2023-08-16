@@ -18,10 +18,10 @@ pub(crate) async fn eval_source(source: &str) {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let rt = RuntimeBuilder::<Modules>::new()
+	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
-		.standard_modules()
+		.standard_modules(Modules)
 		.build(&cx);
 	eval_inline(&rt, source).await;
 }

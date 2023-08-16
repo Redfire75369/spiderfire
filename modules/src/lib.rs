@@ -26,11 +26,10 @@ mod http;
 mod path;
 mod url;
 
-#[derive(Default)]
 pub struct Modules;
 
 impl StandardModules for Modules {
-	fn init<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
+	fn init<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool {
 		init_module::<Assert>(cx, global)
 			&& init_module::<FileSystem>(cx, global)
 			&& init_module::<Http>(cx, global)
@@ -38,7 +37,7 @@ impl StandardModules for Modules {
 			&& init_module::<UrlM>(cx, global)
 	}
 
-	fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
+	fn init_globals<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool {
 		init_global_module::<Assert>(cx, global)
 			&& init_global_module::<FileSystem>(cx, global)
 			&& init_global_module::<Http>(cx, global)

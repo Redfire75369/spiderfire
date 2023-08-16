@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
 
@@ -13,14 +12,14 @@ use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlob
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 use ion::{Context, ContextPrivate, ErrorReport, Object};
-use ion::module::init_module_loader;
+use ion::module::{init_module_loader, ModuleLoader};
 
 use crate::event_loop::{EVENT_LOOP, EventLoop};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
-use crate::modules::{Loader, StandardModules};
+use crate::modules::{StandardModules};
 
 pub struct Runtime<'c, 'cx> {
 	global: Object<'cx>,
@@ -48,37 +47,36 @@ impl<'cx> Runtime<'_, 'cx> {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
-pub struct RuntimeBuilder<T: Default> {
+#[derive(Copy, Clone, Debug)]
+pub struct RuntimeBuilder<ML: ModuleLoader + 'static = (), Std: StandardModules = ()> {
 	microtask_queue: bool,
 	macrotask_queue: bool,
-	modules: bool,
-	standard_modules: bool,
-	_standard_modules: PhantomData<T>,
+	modules: Option<ML>,
+	standard_modules: Option<Std>,
 }
 
-impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
-	pub fn new() -> RuntimeBuilder<Std> {
+impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
+	pub fn new() -> RuntimeBuilder<ML, Std> {
 		RuntimeBuilder::default()
 	}
 
-	pub fn macrotask_queue(mut self) -> RuntimeBuilder<Std> {
+	pub fn macrotask_queue(mut self) -> RuntimeBuilder<ML, Std> {
 		self.macrotask_queue = true;
 		self
 	}
 
-	pub fn microtask_queue(mut self) -> RuntimeBuilder<Std> {
+	pub fn microtask_queue(mut self) -> RuntimeBuilder<ML, Std> {
 		self.microtask_queue = true;
 		self
 	}
 
-	pub fn modules(mut self) -> RuntimeBuilder<Std> {
-		self.modules = true;
+	pub fn modules(mut self, loader: ML) -> RuntimeBuilder<ML, Std> {
+		self.modules = Some(loader);
 		self
 	}
 
-	pub fn standard_modules(mut self) -> RuntimeBuilder<Std> {
-		self.standard_modules = true;
+	pub fn standard_modules(mut self, standard_modules: Std) -> RuntimeBuilder<ML, Std> {
+		self.standard_modules = Some(standard_modules);
 		self
 	}
 
@@ -123,19 +121,30 @@ impl<Std: StandardModules + Default> RuntimeBuilder<Std> {
 			eloop.macrotasks = event_loop.macrotasks.clone();
 		});
 
-		if self.modules {
-			let module_loader = Loader::default();
-			init_module_loader(cx, module_loader);
+		let has_loader = self.modules.is_some();
+		if let Some(loader) = self.modules {
+			init_module_loader(cx, loader);
 		}
 
-		if self.standard_modules {
-			if self.modules {
-				Std::init(cx, &mut global);
+		if let Some(standard_modules) = self.standard_modules {
+			if has_loader {
+				standard_modules.init(cx, &mut global);
 			} else {
-				Std::init_globals(cx, &mut global);
+				standard_modules.init_globals(cx, &mut global);
 			}
 		}
 
 		Runtime { global, cx, event_loop, realm }
+	}
+}
+
+impl<ML: ModuleLoader + 'static, Std: StandardModules> Default for RuntimeBuilder<ML, Std> {
+	fn default() -> RuntimeBuilder<ML, Std> {
+		RuntimeBuilder {
+			microtask_queue: false,
+			macrotask_queue: false,
+			modules: None,
+			standard_modules: None,
+		}
 	}
 }

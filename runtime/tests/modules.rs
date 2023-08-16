@@ -25,7 +25,7 @@ fn modules() {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let _rt = RuntimeBuilder::<()>::new().modules().build(&cx);
+	let _rt = RuntimeBuilder::<()>::new().modules(()).build(&cx);
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
 	let result = Module::compile(&cx, FILE_NAME, Some(Path::new(&path)), SCRIPT);

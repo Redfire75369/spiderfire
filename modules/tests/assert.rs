@@ -15,6 +15,7 @@ use ion::module::Module;
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
+use runtime::modules::Loader;
 
 const OK: (&str, &str) = ("ok", include_str!("scripts/assert/ok.js"));
 const EQUALS: (&str, &str) = ("equals", include_str!("scripts/assert/equals.js"));
@@ -32,7 +33,11 @@ async fn assert() {
 	let mut cx = rt.cx();
 
 	let cx = Context::new(&mut cx);
-	let rt = RuntimeBuilder::<Assert>::new().modules().standard_modules().microtask_queue().build(&cx);
+	let rt = RuntimeBuilder::new()
+		.modules(Loader::default())
+		.standard_modules(Assert)
+		.microtask_queue()
+		.build(&cx);
 
 	eval_module(&rt, &cx, OK).await;
 	eval_module(&rt, &cx, EQUALS).await;
