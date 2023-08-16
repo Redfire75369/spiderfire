@@ -141,8 +141,7 @@ impl<'cx> FromValue<'cx> for RustString {
 	where
 		'cx: 'v,
 	{
-		// TODO: Replace with Result::flatten once stabilised
-		String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx).ok_or_else(|| Error::new("Expected Linear String", ErrorKind::Type)))?
+		String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx))
 	}
 }
 

@@ -54,30 +54,22 @@ impl<'s> String<'s> {
 	}
 
 	/// Returns a slice of a [String] as a new [String].
-	/// Returns [None] if the string is not linear.
-	pub fn slice<'cx>(&self, cx: &'cx Context, range: &Range<usize>) -> Option<String<'cx>> {
-		self.is_linear().then(|| {
-			let Range { start, end } = range;
-			String::from(cx.root_string(unsafe { JS_NewDependentString(**cx, self.handle().into(), *start, *end) }))
-		})
+	pub fn slice<'cx>(&self, cx: &'cx Context, range: &Range<usize>) -> String<'cx> {
+		let Range { start, end } = range;
+		String::from(cx.root_string(unsafe { JS_NewDependentString(**cx, self.handle().into(), *start, *end) }))
 	}
 
 	/// Concatenates two [String]s into a new [String].
 	/// The resultant [String] is not linear.
-	///
-	/// Returns [None] if either of the two input strings are not linear.
-	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> Option<String<'cx>> {
-		(self.is_linear() && other.is_linear())
-			.then(|| String::from(cx.root_string(unsafe { JS_ConcatStrings(**cx, self.handle().into(), other.handle().into()) })))
+	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> String<'cx> {
+		String::from(cx.root_string(unsafe { JS_ConcatStrings(**cx, self.handle().into(), other.handle().into()) }))
 	}
 
 	/// Compares two [String]s.
-	pub fn compare(&self, cx: &Context, other: &String) -> Option<i32> {
-		self.is_linear().then(|| {
-			let mut result = 0;
-			unsafe { JS_CompareStrings(**cx, ***self, ***other, &mut result) };
-			result
-		})
+	pub fn compare(&self, cx: &Context, other: &String) -> i32 {
+		let mut result = 0;
+		unsafe { JS_CompareStrings(**cx, ***self, ***other, &mut result) };
+		result
 	}
 
 	/// Checks if a string is linear (contiguous) in memory.
@@ -97,18 +89,18 @@ impl<'s> String<'s> {
 
 	/// Returns the UTF-16 codepoint at the given character.
 	/// Returns [None] if the string is not linear.
-	pub fn char_at(&self, cx: &Context, index: usize) -> Option<u16> {
-		self.is_linear().then(|| unsafe {
+	pub fn char_at(&self, cx: &Context, index: usize) -> u16 {
+		unsafe {
 			let mut char = 0;
 			JS_GetStringCharAt(**cx, ***self, index, &mut char);
 			char
-		})
+		}
 	}
 
 	/// Converts the [String] into a [prim@slice] of Latin-1 characters.
-	/// Returns [None] if the string is not linear or contains non Latin-1 characters.
+	/// Returns [None] if the string contains non-Latin-1 characters.
 	pub fn as_latin1(&self, cx: &Context) -> Option<&'s [u8]> {
-		(self.is_latin1() && self.is_linear()).then(|| unsafe {
+		self.is_latin1().then(|| unsafe {
 			let mut length = 0;
 			let chars = JS_GetLatin1StringCharsAndLength(**cx, ptr::null(), ***self, &mut length);
 			slice::from_raw_parts(chars, length)
@@ -116,9 +108,9 @@ impl<'s> String<'s> {
 	}
 
 	/// Converts the [String] into a [WStr].
-	/// Returns [None] if the string is not linear or contains only Latin-1 characters.
+	/// Returns [None] if the string contains only Latin-1 characters.
 	pub fn as_wstr(&self, cx: &Context) -> Option<&'s WStr<NativeEndian>> {
-		(self.is_utf16() && self.is_linear())
+		self.is_utf16()
 			.then(|| unsafe {
 				let mut length = 0;
 				let chars = JS_GetTwoByteStringCharsAndLength(**cx, ptr::null(), ***self, &mut length);
@@ -129,14 +121,14 @@ impl<'s> String<'s> {
 	}
 
 	/// Converts a [String] to an owned [String](RustString).
-	/// Returns [None] if the string is not linear.
-	pub fn to_owned(&self, cx: &Context) -> Option<RustString> {
+	pub fn to_owned(&self, cx: &Context) -> RustString {
 		if let Some(chars) = self.as_latin1(cx) {
 			let mut string = RustString::with_capacity(chars.len());
 			string.extend(chars.iter().map(|c| *c as char));
-			Some(string)
+			string
 		} else {
-			self.as_wstr(cx).map(WStr::to_utf8)
+			let string = self.as_wstr(cx).unwrap();
+			string.to_utf8()
 		}
 	}
 }

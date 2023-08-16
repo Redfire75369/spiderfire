@@ -29,7 +29,7 @@ pub struct Loader {
 
 impl ModuleLoader for Loader {
 	fn resolve<'cx: 'p + 'r, 'p, 'r>(&mut self, cx: &'cx Context, private: &Value<'p>, request: &ModuleRequest<'r>) -> *mut JSObject {
-		let specifier = request.specifier(cx).to_owned(cx).unwrap();
+		let specifier = request.specifier(cx).to_owned(cx);
 		let data = ModuleData::from_private(cx, private);
 
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
@@ -75,7 +75,7 @@ impl ModuleLoader for Loader {
 	}
 
 	fn register<'cx: 'r, 'r>(&mut self, cx: &'cx Context, module: *mut JSObject, request: &ModuleRequest<'r>) -> *mut JSObject {
-		let specifier = request.specifier(cx).to_owned(cx).unwrap();
+		let specifier = request.specifier(cx).to_owned(cx);
 		match self.registry.entry(specifier) {
 			Entry::Vacant(v) => *v.insert(module),
 			Entry::Occupied(_) => ptr::null_mut(),
