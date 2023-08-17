@@ -6,18 +6,27 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-clap = { version = "4.3.5", features = ["derive"] }
 ion = { path = "../ion" }
 modules = { path = "../modules" }
-runtime = { path = "../runtime", features = ["promise-logger"] }
 rustyline = "11.0.0"
 rustyline-derive = "0.8.0"
-tokio = { workspace = true, features = ["macros"] }
 
 colored.workspace = true
 dunce.workspace = true
 mozjs.workspace = true
 sourcemap.workspace = true
+
+[dependencies.clap]
+version = "4.3.5"
+features = ["derive"]
+
+[dependencies.runtime]
+path = "../runtime"
+features = ["promise-logger"]
+
+[dependencies.tokio]
+workspace = true
+features = ["macros"]
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
