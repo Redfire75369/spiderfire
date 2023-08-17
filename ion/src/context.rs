@@ -10,7 +10,10 @@ use std::ops::Deref;
 use std::ptr;
 
 use mozjs::gc::RootedTraceableSet;
-use mozjs::jsapi::{Heap, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyKey, Rooted, Symbol, JS_GetContextPrivate, JS_SetContextPrivate};
+use mozjs::jsapi::{
+	Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted,
+	Symbol,
+};
 use mozjs::jsval::JSVal;
 use mozjs::rust::RootedGuard;
 use typed_arena::Arena;
@@ -26,6 +29,7 @@ pub enum GCType {
 	String,
 	Script,
 	PropertyKey,
+	PropertyDescriptor,
 	Function,
 	Symbol,
 }
@@ -38,6 +42,7 @@ struct RootedArena {
 	strings: Arena<Rooted<*mut JSString>>,
 	scripts: Arena<Rooted<*mut JSScript>>,
 	property_keys: Arena<Rooted<PropertyKey>>,
+	property_descriptors: Arena<Rooted<PropertyDescriptor>>,
 	functions: Arena<Rooted<*mut JSFunction>>,
 	symbols: Arena<Rooted<*mut Symbol>>,
 }
@@ -51,6 +56,7 @@ struct LocalArena<'a> {
 	strings: Arena<RootedGuard<'a, *mut JSString>>,
 	scripts: Arena<RootedGuard<'a, *mut JSScript>>,
 	property_keys: Arena<RootedGuard<'a, PropertyKey>>,
+	property_descriptors: Arena<RootedGuard<'a, PropertyDescriptor>>,
 	functions: Arena<RootedGuard<'a, *mut JSFunction>>,
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
@@ -115,6 +121,7 @@ impl Context<'_> {
 		(root_string, *mut JSString, strings, String),
 		(root_script, *mut JSScript, scripts, Script),
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
+		(root_property_descriptor, PropertyDescriptor, property_descriptors, PropertyDescriptor),
 		(root_function, *mut JSFunction, functions, Function),
 		(root_symbol, *mut Symbol, symbols, Symbol),
 	}
@@ -180,6 +187,7 @@ impl Drop for Context<'_> {
 			(*mut JSString, strings, String),
 			(*mut JSScript, scripts, Script),
 			(PropertyKey, property_keys, PropertyKey),
+			(PropertyDescriptor, property_descriptors, PropertyDescriptor),
 			(*mut JSFunction, functions, Function),
 			(*mut Symbol, symbols, Symbol),
 		}
