@@ -15,6 +15,7 @@ use mozjs_sys::jsapi::JS_ValueToId;
 use mozjs_sys::jsval::JSVal;
 
 use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
+use crate::symbol::WellKnownSymbolCode;
 
 /// Represents types that can be converted to [property keys](PropertyKey).
 pub trait ToPropertyKey<'cx> {
@@ -75,6 +76,12 @@ impl<'cx> ToPropertyKey<'cx> for *mut JSSymbol {
 impl<'cx> ToPropertyKey<'cx> for Symbol<'_> {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
 		(**self).to_key(cx)
+	}
+}
+
+impl<'cx> ToPropertyKey<'cx> for WellKnownSymbolCode {
+	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+		Symbol::well_known(cx, *self).to_key(cx)
 	}
 }
 

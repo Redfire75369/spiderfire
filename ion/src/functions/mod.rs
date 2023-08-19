@@ -8,4 +8,5 @@ pub use arguments::Arguments;
 pub use function::{Function, NativeFunction};
 
 mod arguments;
+mod closure;
 mod function;

@@ -11,13 +11,16 @@ use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
 	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength,
 	JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_IsFunctionBound,
-	JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1,
+	JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{Handle, MutableHandle};
+use mozjs_sys::jsapi::js::SetFunctionNativeReserved;
+use mozjs_sys::jsval::ObjectValue;
 
 use crate::{Context, ErrorReport, Local, Object, Value};
 use crate::flags::PropertyFlags;
+use crate::functions::closure::{call_closure, Closure, create_closure_object};
 
 /// Native Function that can be used from JavaScript.
 pub type NativeFunction = unsafe extern "C" fn(*mut JSContext, u32, *mut JSVal) -> bool;
@@ -42,6 +45,24 @@ impl<'f> Function<'f> {
 	pub fn from_spec<'cx>(cx: &'cx Context, spec: *const JSFunctionSpec) -> Function<'cx> {
 		Function {
 			function: cx.root_function(unsafe { NewFunctionFromSpec1(**cx, spec) }),
+		}
+	}
+
+	/// Creates a new [Function] with a [Closure].
+	pub fn from_closure<'cx>(cx: &'cx Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function<'cx> {
+		unsafe {
+			let function = Function {
+				function: cx.root_function(NewFunctionWithReserved(
+					**cx,
+					Some(call_closure),
+					nargs,
+					flags.bits() as u32,
+					name.as_ptr() as *const i8,
+				)),
+			};
+			let closure_object = create_closure_object(cx, closure);
+			SetFunctionNativeReserved(JS_GetFunctionObject(**function), 0, &ObjectValue(**closure_object));
+			function
 		}
 	}
 
