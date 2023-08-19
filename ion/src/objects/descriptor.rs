@@ -29,7 +29,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
 		unsafe { ObjectToCompletePropertyDescriptor(**cx, object.handle().into(), desc_value.handle().into(), desc.handle_mut().into()) }
-			.then(move || desc)
+			.then_some(desc)
 	}
 
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {

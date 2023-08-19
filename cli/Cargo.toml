@@ -8,8 +8,8 @@ license = "MPL-2.0"
 [dependencies]
 ion = { path = "../ion" }
 modules = { path = "../modules" }
-rustyline = "11.0.0"
-rustyline-derive = "0.8.0"
+rustyline = "12.0.0"
+rustyline-derive = "0.9.0"
 
 colored.workspace = true
 dunce.workspace = true
@@ -17,7 +17,7 @@ mozjs.workspace = true
 sourcemap.workspace = true
 
 [dependencies.clap]
-version = "4.3.5"
+version = "4.3.23"
 features = ["derive"]
 
 [dependencies.runtime]

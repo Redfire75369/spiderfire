@@ -9,7 +9,7 @@ license = "MPL-2.0"
 bytes = "1.4.0"
 http = "0.2.9"
 idna = "0.4.0"
-paste = "1.0.12"
+paste = "1.0.14"
 runtime = { path = "../runtime" }
 
 derivative.workspace = true
@@ -22,11 +22,11 @@ path = "../ion"
 features = ["macros"]
 
 [dependencies.hyper]
-version = "0.14.26"
+version = "0.14.27"
 features = ["client", "http1", "tcp"]
 
 [dependencies.hyper-rustls]
-version = "0.24.0"
+version = "0.24.1"
 default-features = false
 features = ["http1", "logging", "tls12", "webpki-tokio"]
 
@@ -39,7 +39,7 @@ version = "0.1.14"
 features = ["fs"]
 
 [dev-dependencies.tokio]
-version = "1.28.2"
+version = "1.32.0"
 features = ["macros", "rt"]
 
 [features]
