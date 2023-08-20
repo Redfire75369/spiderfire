@@ -153,7 +153,7 @@ fn capture_stack(cx: &Context, max_frames: Option<u32>) -> Option<*mut JSObject>
 
 		let mut stack = Object::null(cx);
 		if CaptureCurrentStack(cx.as_ptr(), stack.handle_mut().into(), &mut capture) {
-			Some(**stack)
+			Some(stack.handle().get())
 		} else {
 			None
 		}

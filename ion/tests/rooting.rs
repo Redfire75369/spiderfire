@@ -38,21 +38,21 @@ unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bo
 
 	let mut correct_args = 0;
 
-	if args.value(0).unwrap().is_null() {
+	if args.value(0).unwrap().handle().is_null() {
 		correct_args += 1;
 	}
 
-	let arg1 = args.value(1).unwrap();
+	let arg1 = args.value(1).unwrap().handle();
 	if arg1.is_boolean() && arg1.to_boolean() {
 		correct_args += 1;
 	}
 
 	let arg2 = args.value(2).unwrap();
-	if arg2.is_string() && String::from_value(&cx, arg2, false, ()).unwrap() == *"Old String" {
+	if arg2.handle().is_string() && String::from_value(&cx, arg2, false, ()).unwrap() == *"Old String" {
 		correct_args += 1;
 	}
 
 	let rval = Value::i32(&cx, correct_args);
-	args.rval().handle_mut().set(**rval);
+	args.rval().handle_mut().set(rval.get());
 	true
 }

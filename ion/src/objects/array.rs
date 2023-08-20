@@ -4,11 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
-use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local, Object, Value};
 use crate::conversions::{FromValue, ToValue};
@@ -18,7 +17,7 @@ use crate::flags::PropertyFlags;
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.
 #[derive(Debug)]
 pub struct Array<'a> {
-	array: Object<'a>,
+	arr: Object<'a>,
 }
 
 impl<'a> Array<'a> {
@@ -30,7 +29,7 @@ impl<'a> Array<'a> {
 	/// Creates an empty [Array] with the given length.
 	pub fn new_with_length<'cx>(cx: &'cx Context, length: usize) -> Array<'cx> {
 		Array {
-			array: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
+			arr: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
 		}
 	}
 
@@ -42,7 +41,7 @@ impl<'a> Array<'a> {
 	/// Creates an [Array] from a [HandleValueArray].
 	pub fn from_handle<'cx>(cx: &'cx Context, handle: HandleValueArray) -> Array<'cx> {
 		Array {
-			array: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
+			arr: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
 		}
 	}
 
@@ -51,7 +50,7 @@ impl<'a> Array<'a> {
 	/// Returns [None] if the object is not an array.
 	pub fn from(cx: &Context, object: Local<'a, *mut JSObject>) -> Option<Array<'a>> {
 		if Array::is_array(cx, &object) {
-			Some(Array { array: object.into() })
+			Some(Array { arr: object.into() })
 		} else {
 			None
 		}
@@ -62,13 +61,13 @@ impl<'a> Array<'a> {
 	/// ### Safety
 	/// Object must be an array.
 	pub unsafe fn from_unchecked(object: Local<'a, *mut JSObject>) -> Array<'a> {
-		Array { array: object.into() }
+		Array { arr: object.into() }
 	}
 
 	/// Converts an [Array] to a [Vec].
 	/// Returns an empty [Vec] if the conversion fails.
 	pub fn to_vec<'cx>(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
-		let value = cx.root_value(ObjectValue(**self.array)).into();
+		let value = cx.root_value(ObjectValue(self.arr.handle().get())).into();
 		if let Ok(vec) = unsafe { Vec::from_value(cx, &value, true, ()) } {
 			vec
 		} else {
@@ -78,7 +77,7 @@ impl<'a> Array<'a> {
 
 	/// Converts an [Array] to an [Object].
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
-		Object::from(cx.root_object(**self.array))
+		Object::from(cx.root_object(self.arr.handle().get()))
 	}
 
 	/// Returns the length of the [Array].
@@ -93,63 +92,49 @@ impl<'a> Array<'a> {
 
 	/// Checks if the [Array] has a value at the given index.
 	pub fn has(&self, cx: &Context, index: u32) -> bool {
-		self.array.has(cx, index)
+		self.arr.has(cx, index)
 	}
 
 	/// Gets the [Value] at the given index of the [Array].
 	/// Returns [None] if there is no value at the given index.
 	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
-		self.array.get(cx, index)
+		self.arr.get(cx, index)
 	}
 
 	/// Gets the value at the given index of the [Array] as a Rust type.
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
 	pub fn get_as<'cx, T: FromValue<'cx>>(&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config) -> Option<T> {
-		self.array.get_as(cx, index, strict, config)
+		self.arr.get_as(cx, index, strict, config)
 	}
 
 	/// Sets the [Value] at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
 	pub fn set(&mut self, cx: &Context, index: u32, value: &Value) -> bool {
-		self.array.set(cx, index, value)
+		self.arr.set(cx, index, value)
 	}
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
 	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
-		self.array.set_as(cx, index, value)
+		self.arr.set_as(cx, index, value)
 	}
 
 	/// Defines the [Value] at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
 	pub fn define(&mut self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
-		self.array.define(cx, index, value, attrs)
+		self.arr.define(cx, index, value, attrs)
 	}
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
 	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags) -> bool {
-		self.array.define_as(cx, index, value, attrs)
+		self.arr.define_as(cx, index, value, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.
 	/// Returns `false` if the element cannot be deleted.
 	pub fn delete<'cx: 'a>(&mut self, cx: &'cx Context, index: u32) -> bool {
-		self.array.delete(cx, index)
-	}
-
-	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
-	where
-		'a: 's,
-	{
-		self.array.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
-	where
-		'a: 's,
-	{
-		self.array.handle_mut()
+		self.arr.delete(cx, index)
 	}
 
 	/// Checks if a [*mut JSObject] is an array.
@@ -170,6 +155,12 @@ impl<'a> Deref for Array<'a> {
 	type Target = Local<'a, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.array
+		&self.arr
+	}
+}
+
+impl<'a> DerefMut for Array<'a> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.arr
 	}
 }

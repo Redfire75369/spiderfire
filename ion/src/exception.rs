@@ -52,11 +52,11 @@ impl Exception {
 
 	/// Converts a [Value] into an [Exception].
 	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Exception {
-		if value.is_object() {
+		if value.handle().is_object() {
 			let object = value.to_object(cx);
 			Exception::from_object(cx, &object)
 		} else {
-			Exception::Other(***value)
+			Exception::Other(value.get())
 		}
 	}
 
@@ -65,23 +65,24 @@ impl Exception {
 	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
 		unsafe {
 			let mut class = ESClass::Other;
-			if GetBuiltinClass(cx.as_ptr(), exception.handle().into(), &mut class) && class == ESClass::Error {
+			let handle = exception.handle();
+			if GetBuiltinClass(cx.as_ptr(), handle.into(), &mut class) && class == ESClass::Error {
 				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
 				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
 				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
 				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
 
 				let location = Location { file, lineno, column };
-				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(***exception));
+				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(handle.get()));
 				let error = Error {
 					kind,
 					message,
 					location: Some(location),
-					object: Some(***exception),
+					object: Some(handle.get()),
 				};
 				Exception::Error(error)
 			} else {
-				Exception::Other(ObjectValue(***exception))
+				Exception::Other(ObjectValue(handle.get()))
 			}
 		}
 	}

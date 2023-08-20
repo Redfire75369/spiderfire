@@ -16,7 +16,7 @@ use crate::event_loop::microtasks::Microtask;
 fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
 	EVENT_LOOP.with(|event_loop| {
 		if let Some(queue) = event_loop.borrow().microtasks.clone() {
-			queue.enqueue(cx.as_ptr(), Microtask::User(**callback));
+			queue.enqueue(cx.as_ptr(), Microtask::User(callback.get()));
 			Ok(())
 		} else {
 			Err(Error::new("Microtask Queue has not been initialised.", None))

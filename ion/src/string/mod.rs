@@ -5,7 +5,7 @@
  */
 
 use std::{ptr, slice};
-use std::ops::{Deref, Range};
+use std::ops::{Deref, DerefMut, Range};
 use std::string::String as RustString;
 
 use bytemuck::cast_slice;
@@ -27,7 +27,7 @@ mod external;
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String) for more details.
 #[derive(Debug)]
 pub struct String<'s> {
-	string: Local<'s, *mut JSString>,
+	str: Local<'s, *mut JSString>,
 }
 
 impl<'s> String<'s> {
@@ -68,18 +68,18 @@ impl<'s> String<'s> {
 	/// Compares two [String]s.
 	pub fn compare(&self, cx: &Context, other: &String) -> i32 {
 		let mut result = 0;
-		unsafe { JS_CompareStrings(cx.as_ptr(), ***self, ***other, &mut result) };
+		unsafe { JS_CompareStrings(cx.as_ptr(), self.get(), other.get(), &mut result) };
 		result
 	}
 
 	/// Checks if a string is linear (contiguous) in memory.
 	pub fn is_linear(&self) -> bool {
-		unsafe { JS_StringIsLinear(***self) }
+		unsafe { JS_StringIsLinear(self.get()) }
 	}
 
 	/// Checks if a string consists of only Latin-1 characters.
 	pub fn is_latin1(&self) -> bool {
-		unsafe { JS_DeprecatedStringHasLatin1Chars(***self) }
+		unsafe { JS_DeprecatedStringHasLatin1Chars(self.get()) }
 	}
 
 	/// Checks if a string consists of UTF-16 characters.
@@ -92,7 +92,7 @@ impl<'s> String<'s> {
 	pub fn char_at(&self, cx: &Context, index: usize) -> u16 {
 		unsafe {
 			let mut char = 0;
-			JS_GetStringCharAt(cx.as_ptr(), ***self, index, &mut char);
+			JS_GetStringCharAt(cx.as_ptr(), self.get(), index, &mut char);
 			char
 		}
 	}
@@ -102,7 +102,7 @@ impl<'s> String<'s> {
 	pub fn as_latin1(&self, cx: &Context) -> Option<&'s [u8]> {
 		self.is_latin1().then(|| unsafe {
 			let mut length = 0;
-			let chars = JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), ***self, &mut length);
+			let chars = JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length);
 			slice::from_raw_parts(chars, length)
 		})
 	}
@@ -113,7 +113,7 @@ impl<'s> String<'s> {
 		self.is_utf16()
 			.then(|| unsafe {
 				let mut length = 0;
-				let chars = JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), ***self, &mut length);
+				let chars = JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length);
 				let slice = slice::from_raw_parts(chars, length);
 				cast_slice(slice)
 			})
@@ -134,8 +134,8 @@ impl<'s> String<'s> {
 }
 
 impl<'s> From<Local<'s, *mut JSString>> for String<'s> {
-	fn from(string: Local<'s, *mut JSString>) -> String<'s> {
-		String { string }
+	fn from(str: Local<'s, *mut JSString>) -> String<'s> {
+		String { str }
 	}
 }
 
@@ -143,6 +143,12 @@ impl<'s> Deref for String<'s> {
 	type Target = Local<'s, *mut JSString>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.string
+		&self.str
+	}
+}
+
+impl<'s> DerefMut for String<'s> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.str
 	}
 }

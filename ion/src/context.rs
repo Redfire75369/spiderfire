@@ -105,7 +105,7 @@ impl Context<'_> {
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
 			private: OnceCell::new(),
-			_lifetime: PhantomData::default(),
+			_lifetime: PhantomData,
 		})
 	}
 
@@ -115,7 +115,7 @@ impl Context<'_> {
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
 			private: OnceCell::new(),
-			_lifetime: PhantomData::default(),
+			_lifetime: PhantomData,
 		}
 	}
 

@@ -60,7 +60,7 @@ pub(crate) fn error_handler(ty: &Type, return_type: &Type) -> TokenStream {
 	let krate = quote!(::ion);
 	let mut if_ok = quote!(
 		let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
-		::mozjs::jsapi::JS_SetReservedSlot(**this, <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
+		::mozjs::jsapi::JS_SetReservedSlot(this.handle().get(), <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
 		#krate::conversions::ToValue::to_value(&this, cx, args.rval());
 		true
 	);

@@ -93,7 +93,7 @@ impl ToValue<'_> for *mut JSString {
 
 impl<'cx> ToValue<'cx> for String<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
@@ -130,25 +130,25 @@ impl ToValue<'_> for NonNull<JSObject> {
 
 impl<'cx> ToValue<'cx> for Object<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Array<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Date<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
 impl<'cx> ToValue<'cx> for Promise<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
@@ -160,7 +160,7 @@ impl<'cx> ToValue<'cx> for *mut JSFunction {
 
 impl<'cx> ToValue<'cx> for Function<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
@@ -172,7 +172,7 @@ impl ToValue<'_> for *mut JSSymbol {
 
 impl<'cx> ToValue<'cx> for Symbol<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
@@ -185,7 +185,7 @@ impl ToValue<'_> for JSVal {
 
 impl<'cx> ToValue<'cx> for Value<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 
@@ -197,7 +197,7 @@ impl<'cx> ToValue<'cx> for JSPropertyKey {
 
 impl<'cx> ToValue<'cx> for PropertyKey<'cx> {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		(**self).to_value(cx, value);
+		self.handle().to_value(cx, value);
 	}
 }
 

@@ -16,6 +16,7 @@ use crate::format::symbol::format_symbol;
 pub fn format_primitive(cx: &Context, cfg: Config, value: &Value) -> String {
 	let colors = cfg.colours;
 
+	let value = value.handle();
 	if value.is_boolean() {
 		value.to_boolean().to_string().color(colors.boolean).to_string()
 	} else if value.is_number() {

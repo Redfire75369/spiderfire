@@ -6,7 +6,7 @@
 
 use std::future::Future;
 use std::mem::transmute;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use futures::executor::block_on;
 use libffi::high::ClosureOnce3;
@@ -16,7 +16,7 @@ use mozjs::jsapi::{
 };
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsval::JSVal;
-use mozjs::rust::{Handle, HandleObject, MutableHandle};
+use mozjs::rust::HandleObject;
 
 use crate::{Arguments, Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
@@ -162,10 +162,10 @@ impl<'p> Promise<'p> {
 		let mut resolved = Object::null(cx);
 		let mut rejected = Object::null(cx);
 		if let Some(on_resolved) = on_resolved {
-			resolved.handle_mut().set(**on_resolved.to_object(cx));
+			resolved.handle_mut().set(on_resolved.to_object(cx).handle().get());
 		}
 		if let Some(on_rejected) = on_rejected {
-			rejected.handle_mut().set(**on_rejected.to_object(cx));
+			rejected.handle_mut().set(on_rejected.to_object(cx).handle().get());
 		}
 		unsafe { AddPromiseReactions(cx.as_ptr(), self.handle().into(), resolved.handle().into(), rejected.handle().into()) }
 	}
@@ -178,20 +178,6 @@ impl<'p> Promise<'p> {
 	/// Rejects the [Promise] with the given [Value].
 	pub fn reject(&self, cx: &Context, value: &Value) -> bool {
 		unsafe { RejectPromise(cx.as_ptr(), self.handle().into(), value.handle().into()) }
-	}
-
-	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
-	where
-		'p: 's,
-	{
-		self.promise.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
-	where
-		'p: 's,
-	{
-		self.promise.handle_mut()
 	}
 
 	/// Checks if a [*mut] [JSObject] is a promise.
@@ -211,5 +197,11 @@ impl<'p> Deref for Promise<'p> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.promise
+	}
+}
+
+impl<'p> DerefMut for Promise<'p> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.promise
 	}
 }

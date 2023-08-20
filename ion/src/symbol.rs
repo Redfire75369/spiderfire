@@ -5,7 +5,7 @@
  */
 
 use std::mem::transmute;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 use mozjs::jsapi::Symbol as JSSymbol;
@@ -124,43 +124,43 @@ impl From<SymbolCode> for JSSymbolCode {
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol) for more details.
 #[derive(Debug)]
 pub struct Symbol<'s> {
-	symbol: Local<'s, *mut JSSymbol>,
+	sym: Local<'s, *mut JSSymbol>,
 }
 
 impl<'s> Symbol<'s> {
 	/// Creates a new unique symbol with a given description.
 	pub fn new<'cx>(cx: &'cx Context, description: &str) -> Symbol<'cx> {
 		let description = unsafe { description.as_value(cx) };
-		let description = cx.root_string(description.to_string());
+		let description = cx.root_string(description.handle().to_string());
 
 		let symbol = unsafe { NewSymbol(cx.as_ptr(), description.handle().into()) };
-		Symbol { symbol: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root_symbol(symbol) }
 	}
 
 	/// Gets a [Symbol] from the symbol registry with the given key.
 	pub fn for_key<'cx>(cx: &'cx Context, key: &str) -> Symbol<'cx> {
 		let key = unsafe { key.as_value(cx) };
-		let key = cx.root_string(key.to_string());
+		let key = cx.root_string(key.handle().to_string());
 
 		let symbol = unsafe { GetSymbolFor(cx.as_ptr(), key.handle().into()) };
-		Symbol { symbol: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root_symbol(symbol) }
 	}
 
 	/// Creates a well-known symbol with its corresponding code.
 	pub fn well_known<'cx>(cx: &'cx Context, code: WellKnownSymbolCode) -> Symbol<'cx> {
 		let symbol = unsafe { GetWellKnownSymbol(cx.as_ptr(), code.into()) };
-		Symbol { symbol: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root_symbol(symbol) }
 	}
 
 	/// Returns the identifying code of a [Symbol].
 	pub fn code(&self) -> SymbolCode {
-		unsafe { GetSymbolCode(self.symbol.handle().into()).into() }
+		unsafe { GetSymbolCode(self.sym.handle().into()).into() }
 	}
 
 	/// Returns the description of a [Symbol].
 	/// Returns [None] for well-known symbols.
 	pub fn description(&self, cx: &Context) -> Option<String> {
-		let description = unsafe { GetSymbolDescription(self.symbol.handle().into()) };
+		let description = unsafe { GetSymbolDescription(self.sym.handle().into()) };
 		if !description.is_null() {
 			unsafe {
 				let description = description.as_value(cx);
@@ -173,16 +173,22 @@ impl<'s> Symbol<'s> {
 }
 
 impl<'o> From<Local<'o, *mut JSSymbol>> for Symbol<'o> {
-	fn from(symbol: Local<'o, *mut JSSymbol>) -> Symbol<'o> {
-		Symbol { symbol }
+	fn from(sym: Local<'o, *mut JSSymbol>) -> Symbol<'o> {
+		Symbol { sym }
 	}
 }
 
-impl<'o> Deref for Symbol<'o> {
-	type Target = Local<'o, *mut JSSymbol>;
+impl<'s> Deref for Symbol<'s> {
+	type Target = Local<'s, *mut JSSymbol>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.symbol
+		&self.sym
+	}
+}
+
+impl<'s> DerefMut for Symbol<'s> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.sym
 	}
 }
 

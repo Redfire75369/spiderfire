@@ -6,7 +6,6 @@
 
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::Handle as RawHandle;
 use mozjs::jsapi::Heap;
@@ -51,6 +50,10 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 			Local::Mutable(handle) => *handle,
 			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
 		}
+	}
+
+	pub fn get(&self) -> T {
+		self.handle().get()
 	}
 }
 
@@ -103,36 +106,14 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	}
 }
 
-impl<'local, T: GCMethods + RootKind + Copy> Local<'local, T> {
+impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	pub unsafe fn from_heap(heap: &Heap<T>) -> Local<'local, T> {
 		Local::from_raw_handle(heap.handle())
 	}
 }
 
-impl<T: GCMethods + RootKind> Deref for Local<'_, T> {
-	type Target = T;
-
-	fn deref(&self) -> &T {
-		match self {
-			Local::Rooted(rooted) => rooted,
-			Local::Mutable(handle) => handle,
-			Local::Handle(handle) => handle,
-		}
-	}
-}
-
-impl<T: GCMethods + RootKind> DerefMut for Local<'_, T> {
-	fn deref_mut(&mut self) -> &mut T {
-		match self {
-			Local::Rooted(rooted) => rooted,
-			Local::Mutable(handle) => handle,
-			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
-		}
-	}
-}
-
-impl<T: Debug + GCMethods + RootKind> Debug for Local<'_, T> {
+impl<T: Copy + Debug + GCMethods + RootKind> Debug for Local<'_, T> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		(**self).fmt(f)
+		self.handle().fmt(f)
 	}
 }

@@ -88,7 +88,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 
 		let mut global: Object = Object::from(cx.root_object(global));
 
-		let global_ref = **global;
+		let global_ref = global.handle().get();
 		global.set_as(cx, "global", &global_ref);
 		init_globals(cx, &mut global);
 

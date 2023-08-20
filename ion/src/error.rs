@@ -152,11 +152,11 @@ impl Error {
 
 				let file = file.as_value(cx);
 
-				let file_name = cx.root_string(file.to_string());
+				let file_name = cx.root_string(file.handle().to_string());
 
 				let message = (!self.message.is_empty()).then(|| {
 					let value = self.message.as_value(cx);
-					crate::String::from(cx.root_string(value.to_string()))
+					crate::String::from(cx.root_string(value.handle().to_string()))
 				});
 				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
 

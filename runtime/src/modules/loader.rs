@@ -61,7 +61,7 @@ impl ModuleLoader for Loader {
 
 					if let Ok((module, _)) = module {
 						let request = ModuleRequest::new(cx, path.to_str().unwrap());
-						Some(self.register(cx, **module.0, &request))
+						Some(self.register(cx, module.0.handle().get(), &request))
 					} else {
 						Error::new(&format!("Unable to compile module: {}\0", specifier), None).throw(cx);
 						None

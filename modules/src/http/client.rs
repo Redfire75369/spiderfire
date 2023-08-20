@@ -71,10 +71,10 @@ impl<'cx> FromValue<'cx> for ClientRequestOptions {
 	where
 		'cx: 'v,
 	{
-		if value.is_undefined() {
+		if value.handle().is_undefined() {
 			Ok(ClientRequestOptions::Global)
-		} else if value.is_boolean() {
-			if value.to_boolean() {
+		} else if value.handle().is_boolean() {
+			if value.handle().to_boolean() {
 				Ok(ClientRequestOptions::Global)
 			} else {
 				Ok(ClientRequestOptions::New)

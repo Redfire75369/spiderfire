@@ -4,12 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
 use mozjs::jsapi::{ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, NewDateObject, ObjectIsDate};
-use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local};
 
@@ -67,20 +66,6 @@ impl<'d> Date<'d> {
 		}
 	}
 
-	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
-	where
-		'd: 's,
-	{
-		self.date.handle()
-	}
-
-	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, *mut JSObject>
-	where
-		'd: 'a,
-	{
-		self.date.handle_mut()
-	}
-
 	/// Checks if a [raw object](*mut JSObject) is a date.
 	pub fn is_date_raw(cx: &Context, object: *mut JSObject) -> bool {
 		rooted!(in(cx.as_ptr()) let object = object);
@@ -100,5 +85,11 @@ impl<'d> Deref for Date<'d> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.date
+	}
+}
+
+impl<'d> DerefMut for Date<'d> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.date
 	}
 }

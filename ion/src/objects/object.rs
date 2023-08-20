@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::iter::FusedIterator;
 use std::mem::MaybeUninit;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use mozjs::jsapi::{
@@ -17,7 +17,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
-use mozjs::rust::{Handle, IdVector, MutableHandle};
+use mozjs::rust::IdVector;
 
 use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
@@ -29,7 +29,7 @@ use crate::functions::NativeFunction;
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) for more details.
 #[derive(Debug)]
 pub struct Object<'o> {
-	object: Local<'o, *mut JSObject>,
+	obj: Local<'o, *mut JSObject>,
 }
 
 impl<'o> Object<'o> {
@@ -199,28 +199,14 @@ impl<'o> Object<'o> {
 		self.iter(cx, flags).map(|(k, v)| (k.to_owned_key(cx), v)).collect()
 	}
 
-	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
-	where
-		'o: 's,
-	{
-		self.object.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSObject>
-	where
-		'o: 's,
-	{
-		self.object.handle_mut()
-	}
-
 	pub fn into_local(self) -> Local<'o, *mut JSObject> {
-		self.object
+		self.obj
 	}
 }
 
 impl<'o> From<Local<'o, *mut JSObject>> for Object<'o> {
-	fn from(object: Local<'o, *mut JSObject>) -> Object<'o> {
-		Object { object }
+	fn from(obj: Local<'o, *mut JSObject>) -> Object<'o> {
+		Object { obj }
 	}
 }
 
@@ -228,7 +214,13 @@ impl<'o> Deref for Object<'o> {
 	type Target = Local<'o, *mut JSObject>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.object
+		&self.obj
+	}
+}
+
+impl<'o> DerefMut for Object<'o> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.obj
 	}
 }
 

@@ -6,11 +6,10 @@
 
 use std::hash::{Hash, Hasher};
 use std::mem::discriminant;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsid::{IntId, VoidId};
-use mozjs::rust::{Handle, MutableHandle};
 use mozjs_sys::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey};
 use mozjs_sys::jsapi::JS::ProtoKeyToId;
 
@@ -54,29 +53,15 @@ impl<'k> PropertyKey<'k> {
 	}
 
 	pub fn to_owned_key<'cx>(&self, cx: &'cx Context) -> OwnedKey<'cx> {
-		if self.key.is_int() {
-			OwnedKey::Int(self.key.to_int())
-		} else if self.key.is_string() {
-			OwnedKey::String(String::from(cx.root_string(self.key.to_string())).to_owned(cx))
-		} else if self.key.is_symbol() {
-			OwnedKey::Symbol(cx.root_symbol(self.to_symbol()).into())
+		if self.handle().is_int() {
+			OwnedKey::Int(self.handle().to_int())
+		} else if self.handle().is_string() {
+			OwnedKey::String(String::from(cx.root_string(self.handle().to_string())).to_owned(cx))
+		} else if self.handle().is_symbol() {
+			OwnedKey::Symbol(cx.root_symbol(self.handle().to_symbol()).into())
 		} else {
 			OwnedKey::Void
 		}
-	}
-
-	pub fn handle<'s>(&'s self) -> Handle<'s, JSPropertyKey>
-	where
-		'k: 's,
-	{
-		self.key.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, JSPropertyKey>
-	where
-		'k: 's,
-	{
-		self.key.handle_mut()
 	}
 
 	pub fn into_local(self) -> Local<'k, JSPropertyKey> {
@@ -93,8 +78,14 @@ impl<'k> From<Local<'k, JSPropertyKey>> for PropertyKey<'k> {
 impl<'k> Deref for PropertyKey<'k> {
 	type Target = Local<'k, JSPropertyKey>;
 
-	fn deref(&self) -> &Local<'k, JSPropertyKey> {
+	fn deref(&self) -> &Self::Target {
 		&self.key
+	}
+}
+
+impl<'k> DerefMut for PropertyKey<'k> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.key
 	}
 }
 
@@ -112,7 +103,7 @@ impl<'k> OwnedKey<'k> {
 		match self {
 			OwnedKey::Int(i) => OwnedKey::Int(*i),
 			OwnedKey::String(str) => OwnedKey::String(str.clone()),
-			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root_symbol(***symbol).into()),
+			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root_symbol(symbol.get()).into()),
 			OwnedKey::Void => OwnedKey::Void,
 		}
 	}
@@ -124,7 +115,7 @@ impl Hash for OwnedKey<'_> {
 		match self {
 			OwnedKey::Int(i) => i.hash(state),
 			OwnedKey::String(str) => str.hash(state),
-			OwnedKey::Symbol(symbol) => symbol.hash(state),
+			OwnedKey::Symbol(symbol) => symbol.handle().hash(state),
 			OwnedKey::Void => (),
 		}
 	}
@@ -135,7 +126,7 @@ impl PartialEq for OwnedKey<'_> {
 		match (self, other) {
 			(OwnedKey::Int(i), OwnedKey::Int(i2)) => *i == *i2,
 			(OwnedKey::String(str), OwnedKey::String(str2)) => *str == *str2,
-			(OwnedKey::Symbol(symbol), OwnedKey::Symbol(symbol2)) => ***symbol == ***symbol2,
+			(OwnedKey::Symbol(symbol), OwnedKey::Symbol(symbol2)) => symbol.get() == symbol2.get(),
 			(OwnedKey::Void, OwnedKey::Void) => true,
 			_ => false,
 		}

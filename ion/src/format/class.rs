@@ -15,7 +15,7 @@ use crate::format::object::format_plain_object;
 
 /// Formats a [JavaScript Object](Object), along with the name of its constructor, as a string with the given [configuration](Config).
 pub fn format_class_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &Object<'o>) -> String {
-	let class = unsafe { get_object_class(***object) };
+	let class = unsafe { get_object_class(object.handle().get()) };
 	let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
 
 	let string = format_plain_object(cx, cfg, object);

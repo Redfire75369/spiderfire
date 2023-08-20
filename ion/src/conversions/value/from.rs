@@ -38,6 +38,7 @@ impl<'cx> FromValue<'cx> for bool {
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if value.is_boolean() {
 			return Ok(value.to_boolean());
 		}
@@ -45,7 +46,7 @@ impl<'cx> FromValue<'cx> for bool {
 		if strict {
 			Err(Error::new("Expected Boolean in Strict Conversion", ErrorKind::Type))
 		} else {
-			Ok(ToBoolean(value.handle()))
+			Ok(ToBoolean(value))
 		}
 	}
 }
@@ -59,11 +60,12 @@ macro_rules! impl_from_value_for_integer {
 			where
 				'cx: 'v,
 			{
+				let value = value.handle();
 				if strict && !value.is_number() {
 					return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
 				}
 
-				match <$ty>::from_jsval(cx.as_ptr(), value.handle(), config) {
+				match <$ty>::from_jsval(cx.as_ptr(), value, config) {
 					Ok(ConversionResult::Success(number)) => Ok(number),
 					Err(_) => Err(Exception::new(cx).unwrap().to_error()),
 					_ => unreachable!(),
@@ -101,11 +103,12 @@ impl<'cx> FromValue<'cx> for f64 {
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if strict && !value.is_number() {
 			return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
 		}
 
-		ToNumber(cx.as_ptr(), value.handle()).map_err(|_| Error::new("Unable to Convert Value to Number", ErrorKind::Type))
+		ToNumber(cx.as_ptr(), value).map_err(|_| Error::new("Unable to Convert Value to Number", ErrorKind::Type))
 	}
 }
 
@@ -116,10 +119,11 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if strict && !value.is_string() {
 			return Err(Error::new("Expected String in Strict Conversion", ErrorKind::Type));
 		}
-		Ok(ToString(cx.as_ptr(), value.handle()))
+		Ok(ToString(cx.as_ptr(), value))
 	}
 }
 
@@ -152,10 +156,11 @@ impl<'cx> FromValue<'cx> for *mut JSObject {
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if !value.is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
-		let object = (**value).to_object();
+		let object = value.to_object();
 		AssertSameCompartment(cx.as_ptr(), object);
 
 		Ok(object)
@@ -169,11 +174,11 @@ impl<'cx> FromValue<'cx> for Object<'cx> {
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
 		let object = value.to_object(cx);
-		AssertSameCompartment(cx.as_ptr(), **object);
+		AssertSameCompartment(cx.as_ptr(), object.handle().get());
 
 		Ok(object)
 	}
@@ -186,13 +191,13 @@ impl<'cx> FromValue<'cx> for Array<'cx> {
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Array", ErrorKind::Type));
 		}
 
 		let object = value.to_object(cx).into_local();
 		if let Some(array) = Array::from(cx, object) {
-			AssertSameCompartment(cx.as_ptr(), **array);
+			AssertSameCompartment(cx.as_ptr(), array.handle().get());
 			Ok(array)
 		} else {
 			Err(Error::new("Expected Array", ErrorKind::Type))
@@ -207,13 +212,13 @@ impl<'cx> FromValue<'cx> for Date<'cx> {
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Date", ErrorKind::Type));
 		}
 
 		let object = value.to_object(cx).into_local();
 		if let Some(date) = Date::from(cx, object) {
-			AssertSameCompartment(cx.as_ptr(), **date);
+			AssertSameCompartment(cx.as_ptr(), date.get());
 			Ok(date)
 		} else {
 			Err(Error::new("Expected Date", ErrorKind::Type))
@@ -228,13 +233,13 @@ impl<'cx> FromValue<'cx> for Promise<'cx> {
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Promise", ErrorKind::Type));
 		}
 
 		let object = value.to_object(cx).into_local();
 		if let Some(promise) = Promise::from(object) {
-			AssertSameCompartment(cx.as_ptr(), **promise);
+			AssertSameCompartment(cx.as_ptr(), promise.get());
 			Ok(promise)
 		} else {
 			Err(Error::new("Expected Promise", ErrorKind::Type))
@@ -249,7 +254,7 @@ impl<'cx> FromValue<'cx> for *mut JSFunction {
 	where
 		'cx: 'v,
 	{
-		Function::from_value(cx, value, strict, config).map(|f| **f)
+		Function::from_value(cx, value, strict, config).map(|f| f.get())
 	}
 }
 
@@ -260,13 +265,13 @@ impl<'cx> FromValue<'cx> for Function<'cx> {
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Function", ErrorKind::Type));
 		}
 
 		let function_obj = value.to_object(cx);
 		if let Some(function) = Function::from_object(cx, &function_obj) {
-			AssertSameCompartment(cx.as_ptr(), **function_obj);
+			AssertSameCompartment(cx.as_ptr(), function_obj.handle().get());
 			Ok(function)
 		} else {
 			Err(Error::new("Expected Function", ErrorKind::Type))
@@ -281,6 +286,7 @@ impl<'cx> FromValue<'cx> for *mut JSSymbol {
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if value.is_symbol() {
 			Ok(value.to_symbol())
 		} else {
@@ -307,8 +313,9 @@ impl<'cx> FromValue<'cx> for JSVal {
 	where
 		'cx: 'v,
 	{
-		AssertSameCompartment1(cx.as_ptr(), value.handle().into());
-		Ok(***value)
+		let value = value.handle();
+		AssertSameCompartment1(cx.as_ptr(), value.into());
+		Ok(value.get())
 	}
 }
 
@@ -319,8 +326,9 @@ impl<'cx> FromValue<'cx> for Value<'cx> {
 	where
 		'cx: 'v,
 	{
-		AssertSameCompartment1(cx.as_ptr(), value.handle().into());
-		Ok(cx.root_value(***value).into())
+		let value = value.handle();
+		AssertSameCompartment1(cx.as_ptr(), value.into());
+		Ok(cx.root_value(value.get()).into())
 	}
 }
 
@@ -331,7 +339,7 @@ impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Option<T> {
 	where
 		'cx: 'v,
 	{
-		if value.is_null_or_undefined() {
+		if value.handle().is_null_or_undefined() {
 			Ok(None)
 		} else {
 			Ok(Some(T::from_value(cx, value, strict, config)?))
@@ -372,7 +380,7 @@ where
 	where
 		'cx: 'v,
 	{
-		if !value.is_object() {
+		if !value.handle().is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
 		let object = value.to_object(cx);
@@ -422,8 +430,9 @@ impl<'cx, T: TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for TypedArra
 	where
 		'cx: 'v,
 	{
+		let value = value.handle();
 		if value.is_object() {
-			let object = (**value).to_object();
+			let object = value.to_object();
 			cx.root_object(object);
 			TypedArray::from(object).map_err(|_| Error::new("Expected Typed Array", ErrorKind::Type))
 		} else {

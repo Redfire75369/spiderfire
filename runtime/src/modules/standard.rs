@@ -53,7 +53,7 @@ pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut 
 			let loader = unsafe { &mut (*cx.get_private()).module_loader };
 			return loader.as_mut().is_some_and(|loader| unsafe {
 				let request = ModuleRequest::new(cx, M::NAME);
-				(**loader).register(cx, **module.0, &request);
+				(**loader).register(cx, module.0.handle().get(), &request);
 				true
 			});
 		}

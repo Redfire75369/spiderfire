@@ -55,7 +55,7 @@ pub struct TimerMacrotask {
 impl TimerMacrotask {
 	pub fn new(callback: Function, arguments: Vec<JSVal>, repeat: bool, duration: Duration) -> TimerMacrotask {
 		TimerMacrotask {
-			callback: **callback,
+			callback: callback.get(),
 			arguments,
 			repeat,
 			duration,
@@ -81,7 +81,7 @@ pub struct UserMacrotask {
 impl UserMacrotask {
 	pub fn new(callback: Function) -> UserMacrotask {
 		UserMacrotask {
-			callback: **callback,
+			callback: callback.get(),
 			scheduled: Utc::now(),
 		}
 	}

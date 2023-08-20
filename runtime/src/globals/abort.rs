@@ -102,7 +102,7 @@ mod controller {
 
 		pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
 			let reason = reason.unwrap_or_else(|| unsafe { Error::new("AbortError", None).as_value(cx) });
-			self.sender.send_replace(Some(**reason));
+			self.sender.send_replace(Some(reason.get()));
 		}
 	}
 }
@@ -160,7 +160,7 @@ mod signal {
 
 		pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> AbortSignal {
 			let reason = reason.unwrap_or_else(|| unsafe { Error::new("AbortError", None).as_value(cx) });
-			AbortSignal { signal: Signal::Abort(**reason) }
+			AbortSignal { signal: Signal::Abort(reason.get()) }
 		}
 
 		pub fn timeout(cx: &Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> AbortSignal {
@@ -168,7 +168,7 @@ mod signal {
 			let terminate = Arc::new(AtomicBool::new(false));
 			let terminate2 = terminate.clone();
 
-			let error = unsafe { **Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx) };
+			let error = unsafe { Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx).get() };
 			let callback = Box::new(move || {
 				sender.send_replace(Some(error));
 			});

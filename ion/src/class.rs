@@ -101,8 +101,8 @@ pub trait ClassInitialiser {
 		let constructor = Function::from_object(cx, &constructor).unwrap();
 
 		let class_info = ClassInfo {
-			constructor: **constructor,
-			prototype: *class,
+			constructor: constructor.get(),
+			prototype: class.get(),
 		};
 
 		CLASS_INFOS.with(|infos| {
@@ -135,7 +135,7 @@ pub trait ClassInitialiser {
 	{
 		unsafe {
 			let mut value = UndefinedValue();
-			JS_GetReservedSlot(***object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
 			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
 		}
 	}

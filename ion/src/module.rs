@@ -26,7 +26,7 @@ pub struct ModuleData {
 impl ModuleData {
 	/// Creates [ModuleData] based on the private data of a module
 	pub fn from_private<'cx: 'v, 'v>(cx: &'cx Context, private: &Value<'v>) -> Option<ModuleData> {
-		private.is_object().then(|| {
+		private.handle().is_object().then(|| {
 			let private = private.to_object(cx);
 			let path: Option<String> = private.get_as(cx, "path", true, ());
 			ModuleData { path }
@@ -123,7 +123,7 @@ impl<'cx> Module<'cx> {
 
 			unsafe {
 				let private = data.to_object(cx).as_value(cx);
-				SetModulePrivate(**module.0, &**private);
+				SetModulePrivate(module.0.handle().get(), &*private.handle());
 			}
 
 			if let Err(error) = module.instantiate(cx) {

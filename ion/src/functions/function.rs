@@ -14,7 +14,6 @@ use mozjs::jsapi::{
 	JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved,
 };
 use mozjs::jsval::JSVal;
-use mozjs::rust::{Handle, MutableHandle};
 use mozjs_sys::jsapi::js::SetFunctionNativeReserved;
 use mozjs_sys::jsval::ObjectValue;
 
@@ -61,7 +60,7 @@ impl<'f> Function<'f> {
 				)),
 			};
 			let closure_object = create_closure_object(cx, closure);
-			SetFunctionNativeReserved(JS_GetFunctionObject(**function), 0, &ObjectValue(**closure_object));
+			SetFunctionNativeReserved(JS_GetFunctionObject(function.get()), 0, &ObjectValue(closure_object.handle().get()));
 			function
 		}
 	}
@@ -69,9 +68,9 @@ impl<'f> Function<'f> {
 	/// Creates a new [Function] from an object.
 	/// Returns [None] if the object is not a function.
 	pub fn from_object<'cx>(cx: &'cx Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'cx>> {
-		if Function::is_function_raw(**obj) {
+		if Function::is_function_raw(obj.get()) {
 			Some(Function {
-				function: cx.root_function(unsafe { JS_GetObjectFunction(**obj) }),
+				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
 			})
 		} else {
 			None
@@ -80,7 +79,7 @@ impl<'f> Function<'f> {
 
 	/// Converts the [Function] into an [Object].
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
-		cx.root_object(unsafe { JS_GetFunctionObject(***self) }).into()
+		cx.root_object(unsafe { JS_GetFunctionObject(self.get()) }).into()
 	}
 
 	/// Converts the [Function] into a [String] in the form of its definition/source.
@@ -93,7 +92,7 @@ impl<'f> Function<'f> {
 
 	/// Returns the name of the function.
 	pub fn name(&self, cx: &Context) -> Option<String> {
-		let id = unsafe { JS_GetFunctionId(***self) };
+		let id = unsafe { JS_GetFunctionId(self.get()) };
 		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
 	}
 
@@ -101,13 +100,13 @@ impl<'f> Function<'f> {
 	/// Function display names are a non-standard feature.
 	/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/displayName) for more details.
 	pub fn display_name(&self, cx: &Context) -> Option<String> {
-		let id = unsafe { JS_GetFunctionDisplayId(***self) };
+		let id = unsafe { JS_GetFunctionDisplayId(self.get()) };
 		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
 	}
 
 	/// Returns the number of arguments of the function.
 	pub fn nargs(&self) -> u16 {
-		unsafe { JS_GetFunctionArity(***self) }
+		unsafe { JS_GetFunctionArity(self.get()) }
 	}
 
 	/// Returns the length of the source of the function.
@@ -120,7 +119,7 @@ impl<'f> Function<'f> {
 	/// Returns the result of the [Function] as a [Value].
 	/// Returns [Err] if the function call fails or an exception occurs.
 	pub fn call<'cx>(&self, cx: &'cx Context, this: &Object, args: &[Value]) -> Result<Value<'cx>, Option<ErrorReport>> {
-		let args: Vec<_> = args.iter().map(|a| ***a).collect();
+		let args: Vec<_> = args.iter().map(|a| a.get()).collect();
 		self.call_with_handle(cx, this, unsafe { HandleValueArray::from_rooted_slice(args.as_slice()) })
 	}
 
@@ -138,36 +137,22 @@ impl<'f> Function<'f> {
 
 	/// Checks if the [Function] is bound.
 	pub fn is_bound(&self) -> bool {
-		unsafe { JS_IsFunctionBound(***self) }
+		unsafe { JS_IsFunctionBound(self.get()) }
 	}
 
 	/// Checks if the [Function] is the built-in eval function.
 	pub fn is_eval(&self) -> bool {
-		unsafe { JS_IsBuiltinEvalFunction(***self) }
+		unsafe { JS_IsBuiltinEvalFunction(self.get()) }
 	}
 
 	/// Checks if the [Function] is a constructor.
 	pub fn is_constructor(&self) -> bool {
-		unsafe { JS_IsConstructor(***self) }
+		unsafe { JS_IsConstructor(self.get()) }
 	}
 
 	/// Checks if the [Function] is the built-in function constructor.
 	pub fn is_function_constructor(&self) -> bool {
-		unsafe { JS_IsBuiltinFunctionConstructor(***self) }
-	}
-
-	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSFunction>
-	where
-		'f: 's,
-	{
-		self.function.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, *mut JSFunction>
-	where
-		'f: 's,
-	{
-		self.function.handle_mut()
+		unsafe { JS_IsBuiltinFunctionConstructor(self.get()) }
 	}
 
 	/// Checks if [a raw object](*mut JSObject) is a function.

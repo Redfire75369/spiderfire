@@ -4,12 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::SetDataPropertyDescriptor;
 use mozjs::jsapi::{FromPropertyDescriptor, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
-use mozjs::rust::{Handle, MutableHandle};
 
 use crate::{Context, Local, Object, Value};
 use crate::flags::PropertyFlags;
@@ -38,45 +37,31 @@ impl<'pd> PropertyDescriptor<'pd> {
 	}
 
 	pub fn is_configurable(&self) -> bool {
-		self.desc.hasConfigurable_() && self.desc.configurable_()
+		self.handle().hasConfigurable_() && self.handle().configurable_()
 	}
 
 	pub fn is_enumerable(&self) -> bool {
-		self.desc.hasEnumerable_() && self.desc.enumerable_()
+		self.handle().hasEnumerable_() && self.handle().enumerable_()
 	}
 
 	pub fn is_writable(&self) -> bool {
-		self.desc.hasWritable_() && self.desc.writable_()
+		self.handle().hasWritable_() && self.handle().writable_()
 	}
 
 	pub fn is_resolving(&self) -> bool {
-		self.desc.resolving_()
+		self.handle().resolving_()
 	}
 
 	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.hasGetter_().then(|| Object::from(cx.root_object(self.getter_)))
+		self.handle().hasGetter_().then(|| Object::from(cx.root_object(self.handle().getter_)))
 	}
 
 	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.hasSetter_().then(|| Object::from(cx.root_object(self.setter_)))
+		self.handle().hasSetter_().then(|| Object::from(cx.root_object(self.handle().setter_)))
 	}
 
 	pub fn value<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {
-		self.hasValue_().then(|| Value::from(cx.root_value(self.value_)))
-	}
-
-	pub fn handle<'s>(&'s self) -> Handle<'s, JSPropertyDescriptor>
-	where
-		'pd: 's,
-	{
-		self.desc.handle()
-	}
-
-	pub fn handle_mut<'s>(&'s mut self) -> MutableHandle<'s, JSPropertyDescriptor>
-	where
-		'pd: 's,
-	{
-		self.desc.handle_mut()
+		self.handle().hasValue_().then(|| Value::from(cx.root_value(self.handle().value_)))
 	}
 
 	pub fn into_local(self) -> Local<'pd, JSPropertyDescriptor> {
@@ -93,7 +78,13 @@ impl<'pd> From<Local<'pd, JSPropertyDescriptor>> for PropertyDescriptor<'pd> {
 impl<'pd> Deref for PropertyDescriptor<'pd> {
 	type Target = Local<'pd, JSPropertyDescriptor>;
 
-	fn deref(&self) -> &Local<'pd, JSPropertyDescriptor> {
+	fn deref(&self) -> &Self::Target {
 		&self.desc
+	}
+}
+
+impl<'pd> DerefMut for PropertyDescriptor<'pd> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.desc
 	}
 }

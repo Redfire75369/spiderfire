@@ -123,7 +123,7 @@ fn assert<'cx: 'v, 'v>(cx: &'cx Context, assertion: Option<bool>, #[ion(varargs)
 				return;
 			}
 
-			if values[0].is_string() {
+			if values[0].handle().is_string() {
 				print_indent(true);
 				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), &values[0]));
 				print_args(cx, &values[2..], true);

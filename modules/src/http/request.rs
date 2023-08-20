@@ -239,9 +239,9 @@ macro_rules! typedarray_to_bytes {
 }
 
 pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes> {
-	if body.is_string() {
+	if body.handle().is_string() {
 		Ok(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
-	} else if body.is_object() {
+	} else if body.handle().is_object() {
 		let body = body.to_object(cx);
 
 		let mut class = ESClass::Other;
@@ -257,7 +257,7 @@ pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) 
 			return Err(Error::new("Failed to Get Class of Input", ErrorKind::Type));
 		}
 
-		typedarray_to_bytes!(**body, [ArrayBuffer, true], [ArrayBufferView, true])
+		typedarray_to_bytes!(body.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])
 	} else {
 		Err(Error::new("Expected Body to be String or Object", ErrorKind::Type))
 	}

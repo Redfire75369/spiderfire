@@ -32,7 +32,7 @@ mod search_params {
 
 			Ok(URLSearchParams {
 				pairs,
-				url: Some(Heap::boxed(***url_object)),
+				url: Some(Heap::boxed(url_object.handle().get())),
 			})
 		}
 

@@ -179,12 +179,13 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(let mut this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(***this)));)
+			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(
+				this.handle().get())));)
 	});
 	let unrooter = parameters
 		.this
 		.is_some()
-		.then(|| quote!(#krate::Context::unroot_persistent_object(*this.take().unwrap().take());));
+		.then(|| quote!(#krate::Context::unroot_persistent_object(this.take().unwrap().take().handle().get());));
 
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
