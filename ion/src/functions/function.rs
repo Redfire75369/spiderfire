@@ -37,14 +37,14 @@ impl<'f> Function<'f> {
 	pub fn new<'cx>(cx: &'cx Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function<'cx> {
 		let name = CString::new(name).unwrap();
 		Function {
-			function: cx.root_function(unsafe { JS_NewFunction(**cx, func, nargs, flags.bits() as u32, name.as_ptr() as *const i8) }),
+			function: cx.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr() as *const i8) }),
 		}
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
 	pub fn from_spec<'cx>(cx: &'cx Context, spec: *const JSFunctionSpec) -> Function<'cx> {
 		Function {
-			function: cx.root_function(unsafe { NewFunctionFromSpec1(**cx, spec) }),
+			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
 	}
 
@@ -53,7 +53,7 @@ impl<'f> Function<'f> {
 		unsafe {
 			let function = Function {
 				function: cx.root_function(NewFunctionWithReserved(
-					**cx,
+					cx.as_ptr(),
 					Some(call_closure),
 					nargs,
 					flags.bits() as u32,
@@ -86,15 +86,15 @@ impl<'f> Function<'f> {
 	/// Converts the [Function] into a [String] in the form of its definition/source.
 	pub fn to_string(&self, cx: &Context) -> String {
 		unsafe {
-			let str = JS_DecompileFunction(**cx, self.handle().into());
-			jsstr_to_string(**cx, str)
+			let str = JS_DecompileFunction(cx.as_ptr(), self.handle().into());
+			jsstr_to_string(cx.as_ptr(), str)
 		}
 	}
 
 	/// Returns the name of the function.
 	pub fn name(&self, cx: &Context) -> Option<String> {
 		let id = unsafe { JS_GetFunctionId(***self) };
-		(!id.is_null()).then(|| unsafe { jsstr_to_string(**cx, id) })
+		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
 	}
 
 	/// Returns the display name of the function.
@@ -102,7 +102,7 @@ impl<'f> Function<'f> {
 	/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/displayName) for more details.
 	pub fn display_name(&self, cx: &Context) -> Option<String> {
 		let id = unsafe { JS_GetFunctionDisplayId(***self) };
-		(!id.is_null()).then(|| unsafe { jsstr_to_string(**cx, id) })
+		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
 	}
 
 	/// Returns the number of arguments of the function.
@@ -113,7 +113,7 @@ impl<'f> Function<'f> {
 	/// Returns the length of the source of the function.
 	pub fn length(&self, cx: &Context) -> Option<u16> {
 		let mut length = 0;
-		unsafe { JS_GetFunctionLength(**cx, self.handle().into(), &mut length) }.then_some(length)
+		unsafe { JS_GetFunctionLength(cx.as_ptr(), self.handle().into(), &mut length) }.then_some(length)
 	}
 
 	/// Calls the [Function] with the given `this` [Object] and arguments.
@@ -129,7 +129,7 @@ impl<'f> Function<'f> {
 	/// Returns [Err] if the function call fails or an exception occurs.
 	pub fn call_with_handle<'cx>(&self, cx: &'cx Context, this: &Object, args: HandleValueArray) -> Result<Value<'cx>, Option<ErrorReport>> {
 		let mut rval = Value::undefined(cx);
-		if unsafe { JS_CallFunction(**cx, this.handle().into(), self.handle().into(), &args, rval.handle_mut().into()) } {
+		if unsafe { JS_CallFunction(cx.as_ptr(), this.handle().into(), self.handle().into(), &args, rval.handle_mut().into()) } {
 			Ok(rval)
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx))

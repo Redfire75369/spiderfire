@@ -23,9 +23,8 @@ fn modules() {
 
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let _rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(&cx);
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);

@@ -39,17 +39,17 @@ impl<'k> PropertyKey<'k> {
 
 	pub fn from_proto_key<'cx>(cx: &'cx Context, proto_key: JSProtoKey) -> PropertyKey<'cx> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		unsafe { ProtoKeyToId(**cx, proto_key, key.handle_mut().into()) }
+		unsafe { ProtoKeyToId(cx.as_ptr(), proto_key, key.handle_mut().into()) }
 		key
 	}
 
 	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Option<PropertyKey<'cx>> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_ValueToId(**cx, value.handle().into(), key.handle_mut().into()) }).then_some(key)
+		(unsafe { JS_ValueToId(cx.as_ptr(), value.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 
 	pub fn to_proto_key(&self, cx: &Context) -> Option<JSProtoKey> {
-		let proto_key = unsafe { JS_IdToProtoKey(**cx, self.handle().into()) };
+		let proto_key = unsafe { JS_IdToProtoKey(cx.as_ptr(), self.handle().into()) };
 		(proto_key != JSProtoKey::JSProto_Null).then_some(proto_key)
 	}
 

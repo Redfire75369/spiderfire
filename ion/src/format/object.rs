@@ -29,7 +29,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 	unsafe {
 		use ESClass as ESC;
 		let mut class = ESC::Other;
-		if !GetBuiltinClass(**cx, object.handle().into(), &mut class) {
+		if !GetBuiltinClass(cx.as_ptr(), object.handle().into(), &mut class) {
 			return String::from("");
 		}
 
@@ -51,7 +51,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 			}
 			_ => {
 				let value = object.as_value(cx);
-				jsstr_to_string(**cx, JS_ValueToSource(**cx, value.handle().into()))
+				jsstr_to_string(cx.as_ptr(), JS_ValueToSource(cx.as_ptr(), value.handle().into()))
 			}
 		}
 	}

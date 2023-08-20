@@ -27,7 +27,7 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	let error_handler = error_handler();
 
 	let body = parse_quote!({
-		let cx = &#krate::Context::new(&mut cx);
+		let cx = &#krate::Context::new_unchecked(cx);
 		let mut args = #krate::Arguments::new(cx, argc, vp);
 
 		#wrapper
@@ -53,7 +53,7 @@ pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 	let params: [FnArg; 3] = [
-		parse_quote!(mut cx: *mut ::mozjs::jsapi::JSContext),
+		parse_quote!(cx: *mut ::mozjs::jsapi::JSContext),
 		parse_quote!(argc: ::core::primitive::u32),
 		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
 	];

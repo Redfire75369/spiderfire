@@ -63,7 +63,7 @@ macro_rules! impl_from_value_for_integer {
 					return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
 				}
 
-				match <$ty>::from_jsval(**cx, value.handle(), config) {
+				match <$ty>::from_jsval(cx.as_ptr(), value.handle(), config) {
 					Ok(ConversionResult::Success(number)) => Ok(number),
 					Err(_) => Err(Exception::new(cx).unwrap().to_error()),
 					_ => unreachable!(),
@@ -105,7 +105,7 @@ impl<'cx> FromValue<'cx> for f64 {
 			return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
 		}
 
-		ToNumber(**cx, value.handle()).map_err(|_| Error::new("Unable to Convert Value to Number", ErrorKind::Type))
+		ToNumber(cx.as_ptr(), value.handle()).map_err(|_| Error::new("Unable to Convert Value to Number", ErrorKind::Type))
 	}
 }
 
@@ -119,7 +119,7 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 		if strict && !value.is_string() {
 			return Err(Error::new("Expected String in Strict Conversion", ErrorKind::Type));
 		}
-		Ok(ToString(**cx, value.handle()))
+		Ok(ToString(cx.as_ptr(), value.handle()))
 	}
 }
 
@@ -156,7 +156,7 @@ impl<'cx> FromValue<'cx> for *mut JSObject {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
 		let object = (**value).to_object();
-		AssertSameCompartment(**cx, object);
+		AssertSameCompartment(cx.as_ptr(), object);
 
 		Ok(object)
 	}
@@ -173,7 +173,7 @@ impl<'cx> FromValue<'cx> for Object<'cx> {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
 		let object = value.to_object(cx);
-		AssertSameCompartment(**cx, **object);
+		AssertSameCompartment(cx.as_ptr(), **object);
 
 		Ok(object)
 	}
@@ -192,7 +192,7 @@ impl<'cx> FromValue<'cx> for Array<'cx> {
 
 		let object = value.to_object(cx).into_local();
 		if let Some(array) = Array::from(cx, object) {
-			AssertSameCompartment(**cx, **array);
+			AssertSameCompartment(cx.as_ptr(), **array);
 			Ok(array)
 		} else {
 			Err(Error::new("Expected Array", ErrorKind::Type))
@@ -213,7 +213,7 @@ impl<'cx> FromValue<'cx> for Date<'cx> {
 
 		let object = value.to_object(cx).into_local();
 		if let Some(date) = Date::from(cx, object) {
-			AssertSameCompartment(**cx, **date);
+			AssertSameCompartment(cx.as_ptr(), **date);
 			Ok(date)
 		} else {
 			Err(Error::new("Expected Date", ErrorKind::Type))
@@ -234,7 +234,7 @@ impl<'cx> FromValue<'cx> for Promise<'cx> {
 
 		let object = value.to_object(cx).into_local();
 		if let Some(promise) = Promise::from(object) {
-			AssertSameCompartment(**cx, **promise);
+			AssertSameCompartment(cx.as_ptr(), **promise);
 			Ok(promise)
 		} else {
 			Err(Error::new("Expected Promise", ErrorKind::Type))
@@ -266,7 +266,7 @@ impl<'cx> FromValue<'cx> for Function<'cx> {
 
 		let function_obj = value.to_object(cx);
 		if let Some(function) = Function::from_object(cx, &function_obj) {
-			AssertSameCompartment(**cx, **function_obj);
+			AssertSameCompartment(cx.as_ptr(), **function_obj);
 			Ok(function)
 		} else {
 			Err(Error::new("Expected Function", ErrorKind::Type))
@@ -307,7 +307,7 @@ impl<'cx> FromValue<'cx> for JSVal {
 	where
 		'cx: 'v,
 	{
-		AssertSameCompartment1(**cx, value.handle().into());
+		AssertSameCompartment1(cx.as_ptr(), value.handle().into());
 		Ok(***value)
 	}
 }
@@ -319,7 +319,7 @@ impl<'cx> FromValue<'cx> for Value<'cx> {
 	where
 		'cx: 'v,
 	{
-		AssertSameCompartment1(**cx, value.handle().into());
+		AssertSameCompartment1(cx.as_ptr(), value.handle().into());
 		Ok(cx.root_value(***value).into())
 	}
 }
@@ -347,7 +347,7 @@ struct ForOfIteratorGuard<'a> {
 impl<'a> ForOfIteratorGuard<'a> {
 	fn new(cx: &Context, root: &'a mut ForOfIterator) -> Self {
 		unsafe {
-			root.iterator.add_to_root_stack(**cx);
+			root.iterator.add_to_root_stack(cx.as_ptr());
 		}
 		ForOfIteratorGuard { root }
 	}
@@ -381,7 +381,7 @@ where
 		}
 
 		let mut iterator = ForOfIterator {
-			cx_: **cx,
+			cx_: cx.as_ptr(),
 			iterator: RootedObject::new_unrooted(),
 			nextMethod: RootedValue::new_unrooted(),
 			index: u32::MAX, // NOT_ARRAY

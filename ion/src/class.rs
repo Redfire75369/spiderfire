@@ -83,7 +83,7 @@ pub trait ClassInitialiser {
 
 		let class = unsafe {
 			JS_InitClass(
-				**cx,
+				cx.as_ptr(),
 				object.handle().into(),
 				parent_proto.handle().into(),
 				class,
@@ -97,7 +97,7 @@ pub trait ClassInitialiser {
 		};
 		let class = cx.root_object(class);
 
-		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(**cx, class.handle().into()) }));
+		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), class.handle().into()) }));
 		let constructor = Function::from_object(cx, &constructor).unwrap();
 
 		let class_info = ClassInfo {
@@ -121,7 +121,7 @@ pub trait ClassInitialiser {
 			let info = (*infos).get(&TypeId::of::<Self>()).expect("Uninitialised Class");
 			let b = Box::new(Some(native));
 			unsafe {
-				let obj = JS_NewObjectWithGivenProto(**cx, Self::class(), Handle::from_marked_location(&info.prototype));
+				let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype));
 				JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(b) as *mut c_void));
 				obj
 			}
@@ -143,7 +143,7 @@ pub trait ClassInitialiser {
 	fn instance_of(cx: &Context, object: &Object, args: Option<&Arguments>) -> bool {
 		unsafe {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			JS_InstanceOf(**cx, object.handle().into(), Self::class(), args)
+			JS_InstanceOf(cx.as_ptr(), object.handle().into(), Self::class(), args)
 		}
 	}
 }

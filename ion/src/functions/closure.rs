@@ -22,14 +22,14 @@ pub type Closure = dyn for<'cx> Fn(&'cx Context, &mut Arguments<'cx>) -> Result<
 
 pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>) -> Object<'cx> {
 	unsafe {
-		let object = Object::from(cx.root_object(JS_NewObject(**cx, &CLOSURE_CLASS)));
+		let object = Object::from(cx.root_object(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
 		JS_SetReservedSlot(**object, CLOSURE_SLOT, &PrivateValue(Box::into_raw(Box::new(closure)) as *const _));
 		object
 	}
 }
 
-pub(crate) unsafe extern "C" fn call_closure(mut cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-	let cx = &Context::new(&mut cx);
+pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
+	let cx = &Context::new_unchecked(cx);
 	let mut args = Arguments::new(cx, argc, vp);
 
 	let callee = cx.root_object(args.call_args().callee());

@@ -245,11 +245,11 @@ pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) 
 		let body = body.to_object(cx);
 
 		let mut class = ESClass::Other;
-		if GetBuiltinClass(**cx, body.handle().into(), &mut class) {
+		if GetBuiltinClass(cx.as_ptr(), body.handle().into(), &mut class) {
 			if class == ESClass::String {
 				let mut unboxed = Value::undefined(cx);
 
-				if Unbox(**cx, body.handle().into(), unboxed.handle_mut().into()) {
+				if Unbox(cx.as_ptr(), body.handle().into(), unboxed.handle_mut().into()) {
 					return Ok(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
 				}
 			}

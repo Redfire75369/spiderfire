@@ -54,7 +54,7 @@ where
 		let error_handler = error_handler();
 
 		let body = parse_quote!({
-			let cx = &#krate::Context::new(&mut cx);
+			let cx = &#krate::Context::new_unchecked(cx);
 			let mut args = #krate::Arguments::new(cx, argc, vp);
 			let mut this = args.this().to_object(cx);
 

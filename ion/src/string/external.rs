@@ -23,7 +23,7 @@ pub(crate) fn new_external_string<'cx>(cx: &'cx Context, str: WString<NativeEndi
 
 	unsafe {
 		let callbacks = CreateJSExternalStringCallbacks(&EXTERNAL_STRING_CALLBACKS_TRAPS, private_data);
-		let jsstr = JS_NewExternalString(**cx, chars, len, callbacks);
+		let jsstr = JS_NewExternalString(cx.as_ptr(), chars, len, callbacks);
 
 		if !jsstr.is_null() {
 			Ok(String::from(cx.root_string(jsstr)))

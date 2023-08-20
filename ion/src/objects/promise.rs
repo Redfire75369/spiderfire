@@ -34,7 +34,7 @@ impl<'p> Promise<'p> {
 	/// Creates a new [Promise] which never resolves.
 	pub fn new<'cx>(cx: &'cx Context) -> Promise<'cx> {
 		Promise {
-			promise: cx.root_object(unsafe { NewPromiseObject(**cx, HandleObject::null().into()) }),
+			promise: cx.root_object(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
 		}
 	}
 
@@ -46,8 +46,8 @@ impl<'p> Promise<'p> {
 		F: for<'cx2> FnOnce(&'cx2 Context, Function<'cx2>, Function<'cx2>) -> crate::Result<()> + 'static,
 	{
 		unsafe {
-			let native = move |mut cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
-				let cx = Context::new(&mut cx);
+			let native = move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
+				let cx = Context::new_unchecked(cx);
 				let args = Arguments::new(&cx, argc, vp);
 
 				let resolve_obj = args.value(0).unwrap().to_object(&cx).into_local();
@@ -68,7 +68,7 @@ impl<'p> Promise<'p> {
 
 			let function = Function::new(cx, "executor", Some(*fn_ptr), 2, PropertyFlags::empty());
 			let executor = function.to_object(cx);
-			let promise = NewPromiseObject(**cx, executor.handle().into());
+			let promise = NewPromiseObject(cx.as_ptr(), executor.handle().into());
 
 			if !promise.is_null() {
 				Some(Promise { promise: cx.root_object(promise) })
@@ -167,17 +167,17 @@ impl<'p> Promise<'p> {
 		if let Some(on_rejected) = on_rejected {
 			rejected.handle_mut().set(**on_rejected.to_object(cx));
 		}
-		unsafe { AddPromiseReactions(**cx, self.handle().into(), resolved.handle().into(), rejected.handle().into()) }
+		unsafe { AddPromiseReactions(cx.as_ptr(), self.handle().into(), resolved.handle().into(), rejected.handle().into()) }
 	}
 
 	/// Resolves the [Promise] with the given [Value].
 	pub fn resolve(&self, cx: &Context, value: &Value) -> bool {
-		unsafe { ResolvePromise(**cx, self.handle().into(), value.handle().into()) }
+		unsafe { ResolvePromise(cx.as_ptr(), self.handle().into(), value.handle().into()) }
 	}
 
 	/// Rejects the [Promise] with the given [Value].
 	pub fn reject(&self, cx: &Context, value: &Value) -> bool {
-		unsafe { RejectPromise(**cx, self.handle().into(), value.handle().into()) }
+		unsafe { RejectPromise(cx.as_ptr(), self.handle().into(), value.handle().into()) }
 	}
 
 	pub fn handle<'s>(&'s self) -> Handle<'s, *mut JSObject>
@@ -196,7 +196,7 @@ impl<'p> Promise<'p> {
 
 	/// Checks if a [*mut] [JSObject] is a promise.
 	pub fn is_promise_raw(cx: &Context, object: *mut JSObject) -> bool {
-		rooted!(in(**cx) let object = object);
+		rooted!(in(cx.as_ptr()) let object = object);
 		unsafe { IsPromiseObject(object.handle().into()) }
 	}
 

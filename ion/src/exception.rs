@@ -35,9 +35,9 @@ impl Exception {
 	/// Returns [None] if there is no pending exception.
 	pub fn new(cx: &Context) -> Option<Exception> {
 		unsafe {
-			if JS_IsExceptionPending(**cx) {
+			if JS_IsExceptionPending(cx.as_ptr()) {
 				let mut exception = Value::undefined(cx);
-				if JS_GetPendingException(**cx, exception.handle_mut().into()) {
+				if JS_GetPendingException(cx.as_ptr(), exception.handle_mut().into()) {
 					let exception = Exception::from_value(cx, &exception);
 					Exception::clear(cx);
 					Some(exception)
@@ -65,7 +65,7 @@ impl Exception {
 	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
 		unsafe {
 			let mut class = ESClass::Other;
-			if GetBuiltinClass(**cx, exception.handle().into(), &mut class) && class == ESClass::Error {
+			if GetBuiltinClass(cx.as_ptr(), exception.handle().into(), &mut class) && class == ESClass::Error {
 				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
 				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
 				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
@@ -88,12 +88,12 @@ impl Exception {
 
 	/// Clears the pending exception within the runtime.
 	pub fn clear(cx: &Context) {
-		unsafe { JS_ClearPendingException(**cx) };
+		unsafe { JS_ClearPendingException(cx.as_ptr()) };
 	}
 
 	/// Checks if an exception is pending in the runtime.
 	pub fn is_pending(cx: &Context) -> bool {
-		unsafe { JS_IsExceptionPending(**cx) }
+		unsafe { JS_IsExceptionPending(cx.as_ptr()) }
 	}
 
 	/// Converts [Exception] to an [Error]
@@ -136,14 +136,14 @@ impl ThrowException for Exception {
 			Exception::Error(error) => {
 				if let Error { object: Some(object), .. } = error {
 					let exception = Value::from(cx.root_value(ObjectValue(*object)));
-					unsafe { JS_SetPendingException(**cx, exception.handle().into(), ExceptionStackBehavior::DoNotCapture) }
+					unsafe { JS_SetPendingException(cx.as_ptr(), exception.handle().into(), ExceptionStackBehavior::DoNotCapture) }
 				} else {
 					error.throw(cx);
 				}
 			}
 			Exception::Other(value) => {
 				let value = Value::from(cx.root_value(*value));
-				unsafe { JS_SetPendingException(**cx, value.handle().into(), ExceptionStackBehavior::Capture) }
+				unsafe { JS_SetPendingException(cx.as_ptr(), value.handle().into(), ExceptionStackBehavior::Capture) }
 			}
 		}
 	}
@@ -188,12 +188,12 @@ impl ErrorReport {
 	/// Returns [None] if there is no pending exception.
 	pub fn new_with_exception_stack(cx: &Context) -> Option<ErrorReport> {
 		unsafe {
-			if JS_IsExceptionPending(**cx) {
+			if JS_IsExceptionPending(cx.as_ptr()) {
 				let mut exception_stack = ExceptionStack {
 					exception_: Rooted::new_unrooted(),
 					stack_: Rooted::new_unrooted(),
 				};
-				if GetPendingExceptionStack(**cx, &mut exception_stack) {
+				if GetPendingExceptionStack(cx.as_ptr(), &mut exception_stack) {
 					let exception = Value::from(cx.root_value(exception_stack.exception_.ptr));
 					let exception = Exception::from_value(cx, &exception);
 					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
@@ -217,7 +217,7 @@ impl ErrorReport {
 	pub fn from_exception_with_error_stack(cx: &Context, exception: Exception) -> ErrorReport {
 		let stack = if let Exception::Error(Error { object: Some(object), .. }) = exception {
 			unsafe {
-				rooted!(in(**cx) let exc = object);
+				rooted!(in(cx.as_ptr()) let exc = object);
 				Stack::from_object(cx, ExceptionStackOrNull(exc.handle().into()))
 			}
 		} else {

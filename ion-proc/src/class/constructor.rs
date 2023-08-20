@@ -30,9 +30,9 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 	let error_handler = error_handler(ty, return_type);
 
 	let body = parse_quote!({
-		let cx = &#krate::Context::new(&mut cx);
+		let cx = &#krate::Context::new_unchecked(cx);
 		let mut args = #krate::Arguments::new(cx, argc, vp);
-		let mut this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(**cx, &CLASS, &args.call_args())));
+		let mut this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &CLASS, &args.call_args())));
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {

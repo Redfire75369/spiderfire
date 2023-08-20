@@ -40,7 +40,7 @@ impl Microtask {
 				let mut rval = Value::undefined(cx);
 				let args = HandleValueArray::new();
 
-				if Call(**cx, UndefinedHandleValue, value.handle().into(), &args, rval.handle_mut().into()) {
+				if Call(cx.as_ptr(), UndefinedHandleValue, value.handle().into(), &args, rval.handle_mut().into()) {
 					Ok(())
 				} else {
 					Err(ErrorReport::new_with_exception_stack(cx))
@@ -76,7 +76,7 @@ impl MicrotaskQueue {
 		}
 
 		self.draining.set(false);
-		unsafe { JobQueueIsEmpty(**cx) };
+		unsafe { JobQueueIsEmpty(cx.as_ptr()) };
 
 		Ok(())
 	}
@@ -122,7 +122,7 @@ pub(crate) fn init_microtask_queue(cx: &Context) -> Rc<MicrotaskQueue> {
 	let microtask_queue = Rc::new(MicrotaskQueue::default());
 	unsafe {
 		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, &*microtask_queue as *const _ as *const c_void);
-		SetJobQueue(**cx, queue);
+		SetJobQueue(cx.as_ptr(), queue);
 	}
 	microtask_queue
 }

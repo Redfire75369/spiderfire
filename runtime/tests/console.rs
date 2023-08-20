@@ -22,9 +22,8 @@ fn console() {
 
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let _rt = RuntimeBuilder::<()>::new().build(&cx);
 
 	let result = Script::compile_and_evaluate(&cx, Path::new(FILE_NAME), SCRIPT);

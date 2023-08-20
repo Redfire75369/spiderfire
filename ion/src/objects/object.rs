@@ -35,7 +35,7 @@ pub struct Object<'o> {
 impl<'o> Object<'o> {
 	/// Creates a plain empty [Object].
 	pub fn new<'cx>(cx: &'cx Context) -> Object<'cx> {
-		Object::from(cx.root_object(unsafe { JS_NewPlainObject(**cx) }))
+		Object::from(cx.root_object(unsafe { JS_NewPlainObject(cx.as_ptr()) }))
 	}
 
 	/// Creates a `null` "Object".
@@ -47,14 +47,14 @@ impl<'o> Object<'o> {
 
 	/// Returns the current global object or `null` if one has not been initialised yet.
 	pub fn global<'cx>(cx: &'cx Context) -> Object<'cx> {
-		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(**cx) }))
+		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(cx.as_ptr()) }))
 	}
 
 	/// Checks if the [Object] has a value at the given [key](Key).
 	pub fn has<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut found = false;
-		if unsafe { JS_HasPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
+		if unsafe { JS_HasPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -68,7 +68,7 @@ impl<'o> Object<'o> {
 	pub fn has_own<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut found = false;
-		if unsafe { JS_HasOwnPropertyById(**cx, self.handle().into(), key.handle().into(), &mut found) } {
+		if unsafe { JS_HasOwnPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), &mut found) } {
 			found
 		} else {
 			Exception::clear(cx);
@@ -83,7 +83,7 @@ impl<'o> Object<'o> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
 			let mut rval = Value::undefined(cx);
-			unsafe { JS_GetPropertyById(**cx, self.handle().into(), key.handle().into(), rval.handle_mut().into()) };
+			unsafe { JS_GetPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), rval.handle_mut().into()) };
 			Some(rval)
 		} else {
 			None
@@ -101,7 +101,7 @@ impl<'o> Object<'o> {
 	/// Returns `false` if the property cannot be set.
 	pub fn set<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
 		let key = key.to_key(cx).unwrap();
-		unsafe { JS_SetPropertyById(**cx, self.handle().into(), key.handle().into(), value.handle().into()) }
+		unsafe { JS_SetPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), value.handle().into()) }
 	}
 
 	/// Sets the Rust type at the given [key](Key) of the [Object].
@@ -118,7 +118,7 @@ impl<'o> Object<'o> {
 		let key = key.to_key(cx).unwrap();
 		unsafe {
 			JS_DefinePropertyById2(
-				**cx,
+				cx.as_ptr(),
 				self.handle().into(),
 				key.handle().into(),
 				value.handle().into(),
@@ -143,8 +143,17 @@ impl<'o> Object<'o> {
 		&mut self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
 	) -> Function<'cx> {
 		let key = key.to_key(cx).unwrap();
-		cx.root_function(unsafe { JS_DefineFunctionById(**cx, self.handle().into(), key.handle().into(), Some(method), nargs, attrs.bits() as u32) })
-			.into()
+		cx.root_function(unsafe {
+			JS_DefineFunctionById(
+				cx.as_ptr(),
+				self.handle().into(),
+				key.handle().into(),
+				Some(method),
+				nargs,
+				attrs.bits() as u32,
+			)
+		})
+		.into()
 	}
 
 	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
@@ -153,14 +162,14 @@ impl<'o> Object<'o> {
 	///
 	/// They can be created through [function_spec](crate::function_spec).
 	pub fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
-		unsafe { JS_DefineFunctions(**cx, self.handle().into(), methods.as_ptr()) }
+		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Defines methods on the [Object] using the given [JSFunctionSpecWithHelp]s.
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
 	pub fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
-		unsafe { JS_DefineFunctionsWithHelp(**cx, self.handle().into(), methods.as_ptr()) }
+		unsafe { JS_DefineFunctionsWithHelp(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Deletes the [Value] at the given index.
@@ -169,7 +178,7 @@ impl<'o> Object<'o> {
 	pub fn delete<'cx: 'o, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut result = MaybeUninit::uninit();
-		unsafe { JS_DeletePropertyById(**cx, self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
+		unsafe { JS_DeletePropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
 	}
 
 	/// Returns an iterator of the keys of the [Object].
@@ -177,8 +186,8 @@ impl<'o> Object<'o> {
 	/// Each [Key] can be a [String], [Symbol] or integer.
 	pub fn keys<'c, 'cx: 'o>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
-		let mut ids = unsafe { IdVector::new(**cx) };
-		unsafe { GetPropertyKeys(**cx, self.handle().into(), flags.bits(), ids.handle_mut()) };
+		let mut ids = unsafe { IdVector::new(cx.as_ptr()) };
+		unsafe { GetPropertyKeys(cx.as_ptr(), self.handle().into(), flags.bits(), ids.handle_mut()) };
 		ObjectKeysIter::new(cx, ids)
 	}
 

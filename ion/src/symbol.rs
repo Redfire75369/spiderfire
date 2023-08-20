@@ -133,7 +133,7 @@ impl<'s> Symbol<'s> {
 		let description = unsafe { description.as_value(cx) };
 		let description = cx.root_string(description.to_string());
 
-		let symbol = unsafe { NewSymbol(**cx, description.handle().into()) };
+		let symbol = unsafe { NewSymbol(cx.as_ptr(), description.handle().into()) };
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
@@ -142,13 +142,13 @@ impl<'s> Symbol<'s> {
 		let key = unsafe { key.as_value(cx) };
 		let key = cx.root_string(key.to_string());
 
-		let symbol = unsafe { GetSymbolFor(**cx, key.handle().into()) };
+		let symbol = unsafe { GetSymbolFor(cx.as_ptr(), key.handle().into()) };
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 
 	/// Creates a well-known symbol with its corresponding code.
 	pub fn well_known<'cx>(cx: &'cx Context, code: WellKnownSymbolCode) -> Symbol<'cx> {
-		let symbol = unsafe { GetWellKnownSymbol(**cx, code.into()) };
+		let symbol = unsafe { GetWellKnownSymbol(cx.as_ptr(), code.into()) };
 		Symbol { symbol: cx.root_symbol(symbol) }
 	}
 

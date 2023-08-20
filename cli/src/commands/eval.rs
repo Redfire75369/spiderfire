@@ -15,9 +15,8 @@ use crate::evaluate::eval_inline;
 pub(crate) async fn eval_source(source: &str) {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()

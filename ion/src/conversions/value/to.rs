@@ -87,7 +87,7 @@ impl_to_value_as_double!(f64);
 impl ToValue<'_> for *mut JSString {
 	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		value.handle_mut().set(StringValue(&**self));
-		JS_WrapValue(**cx, value.handle_mut().into());
+		JS_WrapValue(cx.as_ptr(), value.handle_mut().into());
 	}
 }
 
@@ -117,14 +117,14 @@ impl<'cx> ToValue<'cx> for RustString {
 impl ToValue<'_> for *mut JSObject {
 	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		value.handle_mut().set(ObjectOrNullValue(*self));
-		maybe_wrap_object_or_null_value(**cx, value.handle_mut());
+		maybe_wrap_object_or_null_value(cx.as_ptr(), value.handle_mut());
 	}
 }
 
 impl ToValue<'_> for NonNull<JSObject> {
 	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		value.handle_mut().set(ObjectValue(self.as_ptr()));
-		maybe_wrap_object_value(**cx, value.handle_mut());
+		maybe_wrap_object_value(cx.as_ptr(), value.handle_mut());
 	}
 }
 
@@ -179,7 +179,7 @@ impl<'cx> ToValue<'cx> for Symbol<'cx> {
 impl ToValue<'_> for JSVal {
 	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
 		value.handle_mut().set(*self);
-		maybe_wrap_value(**cx, value.handle_mut());
+		maybe_wrap_value(cx.as_ptr(), value.handle_mut());
 	}
 }
 
@@ -191,7 +191,7 @@ impl<'cx> ToValue<'cx> for Value<'cx> {
 
 impl<'cx> ToValue<'cx> for JSPropertyKey {
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		JS_IdToValue(**cx, *self, value.handle_mut().into());
+		JS_IdToValue(cx.as_ptr(), *self, value.handle_mut().into());
 	}
 }
 

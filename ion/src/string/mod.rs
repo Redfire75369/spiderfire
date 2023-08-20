@@ -33,14 +33,14 @@ pub struct String<'s> {
 impl<'s> String<'s> {
 	/// Creates an empty [String].
 	pub fn empty<'cx>(cx: &'cx Context) -> String<'cx> {
-		String::from(cx.root_string(unsafe { JS_GetEmptyString(**cx) }))
+		String::from(cx.root_string(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
 	}
 
 	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
 	pub fn new<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
 		let mut utf16: Vec<u16> = Vec::with_capacity(string.len());
 		utf16.extend(string.encode_utf16());
-		let jsstr = unsafe { JS_NewUCStringCopyN(**cx, utf16.as_ptr(), utf16.len()) };
+		let jsstr = unsafe { JS_NewUCStringCopyN(cx.as_ptr(), utf16.as_ptr(), utf16.len()) };
 		if !jsstr.is_null() {
 			Some(String::from(cx.root_string(jsstr)))
 		} else {
@@ -56,19 +56,19 @@ impl<'s> String<'s> {
 	/// Returns a slice of a [String] as a new [String].
 	pub fn slice<'cx>(&self, cx: &'cx Context, range: &Range<usize>) -> String<'cx> {
 		let Range { start, end } = range;
-		String::from(cx.root_string(unsafe { JS_NewDependentString(**cx, self.handle().into(), *start, *end) }))
+		String::from(cx.root_string(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), *start, *end) }))
 	}
 
 	/// Concatenates two [String]s into a new [String].
 	/// The resultant [String] is not linear.
 	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> String<'cx> {
-		String::from(cx.root_string(unsafe { JS_ConcatStrings(**cx, self.handle().into(), other.handle().into()) }))
+		String::from(cx.root_string(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }))
 	}
 
 	/// Compares two [String]s.
 	pub fn compare(&self, cx: &Context, other: &String) -> i32 {
 		let mut result = 0;
-		unsafe { JS_CompareStrings(**cx, ***self, ***other, &mut result) };
+		unsafe { JS_CompareStrings(cx.as_ptr(), ***self, ***other, &mut result) };
 		result
 	}
 
@@ -92,7 +92,7 @@ impl<'s> String<'s> {
 	pub fn char_at(&self, cx: &Context, index: usize) -> u16 {
 		unsafe {
 			let mut char = 0;
-			JS_GetStringCharAt(**cx, ***self, index, &mut char);
+			JS_GetStringCharAt(cx.as_ptr(), ***self, index, &mut char);
 			char
 		}
 	}
@@ -102,7 +102,7 @@ impl<'s> String<'s> {
 	pub fn as_latin1(&self, cx: &Context) -> Option<&'s [u8]> {
 		self.is_latin1().then(|| unsafe {
 			let mut length = 0;
-			let chars = JS_GetLatin1StringCharsAndLength(**cx, ptr::null(), ***self, &mut length);
+			let chars = JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), ***self, &mut length);
 			slice::from_raw_parts(chars, length)
 		})
 	}
@@ -113,7 +113,7 @@ impl<'s> String<'s> {
 		self.is_utf16()
 			.then(|| unsafe {
 				let mut length = 0;
-				let chars = JS_GetTwoByteStringCharsAndLength(**cx, ptr::null(), ***self, &mut length);
+				let chars = JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), ***self, &mut length);
 				let slice = slice::from_raw_parts(chars, length);
 				cast_slice(slice)
 			})

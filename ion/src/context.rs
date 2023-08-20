@@ -5,9 +5,10 @@
  */
 
 use std::cell::{OnceCell, RefCell};
+use std::marker::PhantomData;
 use std::mem::{take, transmute};
-use std::ops::Deref;
 use std::ptr;
+use std::ptr::NonNull;
 
 use mozjs::gc::RootedTraceableSet;
 use mozjs::jsapi::{
@@ -72,10 +73,11 @@ pub struct ContextPrivate {
 ///
 /// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
 pub struct Context<'c> {
-	context: &'c mut *mut JSContext,
+	context: NonNull<JSContext>,
 	rooted: RootedArena,
 	local: LocalArena<'static>,
 	private: OnceCell<*mut ContextPrivate>,
+	_lifetime: PhantomData<&'c ()>,
 }
 
 macro_rules! impl_root_methods {
@@ -87,7 +89,7 @@ macro_rules! impl_root_methods {
 				self.local.order.borrow_mut().push(GCType::$gc_type);
 				Local::from_rooted(
 					unsafe {
-						transmute(self.local.$key.alloc(RootedGuard::new(*self.context, transmute(rooted), ptr)))
+						transmute(self.local.$key.alloc(RootedGuard::new(self.as_ptr(), transmute(rooted), ptr)))
 					}
 				)
 			}
@@ -97,22 +99,37 @@ macro_rules! impl_root_methods {
 
 impl Context<'_> {
 	/// Creates a new [Context] with a given lifetime.
-	pub fn new(context: &mut *mut JSContext) -> Context {
-		Context {
+	pub fn new<'c>(context: *mut JSContext) -> Option<Context<'c>> {
+		NonNull::new(context).map(|context| Context {
 			context,
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
 			private: OnceCell::new(),
+			_lifetime: PhantomData::default(),
+		})
+	}
+
+	pub unsafe fn new_unchecked<'c>(context: *mut JSContext) -> Context<'c> {
+		Context {
+			context: NonNull::new_unchecked(context),
+			rooted: RootedArena::default(),
+			local: LocalArena::default(),
+			private: OnceCell::new(),
+			_lifetime: PhantomData::default(),
 		}
 	}
 
+	pub fn as_ptr(&self) -> *mut JSContext {
+		self.context.as_ptr()
+	}
+
 	pub unsafe fn get_private(&self) -> *mut ContextPrivate {
-		*self.private.get_or_init(|| JS_GetContextPrivate(*self.context) as *mut ContextPrivate)
+		*self.private.get_or_init(|| JS_GetContextPrivate(self.as_ptr()) as *mut ContextPrivate)
 	}
 
 	pub fn set_private(&self, private: ContextPrivate) {
 		let ptr = Box::into_raw(Box::new(private));
-		unsafe { JS_SetContextPrivate(*self.context, ptr as *mut _) };
+		unsafe { JS_SetContextPrivate(self.as_ptr(), ptr as *mut _) };
 	}
 
 	impl_root_methods! {
@@ -148,14 +165,6 @@ impl Context<'_> {
 			let heap = persistent.remove(idx);
 			RootedTraceableSet::remove(&heap);
 		});
-	}
-}
-
-impl Deref for Context<'_> {
-	type Target = *mut JSContext;
-
-	fn deref(&self) -> &Self::Target {
-		self.context
 	}
 }
 

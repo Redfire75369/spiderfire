@@ -22,9 +22,9 @@ impl<'s> Script<'s> {
 	pub fn compile<'cx>(cx: &'cx Context, path: &Path, script: &str) -> Result<Script<'cx>, ErrorReport> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
-		let options = unsafe { CompileOptionsWrapper::new(**cx, path.to_str().unwrap(), 1) };
+		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), path.to_str().unwrap(), 1) };
 
-		let script = unsafe { Compile(**cx, options.ptr, &mut source) };
+		let script = unsafe { Compile(cx.as_ptr(), options.ptr, &mut source) };
 
 		if !script.is_null() {
 			Ok(Script { script: cx.root_script(script) })
@@ -38,7 +38,7 @@ impl<'s> Script<'s> {
 	pub fn evaluate<'cx>(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
 		let mut rval = Value::undefined(cx);
 
-		if unsafe { JS_ExecuteScript(**cx, self.script.handle().into(), rval.handle_mut().into()) } {
+		if unsafe { JS_ExecuteScript(cx.as_ptr(), self.script.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval)
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())

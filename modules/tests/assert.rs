@@ -30,9 +30,8 @@ async fn assert() {
 
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let rt = RuntimeBuilder::new()
 		.modules(Loader::default())
 		.standard_modules(Assert)

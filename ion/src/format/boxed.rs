@@ -16,7 +16,7 @@ pub fn format_boxed(cx: &Context, cfg: Config, object: &Object, class: ESClass) 
 	let mut unboxed = Value::object(cx, &Object::new(cx));
 
 	unsafe {
-		if Unbox(**cx, object.handle().into(), unboxed.handle_mut().into()) {
+		if Unbox(cx.as_ptr(), object.handle().into(), unboxed.handle_mut().into()) {
 			use ESClass::*;
 			match class {
 				Boolean | Number | String => format_primitive(cx, cfg, &unboxed),

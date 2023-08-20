@@ -152,7 +152,7 @@ fn capture_stack(cx: &Context, max_frames: Option<u32>) -> Option<*mut JSObject>
 		let mut capture = capture.assume_init();
 
 		let mut stack = Object::null(cx);
-		if CaptureCurrentStack(**cx, stack.handle_mut().into(), &mut capture) {
+		if CaptureCurrentStack(cx.as_ptr(), stack.handle_mut().into(), &mut capture) {
 			Some(**stack)
 		} else {
 			None
@@ -162,18 +162,18 @@ fn capture_stack(cx: &Context, max_frames: Option<u32>) -> Option<*mut JSObject>
 
 fn stack_to_string(cx: &Context, stack: *mut JSObject) -> Option<String> {
 	unsafe {
-		rooted!(in(**cx) let stack = stack);
-		rooted!(in(**cx) let mut string: *mut JSString);
+		rooted!(in(cx.as_ptr()) let stack = stack);
+		rooted!(in(cx.as_ptr()) let mut string: *mut JSString);
 
 		if BuildStackString(
-			**cx,
+			cx.as_ptr(),
 			ptr::null_mut(),
 			stack.handle().into(),
 			string.handle_mut().into(),
 			0,
 			StackFormat::SpiderMonkey,
 		) {
-			Some(jsstr_to_string(**cx, string.get()))
+			Some(jsstr_to_string(cx.as_ptr(), string.get()))
 		} else {
 			None
 		}

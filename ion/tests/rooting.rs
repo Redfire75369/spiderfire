@@ -17,8 +17,7 @@ fn main() {
 	let global = unsafe { JS_NewGlobalObject(runtime.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _realm = JSAutoRealm::new(runtime.cx(), global);
 
-	let mut cx = runtime.cx();
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(runtime.cx()).unwrap();
 	let mut global = Object::from(cx.root_object(global));
 
 	let _native = global.define_method(&cx, "native", native, 1, PropertyFlags::all());
@@ -33,8 +32,8 @@ fn main() {
 	let _ = Value::string(&cx, "New String");
 }
 
-unsafe extern "C" fn native(mut cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-	let cx = Context::new(&mut cx);
+unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
+	let cx = Context::new_unchecked(cx);
 	let mut args = Arguments::new(&cx, argc, vp);
 
 	let mut correct_args = 0;

@@ -29,7 +29,7 @@ macro_rules! impl_typedarray_wrapper {
 		impl<'cx> ToValue<'cx> for $typedarray {
 			unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 				let mut typedarray = Object::new(cx);
-				if mozjs::typedarray::$typedarray::create(**cx, CreateWith::Slice(self.buf.as_slice()), typedarray.handle_mut()).is_ok() {
+				if mozjs::typedarray::$typedarray::create(cx.as_ptr(), CreateWith::Slice(self.buf.as_slice()), typedarray.handle_mut()).is_ok() {
 					typedarray.to_value(cx, value);
 				} else {
 					Error::new(concat!("Failed to create", stringify!($typedarray)), None).throw(cx)

@@ -49,7 +49,10 @@ impl<'r> ModuleRequest<'r> {
 	/// Creates a new [ModuleRequest] with a given specifier.
 	pub fn new<S: AsRef<str>>(cx: &'r Context, specifier: S) -> ModuleRequest<'r> {
 		let specifier = crate::String::new(cx, specifier.as_ref()).unwrap();
-		ModuleRequest(cx.root_object(unsafe { CreateModuleRequest(**cx, specifier.handle().into()) }).into())
+		ModuleRequest(
+			cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) })
+				.into(),
+		)
 	}
 
 	/// Creates a new [ModuleRequest] from a raw handle.
@@ -62,7 +65,8 @@ impl<'r> ModuleRequest<'r> {
 
 	/// Returns the specifier of the request.
 	pub fn specifier<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
-		cx.root_string(unsafe { GetModuleRequestSpecifier(**cx, self.0.handle().into()) }).into()
+		cx.root_string(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) })
+			.into()
 	}
 }
 
@@ -106,9 +110,9 @@ impl<'cx> Module<'cx> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
-		let options = unsafe { CompileOptionsWrapper::new(**cx, filename, 1) };
+		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), filename, 1) };
 
-		let module = unsafe { CompileModule(**cx, options.ptr as *const ReadOnlyCompileOptions, &mut source) };
+		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr as *const ReadOnlyCompileOptions, &mut source) };
 
 		if !module.is_null() {
 			let module = Module(Object::from(cx.root_object(module)));
@@ -141,7 +145,7 @@ impl<'cx> Module<'cx> {
 
 	/// Instantiates a [Module]. Generally called by [Module::compile].
 	pub fn instantiate(&self, cx: &Context) -> Result<(), ErrorReport> {
-		if unsafe { ModuleLink(**cx, self.0.handle().into()) } {
+		if unsafe { ModuleLink(cx.as_ptr(), self.0.handle().into()) } {
 			Ok(())
 		} else {
 			Err(ErrorReport::new(cx).unwrap())
@@ -151,7 +155,7 @@ impl<'cx> Module<'cx> {
 	/// Evaluates a [Module]. Generally called by [Module::compile].
 	pub fn evaluate(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
 		let mut rval = Value::undefined(cx);
-		if unsafe { ModuleEvaluate(**cx, self.0.handle().into(), rval.handle_mut().into()) } {
+		if unsafe { ModuleEvaluate(cx.as_ptr(), self.0.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval)
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
@@ -188,8 +192,8 @@ impl ModuleLoader for () {
 
 /// Initialises a module loader in the current runtime.
 pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) {
-	unsafe extern "C" fn resolve(mut cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
-		let cx = Context::new(&mut cx);
+	unsafe extern "C" fn resolve(cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
+		let cx = Context::new_unchecked(cx);
 
 		let loader = unsafe { &mut (*cx.get_private()).module_loader };
 		loader
@@ -202,8 +206,8 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 			.unwrap_or_else(ptr::null_mut)
 	}
 
-	unsafe extern "C" fn metadata(mut cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
-		let cx = Context::new(&mut cx);
+	unsafe extern "C" fn metadata(cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
+		let cx = Context::new_unchecked(cx);
 
 		let loader = unsafe { &mut (*cx.get_private()).module_loader };
 		loader
@@ -219,7 +223,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe {
 		(*cx.get_private()).module_loader = Some(Box::into_raw(Box::new(loader)));
 
-		let rt = JS_GetRuntime(**cx);
+		let rt = JS_GetRuntime(cx.as_ptr());
 		SetModuleResolveHook(rt, Some(resolve));
 		SetModuleMetadataHook(rt, Some(metadata));
 	}

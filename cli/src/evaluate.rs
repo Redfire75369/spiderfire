@@ -39,9 +39,8 @@ pub(crate) async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
 pub(crate) async fn eval_script(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
@@ -69,9 +68,8 @@ pub(crate) async fn eval_script(path: &Path) {
 pub(crate) async fn eval_module(path: &Path) {
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
-	let mut cx = rt.cx();
 
-	let cx = Context::new(&mut cx);
+	let cx = Context::new(rt.cx()).unwrap();
 	let rt = RuntimeBuilder::new()
 		.microtask_queue()
 		.macrotask_queue()

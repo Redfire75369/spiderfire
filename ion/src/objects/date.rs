@@ -29,7 +29,7 @@ impl<'d> Date<'d> {
 	/// Creates a new [Date] with the given time.
 	pub fn from_date<'cx>(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
 		Date {
-			date: cx.root_object(unsafe { NewDateObject(**cx, ClippedTime { t: time.timestamp_millis() as f64 }) }),
+			date: cx.root_object(unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) }),
 		}
 	}
 
@@ -54,13 +54,13 @@ impl<'d> Date<'d> {
 	/// Checks if the [Date] is a valid date.
 	pub fn is_valid(&self, cx: &Context) -> bool {
 		let mut is_valid = true;
-		(unsafe { DateIsValid(**cx, self.date.handle().into(), &mut is_valid) }) && is_valid
+		(unsafe { DateIsValid(cx.as_ptr(), self.date.handle().into(), &mut is_valid) }) && is_valid
 	}
 
 	/// Converts the [Date] to a [DateTime].
 	pub fn to_date(&self, cx: &Context) -> Option<DateTime<Utc>> {
 		let mut milliseconds: f64 = f64::MAX;
-		if !unsafe { DateGetMsecSinceEpoch(**cx, self.date.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
+		if !unsafe { DateGetMsecSinceEpoch(cx.as_ptr(), self.date.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
 			None
 		} else {
 			Utc.timestamp_millis_opt(milliseconds as i64).single()
@@ -83,15 +83,15 @@ impl<'d> Date<'d> {
 
 	/// Checks if a [raw object](*mut JSObject) is a date.
 	pub fn is_date_raw(cx: &Context, object: *mut JSObject) -> bool {
-		rooted!(in(**cx) let object = object);
+		rooted!(in(cx.as_ptr()) let object = object);
 		let mut is_date = false;
-		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date
+		(unsafe { ObjectIsDate(cx.as_ptr(), object.handle().into(), &mut is_date) }) && is_date
 	}
 
 	/// Checks if an object is a date.
 	pub fn is_date(cx: &Context, object: &Local<*mut JSObject>) -> bool {
 		let mut is_date = false;
-		(unsafe { ObjectIsDate(**cx, object.handle().into(), &mut is_date) }) && is_date
+		(unsafe { ObjectIsDate(cx.as_ptr(), object.handle().into(), &mut is_date) }) && is_date
 	}
 }
 

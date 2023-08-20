@@ -30,7 +30,7 @@ impl<'a> Array<'a> {
 	/// Creates an empty [Array] with the given length.
 	pub fn new_with_length<'cx>(cx: &'cx Context, length: usize) -> Array<'cx> {
 		Array {
-			array: cx.root_object(unsafe { NewArrayObject1(**cx, length) }).into(),
+			array: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
 		}
 	}
 
@@ -42,7 +42,7 @@ impl<'a> Array<'a> {
 	/// Creates an [Array] from a [HandleValueArray].
 	pub fn from_handle<'cx>(cx: &'cx Context, handle: HandleValueArray) -> Array<'cx> {
 		Array {
-			array: cx.root_object(unsafe { NewArrayObject(**cx, &handle) }).into(),
+			array: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
 		}
 	}
 
@@ -86,7 +86,7 @@ impl<'a> Array<'a> {
 	pub fn len(&self, cx: &Context) -> u32 {
 		let mut length = 0;
 		unsafe {
-			GetArrayLength(**cx, self.handle().into(), &mut length);
+			GetArrayLength(cx.as_ptr(), self.handle().into(), &mut length);
 		}
 		length
 	}
@@ -154,15 +154,15 @@ impl<'a> Array<'a> {
 
 	/// Checks if a [*mut JSObject] is an array.
 	pub fn is_array_raw(cx: &Context, object: *mut JSObject) -> bool {
-		rooted!(in(**cx) let object = object);
+		rooted!(in(cx.as_ptr()) let object = object);
 		let mut is_array = false;
-		unsafe { IsArray(**cx, object.handle().into(), &mut is_array) && is_array }
+		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
 	}
 
 	/// Checks if a [*mut JSObject] is an array.
 	pub fn is_array(cx: &Context, object: &Local<*mut JSObject>) -> bool {
 		let mut is_array = false;
-		unsafe { IsArray(**cx, object.handle().into(), &mut is_array) && is_array }
+		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
 	}
 }
 

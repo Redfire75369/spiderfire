@@ -28,13 +28,13 @@ impl<'pd> PropertyDescriptor<'pd> {
 	pub fn from_object(cx: &'pd Context, object: &Object) -> Option<PropertyDescriptor<'pd>> {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
-		unsafe { ObjectToCompletePropertyDescriptor(**cx, object.handle().into(), desc_value.handle().into(), desc.handle_mut().into()) }
+		unsafe { ObjectToCompletePropertyDescriptor(cx.as_ptr(), object.handle().into(), desc_value.handle().into(), desc.handle_mut().into()) }
 			.then_some(desc)
 	}
 
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut value = Value::undefined(cx);
-		unsafe { FromPropertyDescriptor(**cx, self.handle().into(), value.handle_mut().into()) }.then(|| value.to_object(cx))
+		unsafe { FromPropertyDescriptor(cx.as_ptr(), self.handle().into(), value.handle_mut().into()) }.then(|| value.to_object(cx))
 	}
 
 	pub fn is_configurable(&self) -> bool {

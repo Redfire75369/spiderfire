@@ -29,7 +29,7 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 #[js_fn]
 unsafe fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
 	let mut same = false;
-	if SameValue(**cx, actual.handle().into(), expected.handle().into(), &mut same) {
+	if SameValue(cx.as_ptr(), actual.handle().into(), expected.handle().into(), &mut same) {
 		if same {
 			Ok(())
 		} else {

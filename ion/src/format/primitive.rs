@@ -29,7 +29,7 @@ pub fn format_primitive(cx: &Context, cfg: Config, value: &Value) -> String {
 			number.to_string().color(colors.number).to_string()
 		}
 	} else if value.is_string() {
-		let str = unsafe { jsstr_to_string(**cx, value.to_string()) };
+		let str = unsafe { jsstr_to_string(cx.as_ptr(), value.to_string()) };
 		if cfg.quoted {
 			format!("\"{}\"", str).color(colors.string).to_string()
 		} else {

@@ -83,8 +83,8 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 		let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
 		let c_options = RealmOptions::default();
 
-		let global = unsafe { JS_NewGlobalObject(**cx, &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-		let realm = JSAutoRealm::new(**cx, global);
+		let global = unsafe { JS_NewGlobalObject(cx.as_ptr(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
+		let realm = JSAutoRealm::new(cx.as_ptr(), global);
 
 		let mut global: Object = Object::from(cx.root_object(global));
 
@@ -111,7 +111,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 			init_timers(cx, &mut global);
 		}
 
-		let _options = unsafe { &mut *ContextOptionsRef(**cx) };
+		let _options = unsafe { &mut *ContextOptionsRef(cx.as_ptr()) };
 
 		EVENT_LOOP.with(|eloop| {
 			let mut eloop = eloop.borrow_mut();
