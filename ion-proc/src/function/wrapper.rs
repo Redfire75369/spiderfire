@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::{Ident, TokenStream};
-use syn::{FnArg, GenericParam, ItemFn, parse2, Result, ReturnType, Type, WhereClause};
+use syn::{FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type, WhereClause};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -52,9 +52,16 @@ pub(crate) fn impl_wrapper_fn(
 	let mut result = quote!(result.map_err(::std::convert::Into::into));
 
 	if let Type::Path(ty) = &output {
-		if !type_ends_with(ty, "Result") && !type_ends_with(ty, "ResultExc") {
-			result = quote!(#krate::ResultExc::<#ty>::Ok(result));
-			wrapper_output = parse_quote!(#krate::ResultExc::<#ty>);
+		if !type_ends_with(ty, "ResultExc") {
+			if type_ends_with(ty, "Result") {
+				if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
+					let arg = args.args.first().unwrap();
+					wrapper_output = parse_quote!(#krate::ResultExc<#arg>);
+				}
+			} else {
+				result = quote!(#krate::ResultExc::<#ty>::Ok(result));
+				wrapper_output = parse_quote!(#krate::ResultExc::<#ty>);
+			}
 		}
 	} else {
 		result = quote!(#krate::ResultExc::<#output>::Ok(result));

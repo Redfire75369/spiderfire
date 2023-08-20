@@ -58,54 +58,28 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 
 pub(crate) fn error_handler(ty: &Type, return_type: &Type) -> TokenStream {
 	let krate = quote!(::ion);
-	let mut if_ok = quote!(
-		let b = ::std::boxed::Box::new(::std::option::Option::Some(value));
-		::mozjs::jsapi::JS_SetReservedSlot(this.handle().get(), <#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH, &::mozjs::jsval::PrivateValue(Box::into_raw(b) as *mut ::std::ffi::c_void));
-		#krate::conversions::ToValue::to_value(&this, cx, args.rval());
-		true
+	let mut handler = quote!(
+		#krate::functions::__handle_native_constructor_private_result(
+			cx,
+			result,
+			<#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH,
+			&this,
+			args.rval(),
+		)
 	);
 	if return_type == &parse_quote!(()) {
-		if_ok = quote!(
-			#krate::conversions::ToValue::to_value(&this, cx, args.rval());
-			true
-		);
+		handler = quote!(#krate::functions::__handle_native_constructor_result(cx, result, &this, args.rval()));
 	}
 	if let Type::Path(ty) = &return_type {
 		if type_ends_with(ty, "Result") || type_ends_with(ty, "ResultExc") {
 			if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
 				if let Some(GenericArgument::Type(Type::Tuple(ty))) = args.args.first() {
 					if ty.elems.is_empty() {
-						if_ok = quote!(
-							#krate::conversions::ToValue::to_value(&this, cx, args.rval());
-							true
-						);
+						handler = quote!(#krate::functions::__handle_native_constructor_result(cx, result, &this, args.rval()));
 					}
 				}
 			}
 		}
 	}
-	quote!({
-		use ::std::prelude::v1::*;
-
-		match result {
-			Ok(Ok(value)) => {
-				#if_ok
-			},
-			Ok(Err(error)) => {
-				#krate::exception::ThrowException::throw(&error, cx);
-				false
-			}
-			Err(unwind_error) => {
-				if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::exception::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
-				} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::exception::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
-				} else {
-					#krate::exception::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", None), cx);
-					::std::mem::forget(unwind_error);
-				}
-				false
-			}
-		}
-	})
+	handler
 }

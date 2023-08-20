@@ -10,11 +10,11 @@ use std::ops::{Deref, DerefMut};
 
 use futures::executor::block_on;
 use libffi::high::ClosureOnce3;
+use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
 	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject, PromiseState, RejectPromise,
 	ResolvePromise,
 };
-use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsval::JSVal;
 use mozjs::rust::HandleObject;
 

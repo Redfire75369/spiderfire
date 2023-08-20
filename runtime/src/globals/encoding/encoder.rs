@@ -30,6 +30,7 @@ mod encoder {
 
 	use crate::globals::encoding::encoder::EncodeResult;
 
+	#[ion(into_value)]
 	pub struct TextEncoder {
 		encoder: Encoder,
 	}

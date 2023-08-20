@@ -13,12 +13,13 @@ use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 use ion::{Context, ContextPrivate, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
+
 use crate::event_loop::{EVENT_LOOP, EventLoop};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
-use crate::modules::{StandardModules};
+use crate::modules::StandardModules;
 
 pub struct Runtime<'c, 'cx> {
 	global: Object<'cx>,

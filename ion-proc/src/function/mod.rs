@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::TokenStream;
 use syn::{Abi, Error, FnArg, Generics, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
@@ -24,15 +23,13 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	function.attrs.clear();
 	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
-	let error_handler = error_handler();
-
 	let body = parse_quote!({
 		let cx = &#krate::Context::new_unchecked(cx);
 		let mut args = #krate::Arguments::new(cx, argc, vp);
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args)));
-		#error_handler
+		#krate::functions::__handle_native_function_result(cx, result, args.rval())
 	});
 	function.block = Box::new(body);
 
@@ -61,31 +58,4 @@ pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 	function.sig.inputs = Punctuated::<_, _>::from_iter(params);
 	function.sig.output = parse_quote!(-> ::core::primitive::bool);
 	Ok(())
-}
-
-pub(crate) fn error_handler() -> TokenStream {
-	let krate = quote!(::ion);
-	quote!(
-		match result {
-			::std::result::Result::Ok(::std::result::Result::Ok(val)) => {
-				#krate::conversions::ToValue::to_value(&val, cx, &mut args.rval());
-				true
-			},
-			::std::result::Result::Ok(::std::result::Result::Err(error)) => {
-				#krate::exception::ThrowException::throw(&error, cx);
-				false
-			}
-			::std::result::Result::Err(unwind_error) => {
-				if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<String>() {
-					#krate::exception::ThrowException::throw(&#krate::Error::new(unwind, ::std::option::Option::None), cx);
-				} else if let ::std::option::Option::Some(unwind) = unwind_error.downcast_ref::<&str>() {
-					#krate::exception::ThrowException::throw(&#krate::Error::new(*unwind, ::std::option::Option::None), cx);
-				} else {
-					#krate::exception::ThrowException::throw(&#krate::Error::new("Unknown Panic Occurred", ::std::option::Option::None), cx);
-					::std::mem::forget(unwind_error);
-				}
-				false
-			}
-		}
-	)
 }

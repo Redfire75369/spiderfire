@@ -5,8 +5,8 @@
  */
 
 use std::collections::HashMap;
-use proc_macro2::Ident;
 
+use proc_macro2::Ident;
 use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2, Result, Visibility};
 use syn::punctuated::Punctuated;

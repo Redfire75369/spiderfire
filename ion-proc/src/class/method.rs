@@ -7,7 +7,7 @@
 use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::class::Name;
-use crate::function::{check_abi, error_handler, set_signature};
+use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 
@@ -51,8 +51,6 @@ where
 			inner.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 		}
 
-		let error_handler = error_handler();
-
 		let body = parse_quote!({
 			let cx = &#krate::Context::new_unchecked(cx);
 			let mut args = #krate::Arguments::new(cx, argc, vp);
@@ -60,7 +58,7 @@ where
 
 			#wrapper
 			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args, &mut this)));
-			#error_handler
+			#krate::functions::__handle_native_function_result(cx, result, args.rval())
 		});
 		method.block = Box::new(body);
 

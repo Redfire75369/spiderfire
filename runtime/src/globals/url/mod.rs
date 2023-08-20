@@ -37,6 +37,7 @@ mod url_class {
 	use super::search_params::URLSearchParams;
 
 	#[allow(clippy::upper_case_acronyms)]
+	#[ion(into_value)]
 	pub struct URL {
 		pub(crate) url: Url,
 		search_params: Box<Heap<*mut JSObject>>,

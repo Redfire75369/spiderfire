@@ -97,7 +97,7 @@ mod class {
 	use crate::http::client::ClientOptions;
 
 	#[derive(Clone)]
-	#[ion(from_value)]
+	#[ion(from_value, into_value)]
 	pub struct Client {
 		pub(crate) client: hyper::Client<HttpsConnector<HttpConnector>>,
 	}

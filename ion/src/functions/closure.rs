@@ -4,21 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::mem::forget;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::{ptr, thread};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use mozjs::glue::JS_GetReservedSlot;
-use mozjs::jsapi::{GCContext, JS_NewObject, JS_SetReservedSlot, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSObject};
+use mozjs::jsapi::{
+	GCContext, GetFunctionNativeReserved, JS_NewObject, JS_SetReservedSlot, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSObject,
+};
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
-use mozjs_sys::jsapi::js::GetFunctionNativeReserved;
 
-use crate::{Arguments, Context, Error, Object, Result, ThrowException, Value};
+use crate::{Arguments, Context, Object, ResultExc, Value};
+use crate::functions::__handle_native_function_result;
 use crate::objects::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 
-pub type Closure = dyn for<'cx> Fn(&'cx Context, &mut Arguments<'cx>) -> Result<Value<'cx>> + 'static;
+pub type Closure = dyn for<'cx> Fn(&'cx Context, &mut Arguments<'cx>) -> ResultExc<Value<'cx>> + 'static;
 
 pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>) -> Object<'cx> {
 	unsafe {
@@ -43,29 +44,8 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value);
 	let closure = &*(value.to_private() as *mut Box<Closure>);
 
-	let result: thread::Result<Result<Value>> = catch_unwind(AssertUnwindSafe(|| closure(cx, &mut args)));
-
-	match result {
-		Ok(Ok(val)) => {
-			args.rval().handle_mut().set(val.get());
-			true
-		}
-		Ok(Err(error)) => {
-			error.throw(cx);
-			false
-		}
-		Err(unwind_error) => {
-			if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-				Error::new(unwind, None).throw(cx);
-			} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-				Error::new(unwind, None).throw(cx);
-			} else {
-				Error::new("Unknown Panic Occurred", None).throw(cx);
-				forget(unwind_error);
-			}
-			false
-		}
-	}
+	let result: thread::Result<ResultExc<Value>> = catch_unwind(AssertUnwindSafe(|| closure(cx, &mut args)));
+	__handle_native_function_result(cx, result, args.rval())
 }
 
 unsafe extern "C" fn finalize_closure(_: *mut GCContext, object: *mut JSObject) {

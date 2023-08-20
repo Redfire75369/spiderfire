@@ -29,6 +29,7 @@ mod decoder {
 
 	use crate::globals::encoding::decoder::{TextDecodeOptions, TextDecoderOptions};
 
+	#[ion(into_value)]
 	pub struct TextDecoder {
 		decoder: Decoder,
 		#[ion(readonly)]

@@ -109,7 +109,6 @@ mod controller {
 
 #[js_class]
 mod signal {
-	use std::result;
 	use std::sync::Arc;
 	use std::sync::atomic::AtomicBool;
 
@@ -117,7 +116,7 @@ mod signal {
 	use mozjs::jsval::JSVal;
 	use tokio::sync::watch::channel;
 
-	use ion::{Context, Error, Exception, Value};
+	use ion::{Context, Error, Exception, ResultExc, Value};
 	use ion::conversions::{ConversionBehavior, ToValue};
 
 	use crate::event_loop::EVENT_LOOP;
@@ -150,7 +149,7 @@ mod signal {
 			}
 		}
 
-		pub fn throwIfAborted(&self) -> result::Result<(), Exception> {
+		pub fn throwIfAborted(&self) -> ResultExc<()> {
 			if let Some(reason) = self.get_reason() {
 				Err(Exception::Other(reason))
 			} else {
