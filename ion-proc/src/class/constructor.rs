@@ -31,7 +31,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 
 	let body = parse_quote!({
 		let cx = &#krate::Context::new_unchecked(cx);
-		let mut args = #krate::Arguments::new(cx, argc, vp);
+		let args = &mut #krate::Arguments::new(cx, argc, vp);
 		let mut this = #krate::Object::from(cx.root_object(::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &CLASS, &args.call_args())));
 
 		#wrapper
@@ -40,7 +40,7 @@ pub(crate) fn impl_constructor(mut constructor: ItemFn, ty: &Type) -> Result<(Me
 				return ::std::result::Result::Err(#krate::Error::new("Constructor must be called with \"new\".", ::std::option::Option::None).into());
 			}
 
-			wrapper(cx, &mut args, &mut this)
+			wrapper(cx, args, &mut this)
 		}));
 		#error_handler
 	});

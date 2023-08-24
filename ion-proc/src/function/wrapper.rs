@@ -35,12 +35,15 @@ pub(crate) fn impl_wrapper_fn(
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let wrapper_args: Vec<FnArg> = if is_class {
 		vec![
-			parse_quote!(cx: &'cx #krate::Context),
-			parse_quote!(args: &'a mut #krate::Arguments<'cx>),
+			parse_quote!(__cx: &'cx #krate::Context),
+			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
 			parse_quote!(this: &mut #krate::Object<'cx>),
 		]
 	} else {
-		vec![parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)]
+		vec![
+			parse_quote!(__cx: &'cx #krate::Context),
+			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
+		]
 	};
 
 	let mut output = match &function.sig.output {
@@ -49,7 +52,7 @@ pub(crate) fn impl_wrapper_fn(
 	};
 	let mut wrapper_output = output.clone();
 
-	let mut result = quote!(result.map_err(::std::convert::Into::into));
+	let mut result = quote!(__result.map_err(::std::convert::Into::into));
 
 	if let Type::Path(ty) = &output {
 		if !type_ends_with(ty, "ResultExc") {
@@ -59,17 +62,17 @@ pub(crate) fn impl_wrapper_fn(
 					wrapper_output = parse_quote!(#krate::ResultExc<#arg>);
 				}
 			} else {
-				result = quote!(#krate::ResultExc::<#ty>::Ok(result));
+				result = quote!(#krate::ResultExc::<#ty>::Ok(__result));
 				wrapper_output = parse_quote!(#krate::ResultExc::<#ty>);
 			}
 		}
 	} else {
-		result = quote!(#krate::ResultExc::<#output>::Ok(result));
+		result = quote!(#krate::ResultExc::<#output>::Ok(__result));
 		wrapper_output = parse_quote!(#krate::ResultExc::<#output>);
 	}
 
 	if function.sig.asyncness.is_some() {
-		result = quote!(result);
+		result = quote!(__result);
 
 		output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
 		wrapper_output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
@@ -98,13 +101,14 @@ pub(crate) fn impl_wrapper_fn(
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
 
+		let mut __accessor = __args.access();
 		#this_statements
 		#(#statements)*
 
 		#wrapper_inner
 
 		#[allow(clippy::let_unit_value)]
-		let result: #output = #inner_call;
+		let __result: #output = #inner_call;
 		#result
 	}))?;
 
@@ -137,12 +141,15 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let wrapper_args: Vec<FnArg> = if class_ty.is_some() {
 		vec![
-			parse_quote!(cx: &'cx #krate::Context),
-			parse_quote!(args: &'a mut #krate::Arguments<'cx>),
+			parse_quote!(__cx: &'cx #krate::Context),
+			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
 			parse_quote!(this: &mut #krate::Object<'cx>),
 		]
 	} else {
-		vec![parse_quote!(cx: &'cx #krate::Context), parse_quote!(args: &'a mut #krate::Arguments<'cx>)]
+		vec![
+			parse_quote!(__cx: &'cx #krate::Context),
+			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
+		]
 	};
 
 	let inner_output = match &function.sig.output {
@@ -159,9 +166,9 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	}
 
 	let async_result = if is_result {
-		quote!(result)
+		quote!(__result)
 	} else {
-		quote!(#krate::ResultExc::<#inner_output>::Ok(result))
+		quote!(#krate::ResultExc::<#inner_output>::Ok(__result))
 	};
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -185,40 +192,42 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	};
 
 	let wrapper = parameters.this.is_some().then(|| {
-		quote!(let mut this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
+		quote!(let mut __this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
 			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(
 				this.handle().get())));)
 	});
 	let unrooter = parameters
 		.this
 		.is_some()
-		.then(|| quote!(#krate::Context::unroot_persistent_object(this.take().unwrap().take().handle().get());));
+		.then(|| quote!(#krate::Context::unroot_persistent_object(__this.take().unwrap().take().handle().get());));
 
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
+
+		let mut __accessor = __args.access();
 		#(#statements)*
 		#wrapper_inner
 
 		#wrapper
 
-		let result: #output = {
-			let future = async move {
+		let __result: #output = {
+			let __future = async move {
 				#this_statements
 
 				#[allow(clippy::let_unit_value)]
-				let result: #inner_output = #call.await;
+				let __result: #inner_output = #call.await;
 
 				#unrooter
 				#async_result
 			};
 
-			if let ::std::option::Option::Some(promise) = ::runtime::promise::future_to_promise(cx, future) {
+			if let ::std::option::Option::Some(promise) = ::runtime::promise::future_to_promise(__cx, __future) {
 				::std::result::Result::Ok(promise)
 			} else {
 				::std::result::Result::Err(#krate::Error::new("Failed to create Promise", None).into())
 			}
 		};
-		result
+		__result
 	}))?;
 
 	function.sig.ident = Ident::new("wrapper", function.sig.ident.span());
@@ -241,7 +250,7 @@ pub(crate) fn argument_checker(ident: &Ident, nargs: usize) -> TokenStream {
 		let plural = if nargs == 1 { "" } else { "s" };
 		let error = format!("{}() requires at least {} argument{}", ident, nargs, plural);
 		quote!(
-			if args.len() < #nargs {
+			if __args.len() < #nargs {
 				return ::std::result::Result::Err(#krate::Error::new(#error, ::std::option::Option::None).into());
 			}
 		)

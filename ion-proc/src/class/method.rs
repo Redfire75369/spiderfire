@@ -53,11 +53,11 @@ where
 
 		let body = parse_quote!({
 			let cx = &#krate::Context::new_unchecked(cx);
-			let mut args = #krate::Arguments::new(cx, argc, vp);
-			let mut this = args.this().to_object(cx);
+			let args = &mut #krate::Arguments::new(cx, argc, vp);
+			let mut this = args.access().this().to_object(cx);
 
 			#wrapper
-			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args, &mut this)));
+			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args, &mut this)));
 			#krate::functions::__handle_native_function_result(cx, result, args.rval())
 		});
 		method.block = Box::new(body);

@@ -134,18 +134,14 @@ impl Parameter {
 		ty
 	}
 
-	pub(crate) fn to_statement(&self, index: &mut usize) -> Result<Stmt> {
+	pub(crate) fn to_statement(&self) -> Result<Stmt> {
 		use Parameter as P;
 		let ty = self.get_type_without_lifetimes();
 		match self {
-			P::Regular { pat, conversion, strict, option, .. } => {
-				let value = parse_quote!(args.value(#index));
-				*index += 1;
-				regular_param_statement(*index - 1, pat, &ty, option.as_deref(), conversion, *strict, &value)
-			}
-			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(*index, pat, &ty, conversion, *strict),
-			P::Context(pat, _) => parse2(quote!(let #pat: #ty = cx;)),
-			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = args;)),
+			P::Regular { pat, conversion, strict, option, .. } => regular_param_statement(pat, &ty, option.as_deref(), conversion, *strict),
+			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
+			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
+			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
 			P::This(pat, _) => parse2(quote!(let #pat: #ty = this;)),
 		}
 	}
@@ -229,9 +225,9 @@ impl ThisParameter {
 			ThisKind::Ref(_, mutability) => Ok((
 				parse2(quote!(let #pat: &'static #mutability #ty;))?,
 				vec![
-					parse2(quote!(let this2 = this.take().unwrap().take().into();))?,
-					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&this2));))?,
-					parse2(quote!(this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(this2.into_local()));))?,
+					parse2(quote!(let __this2 = __this.take().unwrap().take().into();))?,
+					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&__this2));))?,
+					parse2(quote!(__this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(__this2.into_local()));))?,
 				],
 			)),
 			ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
@@ -307,11 +303,7 @@ impl Parameters {
 	}
 
 	pub(crate) fn to_statements(&self) -> Result<Vec<Stmt>> {
-		let mut index = 0;
-		self.parameters
-			.iter()
-			.map(|parameter| parameter.to_statement(&mut index))
-			.collect::<Result<Vec<_>>>()
+		self.parameters.iter().map(|parameter| parameter.to_statement()).collect()
 	}
 
 	pub(crate) fn get_this_ident(&self) -> Option<Ident> {
@@ -379,14 +371,14 @@ impl Parameters {
 	}
 }
 
-fn regular_param_statement(index: usize, pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool, value: &Expr) -> Result<Stmt> {
+fn regular_param_statement(pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool) -> Result<Stmt> {
 	let krate = quote!(::ion);
 
 	let pat_str = format_pat(pat);
 	let not_found_error = if let Some(pat) = pat_str {
-		format!("Argument {} at index {} was not found.", pat, index)
+		format!("Argument {} at index {{}} was not found.", pat)
 	} else {
-		format!("Argument at index {} was not found.", index)
+		String::from("Argument at index {{}} was not found.")
 	};
 	let if_none: Expr = if option.is_some() {
 		parse2(quote!(::std::option::Option::None)).unwrap()
@@ -395,21 +387,15 @@ fn regular_param_statement(index: usize, pat: &Pat, ty: &Type, option: Option<&T
 	};
 
 	parse2(quote!(
-		let #pat: #ty = match #value {
-			::std::option::Option::Some(value) => <#ty as #krate::conversions::FromValue>::from_value(cx, value, #strict, #conversion)?,
-			::std::option::Option::None => #if_none,
+		let #pat: #ty = match __accessor.arg(#strict, #conversion) {
+			::std::option::Option::Some(value) => value?,
+			::std::option::Option::None => #if_none
 		};
 	))
 }
 
-fn varargs_param_statement(start_index: usize, pat: &Pat, ty: &Type, conversion: &Expr, strict: bool) -> Result<Stmt> {
-	let krate = quote!(::ion);
-
-	parse2(quote!(
-		let #pat: #ty = args.range(#start_index..=args.len()).into_iter().map(|value| {
-			#krate::conversions::FromValue::from_value(cx, value, #strict, #conversion)
-		}).collect::<#krate::Result<_>>()?;
-	))
+fn varargs_param_statement(pat: &Pat, ty: &Type, conversion: &Expr, strict: bool) -> Result<Stmt> {
+	parse2(quote!(let #pat: #ty = __accessor.args(#strict, #conversion)?;))
 }
 
 pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {

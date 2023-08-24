@@ -25,10 +25,10 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 
 	let body = parse_quote!({
 		let cx = &#krate::Context::new_unchecked(cx);
-		let mut args = #krate::Arguments::new(cx, argc, vp);
+		let args = &mut #krate::Arguments::new(cx, argc, vp);
 
 		#wrapper
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, &mut args)));
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
 		#krate::functions::__handle_native_function_result(cx, result, args.rval())
 	});
 	function.block = Box::new(body);
