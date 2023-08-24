@@ -110,7 +110,7 @@ pub mod class {
 
 		pub async fn arrayBuffer(&mut self) -> Result<ArrayBuffer> {
 			let bytes = self.read_to_bytes().await?;
-			Ok(ArrayBuffer { buf: bytes })
+			Ok(ArrayBuffer::from(bytes))
 		}
 
 		pub async fn text(&mut self) -> Result<String> {

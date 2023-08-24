@@ -75,7 +75,7 @@ async fn readBinary(path_str: String) -> Result<Uint8Array> {
 
 	check_is_file(path)?;
 	if let Ok(bytes) = tokio::fs::read(&path).await {
-		Ok(Uint8Array { buf: bytes })
+		Ok(Uint8Array::from(bytes))
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
@@ -87,7 +87,7 @@ unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 
 	check_is_file(path)?;
 	if let Ok(bytes) = fs::read(path) {
-		Ok(Uint8Array { buf: bytes })
+		Ok(Uint8Array::from(bytes))
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}
