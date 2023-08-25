@@ -13,6 +13,8 @@ mod search_params {
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 
 	use ion::{ClassInitialiser, Context, Error, ErrorKind, Local, Object, Result};
+	use ion::conversions::ToValue;
+	use ion::symbol::WellKnownSymbolCode;
 
 	use crate::globals::url::URL;
 
@@ -23,7 +25,6 @@ mod search_params {
 	}
 
 	// TODO: Implement Constructor for URLSearchParams
-	// TODO: Implement [Symbol.iterator] for URLSearchParams
 	impl URLSearchParams {
 		pub(crate) fn new(cx: &Context, pairs: Vec<(String, String)>, url_object: &Object) -> Result<URLSearchParams> {
 			if !URL::instance_of(cx, url_object, None) {
@@ -115,6 +116,13 @@ mod search_params {
 					url.url.query_pairs_mut().clear().extend_pairs(&self.pairs);
 				}
 			}
+		}
+
+		#[ion(name = WellKnownSymbolCode::Iterator)]
+		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
+			let thisv = unsafe { this.as_value(cx) };
+			let pairs: Vec<_> = self.pairs.iter().map(|(k, v)| unsafe { [k, v].as_value(cx) }.handle().get()).collect();
+			ion::Iterator::new(pairs, &thisv)
 		}
 	}
 
