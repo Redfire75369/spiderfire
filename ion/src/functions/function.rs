@@ -36,7 +36,7 @@ impl<'f> Function<'f> {
 	pub fn new<'cx>(cx: &'cx Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function<'cx> {
 		let name = CString::new(name).unwrap();
 		Function {
-			function: cx.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr() as *const i8) }),
+			function: cx.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
 		}
 	}
 

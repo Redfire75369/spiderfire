@@ -212,7 +212,7 @@ impl ThisParameter {
 				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 			}
 		} else {
-			parse2(quote!(let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, args.this(), true, ())?;))
+			parse2(quote!(let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;))
 		}
 	}
 
