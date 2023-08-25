@@ -24,9 +24,7 @@ mod function;
 #[doc(hidden)]
 pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context, result: Result<ResultExc<T>>, rval: &mut Value) -> bool {
 	__handle_result(cx, result, move |cx, result| unsafe {
-		let value = Value::undefined(cx);
 		Box::new(result).into_value(cx, rval);
-		rval.handle_mut().set(value.get());
 		true
 	})
 }
@@ -35,7 +33,7 @@ pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context,
 pub fn __handle_native_constructor_result<'cx, T: IntoValue<'cx>>(
 	cx: &'cx Context, result: Result<ResultExc<T>>, this: &Object<'cx>, rval: &mut Value,
 ) -> bool {
-	__handle_result(cx, result, move |_, _| unsafe {
+	__handle_result(cx, result, move |cx, _| unsafe {
 		this.to_value(cx, rval);
 		true
 	})

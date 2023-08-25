@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::{Context, Object};
+use ion::{ClassInitialiser, Context, Iterator, Object};
 
 pub mod abort;
 pub mod console;
@@ -14,7 +14,7 @@ pub mod timers;
 pub mod url;
 
 pub fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
-	console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global)
+	console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global) && Iterator::init_class(cx, global).0
 }
 
 pub fn init_timers<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {

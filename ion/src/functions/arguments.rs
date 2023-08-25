@@ -157,12 +157,12 @@ impl<'c, 'cx> Deref for Accessor<'_, 'c, 'cx> {
 	type Target = Arguments<'c, 'cx>;
 
 	fn deref(&self) -> &Self::Target {
-		&self.args
+		self.args
 	}
 }
 
 impl<'c, 'cx> DerefMut for Accessor<'_, 'c, 'cx> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.args
+		self.args
 	}
 }
