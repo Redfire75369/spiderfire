@@ -10,9 +10,9 @@ use std::ptr;
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{GCContext, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSFunctionSpec, JSNativeWrapper, JSTracer, JSContext, JSObject};
-use mozjs::jsval::{JSVal, NullValue, UndefinedValue};
+use mozjs::jsval::{JSVal, NullValue};
 
-use crate::{Arguments, ClassInitialiser, Context, Error, ErrorKind, Object, ThrowException, Value};
+use crate::{Arguments, ClassInitialiser, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
 use crate::functions::NativeFunction;
@@ -20,15 +20,30 @@ use crate::objects::class_reserved_slots;
 use crate::spec::{create_function_spec, create_function_spec_symbol};
 use crate::symbol::WellKnownSymbolCode;
 
-pub type VIterator = dyn iter::Iterator<Item = JSVal>;
+pub trait JSIterator {
+	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>>;
+}
 
-pub struct IteratorResult {
-	value: JSVal,
+impl<T, I: iter::Iterator<Item = T>> JSIterator for I
+where
+	T: for<'cx> IntoValue<'cx>,
+{
+	fn next_value<'cx>(&mut self, cx: &'cx Context, _: &Value) -> Option<Value<'cx>> {
+		self.next().map(|val| unsafe {
+			let mut rval = Value::undefined(cx);
+			Box::new(val).into_value(cx, &mut rval);
+			rval
+		})
+	}
+}
+
+pub struct IteratorResult<'cx> {
+	value: Value<'cx>,
 	done: bool,
 }
 
-impl ToValue<'_> for IteratorResult {
-	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
+impl<'cx> ToValue<'cx> for IteratorResult<'cx> {
+	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		let mut object = Object::new(cx);
 		object.set_as(cx, "value", &self.value);
 		object.set_as(cx, "done", &self.done);
@@ -37,26 +52,24 @@ impl ToValue<'_> for IteratorResult {
 }
 
 pub struct Iterator {
-	iter: Box<VIterator>,
-	other: Box<Heap<JSVal>>,
+	iter: Box<dyn JSIterator>,
+	private: Box<Heap<JSVal>>,
 }
 
 impl Iterator {
-	pub fn new<I>(iter: I, other: &Value) -> Iterator
-	where
-		I: IntoIterator<Item = JSVal> + 'static,
-	{
+	pub fn new<I: JSIterator + 'static>(iter: I, private: &Value) -> Iterator {
 		Iterator {
-			iter: Box::new(iter.into_iter()),
-			other: Heap::boxed(other.handle().get()),
+			iter: Box::new(iter),
+			private: Heap::boxed(private.handle().get()),
 		}
 	}
 
-	pub fn next_value(&mut self) -> IteratorResult {
-		let next = self.iter.next();
+	pub fn next_value<'cx>(&mut self, cx: &'cx Context) -> IteratorResult<'cx> {
+		let private = Value::from(unsafe { Local::from_heap(&self.private) });
+		let next = self.iter.next_value(cx, &private);
 		IteratorResult {
 			done: next.is_none(),
-			value: next.unwrap_or_else(UndefinedValue),
+			value: next.unwrap_or_else(|| Value::undefined(cx)),
 		}
 	}
 }
@@ -70,7 +83,7 @@ impl IntoValue<'_> for Iterator {
 
 unsafe impl Traceable for Iterator {
 	unsafe fn trace(&self, trc: *mut JSTracer) {
-		self.other.trace(trc);
+		self.private.trace(trc);
 	}
 }
 
@@ -86,10 +99,9 @@ unsafe extern "C" fn iterator_next(cx: *mut JSContext, argc: u32, vp: *mut JSVal
 
 	let this = args.this().to_object(cx);
 	let iterator = Iterator::get_private(&this);
-	let result = iterator.next_value();
+	let result = iterator.next_value(cx);
 
 	result.to_value(cx, args.rval());
-
 	true
 }
 

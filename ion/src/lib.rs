@@ -24,7 +24,7 @@ pub use functions::{Arguments, Function};
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use local::Local;
-pub use objects::{Array, Date, Iterator, Object, OwnedKey, Promise, PropertyKey};
+pub use objects::{Array, Date, JSIterator, Iterator, Object, OwnedKey, Promise, PropertyKey};
 pub use objects::typedarray;
 pub use stack::{Stack, StackRecord};
 pub use string::String;

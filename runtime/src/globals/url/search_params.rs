@@ -12,7 +12,7 @@ mod search_params {
 	use mozjs::gc::Traceable;
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 
-	use ion::{ClassInitialiser, Context, Error, ErrorKind, Local, Object, Result};
+	use ion::{ClassInitialiser, JSIterator, Context, Error, ErrorKind, Local, Object, Value, Result};
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 
@@ -121,8 +121,22 @@ mod search_params {
 		#[ion(name = WellKnownSymbolCode::Iterator)]
 		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
 			let thisv = unsafe { this.as_value(cx) };
-			let pairs: Vec<_> = self.pairs.iter().map(|(k, v)| unsafe { [k, v].as_value(cx) }.handle().get()).collect();
-			ion::Iterator::new(pairs, &thisv)
+			ion::Iterator::new(SearchParamsIterator::default(), &thisv)
+		}
+	}
+
+	#[derive(Default)]
+	pub struct SearchParamsIterator(usize);
+
+	impl JSIterator for SearchParamsIterator {
+		fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
+			let object = private.to_object(cx);
+			let search_params = URLSearchParams::get_private(&object);
+			let pair = search_params.pairs.get(self.0);
+			pair.map(move |(k, v)| unsafe {
+				self.0 += 1;
+				[k, v].as_value(cx)
+			})
 		}
 	}
 
