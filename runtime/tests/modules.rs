@@ -24,10 +24,10 @@ fn modules() {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 
-	let cx = Context::new(rt.cx()).unwrap();
-	let _rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(&cx);
+	let cx = &Context::from_runtime(&rt);
+	let _rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(cx);
 
 	let path = format!("./tests/scripts/{}", FILE_NAME);
-	let result = Module::compile(&cx, FILE_NAME, Some(Path::new(&path)), SCRIPT);
+	let result = Module::compile(cx, FILE_NAME, Some(Path::new(&path)), SCRIPT);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }

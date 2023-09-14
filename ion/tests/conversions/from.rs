@@ -20,7 +20,7 @@ fn from_value() {
 	let global = unsafe { JS_NewGlobalObject(runtime.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _realm = JSAutoRealm::new(runtime.cx(), global);
 
-	let cx = &Context::new(runtime.cx()).unwrap();
+	let cx = &Context::from_runtime(&runtime);
 
 	unsafe {
 		test_booleans(cx);

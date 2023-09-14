@@ -8,7 +8,7 @@ use std::ops::Deref;
 
 use mozjs::typedarray::CreateWith;
 
-use crate::{Context, Error, Object, Value, Result};
+use crate::{Context, Error, Object, Result, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 

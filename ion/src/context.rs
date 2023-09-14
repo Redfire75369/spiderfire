@@ -5,6 +5,7 @@
  */
 
 use std::cell::{OnceCell, RefCell};
+use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::mem::{take, transmute};
 use std::ptr;
@@ -16,7 +17,7 @@ use mozjs::jsapi::{
 	Symbol,
 };
 use mozjs::jsval::JSVal;
-use mozjs::rust::RootedGuard;
+use mozjs::rust::{RootedGuard, Runtime};
 use typed_arena::Arena;
 
 use crate::Local;
@@ -64,9 +65,18 @@ struct LocalArena<'a> {
 
 thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
-#[derive(Default)]
-pub struct ContextPrivate {
-	pub module_loader: Option<*mut dyn ModuleLoader>,
+pub struct ContextInner {
+	pub module_loader: Option<Box<dyn ModuleLoader>>,
+	private: *mut c_void,
+}
+
+impl Default for ContextInner {
+	fn default() -> ContextInner {
+		ContextInner {
+			module_loader: None,
+			private: ptr::null_mut(),
+		}
+	}
 }
 
 /// Represents the thread-local state of the runtime.
@@ -76,7 +86,7 @@ pub struct Context<'c> {
 	context: NonNull<JSContext>,
 	rooted: RootedArena,
 	local: LocalArena<'static>,
-	private: OnceCell<*mut ContextPrivate>,
+	private: OnceCell<*mut ContextInner>,
 	_lifetime: PhantomData<&'c ()>,
 }
 
@@ -98,15 +108,22 @@ macro_rules! impl_root_methods {
 }
 
 impl Context<'_> {
-	/// Creates a new [Context] with a given lifetime.
-	pub fn new<'c>(context: *mut JSContext) -> Option<Context<'c>> {
-		NonNull::new(context).map(|context| Context {
-			context,
+	pub fn from_runtime<'c>(rt: &Runtime) -> Context<'c> {
+		let cx = rt.cx();
+		let inner_private = Box::<ContextInner>::default();
+		let inner_private = Box::into_raw(inner_private);
+
+		unsafe {
+			JS_SetContextPrivate(cx, inner_private as *mut c_void);
+		}
+
+		Context {
+			context: unsafe { NonNull::new_unchecked(cx) },
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
-			private: OnceCell::new(),
+			private: OnceCell::from(inner_private),
 			_lifetime: PhantomData,
-		})
+		}
 	}
 
 	pub unsafe fn new_unchecked<'c>(context: *mut JSContext) -> Context<'c> {
@@ -123,13 +140,24 @@ impl Context<'_> {
 		self.context.as_ptr()
 	}
 
-	pub unsafe fn get_private(&self) -> *mut ContextPrivate {
-		*self.private.get_or_init(|| JS_GetContextPrivate(self.as_ptr()) as *mut ContextPrivate)
+	pub unsafe fn get_inner_data(&self) -> *mut ContextInner {
+		*self.private.get_or_init(|| JS_GetContextPrivate(self.as_ptr()) as *mut ContextInner)
 	}
 
-	pub fn set_private(&self, private: ContextPrivate) {
-		let ptr = Box::into_raw(Box::new(private));
-		unsafe { JS_SetContextPrivate(self.as_ptr(), ptr as *mut _) };
+	pub unsafe fn get_raw_private(&self) -> *mut c_void {
+		let inner = self.get_inner_data();
+		if inner.is_null() {
+			ptr::null_mut()
+		} else {
+			(*inner).private
+		}
+	}
+
+	pub unsafe fn set_raw_private(&self, private: *mut c_void) {
+		let inner_private = self.get_inner_data();
+		if !inner_private.is_null() {
+			(*inner_private).private = private;
+		}
 	}
 
 	impl_root_methods! {

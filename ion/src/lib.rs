@@ -17,14 +17,14 @@ extern crate mozjs;
 use std::result;
 
 pub use class::ClassInitialiser;
-pub use context::{Context, ContextPrivate};
+pub use context::{Context, ContextInner};
 pub use error::{Error, ErrorKind};
 pub use exception::{ErrorReport, Exception, ThrowException};
 pub use functions::{Arguments, Function};
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use local::Local;
-pub use objects::{Array, Date, JSIterator, Iterator, Object, OwnedKey, Promise, PropertyKey};
+pub use objects::{Array, Date, Iterator, JSIterator, Object, OwnedKey, Promise, PropertyKey};
 pub use objects::typedarray;
 pub use stack::{Stack, StackRecord};
 pub use string::String;

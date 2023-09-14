@@ -20,17 +20,17 @@ fn date() {
 	let global = unsafe { JS_NewGlobalObject(runtime.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
 	let _realm = JSAutoRealm::new(runtime.cx(), global);
 
-	let cx = Context::new(runtime.cx()).unwrap();
+	let cx = &Context::from_runtime(&runtime);
 
-	let epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(EPOCH).unwrap());
-	let post_epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(POST_EPOCH).unwrap());
-	let pre_epoch = Date::from_date(&cx, Utc.timestamp_millis_opt(PRE_EPOCH).unwrap());
+	let epoch = Date::from_date(cx, Utc.timestamp_millis_opt(EPOCH).unwrap());
+	let post_epoch = Date::from_date(cx, Utc.timestamp_millis_opt(POST_EPOCH).unwrap());
+	let pre_epoch = Date::from_date(cx, Utc.timestamp_millis_opt(PRE_EPOCH).unwrap());
 
-	assert!(epoch.is_valid(&cx));
-	assert!(post_epoch.is_valid(&cx));
-	assert!(pre_epoch.is_valid(&cx));
+	assert!(epoch.is_valid(cx));
+	assert!(post_epoch.is_valid(cx));
+	assert!(pre_epoch.is_valid(cx));
 
-	assert_eq!(Some(Utc.timestamp_millis_opt(EPOCH).unwrap()), epoch.to_date(&cx));
-	assert_eq!(Some(Utc.timestamp_millis_opt(POST_EPOCH).unwrap()), post_epoch.to_date(&cx));
-	assert_eq!(Some(Utc.timestamp_millis_opt(PRE_EPOCH).unwrap()), pre_epoch.to_date(&cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(EPOCH).unwrap()), epoch.to_date(cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(POST_EPOCH).unwrap()), post_epoch.to_date(cx));
+	assert_eq!(Some(Utc.timestamp_millis_opt(PRE_EPOCH).unwrap()), pre_epoch.to_date(cx));
 }

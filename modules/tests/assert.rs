@@ -31,17 +31,17 @@ async fn assert() {
 	let engine = JSEngine::init().unwrap();
 	let rt = RustRuntime::new(engine.handle());
 
-	let cx = Context::new(rt.cx()).unwrap();
+	let cx = &Context::from_runtime(&rt);
 	let rt = RuntimeBuilder::new()
 		.modules(Loader::default())
 		.standard_modules(Assert)
 		.microtask_queue()
-		.build(&cx);
+		.build(cx);
 
-	eval_module(&rt, &cx, OK).await;
-	eval_module(&rt, &cx, EQUALS).await;
-	eval_module(&rt, &cx, THROWS).await;
-	eval_module(&rt, &cx, FAIL).await;
+	eval_module(&rt, cx, OK).await;
+	eval_module(&rt, cx, EQUALS).await;
+	eval_module(&rt, cx, THROWS).await;
+	eval_module(&rt, cx, FAIL).await;
 }
 
 pub async fn eval_module(rt: &Runtime<'_, '_>, cx: &Context<'_>, test: (&str, &str)) {

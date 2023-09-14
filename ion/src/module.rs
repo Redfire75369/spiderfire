@@ -195,13 +195,13 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn resolve(cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
 		let cx = Context::new_unchecked(cx);
 
-		let loader = unsafe { &mut (*cx.get_private()).module_loader };
+		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
 				let private = Value::from(Local::from_raw_handle(private));
 				let request = unsafe { ModuleRequest::from_raw_request(request) };
-				(**loader).resolve(&cx, &private, &request)
+				loader.resolve(&cx, &private, &request)
 			})
 			.unwrap_or_else(ptr::null_mut)
 	}
@@ -209,19 +209,19 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn metadata(cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
 		let cx = Context::new_unchecked(cx);
 
-		let loader = unsafe { &mut (*cx.get_private()).module_loader };
+		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
 				let private = Value::from(Local::from_raw_handle(private_data));
 				let mut metadata = Object::from(Local::from_raw_handle(metadata));
-				(**loader).metadata(&cx, &private, &mut metadata)
+				loader.metadata(&cx, &private, &mut metadata)
 			})
 			.unwrap_or_else(|| true)
 	}
 
 	unsafe {
-		(*cx.get_private()).module_loader = Some(Box::into_raw(Box::new(loader)));
+		(*cx.get_inner_data()).module_loader = Some(Box::new(loader));
 
 		let rt = JS_GetRuntime(cx.as_ptr());
 		SetModuleResolveHook(rt, Some(resolve));

@@ -9,7 +9,7 @@ use std::ptr;
 
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
-use mozjs::jsapi::{GCContext, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSFunctionSpec, JSNativeWrapper, JSTracer, JSContext, JSObject};
+use mozjs::jsapi::{GCContext, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper, JSObject, JSTracer};
 use mozjs::jsval::{JSVal, NullValue};
 
 use crate::{Arguments, ClassInitialiser, Context, Error, ErrorKind, Local, Object, ThrowException, Value};

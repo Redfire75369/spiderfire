@@ -19,7 +19,7 @@ pub(crate) async fn start_repl() {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 
-	let cx = Context::new(rt.cx()).unwrap();
+	let cx = Context::from_runtime(&rt);
 	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()

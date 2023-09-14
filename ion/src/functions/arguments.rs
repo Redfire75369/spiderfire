@@ -5,6 +5,7 @@
  */
 
 use std::ops::{Deref, DerefMut};
+
 use mozjs::jsapi::CallArgs;
 use mozjs::jsval::JSVal;
 

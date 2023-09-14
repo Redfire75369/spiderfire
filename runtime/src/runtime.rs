@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::c_void;
 use std::ptr;
 use std::rc::Rc;
 
@@ -11,7 +12,7 @@ use futures::task::AtomicWaker;
 use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
-use ion::{Context, ContextPrivate, ErrorReport, Object};
+use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
 
 use crate::event_loop::{EVENT_LOOP, EventLoop};
@@ -20,6 +21,23 @@ use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::init_microtask_queue;
 use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::StandardModules;
+
+#[derive(Default)]
+pub struct ContextPrivate {}
+
+pub trait ContextExt {
+	#[allow(clippy::mut_from_ref)]
+	fn get_private(&self) -> &mut ContextPrivate;
+}
+
+impl ContextExt for Context<'_> {
+	fn get_private(&self) -> &mut ContextPrivate {
+		unsafe {
+			let private = self.get_raw_private() as *mut ContextPrivate;
+			&mut *private
+		}
+	}
+}
 
 pub struct Runtime<'c, 'cx> {
 	global: Object<'cx>,
@@ -44,6 +62,15 @@ impl<'cx> Runtime<'_, 'cx> {
 
 	pub async fn run_event_loop(&self) -> Result<(), Option<ErrorReport>> {
 		self.event_loop.run_event_loop(self.cx).await
+	}
+}
+
+impl Drop for Runtime<'_, '_> {
+	fn drop(&mut self) {
+		let inner_private = unsafe { self.cx.get_inner_data() };
+		if !inner_private.is_null() {
+			let _ = unsafe { Box::from_raw(inner_private) };
+		}
 	}
 }
 
@@ -93,7 +120,10 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 		global.set_as(cx, "global", &global_ref);
 		init_globals(cx, &mut global);
 
-		cx.set_private(ContextPrivate::default());
+		let private = Box::<ContextPrivate>::default();
+		unsafe {
+			cx.set_raw_private(Box::into_raw(private) as *mut c_void);
+		}
 
 		let mut event_loop = EventLoop {
 			futures: None,
