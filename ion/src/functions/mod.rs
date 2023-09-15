@@ -12,6 +12,7 @@ use mozjs::jsapi::JS_SetReservedSlot;
 use mozjs::jsval::PrivateValue;
 
 pub use arguments::Arguments;
+pub use closure::Closure;
 pub use function::{Function, NativeFunction};
 
 use crate::{Context, Error, Object, ResultExc, ThrowException, Value};

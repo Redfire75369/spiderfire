@@ -50,7 +50,7 @@ impl<'o> Object<'o> {
 		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(cx.as_ptr()) }))
 	}
 
-	/// Checks if the [Object] has a value at the given [key](Key).
+	/// Checks if the [Object] has a value at the given key.
 	pub fn has<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut found = false;
@@ -62,7 +62,7 @@ impl<'o> Object<'o> {
 		}
 	}
 
-	/// Checks if the [Object] has its own value at the given [key](Key).
+	/// Checks if the [Object] has its own value at the given key.
 	///
 	/// An object owns its properties if they are not inherited from a prototype.
 	pub fn has_own<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
@@ -78,7 +78,7 @@ impl<'o> Object<'o> {
 
 	/// Gets the [Value] at the given key of the [Object].
 	///
-	/// Returns [None] if there is no value at the given [key](Key).
+	/// Returns [None] if there is no value at the given key.
 	pub fn get<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> Option<Value<'cx>> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
@@ -91,12 +91,12 @@ impl<'o> Object<'o> {
 	}
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
-	/// Returns [None] if the object does not contain the [key](Key) or conversion to the Rust type fails.
+	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
 		self.get(cx, key).and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
 	}
 
-	/// Sets the [Value] at the given [key](Key) of the [Object].
+	/// Sets the [Value] at the given key of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
 	pub fn set<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
@@ -104,14 +104,14 @@ impl<'o> Object<'o> {
 		unsafe { JS_SetPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), value.handle().into()) }
 	}
 
-	/// Sets the Rust type at the given [key](Key) of the [Object].
+	/// Sets the Rust type at the given key of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
 	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
 		self.set(cx, key, unsafe { &value.as_value(cx) })
 	}
 
-	/// Defines the [Value] at the given [key](Key) of the [Object] with the given attributes.
+	/// Defines the [Value] at the given key of the [Object] with the given attributes.
 	///
 	/// Returns `false` if the property cannot be defined.
 	pub fn define<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags) -> bool {
@@ -127,7 +127,7 @@ impl<'o> Object<'o> {
 		}
 	}
 
-	/// Defines the Rust type at the given [key](Key) of the [Object] with the given attributes.
+	/// Defines the Rust type at the given key of the [Object] with the given attributes.
 	///
 	/// Returns `false` if the property cannot be defined.
 	pub fn define_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
@@ -156,16 +156,15 @@ impl<'o> Object<'o> {
 		.into()
 	}
 
-	/// Defines methods on the [Object] using the given [JSFunctionSpec]s.
+	/// Defines methods on the [Object] using the given [specs](JSFunctionSpec).
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
-	///
-	/// They can be created through [function_spec](crate::function_spec).
+	#[cfg_attr(feature = "macros", doc = "\nThey can be created through [function_spec](crate::function_spec).")]
 	pub fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
 		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
-	/// Defines methods on the [Object] using the given [JSFunctionSpecWithHelp]s.
+	/// Defines methods on the [Object] using the given [specs with help](JSFunctionSpecWithHelp).
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
 	pub fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
@@ -183,7 +182,7 @@ impl<'o> Object<'o> {
 
 	/// Returns an iterator of the keys of the [Object].
 	///
-	/// Each [Key] can be a [String], [Symbol] or integer.
+	/// Each key can be a [String], [Symbol](crate::symbol) or integer.
 	pub fn keys<'c, 'cx: 'o>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(cx.as_ptr()) };

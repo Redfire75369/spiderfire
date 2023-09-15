@@ -12,7 +12,7 @@ use std::task::Poll;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mozjs::jsapi::JSFunction;
+use mozjs::jsapi::{JS_GetFunctionObject, JSFunction};
 
 use ion::{Context, ErrorReport, Function, Object, Value};
 use ion::conversions::BoxedIntoValue;
@@ -51,6 +51,9 @@ impl FutureQueue {
 						reject.call(cx, &null, &[value])?;
 					}
 				}
+
+				cx.unroot_persistent_object(JS_GetFunctionObject(resolve));
+				cx.unroot_persistent_object(JS_GetFunctionObject(reject));
 			}
 		}
 

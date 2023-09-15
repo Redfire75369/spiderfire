@@ -23,7 +23,7 @@ pub trait ToValue<'cx> {
 	/// Converts `self` to a [`Value`](Value) and stores it in `value`.
 	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value);
 
-	/// Converts `self` to a new [`Value`](value).
+	/// Converts `self` to a new [`Value`](Value).
 	unsafe fn as_value(&self, cx: &'cx Context) -> Value<'cx> {
 		let mut value = Value::undefined(cx);
 		self.to_value(cx, &mut value);

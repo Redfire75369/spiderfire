@@ -168,7 +168,7 @@ impl<'c> Context<'c> {
 macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
-			/// Roots a [$pointer], as a $gc_type, and returns a [Local] to it.
+			#[doc = concat!("Roots a [", stringify!($pointer), "](", stringify!($pointer), ") as a ", stringify!($gc_type), " ands returns a [Local] to it.")]
 			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
 				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
 				self.local.order.borrow_mut().push(GCType::$gc_type);

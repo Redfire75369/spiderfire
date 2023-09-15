@@ -43,7 +43,9 @@ where
 		}
 	});
 
-	Promise::new_with_executor(cx, move |_, resolve, reject| {
+	Promise::new_with_executor(cx, move |cx, resolve, reject| unsafe {
+		cx.root_persistent_object(resolve.to_object(cx).handle().get());
+		cx.root_persistent_object(reject.to_object(cx).handle().get());
 		tx.send((SendWrapper::new(resolve.get()), SendWrapper::new(reject.get())))
 			.map_err(|_| Error::new("Failed to send resolve and reject through channel", None))
 	})
