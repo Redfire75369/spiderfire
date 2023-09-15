@@ -68,9 +68,16 @@ struct LocalArena<'a> {
 
 thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
+#[allow(clippy::vec_box)]
+#[derive(Default)]
+pub struct Persistent {
+	objects: Vec<Box<Heap<*mut JSObject>>>,
+}
+
 pub struct ContextInner {
 	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
+	persistent: Persistent,
 	private: *mut c_void,
 }
 
@@ -84,6 +91,7 @@ impl Default for ContextInner {
 		ContextInner {
 			class_infos: HashMap::new(),
 			module_loader: None,
+			persistent: Persistent::default(),
 			private: ptr::null_mut(),
 		}
 	}
@@ -100,25 +108,8 @@ pub struct Context<'c> {
 	_lifetime: PhantomData<&'c ()>,
 }
 
-macro_rules! impl_root_methods {
-	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
-		$(
-			/// Roots a [$pointer], as a $gc_type, and returns a [Local] to it.
-			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
-				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
-				self.local.order.borrow_mut().push(GCType::$gc_type);
-				Local::from_rooted(
-					unsafe {
-						transmute(self.local.$key.alloc(RootedGuard::new(self.as_ptr(), transmute(rooted), ptr)))
-					}
-				)
-			}
-		)*
-	};
-}
-
-impl Context<'_> {
-	pub fn from_runtime<'c>(rt: &Runtime) -> Context<'c> {
+impl<'c> Context<'c> {
+	pub fn from_runtime(rt: &Runtime) -> Context<'c> {
 		let cx = rt.cx();
 
 		if unsafe { JS_GetContextPrivate(cx).is_null() } {
@@ -139,7 +130,7 @@ impl Context<'_> {
 		}
 	}
 
-	pub unsafe fn new_unchecked<'c>(context: *mut JSContext) -> Context<'c> {
+	pub unsafe fn new_unchecked(context: *mut JSContext) -> Context<'c> {
 		Context {
 			context: NonNull::new_unchecked(context),
 			rooted: RootedArena::default(),
@@ -172,7 +163,49 @@ impl Context<'_> {
 			(*inner_private).private = private;
 		}
 	}
+}
 
+macro_rules! impl_root_methods {
+	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
+		$(
+			/// Roots a [$pointer], as a $gc_type, and returns a [Local] to it.
+			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
+				let rooted = self.rooted.$key.alloc(Rooted::new_unrooted());
+				self.local.order.borrow_mut().push(GCType::$gc_type);
+
+				Local::from_rooted(
+					unsafe {
+						transmute(self.local.$key.alloc(RootedGuard::new(self.as_ptr(), transmute(rooted), ptr)))
+					}
+				)
+			}
+		)*
+	};
+	(persistent $(($root_fn:ident, $unroot_fn:ident, $pointer:ty, $key:ident)$(,)?)*) => {
+		$(
+			pub unsafe fn $root_fn(&self, ptr: $pointer) -> Local<$pointer> {
+				let heap = Heap::boxed(ptr);
+				let persistent = &mut (*self.get_inner_data()).persistent.$key;
+				persistent.push(heap);
+				let ptr = &persistent[persistent.len() - 1];
+				RootedTraceableSet::add(ptr);
+				Local::from_heap(ptr)
+			}
+
+			pub unsafe fn $unroot_fn(&self, ptr: $pointer) {
+				let persistent = &mut (*self.get_inner_data()).persistent.$key;
+				let idx = match persistent.iter().rposition(|x| x.get() == ptr) {
+					Some(idx) => idx,
+					None => return,
+				};
+				let heap = persistent.swap_remove(idx);
+				RootedTraceableSet::remove(&heap);
+			}
+		)*
+	};
+}
+
+impl Context<'_> {
 	impl_root_methods! {
 		(root_value, JSVal, values, Value),
 		(root_object, *mut JSObject, objects, Object),
@@ -184,28 +217,9 @@ impl Context<'_> {
 		(root_symbol, *mut Symbol, symbols, Symbol),
 	}
 
-	pub unsafe fn root_persistent_object(object: *mut JSObject) -> Local<'static, *mut JSObject> {
-		let handle = HEAP_OBJECTS.with(|persistent| {
-			let mut persistent = persistent.borrow_mut();
-			persistent.push(Heap::default());
-			persistent[persistent.len() - 1].set(object);
-			let ptr = &persistent[persistent.len() - 1];
-			RootedTraceableSet::add(ptr);
-			ptr.handle()
-		});
-		Local::from_raw_handle(handle)
-	}
-
-	pub unsafe fn unroot_persistent_object(object: *mut JSObject) {
-		HEAP_OBJECTS.with(|persistent| {
-			let mut persistent = persistent.borrow_mut();
-			let idx = match persistent.iter().rposition(|x| ptr::eq(x.get_unsafe() as *const _, object as *const _)) {
-				Some(idx) => idx,
-				None => return,
-			};
-			let heap = persistent.remove(idx);
-			RootedTraceableSet::remove(&heap);
-		});
+	impl_root_methods! {
+		persistent
+		(root_persistent_object, unroot_persistent_object, *mut JSObject, objects)
 	}
 }
 

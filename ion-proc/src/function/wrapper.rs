@@ -194,13 +194,14 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(
 			let mut __this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-				= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(__this.handle().get())));
+				= ::std::option::Option::Some(#krate::utils::SendWrapper::new(::std::mem::transmute(__cx.root_persistent_object(__this.handle().get()))));
+			let __cx2: #krate::utils::SendWrapper<#krate::Context<'static>> = #krate::utils::SendWrapper::new(#krate::Context::new_unchecked(__cx.as_ptr()));
 		)
 	});
 	let unrooter = parameters
 		.this
 		.is_some()
-		.then(|| quote!(#krate::Context::unroot_persistent_object(__this.take().unwrap().take().handle().get());));
+		.then(|| quote!(__cx2.unroot_persistent_object(__this.take().unwrap().take().handle().get());));
 
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
