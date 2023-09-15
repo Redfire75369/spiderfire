@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::iter::FusedIterator;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
@@ -11,7 +12,8 @@ use mozjs::jsval::{JSVal, ObjectValue};
 
 use crate::{Context, Local, Object, Value};
 use crate::conversions::{FromValue, ToValue};
-use crate::flags::PropertyFlags;
+use crate::flags::{IteratorFlags, PropertyFlags};
+use crate::objects::object::ObjectKeysIter;
 
 /// Represents an [Array] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.
@@ -137,6 +139,14 @@ impl<'a> Array<'a> {
 		self.arr.delete(cx, index)
 	}
 
+	pub fn indices<'c, 'cx: 'a>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIndicesIter<'c, 'cx> {
+		ArrayIndicesIter(self.arr.keys(cx, flags))
+	}
+
+	pub fn iter<'c, 'cx, 's>(&'s self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIter<'c, 'cx, 'a, 's> {
+		ArrayIter::new(cx, self, self.indices(cx, flags))
+	}
+
 	/// Checks if a [*mut JSObject] is an array.
 	pub fn is_array_raw(cx: &Context, object: *mut JSObject) -> bool {
 		rooted!(in(cx.as_ptr()) let object = object);
@@ -148,6 +158,10 @@ impl<'a> Array<'a> {
 	pub fn is_array(cx: &Context, object: &Local<*mut JSObject>) -> bool {
 		let mut is_array = false;
 		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
+	}
+
+	pub fn into_local(self) -> Local<'a, *mut JSObject> {
+		self.arr.into_local()
 	}
 }
 
@@ -164,3 +178,75 @@ impl<'a> DerefMut for Array<'a> {
 		&mut self.arr
 	}
 }
+
+pub struct ArrayIndicesIter<'c, 'cx>(ObjectKeysIter<'c, 'cx>);
+
+impl Iterator for ArrayIndicesIter<'_, '_> {
+	type Item = u32;
+
+	fn next(&mut self) -> Option<u32> {
+		for key in self.0.by_ref() {
+			let key = key.get();
+			if key.is_int() {
+				return Some(key.to_int() as u32);
+			}
+		}
+		None
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, self.0.size_hint().1)
+	}
+}
+
+impl DoubleEndedIterator for ArrayIndicesIter<'_, '_> {
+	fn next_back(&mut self) -> Option<u32> {
+		while let Some(key) = self.0.next_back() {
+			let key = key.get();
+			if key.is_int() {
+				return Some(key.to_int() as u32);
+			}
+		}
+		None
+	}
+}
+
+impl FusedIterator for ArrayIndicesIter<'_, '_> {}
+
+pub struct ArrayIter<'c, 'cx: 'aa, 'aa, 'a> {
+	cx: &'cx Context<'c>,
+	array: &'a Array<'aa>,
+	indices: ArrayIndicesIter<'c, 'cx>,
+}
+
+impl<'c, 'cx: 'aa, 'aa, 'a> ArrayIter<'c, 'cx, 'aa, 'a> {
+	fn new(cx: &'cx Context<'c>, array: &'a Array<'aa>, indices: ArrayIndicesIter<'c, 'cx>) -> ArrayIter<'c, 'cx, 'aa, 'a> {
+		ArrayIter { cx, array, indices }
+	}
+}
+
+impl<'cx> Iterator for ArrayIter<'_, 'cx, '_, '_> {
+	type Item = (u32, Value<'cx>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.indices.next().map(|index| {
+			let value = self.array.get(self.cx, index).unwrap();
+			(index, value)
+		})
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.indices.size_hint()
+	}
+}
+
+impl DoubleEndedIterator for ArrayIter<'_, '_, '_, '_> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		self.indices.next_back().map(|index| {
+			let value = self.array.get(self.cx, index).unwrap();
+			(index, value)
+		})
+	}
+}
+
+impl FusedIterator for ArrayIter<'_, '_, '_, '_> {}

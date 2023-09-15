@@ -252,7 +252,7 @@ impl<'c, 'cx> Drop for ObjectKeysIter<'c, 'cx> {
 	}
 }
 
-impl<'c, 'cx> Iterator for ObjectKeysIter<'c, 'cx> {
+impl<'cx> Iterator for ObjectKeysIter<'_, 'cx> {
 	type Item = PropertyKey<'cx>;
 
 	fn next(&mut self) -> Option<PropertyKey<'cx>> {
@@ -270,7 +270,7 @@ impl<'c, 'cx> Iterator for ObjectKeysIter<'c, 'cx> {
 	}
 }
 
-impl<'c, 'cx> DoubleEndedIterator for ObjectKeysIter<'c, 'cx> {
+impl<'cx> DoubleEndedIterator for ObjectKeysIter<'_, 'cx> {
 	fn next_back(&mut self) -> Option<PropertyKey<'cx>> {
 		if self.index < self.count {
 			self.count -= 1;
@@ -282,13 +282,13 @@ impl<'c, 'cx> DoubleEndedIterator for ObjectKeysIter<'c, 'cx> {
 	}
 }
 
-impl<'c, 'cx> ExactSizeIterator for ObjectKeysIter<'c, 'cx> {
+impl ExactSizeIterator for ObjectKeysIter<'_, '_> {
 	fn len(&self) -> usize {
 		self.count - self.index
 	}
 }
 
-impl<'c, 'cx> FusedIterator for ObjectKeysIter<'c, 'cx> {}
+impl FusedIterator for ObjectKeysIter<'_, '_> {}
 
 pub struct ObjectIter<'c, 'cx: 'oo, 'oo, 'o> {
 	cx: &'cx Context<'c>,
@@ -302,7 +302,7 @@ impl<'c, 'cx: 'oo, 'oo, 'o> ObjectIter<'c, 'cx, 'oo, 'o> {
 	}
 }
 
-impl<'c, 'cx: 'oo, 'oo, 'o> Iterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+impl<'cx> Iterator for ObjectIter<'_, 'cx, '_, '_> {
 	type Item = (PropertyKey<'cx>, Value<'cx>);
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -317,7 +317,7 @@ impl<'c, 'cx: 'oo, 'oo, 'o> Iterator for ObjectIter<'c, 'cx, 'oo, 'o> {
 	}
 }
 
-impl<'c, 'cx: 'oo, 'oo, 'o> DoubleEndedIterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+impl DoubleEndedIterator for ObjectIter<'_, '_, '_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.keys.next_back().map(|key| {
 			let value = self.object.get(self.cx, &key).unwrap();
@@ -326,10 +326,10 @@ impl<'c, 'cx: 'oo, 'oo, 'o> DoubleEndedIterator for ObjectIter<'c, 'cx, 'oo, 'o>
 	}
 }
 
-impl<'c, 'cx: 'oo, 'oo, 'o> ExactSizeIterator for ObjectIter<'c, 'cx, 'oo, 'o> {
+impl ExactSizeIterator for ObjectIter<'_, '_, '_, '_> {
 	fn len(&self) -> usize {
 		self.keys.len()
 	}
 }
 
-impl<'c, 'cx: 'oo, 'oo, 'o> FusedIterator for ObjectIter<'c, 'cx, 'oo, 'o> {}
+impl FusedIterator for ObjectIter<'_, '_, '_, '_> {}

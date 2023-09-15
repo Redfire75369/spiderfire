@@ -22,16 +22,7 @@ pub(crate) mod future;
 pub(crate) mod macrotasks;
 pub(crate) mod microtasks;
 
-thread_local! {
-	pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(
-		EventLoop {
-			futures: None,
-			microtasks: None,
-			macrotasks: None,
-			waker: AtomicWaker::new(),
-		}
-	);
-}
+thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop::default()));
 
 pub struct EventLoop {
 	pub(crate) futures: Option<Rc<FutureQueue>>,
@@ -80,5 +71,16 @@ impl EventLoop {
 		self.microtasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
 			&& self.futures.as_ref().map(|f| f.is_empty()).unwrap_or(true)
 			&& self.macrotasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
+	}
+}
+
+impl Default for EventLoop {
+	fn default() -> EventLoop {
+		EventLoop {
+			futures: None,
+			microtasks: None,
+			macrotasks: None,
+			waker: AtomicWaker::new(),
+		}
 	}
 }
