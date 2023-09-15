@@ -6,7 +6,6 @@
 
 use std::cell::RefCell;
 use std::future::Future;
-use std::mem::transmute;
 use std::pin::Pin;
 use std::task;
 use std::task::Poll;
@@ -18,8 +17,8 @@ use mozjs::jsapi::JSFunction;
 use ion::{Context, ErrorReport, Function, Object, Value};
 use ion::conversions::BoxedIntoValue;
 
-pub type NativeFuture =
-	Pin<Box<dyn Future<Output = (*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue<'static>, BoxedIntoValue<'static>>)> + 'static>>;
+type FutureOutput = (*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue, BoxedIntoValue>);
+pub type NativeFuture = Pin<Box<dyn Future<Output = FutureOutput> + 'static>>;
 
 #[derive(Default)]
 pub struct FutureQueue {
@@ -27,8 +26,8 @@ pub struct FutureQueue {
 }
 
 impl FutureQueue {
-	pub fn run_futures<'cx>(&self, cx: &'cx Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
-		let mut results: Vec<(*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue, BoxedIntoValue>)> = Vec::new();
+	pub fn run_futures(&self, cx: &Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
+		let mut results = Vec::new();
 
 		let mut queue = self.queue.borrow_mut();
 		while let Poll::Ready(Some(item)) = queue.poll_next_unpin(wcx) {
@@ -42,13 +41,11 @@ impl FutureQueue {
 			unsafe {
 				match result {
 					Ok(o) => {
-						let o: BoxedIntoValue<'cx> = transmute(o);
 						o.into_value(cx, &mut value);
 						let resolve = Function::from(cx.root_function(resolve));
 						resolve.call(cx, &null, &[value])?;
 					}
 					Err(e) => {
-						let e: BoxedIntoValue<'cx> = transmute(e);
 						e.into_value(cx, &mut value);
 						let reject = Function::from(cx.root_function(reject));
 						reject.call(cx, &null, &[value])?;

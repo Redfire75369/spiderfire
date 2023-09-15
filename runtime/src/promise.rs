@@ -5,13 +5,13 @@
  */
 
 use std::future::Future;
-use std::mem::transmute;
 
 use futures::channel::oneshot::channel;
 use mozjs::jsapi::JSFunction;
 
 use ion::{Context, Error, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
+use ion::utils::SendWrapper;
 
 use crate::event_loop::EVENT_LOOP;
 use crate::event_loop::future::NativeFuture;
@@ -19,10 +19,10 @@ use crate::event_loop::future::NativeFuture;
 pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
 where
 	F: Future<Output = Result<O, E>> + 'static + Send,
-	O: IntoValue<'cx> + 'static,
-	E: IntoValue<'cx> + 'static,
+	O: for<'cx2> IntoValue<'cx2> + 'static,
+	E: for<'cx2> IntoValue<'cx2> + 'static,
 {
-	let (tx, rx) = channel::<(UnsafeAssertSend<*mut JSFunction>, UnsafeAssertSend<*mut JSFunction>)>();
+	let (tx, rx) = channel::<(SendWrapper<*mut JSFunction>, SendWrapper<*mut JSFunction>)>();
 
 	let future = async move {
 		let (resolve, reject) = rx.await.unwrap();
@@ -32,7 +32,7 @@ where
 			Ok(o) => Ok(Box::new(o)),
 			Err(e) => Err(Box::new(e)),
 		};
-		(resolve.into_inner(), reject.into_inner(), unsafe { transmute(result) })
+		(resolve.take(), reject.take(), result)
 	};
 
 	let future: NativeFuture = Box::pin(future);
@@ -44,24 +44,7 @@ where
 	});
 
 	Promise::new_with_executor(cx, move |_, resolve, reject| {
-		tx.send(unsafe { (UnsafeAssertSend::new(resolve.get()), UnsafeAssertSend::new(reject.get())) })
+		tx.send((SendWrapper::new(resolve.get()), SendWrapper::new(reject.get())))
 			.map_err(|_| Error::new("Failed to send resolve and reject through channel", None))
 	})
 }
-
-pub struct UnsafeAssertSend<T>(T);
-
-impl<T> UnsafeAssertSend<T> {
-	/// ### Safety
-	/// This instance must be used in a thread-safe way.
-	pub unsafe fn new(value: T) -> Self {
-		Self(value)
-	}
-	pub fn into_inner(self) -> T {
-		self.0
-	}
-}
-
-/// ### Safety
-/// See [UnsafeAssertSend::new]
-unsafe impl<T> Send for UnsafeAssertSend<T> {}

@@ -35,8 +35,8 @@ jobs:
           MOZILLA_BUILD_LINK: https://ftp.mozilla.org/pub/mozilla/libraries/win32
           MOZILLA_BUILD_VERSION: 3.4
         run: |
-          Start-BitsTransfer -Source $env:MOZILLA_BUILD_LINK/MozillaBuildSetup-$env:MOZILLA_BUILD_VERSION.exe -Destination ./MozillaBuildSetup.exe
-          .\MozillaBuildSetup.exe /S | Out-Null
+          curl -SL "https://github.com/servo/servo-build-deps/releases/download/msvc-deps/moztools-4.0.zip" --create-dirs -o target/dependencies/moztools.zip
+          cd target/dependencies && unzip -qo moztools.zip -d .
           echo 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Tools\LLVM\bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Dependencies on OS X
@@ -86,12 +86,10 @@ jobs:
       - name: Build Windows
         if: matrix.id == 'windows'
         env:
-          CARGO_HOME: ${{ github.workspace }}\..\.cargo
-          MOZILLA_BUILD: C:\mozilla-build
+          MOZTOOLS_PATH: "${{ github.workspace }}\\target\\dependencies\\moztools-3.2"
           CC: clang-cl.exe
           CXX: clang-cl.exe
           LINKER: lld-link.exe
-          PYTHON3: C:\mozilla-build\python3\python3.exe
         run: |
           just build-release -vv --color=never
           just test-release -vv --color=never

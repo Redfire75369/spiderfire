@@ -55,7 +55,7 @@ pub(crate) fn to_value(class_ident: &Ident, is_clone: bool) -> ItemImpl {
 	} else {
 		parse2(quote!(
 			impl<'cx> #krate::conversions::IntoValue<'cx> for #class_ident {
-				unsafe fn into_value(self: Box<Self>, cx: &'cx #krate::Context, value: &mut #krate::Value) {
+				unsafe fn into_value(self: ::std::boxed::Box<Self>, cx: &'cx #krate::Context, value: &mut #krate::Value) {
 					#krate::conversions::ToValue::to_value(&<#class_ident as #krate::ClassInitialiser>::new_object(cx, *self), cx, value)
 				}
 			}

@@ -7,7 +7,7 @@
 use crate::{Context, Value};
 use crate::conversions::ToValue;
 
-pub type BoxedIntoValue<'cx> = Box<dyn IntoValue<'cx>>;
+pub type BoxedIntoValue = Box<dyn for<'cx> IntoValue<'cx>>;
 
 /// Represents types that can be converted to JavaScript [Values](Value) with ownership.
 /// Primarily used with dynamic dispatch and [`BoxedIntoValue`](BoxedIntoValue).
