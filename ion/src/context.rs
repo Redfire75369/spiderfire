@@ -13,10 +13,10 @@ use std::mem::{take, transmute};
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::{RootedTraceableSet, Traceable};
+use mozjs::gc::RootedTraceableSet;
 use mozjs::jsapi::{
-	Heap, JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer,
-	PropertyDescriptor, PropertyKey, Rooted, Symbol,
+	Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted,
+	Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{RootedGuard, Runtime};
@@ -81,11 +81,6 @@ pub struct ContextInner {
 	private: *mut c_void,
 }
 
-pub unsafe extern "C" fn trace_context_inner(trc: *mut JSTracer, data: *mut c_void) {
-	let data = data as *mut ContextInner;
-	(*data).class_infos.trace(trc);
-}
-
 impl Default for ContextInner {
 	fn default() -> ContextInner {
 		ContextInner {
@@ -117,7 +112,6 @@ impl<'c> Context<'c> {
 			let inner_private = Box::into_raw(inner_private);
 			unsafe {
 				JS_SetContextPrivate(cx, inner_private as *mut c_void);
-				JS_AddExtraGCRootsTracer(cx, Some(trace_context_inner), inner_private as *mut c_void);
 			}
 		}
 

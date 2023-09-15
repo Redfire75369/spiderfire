@@ -8,11 +8,10 @@ use std::any::TypeId;
 use std::ffi::c_void;
 use std::ptr;
 
-use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Heap, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
-	JSObject, JSPropertySpec, JSTracer,
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
+	JSObject, JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
@@ -24,15 +23,8 @@ use crate::functions::NativeFunction;
 #[derive(Debug)]
 pub struct ClassInfo {
 	#[allow(dead_code)]
-	constructor: Box<Heap<*mut JSFunction>>,
-	prototype: Box<Heap<*mut JSObject>>,
-}
-
-unsafe impl Traceable for ClassInfo {
-	unsafe fn trace(&self, trc: *mut JSTracer) {
-		self.constructor.trace(trc);
-		self.prototype.trace(trc);
-	}
+	constructor: *mut JSFunction,
+	prototype: *mut JSObject,
 }
 
 pub trait ClassDefinition {
@@ -98,14 +90,14 @@ pub trait ClassDefinition {
 				static_functions.as_ptr() as *const _,
 			)
 		};
-		let class = cx.root_object(class);
+		let prototype = cx.root_object(class);
 
-		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), class.handle().into()) }));
+		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) }));
 		let constructor = Function::from_object(cx, &constructor).unwrap();
 
 		let info = ClassInfo {
-			constructor: Heap::boxed(constructor.get()),
-			prototype: Heap::boxed(class.get()),
+			constructor: constructor.get(),
+			prototype: prototype.get(),
 		};
 
 		let info = infos.entry(TypeId::of::<Self>()).or_insert(info);
@@ -120,7 +112,7 @@ pub trait ClassDefinition {
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
 		let boxed = Box::new(Some(native));
 		unsafe {
-			let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), info.prototype.handle());
+			let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype));
 			JS_SetReservedSlot(
 				obj,
 				Self::PARENT_PROTOTYPE_CHAIN_LENGTH,

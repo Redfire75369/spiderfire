@@ -67,6 +67,10 @@ impl<'cx> Runtime<'_, 'cx> {
 
 impl Drop for Runtime<'_, '_> {
 	fn drop(&mut self) {
+		let private = unsafe { self.cx.get_raw_private() as *mut ContextPrivate };
+		if !private.is_null() {
+			let _ = unsafe { Box::from_raw(private) };
+		}
 		let inner_private = unsafe { self.cx.get_inner_data() };
 		if !inner_private.is_null() {
 			let _ = unsafe { Box::from_raw(inner_private) };
