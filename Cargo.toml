@@ -10,7 +10,7 @@ resolver = "2"
 
 [workspace.dependencies]
 colored = "2.0.4"
-chrono = "0.4.26"
+chrono = "0.4.30"
 derivative = "2.2.0"
 dunce = "1.0.4"
 futures = "0.3.28"
@@ -18,5 +18,8 @@ indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
-tokio = { version = "1.32.0", features = ["rt"] }
-url = "2.4.0"
+url = "2.4.1"
+
+[workspace.dependencies.tokio]
+version = "1.32.0"
+features = ["rt"]

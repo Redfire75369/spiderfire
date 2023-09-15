@@ -19,10 +19,10 @@ pub(crate) fn new_external_string<'cx>(cx: &'cx Context, str: WString<NativeEndi
 	let vec = str.into_bytes();
 	let boxed = vec.into_boxed_slice();
 
-	let (chars, len, private_data) = box_into_raw(boxed);
+	let (chars, len) = box_into_raw(boxed);
 
 	unsafe {
-		let callbacks = CreateJSExternalStringCallbacks(&EXTERNAL_STRING_CALLBACKS_TRAPS, private_data);
+		let callbacks = CreateJSExternalStringCallbacks(&EXTERNAL_STRING_CALLBACKS_TRAPS, len as *mut c_void);
 		let jsstr = JS_NewExternalString(cx.as_ptr(), chars, len, callbacks);
 
 		if !jsstr.is_null() {
@@ -49,11 +49,11 @@ static EXTERNAL_STRING_CALLBACKS_TRAPS: JSExternalStringCallbacksTraps = JSExter
 	sizeOfBuffer: Some(size_of_buffer),
 };
 
-fn box_into_raw(boxed: Box<[u8]>) -> (*const u16, usize, *const c_void) {
+fn box_into_raw(boxed: Box<[u8]>) -> (*const u16, usize) {
 	assert_eq!(boxed.len() % 2, 0);
 	let len = boxed.len() / 2;
 	let chars = Box::into_raw(boxed) as *const u16;
-	(chars, len, len as *const c_void)
+	(chars, len)
 }
 
 fn box_from_raw(chars: *mut u16, private_data: *const c_void) -> Box<[u8]> {
@@ -66,6 +66,8 @@ fn box_from_raw(chars: *mut u16, private_data: *const c_void) -> Box<[u8]> {
 
 #[cfg(test)]
 mod tests {
+	use std::ffi::c_void;
+
 	use byteorder::NativeEndian;
 	use utf16string::WString;
 
@@ -79,9 +81,9 @@ mod tests {
 
 		let base = NativeWString::from(string);
 		let boxed = NativeWString::from(string).into_bytes().into_boxed_slice();
-		let (chars, _, private_data) = box_into_raw(boxed);
+		let (chars, len) = box_into_raw(boxed);
 
-		let boxed = box_from_raw(chars as *mut u16, private_data);
+		let boxed = box_from_raw(chars as *mut u16, len as *mut c_void);
 		let wstring = NativeWString::from_utf16(Vec::from(boxed)).unwrap();
 		assert_eq!(base, wstring);
 	}

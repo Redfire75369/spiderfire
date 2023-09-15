@@ -9,7 +9,7 @@ license = "MPL-2.0"
 base64-url = "2.0.0"
 closure = "0.3.0"
 dirs = "5.0.1"
-encoding_rs = "0.8.32"
+encoding_rs = "0.8.33"
 form_urlencoded = "1.2.0"
 indexmap = "2.0.0"
 os_str_bytes = "6.5.1"
@@ -29,15 +29,15 @@ path = "../ion"
 features = ["macros", "sourcemap"]
 
 [dependencies.swc_core]
-version = "0.79.69"
+version = "0.83.10"
 features = ["common"]
 
 [dependencies.swc_common]
-version = "0.31.21"
+version = "0.32.1"
 features = ["sourcemap", "tty-emitter"]
 
 [dependencies.swc_ecmascript]
-version = "0.231.59"
+version = "0.234.7"
 features = ["codegen", "parser", "transforms", "typescript", "visit"]
 
 [dependencies.tokio]

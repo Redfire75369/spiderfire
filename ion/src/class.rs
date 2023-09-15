@@ -15,8 +15,7 @@ use mozjs::jsapi::{
 	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
 	JSObject, JSPropertySpec,
 };
-use mozjs::jsval::PrivateValue;
-use mozjs_sys::jsval::UndefinedValue;
+use mozjs::jsval::{PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Error, ErrorKind, Function, Object, Result, Value};
 use crate::conversions::FromValue;

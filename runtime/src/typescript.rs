@@ -18,26 +18,15 @@ use swc_core::common::sync::Lrc;
 use swc_ecmascript::ast::EsVersion;
 use swc_ecmascript::codegen::{Config as CodegenConfig, Emitter};
 use swc_ecmascript::codegen::text_writer::JsWriter;
-use swc_ecmascript::parser::{Capturing, Parser};
+use swc_ecmascript::parser::{Capturing, Parser, Syntax};
 use swc_ecmascript::parser::lexer::Lexer;
-use swc_ecmascript::parser::Syntax;
-use swc_ecmascript::transforms::fixer::fixer;
-use swc_ecmascript::transforms::hygiene::hygiene;
-use swc_ecmascript::transforms::resolver;
+use swc_ecmascript::transforms::{fixer, hygiene, resolver};
 use swc_ecmascript::transforms::typescript::strip;
 use swc_ecmascript::visit::FoldWith;
 
 use crate::config::Config;
 
 pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
-	if !Config::global().script {
-		compile_typescript_module(filename, source)
-	} else {
-		compile_typescript_script(filename, source)
-	}
-}
-
-pub fn compile_typescript_script(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
 	let name = FileName::Real(PathBuf::from(filename));
 
 	let source_map: Lrc<SwcSourceMap> = Default::default();
@@ -47,11 +36,29 @@ pub fn compile_typescript_script(filename: &str, source: &str) -> Result<(String
 	let comments = SingleThreadedComments::default();
 	let (handler, mut parser) = initialise_parser(source_map.clone(), &comments, input);
 
+	let mut buffer = Vec::new();
+	let mut mappings = Vec::new();
+	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
+
+	if Config::global().script {
+		handle_script(&handler, &mut parser, &mut emitter)?;
+	} else {
+		handle_module(&handler, &mut parser, &mut emitter)?;
+	}
+
+	let source_map = source_map.build_source_map(&mappings);
+	Ok((String::from_utf8(buffer)?, source_map))
+}
+
+pub fn handle_script(
+	handler: &Handler, parser: &mut Parser<Capturing<Lexer>>, emitter: &mut Emitter<JsWriter<&mut Vec<u8>>, SwcSourceMap>,
+) -> Result<(), Error> {
 	let script = parser.parse_script().map_err(|e| {
-		e.into_diagnostic(&handler).emit();
+		e.into_diagnostic(handler).emit();
 		Error::Parse
 	})?;
 
+	let comments = emitter.comments;
 	let globals = Globals::default();
 	let script = GLOBALS.set(&globals, || {
 		let unresolved_mark = Mark::new();
@@ -60,34 +67,21 @@ pub fn compile_typescript_script(filename: &str, source: &str) -> Result<(String
 		let script = script.fold_with(&mut resolver(unresolved_mark, top_level_mark, true));
 		let script = script.fold_with(&mut strip(top_level_mark));
 		let script = script.fold_with(&mut hygiene());
-		script.fold_with(&mut fixer(Some(&comments)))
+		script.fold_with(&mut fixer(comments))
 	});
 
-	let mut buffer = Vec::new();
-	let mut mappings = Vec::new();
-	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
-	emitter.emit_script(&script).map_err(|_| Error::Emission)?;
-
-	let sourcemap = source_map.build_source_map(&mappings);
-
-	Ok((String::from_utf8(buffer)?, sourcemap))
+	emitter.emit_script(&script).map_err(|_| Error::Emission)
 }
 
-pub fn compile_typescript_module(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
-	let name = FileName::Real(PathBuf::from(filename));
-
-	let source_map: Lrc<SwcSourceMap> = Default::default();
-	let file = source_map.new_source_file(name, String::from(source));
-	let input = StringInput::from(&*file);
-
-	let comments = SingleThreadedComments::default();
-	let (handler, mut parser) = initialise_parser(source_map.clone(), &comments, input);
-
+pub fn handle_module(
+	handler: &Handler, parser: &mut Parser<Capturing<Lexer>>, emitter: &mut Emitter<JsWriter<&mut Vec<u8>>, SwcSourceMap>,
+) -> Result<(), Error> {
 	let module = parser.parse_module().map_err(|e| {
-		e.into_diagnostic(&handler).emit();
+		e.into_diagnostic(handler).emit();
 		Error::Parse
 	})?;
 
+	let comments = emitter.comments;
 	let globals = Globals::default();
 	let module = GLOBALS.set(&globals, || {
 		let unresolved_mark = Mark::new();
@@ -96,17 +90,10 @@ pub fn compile_typescript_module(filename: &str, source: &str) -> Result<(String
 		let module = module.fold_with(&mut resolver(unresolved_mark, top_level_mark, true));
 		let module = module.fold_with(&mut strip(top_level_mark));
 		let module = module.fold_with(&mut hygiene());
-		module.fold_with(&mut fixer(Some(&comments)))
+		module.fold_with(&mut fixer(comments))
 	});
 
-	let mut buffer = Vec::new();
-	let mut mappings = Vec::new();
-	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
-	emitter.emit_module(&module).map_err(|_| Error::Emission)?;
-
-	let sourcemap = source_map.build_source_map(&mappings);
-
-	Ok((String::from_utf8(buffer)?, sourcemap))
+	emitter.emit_module(&module).map_err(|_| Error::Emission)
 }
 
 fn initialise_parser<'a>(
@@ -128,12 +115,7 @@ fn initialise_emitter<'a>(
 	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, buffer: &'a mut Vec<u8>, mappings: &'a mut Vec<(BytePos, LineCol)>,
 ) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
-		cfg: CodegenConfig {
-			target: EsVersion::Es2022,
-			ascii_only: false,
-			minify: false,
-			omit_last_semi: false,
-		},
+		cfg: CodegenConfig::default().with_target(EsVersion::Es2022),
 		cm: source_map.clone(),
 		comments: Some(comments),
 		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),

@@ -12,10 +12,9 @@ use mozjs::jsapi::{
 	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength,
 	JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_IsFunctionBound,
 	JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved,
+	SetFunctionNativeReserved,
 };
-use mozjs::jsval::JSVal;
-use mozjs_sys::jsapi::js::SetFunctionNativeReserved;
-use mozjs_sys::jsval::ObjectValue;
+use mozjs::jsval::{JSVal, ObjectValue};
 
 use crate::{Context, ErrorReport, Local, Object, Value};
 use crate::flags::PropertyFlags;

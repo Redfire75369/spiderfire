@@ -6,7 +6,7 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-bytes = "1.4.0"
+bytes = "1.5.0"
 http = "0.2.9"
 idna = "0.4.0"
 paste = "1.0.14"

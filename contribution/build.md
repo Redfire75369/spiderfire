@@ -22,7 +22,7 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 
 ### MSVC
 
-1. Follow the instructions at [Windows Prerequisites](https://firefox-source-docs.mozilla.org/setup/windows_build.html). (Steps 1.1 and 1.2)
+1. Download and Unzip [MozTools 4.0](https://github.com/servo/servo-build-deps/releases/download/msvc-deps/moztools-4.0.zip) to `C:\moztools-4.0`.
 2. Download and install LLVM for Windows (64 bit) from [LLVM Releases](https://github.com/llvm/llvm-project/releases/latest).
    - Note: When installing LLVM, choose to add LLVM to the system path.
 

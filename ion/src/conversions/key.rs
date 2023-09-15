@@ -7,12 +7,11 @@
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JS_StringToId, JSString};
+use mozjs::jsapi::{JS_StringToId, JS_ValueToId, JSString};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsid::{SymbolId, VoidId};
-use mozjs_sys::jsapi::JS_ValueToId;
-use mozjs_sys::jsval::JSVal;
+use mozjs::jsval::JSVal;
 
 use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
 use crate::symbol::WellKnownSymbolCode;

@@ -8,11 +8,11 @@ use std::path::Path;
 use std::ptr;
 
 use mozjs::jsapi::{
-	CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject, SetModuleMetadataHook, SetModuleResolveHook,
+	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject, ModuleEvaluate, ModuleLink,
+	ReadOnlyCompileOptions, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
-use mozjs_sys::jsapi::JS::{CompileModule, ModuleEvaluate, ModuleLink, ReadOnlyCompileOptions, SetModulePrivate};
 
 use crate::{Context, ErrorReport, Local, Object, Promise, Value};
 use crate::conversions::{FromValue, ToValue};
