@@ -16,7 +16,7 @@ extern crate mozjs;
 
 use std::result;
 
-pub use class::ClassInitialiser;
+pub use class::ClassDefinition;
 pub use context::{Context, ContextInner};
 pub use error::{Error, ErrorKind};
 pub use exception::{ErrorReport, Exception, ThrowException};

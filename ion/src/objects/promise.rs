@@ -22,6 +22,7 @@ use crate::{Arguments, Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
+use crate::functions::NativeFunction;
 
 /// Represents a [Promise] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for more details.
@@ -64,7 +65,7 @@ impl<'p> Promise<'p> {
 				}
 			};
 			let closure = ClosureOnce3::new(native);
-			let fn_ptr = transmute::<_, &unsafe extern "C" fn(*mut JSContext, u32, *mut JSVal) -> bool>(closure.code_ptr());
+			let fn_ptr: &NativeFunction = transmute(closure.code_ptr());
 
 			let function = Function::new(cx, "executor", Some(*fn_ptr), 2, PropertyFlags::empty());
 			let executor = function.to_object(cx);

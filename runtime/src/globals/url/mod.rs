@@ -6,7 +6,7 @@
 
 #![allow(clippy::module_inception)]
 
-use ion::{ClassInitialiser, Context, Object};
+use ion::{ClassDefinition, Context, Object};
 pub use search_params::URLSearchParams;
 pub use url_class::URL;
 
@@ -31,7 +31,7 @@ mod url_class {
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 	use url::Url;
 
-	use ion::{ClassInitialiser, Context, Error, Object, Result};
+	use ion::{ClassDefinition, Context, Error, Object, Result};
 
 	use super::FormatOptions;
 	use super::search_params::URLSearchParams;

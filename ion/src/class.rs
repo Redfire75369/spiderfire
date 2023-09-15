@@ -17,7 +17,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Error, ErrorKind, Function, Object, Result, Value};
+use crate::{Arguments, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
 
@@ -32,13 +32,13 @@ pub struct ClassInfo {
 	prototype: *mut JSObject,
 }
 
-pub trait ClassInitialiser {
+pub trait ClassDefinition {
 	const NAME: &'static str;
 	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32;
 
 	fn class() -> &'static JSClass;
 
-	fn parent_info(_: &Context) -> Option<ClassInfo> {
+	fn parent_prototype<'cx>(_: &'cx Context) -> Option<Local<'cx, *mut JSObject>> {
 		None
 	}
 
@@ -71,9 +71,7 @@ pub trait ClassInitialiser {
 		}
 
 		let class = Self::class();
-		let parent_proto = Self::parent_info(cx)
-			.map(|ci| cx.root_object(ci.prototype).into())
-			.unwrap_or_else(|| Object::new(cx));
+		let parent_proto = Self::parent_prototype(cx).map(Object::from).unwrap_or_else(|| Object::new(cx));
 		let (constructor, nargs) = Self::constructor();
 		let properties = Self::properties();
 		let functions = Self::functions();
@@ -148,7 +146,7 @@ pub trait ClassInitialiser {
 }
 
 /// Converts an instance of a native class into its native value, by cloning it.
-pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassInitialiser + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
+pub unsafe fn class_from_value<'cx: 'v, 'v, T: ClassDefinition + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
 	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
 		Ok(T::get_private(&object).clone())

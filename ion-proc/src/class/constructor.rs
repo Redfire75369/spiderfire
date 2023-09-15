@@ -62,7 +62,7 @@ pub(crate) fn error_handler(ty: &Type, return_type: &Type) -> TokenStream {
 		#krate::functions::__handle_native_constructor_private_result(
 			cx,
 			result,
-			<#ty as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH,
+			<#ty as #krate::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH,
 			&this,
 			args.rval(),
 		)

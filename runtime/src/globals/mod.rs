@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::{ClassInitialiser, Context, Iterator, Object};
+use ion::{ClassDefinition, Context, Iterator, Object};
 
 pub mod abort;
 pub mod console;

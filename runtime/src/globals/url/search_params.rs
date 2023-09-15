@@ -12,7 +12,7 @@ mod search_params {
 	use mozjs::gc::Traceable;
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 
-	use ion::{ClassInitialiser, Context, Error, ErrorKind, JSIterator, Local, Object, Result, Value};
+	use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, Result, Value};
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 

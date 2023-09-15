@@ -200,14 +200,14 @@ impl ThisParameter {
 		}
 	}
 
-	pub(crate) fn to_statements(&self, is_class: bool) -> Result<Stmt> {
+	pub(crate) fn to_statement(&self, is_class: bool) -> Result<Stmt> {
 		let krate = quote!(::ion);
 		let ThisParameter { pat, ty, kind } = self;
 		if is_class {
 			let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 			match kind {
 				ThisKind::Ref(lt, mutability) => parse2(quote!(
-					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassInitialiser>::get_private(this);
+					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassDefinition>::get_private(this);
 				)),
 				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 			}
@@ -226,7 +226,7 @@ impl ThisParameter {
 				parse2(quote!(let #pat: &'static #mutability #ty;))?,
 				vec![
 					parse2(quote!(let __this2 = __this.take().unwrap().take().into();))?,
-					parse2(quote!(self_ = ::std::mem::transmute(<#ty as ::ion::ClassInitialiser>::get_private(&__this2));))?,
+					parse2(quote!(self_ = &mut *(<#ty as ::ion::ClassDefinition>::get_private(&__this2) as *mut #ty);))?,
 					parse2(quote!(__this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(__this2.into_local()));))?,
 				],
 			)),
@@ -322,7 +322,7 @@ impl Parameters {
 						}
 					))
 				} else {
-					let statements = this.to_statements(is_class)?;
+					let statements = this.to_statement(is_class)?;
 					Ok(quote!(#statements))
 				}
 			}

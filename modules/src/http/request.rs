@@ -97,7 +97,7 @@ pub mod class {
 	use hyper::{Body, Method, Uri};
 	use url::Url;
 
-	use ion::{ClassInitialiser, Context, Error, ErrorKind, Object, Result, Value};
+	use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Value};
 	use ion::conversions::FromValue;
 	use runtime::globals::abort::AbortSignal;
 

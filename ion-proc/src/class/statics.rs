@@ -23,7 +23,7 @@ pub(crate) fn class_spec(class: &Ident, literal: &LitStr) -> ItemStatic {
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
 			name: #name.as_ptr() as *const ::core::primitive::i8,
-			flags: #krate::objects::class_reserved_slots(<#class as #krate::ClassInitialiser>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
+			flags: #krate::objects::class_reserved_slots(<#class as #krate::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
 			cOps: &OPERATIONS as *const _ as *mut _,
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
@@ -90,7 +90,7 @@ pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, 
 	let name_str = LitStr::new(&class_ident.to_string(), class_ident.span());
 
 	parse2(quote!(
-		impl #krate::ClassInitialiser for #class_ident {
+		impl #krate::ClassDefinition for #class_ident {
 			const NAME: &'static str = #name_str;
 
 			const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;

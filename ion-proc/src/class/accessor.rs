@@ -71,7 +71,7 @@ impl Accessor {
 			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
 			let getter = parse2(quote!(
 				fn #getter_ident(#[ion(this)] this: &#krate::Object) -> #krate::Result<#ty> {
-					let self_ = <#class_ty as #krate::ClassInitialiser>::get_private(this);
+					let self_ = <#class_ty as #krate::ClassDefinition>::get_private(this);
 					Ok(self_.#ident)
 				}
 			))
@@ -85,7 +85,7 @@ impl Accessor {
 
 				let setter = parse2(quote!(
 					fn #setter_ident(#[ion(this)] this: &mut #krate::Object, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
-						let self_ = <#class_ty as #krate::ClassInitialiser>::get_private(this);
+						let self_ = <#class_ty as #krate::ClassDefinition>::get_private(this);
 						self_.#ident = #ident;
 						Ok(())
 					}

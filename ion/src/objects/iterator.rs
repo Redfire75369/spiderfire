@@ -11,8 +11,9 @@ use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{GCContext, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper, JSObject, JSTracer};
 use mozjs::jsval::{JSVal, NullValue};
+use mozjs_sys::jsapi::JS::GetRealmIteratorPrototype;
 
-use crate::{Arguments, ClassInitialiser, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
+use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
 use crate::functions::NativeFunction;
@@ -74,6 +75,54 @@ impl Iterator {
 	}
 }
 
+impl Iterator {
+	unsafe extern "C" fn constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
+		let cx = &Context::new_unchecked(cx);
+		Error::new("Constructor should not be called", ErrorKind::Type).throw(cx);
+		false
+	}
+
+	unsafe extern "C" fn next_raw(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
+		let cx = &Context::new_unchecked(cx);
+		let args = &mut Arguments::new(cx, argc, vp);
+
+		let this = args.this().to_object(cx);
+		let iterator = Iterator::get_private(&this);
+		let result = iterator.next_value(cx);
+
+		result.to_value(cx, args.rval());
+		true
+	}
+
+	unsafe extern "C" fn iterable(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
+		let cx = &Context::new_unchecked(cx);
+		let args = &mut Arguments::new(cx, argc, vp);
+
+		let this = args.this().handle().get();
+		args.rval().handle_mut().set(this);
+
+		true
+	}
+
+	unsafe extern "C" fn finalise(_: *mut GCContext, this: *mut JSObject) {
+		let mut value = NullValue();
+		JS_GetReservedSlot(this, 0, &mut value);
+		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
+			let private = &mut *(value.to_private() as *mut Option<Iterator>);
+			let _ = private.take();
+		}
+	}
+
+	unsafe extern "C" fn trace(trc: *mut JSTracer, this: *mut JSObject) {
+		let mut value = NullValue();
+		JS_GetReservedSlot(this, 0, &mut value);
+		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
+			let private = &*(value.to_private() as *mut Option<Iterator>);
+			private.trace(trc);
+		}
+	}
+}
+
 impl IntoValue<'_> for Iterator {
 	unsafe fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
 		let object = cx.root_object(Iterator::new_object(cx, *self));
@@ -87,52 +136,6 @@ unsafe impl Traceable for Iterator {
 	}
 }
 
-unsafe extern "C" fn iterator_constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
-	let cx = &Context::new_unchecked(cx);
-	Error::new("Constructor should not be called", ErrorKind::Type).throw(cx);
-	false
-}
-
-unsafe extern "C" fn iterator_next(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-	let cx = &Context::new_unchecked(cx);
-	let args = &mut Arguments::new(cx, argc, vp);
-
-	let this = args.this().to_object(cx);
-	let iterator = Iterator::get_private(&this);
-	let result = iterator.next_value(cx);
-
-	result.to_value(cx, args.rval());
-	true
-}
-
-unsafe extern "C" fn iterator_iterable(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-	let cx = &Context::new_unchecked(cx);
-	let args = &mut Arguments::new(cx, argc, vp);
-
-	let this = args.this().handle().get();
-	args.rval().handle_mut().set(this);
-
-	true
-}
-
-unsafe extern "C" fn iterator_finalize(_: *mut GCContext, this: *mut JSObject) {
-	let mut value = NullValue();
-	JS_GetReservedSlot(this, 0, &mut value);
-	if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-		let private = &mut *(value.to_private() as *mut Option<Iterator>);
-		let _ = private.take();
-	}
-}
-
-unsafe extern "C" fn iterator_trace(trc: *mut JSTracer, this: *mut JSObject) {
-	let mut value = NullValue();
-	JS_GetReservedSlot(this, 0, &mut value);
-	if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-		let private = &*(value.to_private() as *mut Option<Iterator>);
-		private.trace(trc);
-	}
-}
-
 static ITERATOR_CLASS_OPS: JSClassOps = JSClassOps {
 	addProperty: None,
 	delProperty: None,
@@ -140,10 +143,10 @@ static ITERATOR_CLASS_OPS: JSClassOps = JSClassOps {
 	newEnumerate: None,
 	resolve: None,
 	mayResolve: None,
-	finalize: Some(iterator_finalize),
+	finalize: Some(Iterator::finalise),
 	call: None,
 	construct: None,
-	trace: Some(iterator_trace),
+	trace: Some(Iterator::trace),
 };
 
 static ITERATOR_CLASS: JSClass = JSClass {
@@ -159,7 +162,7 @@ static ITERATOR_METHODS: &[JSFunctionSpec] = &[
 	create_function_spec(
 		"next\0",
 		JSNativeWrapper {
-			op: Some(iterator_next),
+			op: Some(Iterator::next_raw),
 			info: ptr::null_mut(),
 		},
 		0,
@@ -168,7 +171,7 @@ static ITERATOR_METHODS: &[JSFunctionSpec] = &[
 	create_function_spec_symbol(
 		WellKnownSymbolCode::Iterator,
 		JSNativeWrapper {
-			op: Some(iterator_iterable),
+			op: Some(Iterator::iterable),
 			info: ptr::null_mut(),
 		},
 		0,
@@ -177,7 +180,7 @@ static ITERATOR_METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-impl ClassInitialiser for Iterator {
+impl ClassDefinition for Iterator {
 	const NAME: &'static str = "";
 	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
 
@@ -185,8 +188,12 @@ impl ClassInitialiser for Iterator {
 		&ITERATOR_CLASS
 	}
 
+	fn parent_prototype<'cx>(cx: &'cx Context) -> Option<Local<'cx, *mut JSObject>> {
+		Some(cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
+	}
+
 	fn constructor() -> (NativeFunction, u32) {
-		(iterator_constructor, 0)
+		(Iterator::constructor, 0)
 	}
 
 	fn functions() -> &'static [JSFunctionSpec] {

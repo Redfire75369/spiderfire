@@ -8,7 +8,7 @@
 
 pub use decoder::TextDecoder;
 pub use encoder::TextEncoder;
-use ion::{ClassInitialiser, Context, Object};
+use ion::{ClassDefinition, Context, Object};
 
 mod decoder;
 mod encoder;

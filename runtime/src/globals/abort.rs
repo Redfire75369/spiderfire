@@ -15,7 +15,7 @@ use mozjs::jsval::JSVal;
 use tokio::sync::watch::Receiver;
 
 pub use controller::AbortController;
-use ion::{ClassInitialiser, Context, Object};
+use ion::{ClassDefinition, Context, Object};
 pub use signal::AbortSignal;
 
 #[derive(Clone, Debug, Default)]

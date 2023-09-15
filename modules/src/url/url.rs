@@ -7,7 +7,7 @@
 use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{ClassInitialiser, Context, Object, Result};
+use ion::{ClassDefinition, Context, Object, Result};
 use runtime::globals::url::{URL, URLSearchParams};
 use runtime::modules::NativeModule;
 

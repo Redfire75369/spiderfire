@@ -7,7 +7,7 @@
 use hyper::Method;
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{ClassInitialiser, Context, Object, ResultExc};
+use ion::{ClassDefinition, Context, Object, ResultExc};
 use runtime::modules::NativeModule;
 
 use crate::http::{Headers, Request, Resource, Response};

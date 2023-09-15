@@ -48,7 +48,7 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	__handle_native_function_result(cx, result, args.access().rval())
 }
 
-unsafe extern "C" fn finalize_closure(_: *mut GCContext, object: *mut JSObject) {
+unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {
 	let mut value = UndefinedValue();
 	JS_GetReservedSlot(object, CLOSURE_SLOT, &mut value);
 	let _ = Box::from_raw(value.to_private() as *mut Box<Closure>);
@@ -61,7 +61,7 @@ static CLOSURE_OPS: JSClassOps = JSClassOps {
 	newEnumerate: None,
 	resolve: None,
 	mayResolve: None,
-	finalize: Some(finalize_closure),
+	finalize: Some(finalise_closure),
 	call: None,
 	construct: None,
 	trace: None,
