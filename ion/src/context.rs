@@ -4,22 +4,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::any::TypeId;
 use std::cell::{OnceCell, RefCell};
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::mem::{take, transmute};
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::RootedTraceableSet;
+use mozjs::gc::{RootedTraceableSet, Traceable};
 use mozjs::jsapi::{
-	Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted,
-	Symbol,
+	Heap, JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer,
+	PropertyDescriptor, PropertyKey, Rooted, Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{RootedGuard, Runtime};
 use typed_arena::Arena;
 
+use crate::class::ClassInfo;
 use crate::Local;
 use crate::module::ModuleLoader;
 
@@ -66,13 +69,20 @@ struct LocalArena<'a> {
 thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
 
 pub struct ContextInner {
+	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
 	private: *mut c_void,
+}
+
+pub unsafe extern "C" fn trace_context_inner(trc: *mut JSTracer, data: *mut c_void) {
+	let data = data as *mut ContextInner;
+	(*data).class_infos.trace(trc);
 }
 
 impl Default for ContextInner {
 	fn default() -> ContextInner {
 		ContextInner {
+			class_infos: HashMap::new(),
 			module_loader: None,
 			private: ptr::null_mut(),
 		}
@@ -110,18 +120,21 @@ macro_rules! impl_root_methods {
 impl Context<'_> {
 	pub fn from_runtime<'c>(rt: &Runtime) -> Context<'c> {
 		let cx = rt.cx();
-		let inner_private = Box::<ContextInner>::default();
-		let inner_private = Box::into_raw(inner_private);
 
-		unsafe {
-			JS_SetContextPrivate(cx, inner_private as *mut c_void);
+		if unsafe { JS_GetContextPrivate(cx).is_null() } {
+			let inner_private = Box::<ContextInner>::default();
+			let inner_private = Box::into_raw(inner_private);
+			unsafe {
+				JS_SetContextPrivate(cx, inner_private as *mut c_void);
+				JS_AddExtraGCRootsTracer(cx, Some(trace_context_inner), inner_private as *mut c_void);
+			}
 		}
 
 		Context {
 			context: unsafe { NonNull::new_unchecked(cx) },
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
-			private: OnceCell::from(inner_private),
+			private: OnceCell::new(),
 			_lifetime: PhantomData,
 		}
 	}

@@ -5,15 +5,14 @@
  */
 
 use std::any::TypeId;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr;
 
+use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
-	JSObject, JSPropertySpec,
+	Heap, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
+	JSObject, JSPropertySpec, JSTracer,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
@@ -21,20 +20,24 @@ use crate::{Arguments, Context, Error, ErrorKind, Function, Local, Object, Resul
 use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
 
-// TODO: Move into Context Wrapper
-thread_local!(pub static CLASS_INFOS: RefCell<HashMap<TypeId, ClassInfo>> = RefCell::new(HashMap::new()));
-
 /// Stores information about a native class created for JS.
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
 pub struct ClassInfo {
 	#[allow(dead_code)]
-	constructor: *mut JSFunction,
-	prototype: *mut JSObject,
+	constructor: Box<Heap<*mut JSFunction>>,
+	prototype: Box<Heap<*mut JSObject>>,
+}
+
+unsafe impl Traceable for ClassInfo {
+	unsafe fn trace(&self, trc: *mut JSTracer) {
+		self.constructor.trace(trc);
+		self.prototype.trace(trc);
+	}
 }
 
 pub trait ClassDefinition {
 	const NAME: &'static str;
-	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32;
+	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
 
 	fn class() -> &'static JSClass;
 
@@ -60,14 +63,17 @@ pub trait ClassDefinition {
 		&[JSPropertySpec::ZERO]
 	}
 
-	fn init_class(cx: &Context, object: &mut Object) -> (bool, ClassInfo)
+	fn init_class<'cx>(cx: &'cx Context, object: &mut Object) -> (bool, &'cx ClassInfo)
 	where
 		Self: Sized + 'static,
 	{
-		let class_info = CLASS_INFOS.with(|infos| infos.borrow_mut().get(&TypeId::of::<Self>()).cloned());
+		let infos = unsafe { &mut (*cx.get_inner_data()).class_infos };
+		let info = infos.get(&TypeId::of::<Self>());
 
-		if let Some(class_info) = class_info {
-			return (false, class_info);
+		if let Some(info) = info {
+			unsafe {
+				return (false, &*(info as *const _));
+			}
 		}
 
 		let class = Self::class();
@@ -97,32 +103,31 @@ pub trait ClassDefinition {
 		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), class.handle().into()) }));
 		let constructor = Function::from_object(cx, &constructor).unwrap();
 
-		let class_info = ClassInfo {
-			constructor: constructor.get(),
-			prototype: class.get(),
+		let info = ClassInfo {
+			constructor: Heap::boxed(constructor.get()),
+			prototype: Heap::boxed(class.get()),
 		};
 
-		CLASS_INFOS.with(|infos| {
-			let mut infos = infos.borrow_mut();
-			(*infos).insert(TypeId::of::<Self>(), class_info);
-			(true, class_info)
-		})
+		let info = infos.entry(TypeId::of::<Self>()).or_insert(info);
+		(true, info)
 	}
 
 	fn new_object(cx: &Context, native: Self) -> *mut JSObject
 	where
 		Self: Sized + 'static,
 	{
-		CLASS_INFOS.with(|infos| {
-			let infos = infos.borrow();
-			let info = (*infos).get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-			let b = Box::new(Some(native));
-			unsafe {
-				let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype));
-				JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(b) as *mut c_void));
-				obj
-			}
-		})
+		let infos = unsafe { &mut (*cx.get_inner_data()).class_infos };
+		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
+		let boxed = Box::new(Some(native));
+		unsafe {
+			let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), info.prototype.handle());
+			JS_SetReservedSlot(
+				obj,
+				Self::PARENT_PROTOTYPE_CHAIN_LENGTH,
+				&PrivateValue(Box::into_raw(boxed) as *mut c_void),
+			);
+			obj
+		}
 	}
 
 	#[allow(clippy::mut_from_ref)]

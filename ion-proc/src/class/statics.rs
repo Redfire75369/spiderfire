@@ -93,8 +93,6 @@ pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, 
 		impl #krate::ClassDefinition for #class_ident {
 			const NAME: &'static str = #name_str;
 
-			const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
-
 			fn class() -> &'static ::mozjs::jsapi::JSClass {
 				&CLASS
 			}

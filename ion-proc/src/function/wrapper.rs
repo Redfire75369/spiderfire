@@ -37,7 +37,7 @@ pub(crate) fn impl_wrapper_fn(
 		vec![
 			parse_quote!(__cx: &'cx #krate::Context),
 			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
-			parse_quote!(this: &mut #krate::Object<'cx>),
+			parse_quote!(__this: &mut #krate::Object<'cx>),
 		]
 	} else {
 		vec![
@@ -143,7 +143,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 		vec![
 			parse_quote!(__cx: &'cx #krate::Context),
 			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
-			parse_quote!(this: &mut #krate::Object<'cx>),
+			parse_quote!(__this: &mut #krate::Object<'cx>),
 		]
 	} else {
 		vec![
@@ -192,9 +192,10 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	};
 
 	let wrapper = parameters.this.is_some().then(|| {
-		quote!(let mut __this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-			= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(
-				this.handle().get())));)
+		quote!(
+			let mut __this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
+				= ::std::option::Option::Some(#krate::utils::SendWrapper::new(#krate::Context::root_persistent_object(__this.handle().get())));
+		)
 	});
 	let unrooter = parameters
 		.this

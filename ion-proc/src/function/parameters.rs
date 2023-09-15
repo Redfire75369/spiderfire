@@ -142,7 +142,7 @@ impl Parameter {
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
 			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
-			P::This(pat, _) => parse2(quote!(let #pat: #ty = this;)),
+			P::This(pat, _) => parse2(quote!(let #pat: #ty = __this;)),
 		}
 	}
 }
@@ -207,7 +207,7 @@ impl ThisParameter {
 			let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 			match kind {
 				ThisKind::Ref(lt, mutability) => parse2(quote!(
-					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassDefinition>::get_private(this);
+					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassDefinition>::get_private(__this);
 				)),
 				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 			}
