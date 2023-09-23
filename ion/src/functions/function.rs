@@ -10,9 +10,8 @@ use std::ops::Deref;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
 	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength,
-	JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_IsFunctionBound,
-	JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved,
-	SetFunctionNativeReserved,
+	JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction,
+	JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
 
@@ -132,11 +131,6 @@ impl<'f> Function<'f> {
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx))
 		}
-	}
-
-	/// Checks if the [Function] is bound.
-	pub fn is_bound(&self) -> bool {
-		unsafe { JS_IsFunctionBound(self.get()) }
 	}
 
 	/// Checks if the [Function] is the built-in eval function.

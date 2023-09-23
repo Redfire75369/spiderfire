@@ -23,6 +23,8 @@ use crate::functions::NativeFunction;
 #[derive(Debug)]
 pub struct ClassInfo {
 	#[allow(dead_code)]
+	class: &'static JSClass,
+	#[allow(dead_code)]
 	constructor: *mut JSFunction,
 	prototype: *mut JSObject,
 }
@@ -33,7 +35,7 @@ pub trait ClassDefinition {
 
 	fn class() -> &'static JSClass;
 
-	fn parent_prototype<'cx>(_: &'cx Context) -> Option<Local<'cx, *mut JSObject>> {
+	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static JSClass, Local<'cx, *mut JSObject>)> {
 		None
 	}
 
@@ -68,8 +70,9 @@ pub trait ClassDefinition {
 			}
 		}
 
-		let class = Self::class();
-		let parent_proto = Self::parent_prototype(cx).map(Object::from).unwrap_or_else(|| Object::new(cx));
+		let (parent_class, parent_proto) = Self::parent_class_info(cx)
+			.map(|(class, proto)| (class as *const _, Object::from(proto)))
+			.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
 		let (constructor, nargs) = Self::constructor();
 		let properties = Self::properties();
 		let functions = Self::functions();
@@ -80,8 +83,9 @@ pub trait ClassDefinition {
 			JS_InitClass(
 				cx.as_ptr(),
 				object.handle().into(),
+				parent_class,
 				parent_proto.handle().into(),
-				class,
+				Self::NAME.as_ptr() as *const _,
 				Some(constructor),
 				nargs,
 				properties.as_ptr() as *const _,
@@ -96,6 +100,7 @@ pub trait ClassDefinition {
 		let constructor = Function::from_object(cx, &constructor).unwrap();
 
 		let info = ClassInfo {
+			class: Self::class(),
 			constructor: constructor.get(),
 			prototype: prototype.get(),
 		};

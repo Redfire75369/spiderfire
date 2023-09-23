@@ -188,8 +188,8 @@ impl ClassDefinition for Iterator {
 		&ITERATOR_CLASS
 	}
 
-	fn parent_prototype<'cx>(cx: &'cx Context) -> Option<Local<'cx, *mut JSObject>> {
-		Some(cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
+	fn parent_class_info<'cx>(cx: &'cx Context) -> Option<(&'static JSClass, Local<'cx, *mut JSObject>)> {
+		Some((&ITERATOR_CLASS, cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) })))
 	}
 
 	fn constructor() -> (NativeFunction, u32) {

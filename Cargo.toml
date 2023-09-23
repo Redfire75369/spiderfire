@@ -10,7 +10,7 @@ resolver = "2"
 
 [workspace.dependencies]
 colored = "2.0.4"
-chrono = "0.4.30"
+chrono = "0.4.31"
 derivative = "2.2.0"
 dunce = "1.0.4"
 futures = "0.3.28"

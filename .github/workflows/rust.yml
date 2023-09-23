@@ -12,12 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [windows-latest, ubuntu-latest, macos-13]
         rust: [stable, beta]
         include:
           - os: windows-latest
             id: windows
-          - os: macos-latest
+          - os: macos-13
             id: macos
           - os: ubuntu-latest
             id: linux
