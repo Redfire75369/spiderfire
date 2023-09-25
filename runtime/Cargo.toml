@@ -29,15 +29,15 @@ path = "../ion"
 features = ["macros", "sourcemap"]
 
 [dependencies.swc_core]
-version = "0.83.18"
+version = "0.79.69"
 features = ["common"]
 
 [dependencies.swc_common]
-version = "0.32.1"
+version = "0.31.21"
 features = ["sourcemap", "tty-emitter"]
 
 [dependencies.swc_ecmascript]
-version = "0.234.14"
+version = "0.231.59"
 features = ["codegen", "parser", "transforms", "typescript", "visit"]
 
 [dependencies.tokio]

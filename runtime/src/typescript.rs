@@ -115,7 +115,12 @@ fn initialise_emitter<'a>(
 	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, buffer: &'a mut Vec<u8>, mappings: &'a mut Vec<(BytePos, LineCol)>,
 ) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
-		cfg: CodegenConfig::default().with_target(EsVersion::Es2022),
+		cfg: CodegenConfig {
+			target: EsVersion::Es2022,
+			ascii_only: false,
+			minify: false,
+			omit_last_semi: false,
+		},
 		cm: source_map.clone(),
 		comments: Some(comments),
 		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),
