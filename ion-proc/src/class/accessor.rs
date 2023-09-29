@@ -14,6 +14,7 @@ use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type
 use syn::punctuated::Punctuated;
 
 use crate::attribute::class::{FieldAttribute, Name};
+use crate::attribute::krate::Crates;
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
@@ -21,8 +22,8 @@ use crate::function::parameters::{Parameter, Parameters};
 pub(crate) struct Accessor(pub(crate) Option<Method>, Option<Method>);
 
 impl Accessor {
-	pub(crate) fn from_field(field: &mut Field, class_ty: &Type) -> Result<Option<Accessor>> {
-		let krate = quote!(::ion);
+	pub(crate) fn from_field(crates: &Crates, field: &mut Field, class_ty: &Type) -> Result<Option<Accessor>> {
+		let ion = &crates.ion;
 		if let Visibility::Public(_) = field.vis {
 			let ident = field.ident.as_ref().unwrap().clone();
 			let ty = field.ty.clone();
@@ -70,13 +71,13 @@ impl Accessor {
 
 			let getter_ident = format_ident!("get_{}", ident);
 			let getter = parse2(quote!(
-				fn #getter_ident(#[ion(this)] this: &#krate::Object) -> #krate::Result<#ty> {
-					let self_ = <#class_ty as #krate::ClassDefinition>::get_private(this);
+				fn #getter_ident(#[ion(this)] this: &#ion::Object) -> #ion::Result<#ty> {
+					let self_ = <#class_ty as #ion::ClassDefinition>::get_private(this);
 					Ok(self_.#ident)
 				}
 			))
 			.unwrap();
-			let (mut getter, _) = impl_accessor(&getter, class_ty, true, false)?;
+			let (mut getter, _) = impl_accessor(crates, &getter, class_ty, true, false)?;
 			getter.names = names.clone();
 
 			if !readonly {
@@ -84,14 +85,14 @@ impl Accessor {
 				let setter_ident = format_ident!("set_{}", ident);
 
 				let setter = parse2(quote!(
-					fn #setter_ident(#[ion(this)] this: &mut #krate::Object, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
-						let self_ = <#class_ty as #krate::ClassDefinition>::get_private(this);
+					fn #setter_ident(#[ion(this)] this: &mut #ion::Object, #[ion(convert = #convert)] #ident: #ty) -> #ion::Result<()> {
+						let self_ = <#class_ty as #ion::ClassDefinition>::get_private(this);
 						self_.#ident = #ident;
 						Ok(())
 					}
 				))
 				.unwrap();
-				let (mut setter, _) = impl_accessor(&setter, class_ty, true, true)?;
+				let (mut setter, _) = impl_accessor(crates, &setter, class_ty, true, true)?;
 				setter.names = names;
 
 				Ok(Some(Accessor(Some(getter), Some(setter))))
@@ -103,9 +104,7 @@ impl Accessor {
 		}
 	}
 
-	pub(crate) fn to_specs(&self) -> Vec<TokenStream> {
-		let krate = quote!(::ion);
-
+	pub(crate) fn to_specs(&self, ion: &TokenStream) -> Vec<TokenStream> {
 		let names = self.0.as_ref().or(self.1.as_ref()).map(|method| &*method.names).unwrap_or_default();
 		names
 			.iter()
@@ -121,12 +120,12 @@ impl Accessor {
 							name = name.to_case(Case::Camel)
 						}
 						key = LitStr::new(&name, literal.span()).into_token_stream();
-						flags = quote!(#krate::flags::PropertyFlags::CONSTANT_ENUMERATED);
+						flags = quote!(#ion::flags::PropertyFlags::CONSTANT_ENUMERATED);
 					}
 					Name::Symbol(symbol) => {
 						key = symbol.to_token_stream();
 						function_ident = format_ident!("{}_symbol", function_ident);
-						flags = quote!(#krate::flags::PropertyFlags::CONSTANT);
+						flags = quote!(#ion::flags::PropertyFlags::CONSTANT);
 					}
 				}
 
@@ -136,23 +135,23 @@ impl Accessor {
 						let setter = setter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter_setter", function_ident);
-						quote!(#krate::#function_ident!(#getter, #setter, #key, #flags))
+						quote!(#ion::#function_ident!(#getter, #setter, #key, #flags))
 					}
 					Accessor(Some(getter), None) => {
 						let getter = getter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#krate::#function_ident!(#getter, #key, #flags))
+						quote!(#ion::#function_ident!(#getter, #key, #flags))
 					}
 					Accessor(None, Some(setter)) => {
 						let setter = setter.method.sig.ident.clone();
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#krate::#function_ident!(#setter, #key, #flags))
+						quote!(#ion::#function_ident!(#setter, #key, #flags))
 					}
 					Accessor(None, None) => {
 						function_ident = format_ident!("create_{}_accessor", function_ident);
 						quote!(
-							#krate::spec::#function_ident(
+							#ion::spec::#function_ident(
 								#key,
 								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
 								::mozjs::jsapi::JSNativeWrapper { op: None, info: ::std::ptr::null_mut() },
@@ -183,7 +182,7 @@ pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
+pub(crate) fn impl_accessor(crates: &Crates, method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -192,7 +191,7 @@ pub(crate) fn impl_accessor(method: &ItemFn, ty: &Type, keep_inner: bool, is_set
 	};
 	let error = Error::new_spanned(&method.sig, error_message);
 
-	let (accessor, parameters) = impl_method(method.clone(), ty, keep_inner, |sig| {
+	let (accessor, parameters) = impl_method(crates, method.clone(), ty, keep_inner, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ty), false)?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
@@ -230,12 +229,12 @@ pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<Met
 		.collect()
 }
 
-pub(crate) fn insert_property_accessors(accessors: &mut HashMap<String, Accessor>, class: &mut ItemStruct) -> Result<()> {
+pub(crate) fn insert_property_accessors(crates: &Crates, accessors: &mut HashMap<String, Accessor>, class: &mut ItemStruct) -> Result<()> {
 	let ident = &class.ident;
 	let ty = parse2(quote!(#ident))?;
 	if let Fields::Named(fields) = &mut class.fields {
 		return fields.named.iter_mut().try_for_each(|field| {
-			if let Some(accessor) = Accessor::from_field(field, &ty)? {
+			if let Some(accessor) = Accessor::from_field(crates, field, &ty)? {
 				if let Some(getter) = accessor.0.as_ref() {
 					insert_accessor(accessors, getter.names[0].as_string(), accessor.0.clone(), accessor.1.clone());
 				} else if let Some(setter) = accessor.1.as_ref() {

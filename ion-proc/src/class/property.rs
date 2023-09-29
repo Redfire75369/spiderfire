@@ -88,8 +88,7 @@ impl Property {
 		}
 	}
 
-	pub(crate) fn to_specs(&self, class: &Ident) -> Vec<TokenStream> {
-		let krate = quote!(::ion);
+	pub(crate) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
 		let ident = &self.ident;
 
 		self.names
@@ -106,12 +105,12 @@ impl Property {
 							name = name.to_case(Case::Camel)
 						}
 						key = LitStr::new(&name, literal.span()).into_token_stream();
-						flags = quote!(#krate::flags::PropertyFlags::CONSTANT_ENUMERATED);
+						flags = quote!(#ion::flags::PropertyFlags::CONSTANT_ENUMERATED);
 					}
 					Name::Symbol(symbol) => {
 						key = symbol.to_token_stream();
 						function_ident = format_ident!("{}_symbol", function_ident);
-						flags = quote!(#krate::flags::PropertyFlags::CONSTANT);
+						flags = quote!(#ion::flags::PropertyFlags::CONSTANT);
 					}
 				}
 
@@ -127,7 +126,7 @@ impl Property {
 					}
 				}
 
-				quote!(#krate::spec::#function_ident(#key, #class::#ident, #flags))
+				quote!(#ion::spec::#function_ident(#key, #class::#ident, #flags))
 			})
 			.collect()
 	}

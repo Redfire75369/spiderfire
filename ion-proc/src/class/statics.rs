@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::ffi::CString;
 
 use convert_case::{Case, Casing};
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use syn::{ItemImpl, ItemStatic, LitStr, parse2};
 
 use crate::attribute::class::Name;
@@ -16,14 +16,12 @@ use crate::class::accessor::Accessor;
 use crate::class::method::Method;
 use crate::class::property::Property;
 
-pub(crate) fn class_spec(class: &Ident, literal: &LitStr) -> ItemStatic {
+pub(crate) fn class_spec(ion: &TokenStream, class: &Ident, literal: &LitStr) -> ItemStatic {
 	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
-	let krate = quote!(::ion);
-
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
 			name: #name.as_ptr() as *const ::core::primitive::i8,
-			flags: #krate::objects::class_reserved_slots(<#class as #krate::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
+			flags: #ion::objects::class_reserved_slots(<#class as #ion::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
 			cOps: &OPERATIONS as *const _ as *mut _,
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
@@ -32,8 +30,7 @@ pub(crate) fn class_spec(class: &Ident, literal: &LitStr) -> ItemStatic {
 	)
 }
 
-pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
-	let krate = quote!(::ion);
+pub(crate) fn methods_to_specs(ion: &TokenStream, methods: &[Method], stat: bool) -> ItemStatic {
 	let ident = if stat { quote!(STATIC_FUNCTIONS) } else { quote!(FUNCTIONS) };
 	let mut specs: Vec<_> = methods
 		.iter()
@@ -48,10 +45,10 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 						if name.is_case(Case::Snake) {
 							name = name.to_case(Case::Camel)
 						}
-						quote!(#krate::function_spec!(#ident, #name, #nargs, #krate::flags::PropertyFlags::CONSTANT_ENUMERATED))
+						quote!(#ion::function_spec!(#ident, #name, #nargs, #ion::flags::PropertyFlags::CONSTANT_ENUMERATED))
 					}
 					Name::Symbol(symbol) => {
-						quote!(#krate::function_spec_symbol!(#ident, #symbol, #nargs, #krate::flags::PropertyFlags::CONSTANT))
+						quote!(#ion::function_spec_symbol!(#ident, #symbol, #nargs, #ion::flags::PropertyFlags::CONSTANT))
 					}
 				})
 				.collect::<Vec<_>>()
@@ -66,15 +63,17 @@ pub(crate) fn methods_to_specs(methods: &[Method], stat: bool) -> ItemStatic {
 	)
 }
 
-pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<String, Accessor>, class: &Ident, stat: bool) -> ItemStatic {
+pub(crate) fn properties_to_specs(
+	ion: &TokenStream, properties: &[Property], accessors: &HashMap<String, Accessor>, class: &Ident, stat: bool,
+) -> ItemStatic {
 	let ident: Ident = if stat {
 		parse_quote!(STATIC_PROPERTIES)
 	} else {
 		parse_quote!(PROPERTIES)
 	};
 
-	let mut specs: Vec<_> = properties.iter().flat_map(|property| property.to_specs(class)).collect();
-	accessors.iter().for_each(|(_, accessor)| specs.extend(accessor.to_specs()));
+	let mut specs: Vec<_> = properties.iter().flat_map(|property| property.to_specs(ion, class)).collect();
+	accessors.iter().for_each(|(_, accessor)| specs.extend(accessor.to_specs(ion)));
 
 	specs.push(quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
 
@@ -85,12 +84,11 @@ pub(crate) fn properties_to_specs(properties: &[Property], accessors: &HashMap<S
 	)
 }
 
-pub(crate) fn class_initialiser(class_ident: &Ident, constructor_ident: &Ident, constructor_nargs: u32) -> ItemImpl {
-	let krate = quote!(::ion);
+pub(crate) fn class_initialiser(ion: &TokenStream, class_ident: &Ident, constructor_ident: &Ident, constructor_nargs: u32) -> ItemImpl {
 	let name_str = LitStr::new(&class_ident.to_string(), class_ident.span());
 
 	parse2(quote!(
-		impl #krate::ClassDefinition for #class_ident {
+		impl #ion::ClassDefinition for #class_ident {
 			const NAME: &'static str = #name_str;
 
 			fn class() -> &'static ::mozjs::jsapi::JSClass {

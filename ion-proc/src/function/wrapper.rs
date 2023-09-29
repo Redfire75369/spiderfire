@@ -8,41 +8,41 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type, WhereClause};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use crate::attribute::krate::Crates;
 
 use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
-	mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_class: bool,
+	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_class: bool,
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
-	let krate = quote!(::ion);
-
 	if function.sig.asyncness.is_some() {
-		return impl_async_wrapper_fn(function, class_ty, keep_inner);
+		return impl_async_wrapper_fn(crates, function, class_ty, keep_inner);
 	}
 
+	let ion = &crates.ion;
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty, is_class)?;
 	let idents = parameters.to_idents();
-	let statements = parameters.to_statements()?;
-	let this_statements = parameters.to_this_statements(class_ty.is_some(), false)?;
+	let statements = parameters.to_statements(ion)?;
+	let this_statements = parameters.to_this_statements(ion, class_ty.is_some(), false)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
-	let argument_checker = argument_checker(&function.sig.ident, parameters.nargs.0);
+	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let wrapper_args: Vec<FnArg> = if is_class {
 		vec![
-			parse_quote!(__cx: &'cx #krate::Context),
-			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
-			parse_quote!(__this: &mut #krate::Object<'cx>),
+			parse_quote!(__cx: &'cx #ion::Context),
+			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
+			parse_quote!(__this: &mut #ion::Object<'cx>),
 		]
 	} else {
 		vec![
-			parse_quote!(__cx: &'cx #krate::Context),
-			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
+			parse_quote!(__cx: &'cx #ion::Context),
+			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
 		]
 	};
 
@@ -59,23 +59,23 @@ pub(crate) fn impl_wrapper_fn(
 			if type_ends_with(ty, "Result") {
 				if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
 					let arg = args.args.first().unwrap();
-					wrapper_output = parse_quote!(#krate::ResultExc<#arg>);
+					wrapper_output = parse_quote!(#ion::ResultExc<#arg>);
 				}
 			} else {
-				result = quote!(#krate::ResultExc::<#ty>::Ok(__result));
-				wrapper_output = parse_quote!(#krate::ResultExc::<#ty>);
+				result = quote!(#ion::ResultExc::<#ty>::Ok(__result));
+				wrapper_output = parse_quote!(#ion::ResultExc::<#ty>);
 			}
 		}
 	} else {
-		result = quote!(#krate::ResultExc::<#output>::Ok(__result));
-		wrapper_output = parse_quote!(#krate::ResultExc::<#output>);
+		result = quote!(#ion::ResultExc::<#output>::Ok(__result));
+		wrapper_output = parse_quote!(#ion::ResultExc::<#output>);
 	}
 
 	if function.sig.asyncness.is_some() {
 		result = quote!(__result);
 
-		output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
-		wrapper_output = parse_quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
+		output = parse_quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
+		wrapper_output = parse_quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
 	}
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -120,35 +120,38 @@ pub(crate) fn impl_wrapper_fn(
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 
+	function.attrs.clear();
 	function.block = body;
 
 	Ok((function, inner, parameters))
 }
 
-pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool) -> Result<(ItemFn, ItemFn, Parameters)> {
-	let krate = quote!(::ion);
+pub(crate) fn impl_async_wrapper_fn(
+	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool,
+) -> Result<(ItemFn, ItemFn, Parameters)> {
+	let Crates { ion, runtime } = crates;
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty, false)?;
 	let idents = &parameters.idents;
-	let statements = parameters.to_statements()?;
-	let this_statements = parameters.to_this_statements(class_ty.is_some(), true)?;
+	let statements = parameters.to_statements(ion)?;
+	let this_statements = parameters.to_this_statements(ion, class_ty.is_some(), true)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
-	let argument_checker = argument_checker(&function.sig.ident, parameters.nargs.0);
+	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let wrapper_args: Vec<FnArg> = if class_ty.is_some() {
 		vec![
-			parse_quote!(__cx: &'cx #krate::Context),
-			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
-			parse_quote!(__this: &mut #krate::Object<'cx>),
+			parse_quote!(__cx: &'cx #ion::Context),
+			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
+			parse_quote!(__this: &mut #ion::Object<'cx>),
 		]
 	} else {
 		vec![
-			parse_quote!(__cx: &'cx #krate::Context),
-			parse_quote!(__args: &'a mut #krate::Arguments<'_, 'cx>),
+			parse_quote!(__cx: &'cx #ion::Context),
+			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
 		]
 	};
 
@@ -156,7 +159,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
-	let output = quote!(#krate::ResultExc::<#krate::Promise<'cx>>);
+	let output = quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
 
 	let mut is_result = false;
 	if let Type::Path(ty) = &inner_output {
@@ -168,7 +171,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	let async_result = if is_result {
 		quote!(__result)
 	} else {
-		quote!(#krate::ResultExc::<#inner_output>::Ok(__result))
+		quote!(#ion::ResultExc::<#inner_output>::Ok(__result))
 	};
 
 	let wrapper_inner = keep_inner.then_some(&inner);
@@ -193,9 +196,9 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(
-			let mut __this: ::std::option::Option<#krate::utils::SendWrapper<#krate::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-				= ::std::option::Option::Some(#krate::utils::SendWrapper::new(::std::mem::transmute(__cx.root_persistent_object(__this.handle().get()))));
-			let __cx2: #krate::utils::SendWrapper<#krate::Context<'static>> = #krate::utils::SendWrapper::new(#krate::Context::new_unchecked(__cx.as_ptr()));
+			let mut __this: ::std::option::Option<#ion::utils::SendWrapper<#ion::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
+				= ::std::option::Option::Some(#ion::utils::SendWrapper::new(::std::mem::transmute(__cx.root_persistent_object(__this.handle().get()))));
+			let __cx2: #ion::utils::SendWrapper<#ion::Context<'static>> = #ion::utils::SendWrapper::new(#ion::Context::new_unchecked(__cx.as_ptr()));
 		)
 	});
 	let unrooter = parameters
@@ -223,10 +226,10 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 				#async_result
 			};
 
-			if let ::std::option::Option::Some(promise) = ::runtime::promise::future_to_promise(__cx, __future) {
+			if let ::std::option::Option::Some(promise) = #runtime::promise::future_to_promise(__cx, __future) {
 				::std::result::Result::Ok(promise)
 			} else {
-				::std::result::Result::Err(#krate::Error::new("Failed to create Promise", None).into())
+				::std::result::Result::Err(#ion::Error::new("Failed to create Promise", None).into())
 			}
 		};
 		__result
@@ -245,15 +248,13 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 	Ok((function, inner, parameters))
 }
 
-pub(crate) fn argument_checker(ident: &Ident, nargs: usize) -> TokenStream {
+pub(crate) fn argument_checker(ion: &TokenStream, ident: &Ident, nargs: usize) -> TokenStream {
 	if nargs != 0 {
-		let krate = quote!(::ion);
-
 		let plural = if nargs == 1 { "" } else { "s" };
 		let error = format!("{}() requires at least {} argument{}", ident, nargs, plural);
 		quote!(
 			if __args.len() < #nargs {
-				return ::std::result::Result::Err(#krate::Error::new(#error, ::std::option::Option::None).into());
+				return ::std::result::Result::Err(#ion::Error::new(#error, ::std::option::Option::None).into());
 			}
 		)
 	} else {

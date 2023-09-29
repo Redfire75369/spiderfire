@@ -134,11 +134,11 @@ impl Parameter {
 		ty
 	}
 
-	pub(crate) fn to_statement(&self) -> Result<Stmt> {
+	pub(crate) fn to_statement(&self, ion: &TokenStream) -> Result<Stmt> {
 		use Parameter as P;
 		let ty = self.get_type_without_lifetimes();
 		match self {
-			P::Regular { pat, conversion, strict, option, .. } => regular_param_statement(pat, &ty, option.as_deref(), conversion, *strict),
+			P::Regular { pat, conversion, strict, option, .. } => regular_param_statement(ion, pat, &ty, option.as_deref(), conversion, *strict),
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
 			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
@@ -200,24 +200,22 @@ impl ThisParameter {
 		}
 	}
 
-	pub(crate) fn to_statement(&self, is_class: bool) -> Result<Stmt> {
-		let krate = quote!(::ion);
+	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
 		if is_class {
 			let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 			match kind {
 				ThisKind::Ref(lt, mutability) => parse2(quote!(
-					let #pat: &#lt #mutability #ty = <#ty as #krate::ClassDefinition>::get_private(__this);
+					let #pat: &#lt #mutability #ty = <#ty as #ion::ClassDefinition>::get_private(__this);
 				)),
 				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 			}
 		} else {
-			parse2(quote!(let #pat: #ty = <#ty as #krate::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;))
+			parse2(quote!(let #pat: #ty = <#ty as #ion::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;))
 		}
 	}
 
-	pub(crate) fn to_async_class_statements(&self) -> Result<(Stmt, Vec<Stmt>)> {
-		let krate = quote!(::ion);
+	pub(crate) fn to_async_class_statements(&self, ion: &TokenStream) -> Result<(Stmt, Vec<Stmt>)> {
 		let ThisParameter { pat, ty, kind } = self;
 
 		let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
@@ -227,7 +225,7 @@ impl ThisParameter {
 				vec![
 					parse2(quote!(let __this2 = __this.take().unwrap().take().into();))?,
 					parse2(quote!(self_ = &mut *(<#ty as ::ion::ClassDefinition>::get_private(&__this2) as *mut #ty);))?,
-					parse2(quote!(__this = ::std::option::Option::Some(#krate::utils::SendWrapper::new(__this2.into_local()));))?,
+					parse2(quote!(__this = ::std::option::Option::Some(#ion::utils::SendWrapper::new(__this2.into_local()));))?,
 				],
 			)),
 			ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
@@ -302,19 +300,19 @@ impl Parameters {
 		Ok(Parameters { parameters, this, idents, nargs })
 	}
 
-	pub(crate) fn to_statements(&self) -> Result<Vec<Stmt>> {
-		self.parameters.iter().map(|parameter| parameter.to_statement()).collect()
+	pub(crate) fn to_statements(&self, ion: &TokenStream) -> Result<Vec<Stmt>> {
+		self.parameters.iter().map(|parameter| parameter.to_statement(ion)).collect()
 	}
 
 	pub(crate) fn get_this_ident(&self) -> Option<Ident> {
 		self.this.as_ref().map(|x| x.1.clone())
 	}
 
-	pub(crate) fn to_this_statements(&self, is_class: bool, is_async: bool) -> Result<TokenStream> {
+	pub(crate) fn to_this_statements(&self, ion: &TokenStream, is_class: bool, is_async: bool) -> Result<TokenStream> {
 		match &self.this {
 			Some((this, _, _)) => {
 				if is_class && is_async {
-					let (pre, inner) = this.to_async_class_statements()?;
+					let (pre, inner) = this.to_async_class_statements(ion)?;
 					Ok(quote!(
 						#pre
 						{
@@ -322,7 +320,7 @@ impl Parameters {
 						}
 					))
 				} else {
-					let statements = this.to_statement(is_class)?;
+					let statements = this.to_statement(ion, is_class)?;
 					Ok(quote!(#statements))
 				}
 			}
@@ -371,9 +369,7 @@ impl Parameters {
 	}
 }
 
-fn regular_param_statement(pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool) -> Result<Stmt> {
-	let krate = quote!(::ion);
-
+fn regular_param_statement(ion: &TokenStream, pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool) -> Result<Stmt> {
 	let pat_str = format_pat(pat);
 	let not_found_error = if let Some(pat) = pat_str {
 		format!("Argument {} at index {{}} was not found.", pat)
@@ -383,7 +379,7 @@ fn regular_param_statement(pat: &Pat, ty: &Type, option: Option<&Type>, conversi
 	let if_none: Expr = if option.is_some() {
 		parse2(quote!(::std::option::Option::None)).unwrap()
 	} else {
-		parse2(quote!(return Err(#krate::Error::new(#not_found_error, #krate::ErrorKind::Type).into()))).unwrap()
+		parse2(quote!(return Err(#ion::Error::new(#not_found_error, #ion::ErrorKind::Type).into()))).unwrap()
 	};
 
 	parse2(quote!(

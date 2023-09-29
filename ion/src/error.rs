@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{error, ptr};
+use std::{error, fmt, ptr};
 use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
@@ -81,7 +81,7 @@ impl ErrorKind {
 }
 
 impl Display for ErrorKind {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		use ErrorKind as EK;
 		let str = match self {
 			EK::Normal => "Error",
@@ -201,7 +201,7 @@ impl Error {
 }
 
 impl Display for Error {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.write_str(&self.message)
 	}
 }

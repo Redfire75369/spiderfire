@@ -6,6 +6,7 @@
 
 use syn::{Abi, Error, FnArg, Generics, ItemFn, Result};
 use syn::punctuated::Punctuated;
+use crate::attribute::krate::Crates;
 
 use crate::function::wrapper::impl_wrapper_fn;
 
@@ -15,8 +16,11 @@ pub(crate) mod wrapper;
 
 // TODO: Partially Remove Error Handling in Infallible Functions
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
-	let krate = quote!(::ion);
-	let (wrapper, _, _) = impl_wrapper_fn(function.clone(), None, true, false)?;
+	let crates = Crates::from_attributes(&mut function.attrs)?;
+
+	let (wrapper, _, _) = impl_wrapper_fn(&crates, function.clone(), None, true, false)?;
+
+	let ion = &crates.ion;
 
 	check_abi(&mut function)?;
 	set_signature(&mut function)?;
@@ -24,12 +28,12 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let body = parse_quote!({
-		let cx = &#krate::Context::new_unchecked(cx);
-		let args = &mut #krate::Arguments::new(cx, argc, vp);
+		let cx = &#ion::Context::new_unchecked(cx);
+		let args = &mut #ion::Arguments::new(cx, argc, vp);
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
-		#krate::functions::__handle_native_function_result(cx, result, args.rval())
+		#ion::functions::__handle_native_function_result(cx, result, args.rval())
 	});
 	function.block = Box::new(body);
 

@@ -7,6 +7,7 @@
 use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::class::Name;
+use crate::attribute::krate::Crates;
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
@@ -34,12 +35,12 @@ pub(crate) struct Method {
 	pub(crate) names: Vec<Name>,
 }
 
-pub(crate) fn impl_method<F>(mut method: ItemFn, ty: &Type, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>
+pub(crate) fn impl_method<F>(crates: &Crates, mut method: ItemFn, ty: &Type, keep_inner: bool, predicate: F) -> Result<(Method, Parameters)>
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {
-	let krate = quote!(::ion);
-	let (wrapper, mut inner, parameters) = impl_wrapper_fn(method.clone(), Some(ty), keep_inner, true)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(crates, method.clone(), Some(ty), keep_inner, true)?;
+	let ion = &crates.ion;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;
@@ -52,13 +53,13 @@ where
 		}
 
 		let body = parse_quote!({
-			let cx = &#krate::Context::new_unchecked(cx);
-			let args = &mut #krate::Arguments::new(cx, argc, vp);
+			let cx = &#ion::Context::new_unchecked(cx);
+			let args = &mut #ion::Arguments::new(cx, argc, vp);
 			let mut this = args.access().this().to_object(cx);
 
 			#wrapper
 			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args, &mut this)));
-			#krate::functions::__handle_native_function_result(cx, result, args.rval())
+			#ion::functions::__handle_native_function_result(cx, result, args.rval())
 		});
 		method.block = Box::new(body);
 

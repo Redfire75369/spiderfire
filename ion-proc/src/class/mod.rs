@@ -12,6 +12,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::attribute::class::{ClassAttribute, MethodAttribute, Name};
+use crate::attribute::krate::Crates;
 use crate::class::accessor::{flatten_accessors, get_accessor_name, impl_accessor, insert_accessor, insert_property_accessors};
 use crate::class::automatic::{from_value, no_constructor, to_value};
 use crate::class::constructor::impl_constructor;
@@ -30,7 +31,10 @@ pub(crate) mod property;
 pub(crate) mod statics;
 
 pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
-	let krate = quote!(::ion);
+	let crates = Crates::from_attributes(&mut module.attrs)?;
+	module.attrs.clear();
+
+	let ion = &crates.ion;
 
 	let content = &mut module.content.as_mut().unwrap().1;
 
@@ -125,11 +129,11 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 
 									match kind {
 										Some(MethodKind::Constructor) => {
-											let (cons, _) = impl_constructor(method.clone(), &imp.self_ty)?;
+											let (cons, _) = impl_constructor(&crates, method.clone(), &imp.self_ty)?;
 											constructor = Some(Method { names, ..cons });
 										}
 										Some(MethodKind::Getter) => {
-											let (getter, parameters) = impl_accessor(&method, &imp.self_ty, false, false)?;
+											let (getter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, false)?;
 											let getter = Method { names, ..getter };
 
 											if parameters.this.is_some() {
@@ -139,7 +143,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											}
 										}
 										Some(MethodKind::Setter) => {
-											let (setter, parameters) = impl_accessor(&method, &imp.self_ty, false, true)?;
+											let (setter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, true)?;
 											let setter = Method { names, ..setter };
 
 											if parameters.this.is_some() {
@@ -149,7 +153,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 											}
 										}
 										None => {
-											let (method, _) = impl_method(method.clone(), &imp.self_ty, false, |_| Ok(()))?;
+											let (method, _) = impl_method(&crates, method.clone(), &imp.self_ty, false, |_| Ok(()))?;
 											let method = Method { names, ..method };
 
 											if method.receiver == MethodReceiver::Dynamic {
@@ -255,7 +259,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		class.attrs.remove(index);
 	}
 
-	insert_property_accessors(&mut accessors, &mut class)?;
+	insert_property_accessors(&crates, &mut accessors, &mut class)?;
 
 	let constructor = if has_constructor {
 		if let Some(constructor) = constructor {
@@ -266,7 +270,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	} else if constructor.is_some() {
 		return Err(Error::new(module.span(), "Expected No Constructor"));
 	} else if let Some(implementation) = &implementation {
-		no_constructor(&implementation.self_ty)
+		no_constructor(&crates, &implementation.self_ty)
 	} else {
 		return Err(Error::new(module.span(), "Expected Implementation"));
 	};
@@ -275,27 +279,27 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 		properties.push(Property {
 			ty: PropertyType::String,
 			ident: format_ident!("TO_STRING_TAG"),
-			names: vec![Name::Symbol(parse_quote!(#krate::symbol::WellKnownSymbolCode::ToStringTag))],
+			names: vec![Name::Symbol(parse_quote!(#ion::symbol::WellKnownSymbolCode::ToStringTag))],
 		});
 	}
 
 	let class_name = class_name.unwrap_or_else(|| LitStr::new(&class.ident.to_string(), class.ident.span()));
-	let class_spec = class_spec(&class.ident, &class_name);
+	let class_spec = class_spec(ion, &class.ident, &class_name);
 
-	let finalise_operation = class_finalise(&class.ident);
-	let trace_operation = has_trace.then(|| class_trace(&class.ident));
+	let finalise_operation = class_finalise(ion, &class.ident);
+	let trace_operation = has_trace.then(|| class_trace(ion, &class.ident));
 	let class_ops = class_ops(has_trace);
 
-	let method_specs = methods_to_specs(&methods, false);
-	let static_method_specs = methods_to_specs(&static_methods, true);
-	let property_specs = properties_to_specs(&properties, &accessors, &class.ident, false);
-	let static_property_specs = properties_to_specs(&static_properties, &static_accessors, &class.ident, true);
+	let method_specs = methods_to_specs(ion, &methods, false);
+	let static_method_specs = methods_to_specs(ion, &static_methods, true);
+	let property_specs = properties_to_specs(ion, &properties, &accessors, &class.ident, false);
+	let static_property_specs = properties_to_specs(ion, &static_properties, &static_accessors, &class.ident, true);
 
 	let ident = &class.ident.clone();
 
 	let from_value = if impl_from_value {
 		if has_clone {
-			Some(from_value(ident))
+			Some(from_value(ion, ident))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic FromValue Implementation"));
 		}
@@ -304,16 +308,16 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	};
 	let to_value = if impl_to_value {
 		if has_clone {
-			Some(to_value(ident, true))
+			Some(to_value(ion, ident, true))
 		} else {
 			return Err(Error::new(class.span(), "Expected Clone for Automatic ToValue Implementation"));
 		}
 	} else if impl_into_value {
-		Some(to_value(ident, false))
+		Some(to_value(ion, ident, false))
 	} else {
 		None
 	};
-	let class_initialiser = class_initialiser(ident, &constructor.method.sig.ident, constructor.nargs as u32);
+	let class_initialiser = class_initialiser(ion, ident, &constructor.method.sig.ident, constructor.nargs as u32);
 
 	let accessors = flatten_accessors(accessors);
 	let static_accessors = flatten_accessors(static_accessors);

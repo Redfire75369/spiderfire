@@ -9,14 +9,16 @@ use proc_macro2::{Ident, Span, TokenStream};
 use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use crate::attribute::krate::Crates;
 
 use crate::utils::{add_trait_bounds, format_type, type_ends_with};
 use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
-	let krate = quote!(::ion);
+	let crates = Crates::from_attributes(&mut input.attrs)?;
+	let ion = &crates.ion;
 
-	add_trait_bounds(&mut input.generics, &parse2(quote!(#krate::conversions::FromValue)).unwrap());
+	add_trait_bounds(&mut input.generics, &parse2(quote!(#ion::conversions::FromValue)).unwrap());
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 	let mut impl_generics: Generics = parse2(quote_spanned!(impl_generics.span() => #impl_generics))?;
 
@@ -78,17 +80,17 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	let name = &input.ident;
 
-	let (body, requires_object) = impl_body(&input.data, name, input.span(), tag, inherit, repr)?;
+	let (body, requires_object) = impl_body(ion, &input.data, name, input.span(), tag, inherit, repr)?;
 
-	let object = requires_object.then(|| quote_spanned!(input.span() => let object = #krate::Object::from_value(cx, value, true, ())?;));
+	let object = requires_object.then(|| quote_spanned!(input.span() => let object = #ion::Object::from_value(cx, value, true, ())?;));
 
 	parse2(quote_spanned!(input.span() =>
 		#[automatically_derived]
-		impl #impl_generics #krate::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
+		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			unsafe fn from_value<'v>(cx: &'cx #krate::Context, value: &#krate::Value<'v>, strict: bool, _: ())
-				-> #krate::Result<Self> where 'cx: 'v
+			unsafe fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ())
+				-> #ion::Result<Self> where 'cx: 'v
 			{
 				#object
 				#body
@@ -97,11 +99,11 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	))
 }
 
-fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, repr: Option<Ident>) -> Result<(Block, bool)> {
+fn impl_body(ion: &TokenStream, data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, repr: Option<Ident>) -> Result<(Block, bool)> {
 	match data {
 		Data::Struct(data) => match &data.fields {
 			Fields::Named(fields) => {
-				let (requirement, idents, declarations, requires_object) = map_fields(&fields.named, None, tag, inherit)?;
+				let (requirement, idents, declarations, requires_object) = map_fields(ion, &fields.named, None, tag, inherit)?;
 				parse2(quote_spanned!(span => {
 					#requirement
 					#(#declarations)*
@@ -110,7 +112,7 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 				.map(|b| (b, requires_object))
 			}
 			Fields::Unnamed(fields) => {
-				let (requirement, idents, declarations, requires_object) = map_fields(&fields.unnamed, None, tag, inherit)?;
+				let (requirement, idents, declarations, requires_object) = map_fields(ion, &fields.unnamed, None, tag, inherit)?;
 				parse2(quote_spanned!(span => {
 					#requirement
 					#(#declarations)*
@@ -121,7 +123,6 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 			Fields::Unit => parse2(quote_spanned!(span => { ::std::result::Result::Ok(Self) })).map(|block| (block, false)),
 		},
 		Data::Enum(data) => {
-			let krate = quote!(::ion);
 			let unit = data.variants.iter().all(|variant| matches!(variant.fields, Fields::Unit));
 
 			let variants: Vec<(Block, _)> = data
@@ -156,9 +157,10 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 					});
 					match &variant.fields {
 						Fields::Named(fields) => {
-							let (requirement, idents, declarations, requires_object) = map_fields(&fields.named, Some(variant_string), tag, inherit)?;
+							let (requirement, idents, declarations, requires_object) =
+								map_fields(ion, &fields.named, Some(variant_string), tag, inherit)?;
 							parse2(quote_spanned!(variant.span() => {
-								let variant: #krate::Result<Self> = (|| {
+								let variant: #ion::Result<Self> = (|| {
 									#requirement
 									#(#declarations)*
 									::std::result::Result::Ok(Self::#variant_ident { #(#idents, )* })
@@ -169,9 +171,9 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 						}
 						Fields::Unnamed(fields) => {
 							let (requirement, idents, declarations, requires_object) =
-								map_fields(&fields.unnamed, Some(variant_string), tag, inherit)?;
+								map_fields(ion, &fields.unnamed, Some(variant_string), tag, inherit)?;
 							parse2(quote_spanned!(variant.span() => {
-								let variant: #krate::Result<Self> = (|| {
+								let variant: #ion::Result<Self> = (|| {
 									#requirement
 									#(#declarations)*
 									::std::result::Result::Ok(Self::#variant_ident(#(#idents, )*))
@@ -208,7 +210,7 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 			if unit {
 				if let Some(repr) = repr {
 					if_unit = Some(
-						quote_spanned!(repr.span() => let discriminant: #repr = #krate::conversions::FromValue::from_value(cx, value, true, #krate::conversions::ConversionBehavior::EnforceRange)?;),
+						quote_spanned!(repr.span() => let discriminant: #repr = #ion::conversions::FromValue::from_value(cx, value, true, #ion::conversions::ConversionBehavior::EnforceRange)?;),
 					);
 				}
 			}
@@ -217,7 +219,7 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 				#if_unit
 				#(#variants)*
 
-				::std::result::Result::Err(#krate::Error::new(#error, #krate::ErrorKind::Type))
+				::std::result::Result::Err(#ion::Error::new(#error, #ion::ErrorKind::Type))
 			}))
 			.map(|b| (b, requires_object))
 		}
@@ -226,9 +228,8 @@ fn impl_body(data: &Data, ident: &Ident, span: Span, tag: Tag, inherit: bool, re
 }
 
 fn map_fields(
-	fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Tag, inherit: bool,
+	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Tag, inherit: bool,
 ) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
-	let krate = quote!(::ion);
 	let mut is_tagged = None;
 
 	let requirement = match tag {
@@ -238,8 +239,8 @@ fn map_fields(
 			if let Some(variant) = variant {
 				let error = format!("Expected Object at External Tag {}", variant);
 				quote_spanned!(kw.span() =>
-					let object: #krate::Object = object.get_as(cx, #variant, true, ())
-						.ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type))?;
+					let object: #ion::Object = object.get_as(cx, #variant, true, ())
+						.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
 				)
 			} else {
 				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
@@ -251,9 +252,9 @@ fn map_fields(
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
 				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
 				quote_spanned!(kw.span() =>
-					let key: ::std::string::String = object.get_as(cx, #key, true, ()).ok_or_else(|| #krate::Error::new(#missing_error, #krate::ErrorKind::Type))?;
+					let key: ::std::string::String = object.get_as(cx, #key, true, ()).ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
 					if key != #variant {
-						return Err(#krate::Error::new(#error, #krate::ErrorKind::Type));
+						return Err(#ion::Error::new(#error, #ion::ErrorKind::Type));
 					}
 				)
 			} else {
@@ -325,15 +326,15 @@ fn map_fields(
 				if is_tagged.is_some() {
 					return Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum"));
 				}
-				quote_spanned!(field.span() => let #ident: #ty = <#ty as #krate::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
+				quote_spanned!(field.span() => let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
 			} else if let Some(ref parser) = parser {
 				requires_object = true;
 				let error = format!("Expected Value at Key {}", key);
-				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type)).and_then(#parser))
+				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)).and_then(#parser))
 			} else {
 				requires_object = true;
 				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
-				let ok_or_else = quote!(.ok_or_else(|| #krate::Error::new(#error, #krate::ErrorKind::Type)));
+				let ok_or_else = quote!(.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)));
 				quote_spanned!(field.span() => let #ident: #ty = object.get_as(cx, #key, #strict || strict, #convert)#ok_or_else)
 			};
 

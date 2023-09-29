@@ -4,15 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use syn::{ItemFn, ItemStatic};
 
-pub(crate) fn class_finalise(class: &Ident) -> ItemFn {
-	let krate = quote!(::ion);
+pub(crate) fn class_finalise(ion: &TokenStream, class: &Ident) -> ItemFn {
 	parse_quote!(
 		unsafe extern "C" fn finalise_operation(_: *mut ::mozjs::jsapi::GCContext, this: *mut ::mozjs::jsapi::JSObject) {
 			let mut value = ::mozjs::jsval::NullValue();
-			::mozjs::glue::JS_GetReservedSlot(this, <#class as #krate::class::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			::mozjs::glue::JS_GetReservedSlot(this, <#class as #ion::class::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
 			if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
 				let private = &mut *(value.to_private() as *mut Option<#class>);
 				let _ = private.take();
@@ -21,12 +20,11 @@ pub(crate) fn class_finalise(class: &Ident) -> ItemFn {
 	)
 }
 
-pub(crate) fn class_trace(class: &Ident) -> ItemFn {
-	let krate = quote!(::ion);
+pub(crate) fn class_trace(ion: &TokenStream, class: &Ident) -> ItemFn {
 	parse_quote!(
 		unsafe extern "C" fn trace_operation(trc: *mut ::mozjs::jsapi::JSTracer, this: *mut ::mozjs::jsapi::JSObject) {
 			let mut value = ::mozjs::jsval::NullValue();
-			::mozjs::glue::JS_GetReservedSlot(this, <#class as #krate::class::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			::mozjs::glue::JS_GetReservedSlot(this, <#class as #ion::class::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
 			if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
 				let private = &*(value.to_private() as *mut Option<#class>);
 				::mozjs::gc::Traceable::trace(private, trc);
