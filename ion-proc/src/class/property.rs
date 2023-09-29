@@ -5,7 +5,7 @@
  */
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
 use syn::{ImplItemConst, LitStr, Result, Type};
 use syn::punctuated::Punctuated;
@@ -95,7 +95,7 @@ impl Property {
 		self.names
 			.iter()
 			.map(|name| {
-				let mut function_ident = Ident::new("create_property_spec", Span::call_site());
+				let mut function_ident = format_ident!("create_property_spec");
 				let key;
 				let flags;
 

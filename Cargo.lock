@@ -53,9 +53,9 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f58811cfac344940f1a400b6e6231ce35171f614f26439e80f8c1465c5cc0c"
+checksum = "f6cd65a4b849ace0b7f6daeebcc1a1d111282227ca745458c61dbf670e52a597"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -91,9 +91,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "2.1.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58f54d10c6dfa51283a066ceab3ec1ab78d13fae00aa49243a45e4571fb79dfd"
+checksum = "0238ca56c96dfa37bdf7c373c8886dd591322500aceeeccdb2216fe06dc2f796"
 dependencies = [
  "anstyle",
  "windows-sys",
@@ -297,9 +297,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.4"
+version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1d7b8d5ec32af0fadc644bf1fd509a688c2103b185644bb1e29d164e0703136"
+checksum = "d04704f56c2cde07f43e8e2c154b43f216dc5c92fc98ada720177362f953b956"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -307,9 +307,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.4"
+version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5179bb514e4d7c2051749d8fcefa2ed6d06a9f4e6d69faf3805f5d80b8cf8d56"
+checksum = "0e231faeaca65ebd1ea3c737966bf858971cd38c3849107aa3ea7de90a804e45"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1168,7 +1168,7 @@ dependencies = [
 [[package]]
 name = "mozjs"
 version = "0.14.1"
-source = "git+https://github.com/servo/mozjs#59403748abf9c69e18474cee62cdb919b5e2fa12"
+source = "git+https://github.com/servo/mozjs#6296684179d252a1a1a7fde394b464af91a55a4d"
 dependencies = [
  "bindgen",
  "cc",
@@ -1182,7 +1182,7 @@ dependencies = [
 [[package]]
 name = "mozjs_sys"
 version = "0.68.2"
-source = "git+https://github.com/servo/mozjs#59403748abf9c69e18474cee62cdb919b5e2fa12"
+source = "git+https://github.com/servo/mozjs#6296684179d252a1a1a7fde394b464af91a55a4d"
 dependencies = [
  "bindgen",
  "cc",

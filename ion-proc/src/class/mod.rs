@@ -6,7 +6,6 @@
 
 use std::collections::HashMap;
 
-use proc_macro2::Ident;
 use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2, Result, Visibility};
 use syn::punctuated::Punctuated;
@@ -275,7 +274,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	if has_string_tag {
 		properties.push(Property {
 			ty: PropertyType::String,
-			ident: Ident::new("TO_STRING_TAG", class.span()),
+			ident: format_ident!("TO_STRING_TAG"),
 			names: vec![Name::Symbol(parse_quote!(#krate::symbol::WellKnownSymbolCode::ToStringTag))],
 		});
 	}

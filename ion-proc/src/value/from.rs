@@ -270,7 +270,7 @@ fn map_fields(
 			let (ident, mut key) = if let Some(ref ident) = field.ident {
 				(ident.clone(), ident.to_string().to_case(Case::Camel))
 			} else {
-				let ident = Ident::new(&format!("var{}", index), field.span());
+				let ident = format_ident!("var{}", index);
 				(ident, index.to_string())
 			};
 

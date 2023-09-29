@@ -8,7 +8,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
@@ -68,7 +68,7 @@ impl Accessor {
 				None => names.insert(0, Name::from_string(get_accessor_name(ident.to_string(), !readonly), ident.span())),
 			}
 
-			let getter_ident = Ident::new(&format!("get_{}", ident), ident.span());
+			let getter_ident = format_ident!("get_{}", ident);
 			let getter = parse2(quote!(
 				fn #getter_ident(#[ion(this)] this: &#krate::Object) -> #krate::Result<#ty> {
 					let self_ = <#class_ty as #krate::ClassDefinition>::get_private(this);
@@ -81,7 +81,7 @@ impl Accessor {
 
 			if !readonly {
 				let convert = conversion.unwrap_or_else(|| parse_quote!(()));
-				let setter_ident = Ident::new(&format!("set_{}", ident), ident.span());
+				let setter_ident = format_ident!("set_{}", ident);
 
 				let setter = parse2(quote!(
 					fn #setter_ident(#[ion(this)] this: &mut #krate::Object, #[ion(convert = #convert)] #ident: #ty) -> #krate::Result<()> {
@@ -110,7 +110,7 @@ impl Accessor {
 		names
 			.iter()
 			.map(|name| {
-				let mut function_ident = Ident::new("property_spec", Span::call_site());
+				let mut function_ident = format_ident!("property_spec");
 				let key;
 				let flags;
 

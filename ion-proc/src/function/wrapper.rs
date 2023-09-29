@@ -112,7 +112,7 @@ pub(crate) fn impl_wrapper_fn(
 		#result
 	}))?;
 
-	function.sig.ident = Ident::new("wrapper", function.sig.ident.span());
+	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
 	function.sig.generics.where_clause = Some(wrapper_where);
@@ -232,7 +232,7 @@ pub(crate) fn impl_async_wrapper_fn(mut function: ItemFn, class_ty: Option<&Type
 		__result
 	}))?;
 
-	function.sig.ident = Ident::new("wrapper", function.sig.ident.span());
+	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
 	function.sig.generics.where_clause = Some(wrapper_where);
