@@ -7,6 +7,8 @@
 #![allow(clippy::missing_safety_doc, clippy::not_unsafe_ptr_arg_deref)]
 
 #[macro_use]
+extern crate derivative;
+#[macro_use]
 extern crate ion;
 
 pub use crate::runtime::*;

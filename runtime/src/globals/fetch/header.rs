@@ -122,7 +122,7 @@ mod class {
 
 	use ion::{Error, Result};
 
-	use crate::http::header::{Header, HeaderEntry, HeadersInit};
+	use crate::globals::fetch::header::{Header, HeaderEntry, HeadersInit};
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]

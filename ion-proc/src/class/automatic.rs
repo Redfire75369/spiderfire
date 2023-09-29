@@ -6,8 +6,8 @@
 
 use proc_macro2::{Ident, TokenStream};
 use syn::{ItemImpl, parse2, Type};
-use crate::attribute::krate::Crates;
 
+use crate::attribute::krate::Crates;
 use crate::class::constructor::impl_constructor;
 use crate::class::method::Method;
 

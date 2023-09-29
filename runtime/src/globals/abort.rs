@@ -186,7 +186,5 @@ mod signal {
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	AbortController::init_class(cx, global);
-	AbortSignal::init_class(cx, global);
-	true
+	AbortController::init_class(cx, global).0 && AbortSignal::init_class(cx, global).0
 }

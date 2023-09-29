@@ -6,8 +6,8 @@
 
 use syn::{Abi, Error, FnArg, Generics, ItemFn, Result};
 use syn::punctuated::Punctuated;
-use crate::attribute::krate::Crates;
 
+use crate::attribute::krate::Crates;
 use crate::function::wrapper::impl_wrapper_fn;
 
 pub(crate) mod inner;

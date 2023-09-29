@@ -4,35 +4,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::sync::OnceLock;
-use std::time::Duration;
-
 use hyper::client::HttpConnector;
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_rustls::HttpsConnector;
 
 pub use class::*;
 use ion::{Context, Value};
 use ion::conversions::ConversionBehavior;
 use ion::conversions::FromValue;
-
-pub(crate) static GLOBAL_CLIENT: OnceLock<hyper::Client<HttpsConnector<HttpConnector>>> = OnceLock::new();
-
-pub(crate) fn default_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
-	let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
-
-	let mut client = hyper::Client::builder();
-
-	client.pool_idle_timeout(Duration::from_secs(60));
-	client.pool_max_idle_per_host(usize::MAX);
-	client.retry_canceled_requests(true);
-	client.set_host(false);
-
-	client.build(https)
-}
+use runtime::globals::fetch::{default_client, GLOBAL_CLIENT};
 
 #[derive(Derivative, FromValue)]
 #[derivative(Default)]
-pub struct ClientOptions {
+pub struct ClientInit {
 	#[ion(default)]
 	keep_alive: bool,
 	#[ion(convert = ConversionBehavior::Clamp, default)]
@@ -94,7 +77,7 @@ mod class {
 	use hyper::client::HttpConnector;
 	use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
-	use crate::http::client::ClientOptions;
+	use crate::http::client::ClientInit;
 
 	#[derive(Clone)]
 	#[ion(from_value, into_value)]
@@ -104,7 +87,7 @@ mod class {
 
 	impl Client {
 		#[ion(constructor)]
-		pub fn constructor(options: Option<ClientOptions>) -> Client {
+		pub fn constructor(options: Option<ClientInit>) -> Client {
 			let options = options.unwrap_or_default();
 
 			let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();

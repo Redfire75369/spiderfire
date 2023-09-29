@@ -7,6 +7,7 @@
 pub use class::*;
 
 #[js_class]
+#[ion(runtime = crate)]
 pub mod class {
 	use bytes::{Buf, BufMut};
 	use hyper::Body;
@@ -16,7 +17,7 @@ pub mod class {
 	use ion::{Error, Result};
 	use ion::typedarray::ArrayBuffer;
 
-	use crate::http::Headers;
+	use crate::globals::fetch::Headers;
 
 	#[ion(no_constructor, into_value)]
 	pub struct Response {

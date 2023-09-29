@@ -9,8 +9,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use crate::attribute::krate::Crates;
 
+use crate::attribute::krate::Crates;
 use crate::utils::{add_trait_bounds, format_type, type_ends_with};
 use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 

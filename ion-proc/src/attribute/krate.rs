@@ -5,9 +5,8 @@
  */
 
 use proc_macro2::TokenStream;
-
-use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Result};
+use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Crate;
 

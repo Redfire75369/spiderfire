@@ -6,8 +6,8 @@
 
 use proc_macro2::TokenStream;
 use syn::{GenericArgument, ItemFn, PathArguments, Result, ReturnType, Type};
-use crate::attribute::krate::Crates;
 
+use crate::attribute::krate::Crates;
 use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;

@@ -20,6 +20,18 @@ mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
 url = "2.4.1"
 
+[workspace.dependencies.http]
+version = "0.2.9"
+
+[workspace.dependencies.hyper]
+version = "0.14.27"
+features = ["client", "http1", "tcp"]
+
+[workspace.dependencies.hyper-rustls]
+version = "0.24.1"
+default-features = false
+features = ["http1", "logging", "tls12", "webpki-tokio"]
+
 [workspace.dependencies.tokio]
 version = "1.32.0"
 features = ["rt"]

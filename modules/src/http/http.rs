@@ -4,52 +4,66 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use hyper::client::HttpConnector;
 use hyper::Method;
+use hyper_rustls::HttpsConnector;
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{ClassDefinition, Context, Object, ResultExc};
+use runtime::globals::fetch::{default_client, GLOBAL_CLIENT, Headers, Request, request_internal, RequestBuilderInit, RequestInit, Resource, Response};
 use runtime::modules::NativeModule;
 
-use crate::http::{Headers, Request, Resource, Response};
-use crate::http::client::{default_client, GLOBAL_CLIENT};
-use crate::http::client::Client;
-use crate::http::network::request_internal;
-use crate::http::request::{RequestBuilderOptions, RequestOptions};
+use crate::http::client::{Client, ClientRequestOptions};
 
-#[js_fn]
-async fn get(url: String, options: Option<RequestOptions>) -> ResultExc<Response> {
-	let options = RequestBuilderOptions::from_request_options(options, Method::GET.to_string());
-	let request = Request::constructor(Resource::String(url), Some(options))?;
+#[derive(Default, FromValue)]
+pub struct RequestClientInit {
+	client: ClientRequestOptions,
+	#[ion(default, inherit)]
+	init: RequestInit,
+}
 
-	request_internal(request).await
+fn to_client(init: Option<&RequestClientInit>) -> hyper::client::Client<HttpsConnector<HttpConnector>> {
+	init.map(|init| init.client.to_client())
+		.unwrap_or_else(|| GLOBAL_CLIENT.get().unwrap().clone())
 }
 
 #[js_fn]
-async fn post(url: String, options: Option<RequestOptions>) -> ResultExc<Response> {
-	let options = RequestBuilderOptions::from_request_options(options, Method::POST.to_string());
+async fn get(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
+	let client = to_client(init.as_ref());
+	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::GET.to_string());
 	let request = Request::constructor(Resource::String(url), Some(options))?;
 
-	request_internal(request).await
+	request_internal(request, client).await
 }
 
 #[js_fn]
-async fn put(url: String, options: Option<RequestOptions>) -> ResultExc<Response> {
-	let options = RequestBuilderOptions::from_request_options(options, Method::PUT.to_string());
+async fn post(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
+	let client = to_client(init.as_ref());
+	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::POST.to_string());
 	let request = Request::constructor(Resource::String(url), Some(options))?;
 
-	request_internal(request).await
+	request_internal(request, client).await
 }
 
 #[js_fn]
-async fn request(resource: Resource, method: Option<String>, options: Option<RequestOptions>) -> ResultExc<Response> {
-	use crate::http::request::Request;
+async fn put(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
+	let client = to_client(init.as_ref());
+	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::PUT.to_string());
+	let request = Request::constructor(Resource::String(url), Some(options))?;
+
+	request_internal(request, client).await
+}
+
+#[js_fn]
+async fn request(resource: Resource, method: Option<String>, init: Option<RequestClientInit>) -> ResultExc<Response> {
+	let client = to_client(init.as_ref());
 	match resource {
-		Resource::Request(request) => request_internal(request).await,
+		Resource::Request(request) => request_internal(request, client).await,
 		Resource::String(url) => {
-			let options = RequestBuilderOptions::from_request_options(options, method);
+			let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), method);
 			let request = Request::constructor(Resource::String(url), Some(options))?;
 
-			request_internal(request).await
+			request_internal(request, client).await
 		}
 	}
 }
@@ -71,14 +85,29 @@ impl NativeModule for Http {
 
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut http = Object::new(cx);
+		let global = Object::global(cx);
 
 		http.define_methods(cx, FUNCTIONS);
-		Headers::init_class(cx, &mut http);
-		Request::init_class(cx, &mut http);
-		Response::init_class(cx, &mut http);
-
 		Client::init_class(cx, &mut http);
-		let _ = GLOBAL_CLIENT.set(default_client());
+		GLOBAL_CLIENT.get_or_init(default_client);
+
+		if let Some(headers) = global.get(cx, stringify!(Headers)) {
+			http.set(cx, stringify!(Headers), &headers);
+		} else {
+			Headers::init_class(cx, &mut http);
+		}
+
+		if let Some(request) = global.get(cx, stringify!(Request)) {
+			http.set(cx, stringify!(Request), &request);
+		} else {
+			Request::init_class(cx, &mut http);
+		}
+
+		if let Some(response) = global.get(cx, stringify!(Response)) {
+			http.set(cx, stringify!(Response), &response);
+		} else {
+			Response::init_class(cx, &mut http);
+		}
 
 		Some(http)
 	}

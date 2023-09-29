@@ -14,34 +14,13 @@ use url::Url;
 pub use class::*;
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
-use runtime::globals::abort::AbortSignal;
+use options::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode};
+pub use options::RequestRedirect;
 
-use crate::http::client::ClientRequestOptions;
-use crate::http::header::HeadersInit;
+use crate::globals::abort::AbortSignal;
+use crate::globals::fetch::header::HeadersInit;
 
-#[derive(Copy, Clone, Debug, Default)]
-pub enum Redirection {
-	#[default]
-	Follow,
-	Error,
-	Manual,
-}
-
-impl<'cx> FromValue<'cx> for Redirection {
-	type Config = ();
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Self>
-	where
-		'cx: 'v,
-	{
-		let string = String::from_value(cx, value, true, ())?;
-		match &*string.to_ascii_lowercase() {
-			"follow" => Ok(Redirection::Follow),
-			"error" => Ok(Redirection::Error),
-			"manual" => Ok(Redirection::Manual),
-			_ => Err(Error::new("Invalid Redirection String", ErrorKind::Type)),
-		}
-	}
-}
+mod options;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(FromValue)]
@@ -54,38 +33,67 @@ pub enum Resource {
 
 #[derive(Derivative, FromValue)]
 #[derivative(Default)]
-pub struct RequestOptions {
+pub struct RequestInit {
+	#[ion(default)]
+	pub(crate) headers: HeadersInit,
+	#[ion(default, parser = | b | parse_body(cx, b))]
+	pub(crate) body: Option<Bytes>,
+
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) referrer: Referrer,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) referrer_policy: ReferrerPolicy,
+
+	#[allow(dead_code)]
+	pub(crate) mode: Option<RequestMode>,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) credentials: RequestCredentials,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) cache: RequestCache,
+	#[ion(default)]
+	pub(crate) redirect: RequestRedirect,
+
+	#[allow(dead_code)]
+	pub(crate) integrity: Option<String>,
+
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) keepalive: bool,
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) is_reload_navigation: bool,
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) is_history_navigation: bool,
+
+	#[ion(default)]
+	pub(crate) signal: AbortSignal,
+
 	pub(crate) auth: Option<String>,
 	#[derivative(Default(value = "true"))]
 	#[ion(default = true)]
 	pub(crate) set_host: bool,
-
-	#[ion(default)]
-	pub(crate) client: ClientRequestOptions,
-	#[ion(default)]
-	pub(crate) redirect: Redirection,
-	#[ion(default)]
-	pub(crate) signal: AbortSignal,
-
-	#[ion(default)]
-	pub(crate) headers: HeadersInit,
-	#[ion(default, parser = |b| parse_body(cx, b))]
-	pub(crate) body: Option<Bytes>,
 }
 
-#[derive(Derivative, FromValue)]
-#[derivative(Default)]
-pub struct RequestBuilderOptions {
+#[derive(Default, FromValue)]
+pub struct RequestBuilderInit {
 	pub(crate) method: Option<String>,
 	#[ion(default, inherit)]
-	pub(crate) options: RequestOptions,
+	pub(crate) init: RequestInit,
 }
 
-impl RequestBuilderOptions {
-	pub fn from_request_options<O: Into<Option<RequestOptions>>, M: Into<Option<String>>>(options: O, method: M) -> RequestBuilderOptions {
-		let options = options.into().unwrap_or_default();
+impl RequestBuilderInit {
+	pub fn from_request_init<O: Into<Option<RequestInit>>, M: Into<Option<String>>>(init: O, method: M) -> RequestBuilderInit {
+		let init = init.into().unwrap_or_default();
 		let method = method.into();
-		RequestBuilderOptions { method, options }
+		RequestBuilderInit { method, init }
 	}
 }
 
@@ -99,12 +107,11 @@ pub mod class {
 
 	use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Value};
 	use ion::conversions::FromValue;
-	use runtime::globals::abort::AbortSignal;
 
-	use crate::http::{Headers, Resource};
-	use crate::http::client::ClientRequestOptions;
-	use crate::http::request::{
-		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, Redirection, RequestBuilderOptions,
+	use crate::globals::abort::AbortSignal;
+	use crate::globals::fetch::{Headers, Resource};
+	use crate::globals::fetch::request::{
+		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, RequestBuilderInit, RequestRedirect,
 	};
 
 	#[ion(into_value)]
@@ -112,35 +119,27 @@ pub mod class {
 		pub(crate) request: hyper::Request<Body>,
 		pub(crate) body: Bytes,
 
-		pub(crate) client: ClientRequestOptions,
-		pub(crate) redirection: Redirection,
+		pub(crate) redirect: RequestRedirect,
 		pub(crate) signal: AbortSignal,
 		pub(crate) url: Url,
 	}
 
 	impl Request {
+		#[allow(clippy::should_implement_trait)]
 		#[ion(skip)]
 		pub fn clone(&self) -> Result<Request> {
 			let request = clone_request(&self.request)?;
 			let body = self.body.clone();
 
-			let client = self.client.clone();
-			let redirection = self.redirection;
+			let redirect = self.redirect;
 			let signal = self.signal.clone();
 			let url = self.url.clone();
 
-			Ok(Request {
-				request,
-				body,
-				client,
-				redirection,
-				signal,
-				url,
-			})
+			Ok(Request { request, body, redirect, signal, url })
 		}
 
 		#[ion(constructor)]
-		pub fn constructor(resource: Resource, options: Option<RequestBuilderOptions>) -> Result<Request> {
+		pub fn constructor(resource: Resource, init: Option<RequestBuilderInit>) -> Result<Request> {
 			let mut request = match resource {
 				Resource::Request(request) => request.clone()?,
 				Resource::String(url) => {
@@ -152,8 +151,7 @@ pub mod class {
 						request,
 						body: Bytes::new(),
 
-						client: ClientRequestOptions::default(),
-						redirection: Redirection::Follow,
+						redirect: RequestRedirect::Follow,
 						signal: AbortSignal::default(),
 						url,
 					}
@@ -162,26 +160,25 @@ pub mod class {
 
 			check_url_scheme(&request.url)?;
 
-			let RequestBuilderOptions { method, options } = options.unwrap_or_default();
+			let RequestBuilderInit { method, init } = init.unwrap_or_default();
 			if let Some(mut method) = method {
 				method.make_ascii_uppercase();
 				let method = Method::from_str(&method)?;
-				check_method_with_body(&method, options.body.is_some())?;
+				check_method_with_body(&method, init.body.is_some())?;
 				*request.request.method_mut() = method;
 			}
 
-			*request.request.headers_mut() = options.headers.into_headers()?.inner();
+			*request.request.headers_mut() = init.headers.into_headers()?.inner();
 
-			add_authorisation_header(request.request.headers_mut(), &request.url, options.auth)?;
-			add_host_header(request.request.headers_mut(), &request.url, options.set_host)?;
+			add_authorisation_header(request.request.headers_mut(), &request.url, init.auth)?;
+			add_host_header(request.request.headers_mut(), &request.url, init.set_host)?;
 
-			if let Some(body) = options.body {
+			if let Some(body) = init.body {
 				request.body = body;
 				*request.request.body_mut() = Body::empty();
 			}
-			request.client = options.client;
-			request.redirection = options.redirect;
-			request.signal = options.signal;
+			request.redirect = init.redirect;
+			request.signal = init.signal;
 
 			Ok(request)
 		}

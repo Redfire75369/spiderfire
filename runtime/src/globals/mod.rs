@@ -9,12 +9,22 @@ use ion::{ClassDefinition, Context, Iterator, Object};
 pub mod abort;
 pub mod console;
 pub mod encoding;
+#[cfg(feature = "fetch")]
+pub mod fetch;
 pub mod microtasks;
 pub mod timers;
 pub mod url;
 
 pub fn init_globals<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
-	console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global) && Iterator::init_class(cx, global).0
+	let result = console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global) && Iterator::init_class(cx, global).0;
+	#[cfg(feature = "fetch")]
+	{
+		result && fetch::define(cx, global)
+	}
+	#[cfg(not(feature = "fetch"))]
+	{
+		result
+	}
 }
 
 pub fn init_timers<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {

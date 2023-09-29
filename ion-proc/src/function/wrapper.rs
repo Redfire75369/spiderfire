@@ -8,8 +8,8 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type, WhereClause};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use crate::attribute::krate::Crates;
 
+use crate::attribute::krate::Crates;
 use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;

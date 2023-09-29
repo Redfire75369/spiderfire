@@ -6,29 +6,26 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-bytes = "1.5.0"
-http = "0.2.9"
 idna = "0.4.0"
-paste = "1.0.14"
-runtime = { path = "../runtime" }
 
 derivative.workspace = true
 futures.workspace = true
 mozjs.workspace = true
 url.workspace = true
 
+[dependencies.hyper]
+workspace = true
+
+[dependencies.hyper-rustls]
+workspace = true
+
 [dependencies.ion]
 path = "../ion"
 features = ["macros"]
 
-[dependencies.hyper]
-version = "0.14.27"
-features = ["client", "http1", "tcp"]
-
-[dependencies.hyper-rustls]
-version = "0.24.1"
-default-features = false
-features = ["http1", "logging", "tls12", "webpki-tokio"]
+[dependencies.runtime]
+path = "../runtime"
+features = ["fetch"]
 
 [dependencies.tokio]
 workspace = true
