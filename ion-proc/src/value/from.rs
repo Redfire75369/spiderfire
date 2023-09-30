@@ -268,7 +268,7 @@ fn map_fields(
 		.iter()
 		.enumerate()
 		.map(|(index, field)| {
-			let (ident, mut key) = if let Some(ref ident) = field.ident {
+			let (ident, mut key) = if let Some(ident) = &field.ident {
 				(ident.clone(), ident.to_string().to_case(Case::Camel))
 			} else {
 				let ident = format_ident!("var{}", index);
@@ -327,7 +327,7 @@ fn map_fields(
 					return Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum"));
 				}
 				quote_spanned!(field.span() => let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
-			} else if let Some(ref parser) = parser {
+			} else if let Some(parser) = &parser {
 				requires_object = true;
 				let error = format!("Expected Value at Key {}", key);
 				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)).and_then(#parser))

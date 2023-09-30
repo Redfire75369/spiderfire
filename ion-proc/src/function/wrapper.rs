@@ -159,7 +159,8 @@ pub(crate) fn impl_async_wrapper_fn(
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
-	let output = quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
+	let output = quote!(#ion::Promise<'cx>);
+	let wrapper_output = quote!(#ion::ResultExc<#output>);
 
 	let mut is_result = false;
 	if let Type::Path(ty) = &inner_output {
@@ -226,20 +227,16 @@ pub(crate) fn impl_async_wrapper_fn(
 				#async_result
 			};
 
-			if let ::std::option::Option::Some(promise) = #runtime::promise::future_to_promise(__cx, __future) {
-				::std::result::Result::Ok(promise)
-			} else {
-				::std::result::Result::Err(#ion::Error::new("Failed to create Promise", None).into())
-			}
+			#runtime::promise::future_to_promise(__cx, __future)
 		};
-		__result
+		::std::result::Result::Ok(__result)
 	}))?;
 
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
 	function.sig.generics.where_clause = Some(wrapper_where);
-	function.sig.output = parse_quote!(-> #output);
+	function.sig.output = parse_quote!(-> #wrapper_output);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 

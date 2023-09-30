@@ -239,7 +239,7 @@ impl ErrorReport {
 	/// Formats the [ErrorReport] as a string for printing.
 	pub fn format(&self, cx: &Context) -> String {
 		let mut string = self.exception.format(cx);
-		if let Some(ref stack) = self.stack {
+		if let Some(stack) = &self.stack {
 			if !stack.is_empty() {
 				string.push_str(NEWLINE);
 				string.push_str(&stack.format());

@@ -169,7 +169,7 @@ impl MacrotaskQueue {
 			self.set_next(index, &macrotask);
 		}
 
-		if let Macrotask::Timer(ref mut timer) = macrotask {
+		if let Macrotask::Timer(timer) = &mut macrotask {
 			self.nesting.set(self.nesting.get() + 1);
 			timer.nesting = self.nesting.get();
 		}

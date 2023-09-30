@@ -5,24 +5,22 @@
  */
 
 use std::cell::RefCell;
-use std::future::Future;
-use std::pin::Pin;
 use std::task;
 use std::task::Poll;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mozjs::jsapi::{JS_GetFunctionObject, JSFunction};
+use mozjs::jsapi::JSObject;
+use tokio::task::JoinHandle;
 
-use ion::{Context, ErrorReport, Function, Object, Value};
+use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException, Value};
 use ion::conversions::BoxedIntoValue;
 
-type FutureOutput = (*mut JSFunction, *mut JSFunction, Result<BoxedIntoValue, BoxedIntoValue>);
-pub type NativeFuture = Pin<Box<dyn Future<Output = FutureOutput> + 'static>>;
+type FutureOutput = (Result<BoxedIntoValue, BoxedIntoValue>, *mut JSObject);
 
 #[derive(Default)]
 pub struct FutureQueue {
-	queue: RefCell<FuturesUnordered<NativeFuture>>,
+	queue: RefCell<FuturesUnordered<JoinHandle<FutureOutput>>>,
 }
 
 impl FutureQueue {
@@ -31,37 +29,40 @@ impl FutureQueue {
 
 		let mut queue = self.queue.borrow_mut();
 		while let Poll::Ready(Some(item)) = queue.poll_next_unpin(wcx) {
-			results.push(item);
+			match item {
+				Ok(item) => results.push(item),
+				Err(error) => {
+					Error::new(&error.to_string(), ErrorKind::Normal).throw(cx);
+					return Err(None);
+				}
+			}
 		}
 
-		for (resolve, reject, result) in results {
-			let null = Object::null(cx);
+		for (result, promise) in results {
 			let mut value = Value::undefined(cx);
+			let promise = Promise::from(cx.root_object(promise)).unwrap();
 
-			unsafe {
-				match result {
-					Ok(o) => {
-						o.into_value(cx, &mut value);
-						let resolve = Function::from(cx.root_function(resolve));
-						resolve.call(cx, &null, &[value])?;
-					}
-					Err(e) => {
-						e.into_value(cx, &mut value);
-						let reject = Function::from(cx.root_function(reject));
-						reject.call(cx, &null, &[value])?;
-					}
-				}
+			let result = match result {
+				Ok(o) => unsafe {
+					o.into_value(cx, &mut value);
+					promise.resolve(cx, &value)
+				},
+				Err(e) => unsafe {
+					e.into_value(cx, &mut value);
+					promise.reject(cx, &value)
+				},
+			};
 
-				cx.unroot_persistent_object(JS_GetFunctionObject(resolve));
-				cx.unroot_persistent_object(JS_GetFunctionObject(reject));
+			if !result {
+				return Err(ErrorReport::new_with_exception_stack(cx));
 			}
 		}
 
 		Ok(())
 	}
 
-	pub fn enqueue(&self, fut: NativeFuture) {
-		self.queue.borrow().push(fut);
+	pub fn enqueue(&self, handle: JoinHandle<FutureOutput>) {
+		self.queue.borrow().push(handle);
 	}
 
 	pub fn is_empty(&self) -> bool {

@@ -41,19 +41,19 @@ impl EventLoop {
 			self.waker.register(wcx.waker());
 		}
 
-		if let Some(ref futures) = self.futures {
+		if let Some(futures) = &self.futures {
 			if !futures.is_empty() {
 				futures.run_futures(cx, wcx)?;
 			}
 		}
 
-		if let Some(ref microtasks) = self.microtasks {
+		if let Some(microtasks) = &self.microtasks {
 			if !microtasks.is_empty() {
 				microtasks.run_jobs(cx)?;
 			}
 		}
 
-		if let Some(ref macrotasks) = self.macrotasks {
+		if let Some(macrotasks) = &self.macrotasks {
 			if !macrotasks.is_empty() {
 				macrotasks.run_jobs(cx)?;
 			}

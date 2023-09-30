@@ -6,47 +6,33 @@
 
 use std::future::Future;
 
-use futures::channel::oneshot::channel;
-use mozjs::jsapi::JSFunction;
-
-use ion::{Context, Error, Promise};
+use ion::{Context, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
-use ion::utils::SendWrapper;
-
 use crate::event_loop::EVENT_LOOP;
-use crate::event_loop::future::NativeFuture;
 
-pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
+pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Promise<'cx>
 where
-	F: Future<Output = Result<O, E>> + 'static + Send,
+	F: Future<Output = Result<O, E>> + 'static,
 	O: for<'cx2> IntoValue<'cx2> + 'static,
 	E: for<'cx2> IntoValue<'cx2> + 'static,
 {
-	let (tx, rx) = channel::<(SendWrapper<*mut JSFunction>, SendWrapper<*mut JSFunction>)>();
+	let promise = Promise::new(cx);
+	let object = promise.handle().get();
 
-	let future = async move {
-		let (resolve, reject) = rx.await.unwrap();
-		let result = future.await;
-
-		let result: Result<BoxedIntoValue, BoxedIntoValue> = match result {
+	let handle = tokio::task::spawn_local(async move {
+		let result: Result<BoxedIntoValue, BoxedIntoValue> = match future.await {
 			Ok(o) => Ok(Box::new(o)),
 			Err(e) => Err(Box::new(e)),
 		};
-		(resolve.take(), reject.take(), result)
-	};
+		(result, object)
+	});
 
-	let future: NativeFuture = Box::pin(future);
 	EVENT_LOOP.with(move |event_loop| {
 		let event_loop = event_loop.borrow_mut();
-		if let Some(ref futures) = event_loop.futures {
-			futures.enqueue(future);
+		if let Some(futures) = &event_loop.futures {
+			futures.enqueue(handle);
 		}
 	});
 
-	Promise::new_with_executor(cx, move |cx, resolve, reject| unsafe {
-		cx.root_persistent_object(resolve.to_object(cx).handle().get());
-		cx.root_persistent_object(reject.to_object(cx).handle().get());
-		tx.send((SendWrapper::new(resolve.get()), SendWrapper::new(reject.get())))
-			.map_err(|_| Error::new("Failed to send resolve and reject through channel", None))
-	})
+	promise
 }
