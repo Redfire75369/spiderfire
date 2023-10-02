@@ -5,6 +5,7 @@
  */
 
 use proc_macro2::{Span, TokenStream};
+use quote::ToTokens;
 use syn::{Error, Expr, FnArg, GenericArgument, Ident, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
@@ -215,19 +216,14 @@ impl ThisParameter {
 		}
 	}
 
-	pub(crate) fn to_async_class_statements(&self, ion: &TokenStream) -> Result<(Stmt, Vec<Stmt>)> {
+	pub(crate) fn to_async_class_statement(&self, ion: &TokenStream) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
 
 		let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
 		match kind {
-			ThisKind::Ref(_, mutability) => Ok((
-				parse2(quote!(let #pat: &'static #mutability #ty;))?,
-				vec![
-					parse2(quote!(let __this2 = __this.take().unwrap().take().into();))?,
-					parse2(quote!(self_ = &mut *(<#ty as ::ion::ClassDefinition>::get_private(&__this2) as *mut #ty);))?,
-					parse2(quote!(__this = ::std::option::Option::Some(#ion::utils::SendWrapper::new(__this2.into_local()));))?,
-				],
-			)),
+			ThisKind::Ref(_, mutability) => {
+				parse2(quote!(let #pat: &'static #mutability #ty = &mut *(<#ty as #ion::ClassDefinition>::get_private(&__this) as *mut #ty);))
+			}
 			ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
 		}
 	}
@@ -311,18 +307,12 @@ impl Parameters {
 	pub(crate) fn to_this_statements(&self, ion: &TokenStream, is_class: bool, is_async: bool) -> Result<TokenStream> {
 		match &self.this {
 			Some((this, _, _)) => {
-				if is_class && is_async {
-					let (pre, inner) = this.to_async_class_statements(ion)?;
-					Ok(quote!(
-						#pre
-						{
-							#(#inner)*
-						}
-					))
+				let statement = if is_class && is_async {
+					this.to_async_class_statement(ion)?
 				} else {
-					let statements = this.to_statement(ion, is_class)?;
-					Ok(quote!(#statements))
-				}
+					this.to_statement(ion, is_class)?
+				};
+				Ok(statement.to_token_stream())
 			}
 			None => Ok(TokenStream::default()),
 		}

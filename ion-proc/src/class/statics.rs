@@ -95,7 +95,7 @@ pub(crate) fn class_initialiser(ion: &TokenStream, class_ident: &Ident, construc
 				&CLASS
 			}
 
-			fn constructor() -> (::ion::functions::NativeFunction, ::core::primitive::u32) {
+			fn constructor() -> (#ion::functions::NativeFunction, ::core::primitive::u32) {
 				(#constructor_ident, #constructor_nargs)
 			}
 

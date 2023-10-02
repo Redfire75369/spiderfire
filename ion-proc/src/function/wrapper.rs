@@ -197,15 +197,14 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(
-			let mut __this: ::std::option::Option<#ion::utils::SendWrapper<#ion::Local<'static, *mut ::mozjs::jsapi::JSObject>>>
-				= ::std::option::Option::Some(#ion::utils::SendWrapper::new(::std::mem::transmute(__cx.root_persistent_object(__this.handle().get()))));
-			let __cx2: #ion::utils::SendWrapper<#ion::Context<'static>> = #ion::utils::SendWrapper::new(#ion::Context::new_unchecked(__cx.as_ptr()));
+			let mut __this: #ion::Object<'static> = ::std::mem::transmute(#ion::Object::from(__cx.root_persistent_object(__this.handle().get())));
+			let __cx2: #ion::Context<'static> = #ion::Context::new_unchecked(__cx.as_ptr());
 		)
 	});
 	let unrooter = parameters
 		.this
 		.is_some()
-		.then(|| quote!(__cx2.unroot_persistent_object(__this.take().unwrap().take().handle().get());));
+		.then(|| quote!(__cx2.unroot_persistent_object(__this.handle().get());));
 
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
