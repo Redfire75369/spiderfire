@@ -25,7 +25,7 @@ pub struct Arguments<'c: 'cx, 'cx> {
 
 impl<'c, 'cx> Arguments<'c, 'cx> {
 	/// Creates new [Arguments] from raw arguments,
-	pub fn new(cx: &'cx Context<'c>, argc: u32, vp: *mut JSVal) -> Arguments<'c, 'cx> {
+	pub unsafe fn new(cx: &'cx Context<'c>, argc: u32, vp: *mut JSVal) -> Arguments<'c, 'cx> {
 		unsafe {
 			let call_args = CallArgs::from_vp(vp, argc);
 			let values = (0..argc).map(|i| Local::from_raw_handle(call_args.get(i)).into()).collect();

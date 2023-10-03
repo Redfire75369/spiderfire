@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use encoder::TextEncoder;
+pub use class::TextEncoder;
 use ion::{Context, Object, Value};
 use ion::conversions::ToValue;
 
@@ -23,7 +23,7 @@ impl<'cx> ToValue<'cx> for EncodeResult {
 }
 
 #[js_class]
-mod encoder {
+mod class {
 	use encoding_rs::{Encoder, UTF_8};
 
 	use ion::typedarray::Uint8Array;

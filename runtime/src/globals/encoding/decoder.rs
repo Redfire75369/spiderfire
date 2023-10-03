@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use decoder::TextDecoder;
+pub use class::TextDecoder;
 
 #[derive(Default, FromValue)]
 pub struct TextDecoderOptions {
@@ -21,7 +21,7 @@ pub struct TextDecodeOptions {
 }
 
 #[js_class]
-mod decoder {
+mod class {
 	use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 	use mozjs::typedarray::ArrayBufferView;
 

@@ -39,7 +39,7 @@ impl<'f> Function<'f> {
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
-	pub fn from_spec<'cx>(cx: &'cx Context, spec: *const JSFunctionSpec) -> Function<'cx> {
+	pub fn from_spec<'cx>(cx: &'cx Context, spec: &JSFunctionSpec) -> Function<'cx> {
 		Function {
 			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
@@ -66,7 +66,7 @@ impl<'f> Function<'f> {
 	/// Creates a new [Function] from an object.
 	/// Returns [None] if the object is not a function.
 	pub fn from_object<'cx>(cx: &'cx Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'cx>> {
-		if Function::is_function_raw(obj.get()) {
+		if unsafe { Function::is_function_raw(obj.get()) } {
 			Some(Function {
 				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
 			})
@@ -149,8 +149,8 @@ impl<'f> Function<'f> {
 	}
 
 	/// Checks if [a raw object](*mut JSObject) is a function.
-	pub fn is_function_raw(obj: *mut JSObject) -> bool {
-		unsafe { JS_ObjectIsFunction(obj) }
+	pub unsafe fn is_function_raw(obj: *mut JSObject) -> bool {
+		JS_ObjectIsFunction(obj)
 	}
 }
 

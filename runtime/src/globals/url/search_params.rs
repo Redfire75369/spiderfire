@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use search_params::UrlSearchParams;
+pub use class::UrlSearchParams;
 
 #[js_class]
-mod search_params {
+mod class {
 	use form_urlencoded::Serializer;
 	use mozjs::gc::Traceable;
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
@@ -24,7 +24,7 @@ mod search_params {
 		url: Option<Box<Heap<*mut JSObject>>>,
 	}
 
-	// TODO: Implement Constructor for UrlSearchParams
+	// TODO: Implement Constructor for URLSearchParams
 	impl UrlSearchParams {
 		pub(crate) fn new(cx: &Context, pairs: Vec<(String, String)>, url_object: &Object) -> Result<UrlSearchParams> {
 			if !Url::instance_of(cx, url_object, None) {

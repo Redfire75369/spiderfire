@@ -55,7 +55,7 @@ mod class {
 	}
 }
 
-fn ensure_callable() {
+pub fn ensure_callable() {
 	let mut toggle = Toggle::default();
 	toggle.get_toggle();
 	toggle.set_toggle(true);

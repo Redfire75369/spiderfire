@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
-mod from_value;
-mod js_class;
-mod js_fn;
+pub mod from_value;
+pub mod js_class;
+pub mod js_fn;

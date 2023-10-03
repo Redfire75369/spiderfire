@@ -3,12 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
-#![allow(clippy::module_inception)]
-
 use ion::{ClassDefinition, Context, Object};
 pub use search_params::UrlSearchParams;
-pub use url_class::Url;
+pub use class::Url;
 
 mod search_params;
 
@@ -23,7 +20,7 @@ pub struct FormatOptions {
 }
 
 #[js_class]
-mod url_class {
+mod class {
 	use std::cmp::Ordering;
 
 	use mozjs::conversions::ConversionBehavior::EnforceRange;

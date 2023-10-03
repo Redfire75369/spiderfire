@@ -20,11 +20,10 @@ use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
 
 /// Stores information about a native class created for JS.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ClassInfo {
-	#[allow(dead_code)]
 	class: &'static JSClass,
-	#[allow(dead_code)]
 	constructor: *mut JSFunction,
 	prototype: *mut JSObject,
 }

@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#![allow(clippy::module_inception)]
-
 pub use decoder::TextDecoder;
 pub use encoder::TextEncoder;
 use ion::{ClassDefinition, Context, Object};
