@@ -19,7 +19,7 @@ use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
 use crate::class::operations::{class_finalise, class_ops, class_trace};
 use crate::class::property::{Property, PropertyType};
-use crate::class::statics::{class_initialiser, class_spec, methods_to_specs, properties_to_specs};
+use crate::class::statics::{class_definition, class_spec, methods_to_specs, properties_to_specs};
 use crate::utils::extract_last_type_segment;
 
 pub(crate) mod accessor;
@@ -317,7 +317,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	} else {
 		None
 	};
-	let class_initialiser = class_initialiser(ion, ident, &constructor.method.sig.ident, constructor.nargs as u32);
+	let class_initialiser = class_definition(ion, ident, &class_name, &constructor.method.sig.ident, constructor.nargs as u32);
 
 	let accessors = flatten_accessors(accessors);
 	let static_accessors = flatten_accessors(static_accessors);

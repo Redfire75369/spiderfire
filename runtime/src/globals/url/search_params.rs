@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub use search_params::URLSearchParams;
+pub use search_params::UrlSearchParams;
 
 #[js_class]
 mod search_params {
@@ -16,22 +16,22 @@ mod search_params {
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 
-	use crate::globals::url::URL;
+	use crate::globals::url::Url;
 
-	#[ion(no_constructor, into_value)]
-	pub struct URLSearchParams {
+	#[ion(name = "URLSearchParams", no_constructor, into_value)]
+	pub struct UrlSearchParams {
 		pairs: Vec<(String, String)>,
 		url: Option<Box<Heap<*mut JSObject>>>,
 	}
 
-	// TODO: Implement Constructor for URLSearchParams
-	impl URLSearchParams {
-		pub(crate) fn new(cx: &Context, pairs: Vec<(String, String)>, url_object: &Object) -> Result<URLSearchParams> {
-			if !URL::instance_of(cx, url_object, None) {
+	// TODO: Implement Constructor for UrlSearchParams
+	impl UrlSearchParams {
+		pub(crate) fn new(cx: &Context, pairs: Vec<(String, String)>, url_object: &Object) -> Result<UrlSearchParams> {
+			if !Url::instance_of(cx, url_object, None) {
 				return Err(Error::new("Expected URL", ErrorKind::Type));
 			}
 
-			Ok(URLSearchParams {
+			Ok(UrlSearchParams {
 				pairs,
 				url: Some(Heap::boxed(url_object.handle().get())),
 			})
@@ -109,7 +109,7 @@ mod search_params {
 		pub(crate) fn update(&mut self) {
 			if let Some(url) = &self.url {
 				let url = Object::from(unsafe { Local::from_heap(url) });
-				let url = URL::get_private(&url);
+				let url = Url::get_private(&url);
 				if self.pairs.is_empty() {
 					url.url.set_query(None);
 				} else {
@@ -131,7 +131,7 @@ mod search_params {
 	impl JSIterator for SearchParamsIterator {
 		fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
 			let object = private.to_object(cx);
-			let search_params = URLSearchParams::get_private(&object);
+			let search_params = UrlSearchParams::get_private(&object);
 			let pair = search_params.pairs.get(self.0);
 			pair.map(move |(k, v)| unsafe {
 				self.0 += 1;
@@ -140,7 +140,7 @@ mod search_params {
 		}
 	}
 
-	unsafe impl Traceable for URLSearchParams {
+	unsafe impl Traceable for UrlSearchParams {
 		#[inline]
 		unsafe fn trace(&self, trc: *mut JSTracer) {
 			self.url.trace(trc);

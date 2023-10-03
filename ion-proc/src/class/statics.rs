@@ -84,12 +84,12 @@ pub(crate) fn properties_to_specs(
 	)
 }
 
-pub(crate) fn class_initialiser(ion: &TokenStream, class_ident: &Ident, constructor_ident: &Ident, constructor_nargs: u32) -> ItemImpl {
-	let name_str = LitStr::new(&class_ident.to_string(), class_ident.span());
-
+pub(crate) fn class_definition(
+	ion: &TokenStream, class_ident: &Ident, class_name: &LitStr, constructor_ident: &Ident, constructor_nargs: u32,
+) -> ItemImpl {
 	parse2(quote!(
 		impl #ion::ClassDefinition for #class_ident {
-			const NAME: &'static str = #name_str;
+			const NAME: &'static str = #class_name;
 
 			fn class() -> &'static ::mozjs::jsapi::JSClass {
 				&CLASS

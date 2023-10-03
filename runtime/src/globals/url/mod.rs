@@ -7,8 +7,8 @@
 #![allow(clippy::module_inception)]
 
 use ion::{ClassDefinition, Context, Object};
-pub use search_params::URLSearchParams;
-pub use url_class::URL;
+pub use search_params::UrlSearchParams;
+pub use url_class::Url;
 
 mod search_params;
 
@@ -29,37 +29,35 @@ mod url_class {
 	use mozjs::conversions::ConversionBehavior::EnforceRange;
 	use mozjs::gc::Traceable;
 	use mozjs::jsapi::{Heap, JSObject, JSTracer};
-	use url::Url;
 
 	use ion::{ClassDefinition, Context, Error, Object, Result};
 
 	use super::FormatOptions;
-	use super::search_params::URLSearchParams;
+	use super::search_params::UrlSearchParams;
 
-	#[allow(clippy::upper_case_acronyms)]
-	#[ion(into_value)]
-	pub struct URL {
-		pub(crate) url: Url,
+	#[ion(name = "URL", into_value)]
+	pub struct Url {
+		pub(crate) url: url::Url,
 		search_params: Box<Heap<*mut JSObject>>,
 	}
 
-	impl URL {
+	impl Url {
 		#[ion(constructor)]
-		pub fn constructor(#[ion(this)] this: &Object, cx: &Context, input: String, base: Option<String>) -> Result<URL> {
-			let options = Url::options();
-			let base = base.as_ref().and_then(|base| Url::parse(base).ok());
+		pub fn constructor(#[ion(this)] this: &Object, cx: &Context, input: String, base: Option<String>) -> Result<Url> {
+			let options = url::Url::options();
+			let base = base.as_ref().and_then(|base| url::Url::parse(base).ok());
 			options.base_url(base.as_ref());
 			let url = options.parse(&input).map_err(|error| Error::new(&error.to_string(), None))?;
 
-			let search_params = URLSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
-			let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+			let search_params = UrlSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
+			let search_params = Heap::boxed(UrlSearchParams::new_object(cx, search_params));
 
-			Ok(URL { url, search_params })
+			Ok(Url { url, search_params })
 		}
 
 		pub fn canParse(input: String, base: Option<String>) -> bool {
-			let options = Url::options();
-			let base = base.as_ref().and_then(|base| Url::parse(base).ok());
+			let options = url::Url::options();
+			let base = base.as_ref().and_then(|base| url::Url::parse(base).ok());
 			options.base_url(base.as_ref());
 			options.parse(&input).is_ok()
 		}
@@ -69,7 +67,7 @@ mod url_class {
 
 			let options = options.unwrap_or_default();
 			if !options.auth {
-				url.set_username("").map_err(|_| Error::new("Invalid URL", None))?;
+				url.set_username("").map_err(|_| Error::new("Invalid Url", None))?;
 			}
 			if !options.fragment {
 				url.set_fragment(None);
@@ -93,10 +91,10 @@ mod url_class {
 
 		#[ion(set)]
 		pub fn set_href(&mut self, #[ion(this)] this: &Object, cx: &Context, input: String) -> Result<()> {
-			match Url::parse(&input) {
+			match url::Url::parse(&input) {
 				Ok(url) => {
-					let search_params = URLSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
-					self.search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+					let search_params = UrlSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
+					self.search_params = Heap::boxed(UrlSearchParams::new_object(cx, search_params));
 					self.url = url;
 					Ok(())
 				}
@@ -143,10 +141,10 @@ mod url_class {
 
 				self.url.set_host(Some(host))?;
 
-				self.url.set_port(port).map_err(|_| Error::new("Invalid URL", None))?;
+				self.url.set_port(port).map_err(|_| Error::new("Invalid Url", None))?;
 			} else {
 				self.url.set_host(None)?;
-				self.url.set_port(None).map_err(|_| Error::new("Invalid URL", None))?;
+				self.url.set_port(None).map_err(|_| Error::new("Invalid Url", None))?;
 			}
 			Ok(())
 		}
@@ -196,7 +194,7 @@ mod url_class {
 
 		#[ion(set)]
 		pub fn set_username(&mut self, username: String) -> Result<()> {
-			self.url.set_username(&username).map_err(|_| Error::new("Invalid URL", None))
+			self.url.set_username(&username).map_err(|_| Error::new("Invalid Url", None))
 		}
 
 		#[ion(get)]
@@ -206,7 +204,7 @@ mod url_class {
 
 		#[ion(set)]
 		pub fn set_password(&mut self, password: Option<String>) -> Result<()> {
-			self.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid URL", None))
+			self.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid Url", None))
 		}
 
 		#[ion(get)]
@@ -235,7 +233,7 @@ mod url_class {
 		}
 	}
 
-	unsafe impl Traceable for URL {
+	unsafe impl Traceable for Url {
 		#[inline]
 		unsafe fn trace(&self, trc: *mut JSTracer) {
 			self.search_params.trace(trc);
@@ -244,5 +242,5 @@ mod url_class {
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	URL::init_class(cx, global).0 && URLSearchParams::init_class(cx, global).0
+	Url::init_class(cx, global).0 && UrlSearchParams::init_class(cx, global).0
 }
