@@ -5,6 +5,7 @@
  */
 
 use clap::{Parser, Subcommand};
+use tokio::task::LocalSet;
 
 use crate::commands::handle_command;
 
@@ -61,5 +62,6 @@ async fn main() {
 		colored::control::set_virtual_terminal(true).unwrap();
 	}
 
-	handle_command(args.command).await;
+	let local = LocalSet::new();
+	local.run_until(handle_command(args.command)).await;
 }

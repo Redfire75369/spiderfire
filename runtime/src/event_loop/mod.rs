@@ -10,7 +10,6 @@ use std::task;
 use std::task::Poll;
 
 use futures::future::poll_fn;
-use futures::task::AtomicWaker;
 
 use ion::{Context, ErrorReport};
 
@@ -24,23 +23,20 @@ pub(crate) mod microtasks;
 
 thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop::default()));
 
+#[derive(Default)]
 pub struct EventLoop {
 	pub(crate) futures: Option<Rc<FutureQueue>>,
 	pub(crate) microtasks: Option<Rc<MicrotaskQueue>>,
 	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,
-	pub(crate) waker: AtomicWaker,
 }
 
 impl EventLoop {
 	pub async fn run_event_loop(&self, cx: &Context<'_>) -> Result<(), Option<ErrorReport>> {
-		poll_fn(|wcx| self.poll_event_loop(cx, wcx)).await
+		let mut complete = false;
+		poll_fn(|wcx| self.poll_event_loop(cx, wcx, &mut complete)).await
 	}
 
-	fn poll_event_loop(&self, cx: &Context, wcx: &mut task::Context) -> Poll<Result<(), Option<ErrorReport>>> {
-		{
-			self.waker.register(wcx.waker());
-		}
-
+	fn poll_event_loop(&self, cx: &Context, wcx: &mut task::Context, complete: &mut bool) -> Poll<Result<(), Option<ErrorReport>>> {
 		if let Some(futures) = &self.futures {
 			if !futures.is_empty() {
 				futures.run_futures(cx, wcx)?;
@@ -59,10 +55,12 @@ impl EventLoop {
 			}
 		}
 
-		if self.is_empty() {
+		let empty = self.is_empty();
+		if empty && *complete {
 			Poll::Ready(Ok(()))
 		} else {
-			self.waker.wake();
+			wcx.waker().wake_by_ref();
+			*complete = empty;
 			Poll::Pending
 		}
 	}
@@ -71,16 +69,5 @@ impl EventLoop {
 		self.microtasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
 			&& self.futures.as_ref().map(|f| f.is_empty()).unwrap_or(true)
 			&& self.macrotasks.as_ref().map(|m| m.is_empty()).unwrap_or(true)
-	}
-}
-
-impl Default for EventLoop {
-	fn default() -> EventLoop {
-		EventLoop {
-			futures: None,
-			microtasks: None,
-			macrotasks: None,
-			waker: AtomicWaker::new(),
-		}
 	}
 }

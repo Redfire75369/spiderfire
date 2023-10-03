@@ -19,7 +19,7 @@ use crate::objects::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 
-pub type Closure = dyn for<'c, 'cx> Fn(&mut Arguments<'c, 'cx>) -> ResultExc<Value<'cx>> + 'static;
+pub type Closure = dyn for<'c, 'cx> FnMut(&mut Arguments<'c, 'cx>) -> ResultExc<Value<'cx>> + 'static;
 
 pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>) -> Object<'cx> {
 	unsafe {
@@ -42,10 +42,12 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 
 	let mut value = UndefinedValue();
 	JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value);
-	let closure = &*(value.to_private() as *mut Box<Closure>);
+	let closure = &mut *(value.to_private() as *mut Box<Closure>);
+
+	let rval = &mut *(args.access().rval() as *mut Value);
 
 	let result: thread::Result<ResultExc<Value>> = catch_unwind(AssertUnwindSafe(|| closure(args)));
-	__handle_native_function_result(cx, result, args.access().rval())
+	__handle_native_function_result(cx, result, rval)
 }
 
 unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {

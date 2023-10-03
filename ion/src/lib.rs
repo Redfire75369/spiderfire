@@ -21,6 +21,7 @@ pub use context::{Context, ContextInner};
 pub use error::{Error, ErrorKind};
 pub use exception::{ErrorReport, Exception, ThrowException};
 pub use functions::{Arguments, Function};
+pub use future::PromiseFuture;
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use local::Local;
@@ -39,6 +40,7 @@ pub mod exception;
 pub mod flags;
 pub mod format;
 pub mod functions;
+mod future;
 pub mod local;
 pub mod module;
 pub mod objects;

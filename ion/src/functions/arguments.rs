@@ -14,7 +14,7 @@ use crate::conversions::FromValue;
 
 /// Represents Arguments to a [JavaScript Function](crate::Function)
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
-pub struct Arguments<'c, 'cx> {
+pub struct Arguments<'c: 'cx, 'cx> {
 	cx: &'cx Context<'c>,
 	values: Box<[Value<'cx>]>,
 	callee: Object<'cx>,
@@ -74,7 +74,7 @@ impl<'c, 'cx> Arguments<'c, 'cx> {
 		range.filter_map(|index| self.value(index)).collect()
 	}
 
-	pub fn cx(&self) -> &Context {
+	pub fn cx(&self) -> &'cx Context<'c> {
 		self.cx
 	}
 

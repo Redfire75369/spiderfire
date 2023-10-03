@@ -6,8 +6,11 @@
 
 use std::future::Future;
 
+use tokio::task::spawn_local;
+
 use ion::{Context, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
+
 use crate::event_loop::EVENT_LOOP;
 
 pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Promise<'cx>
@@ -19,7 +22,7 @@ where
 	let promise = Promise::new(cx);
 	let object = promise.handle().get();
 
-	let handle = tokio::task::spawn_local(async move {
+	let handle = spawn_local(async move {
 		let result: Result<BoxedIntoValue, BoxedIntoValue> = match future.await {
 			Ok(o) => Ok(Box::new(o)),
 			Err(e) => Err(Box::new(e)),

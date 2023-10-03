@@ -159,7 +159,7 @@ impl<'p> Promise<'p> {
 	/// `on_resolved` is similar to calling `.then()` on a promise.
 	///
 	/// `on_rejected` is similar to calling `.catch()` on a promise.
-	pub fn add_reactions(&mut self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>) -> bool {
+	pub fn add_reactions(&self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>) -> bool {
 		let mut resolved = Object::null(cx);
 		let mut rejected = Object::null(cx);
 		if let Some(on_resolved) = on_resolved {

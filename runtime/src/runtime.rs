@@ -8,7 +8,6 @@ use std::ffi::c_void;
 use std::ptr;
 use std::rc::Rc;
 
-use futures::task::AtomicWaker;
 use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
@@ -133,7 +132,6 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 			futures: None,
 			microtasks: None,
 			macrotasks: None,
-			waker: AtomicWaker::new(),
 		};
 
 		if self.microtask_queue {
