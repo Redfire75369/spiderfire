@@ -44,7 +44,7 @@ macro_rules! impl_typedarray_wrapper {
 		}
 
 		impl<'cx> ToValue<'cx> for $typedarray {
-			unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+			fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 				match self.to_object(cx) {
 					Ok(typed_array) => typed_array.to_value(cx, value),
 					Err(error) => error.throw(cx),

@@ -27,7 +27,7 @@ pub(crate) fn from_value(ion: &TokenStream, class_ident: &Ident) -> ItemImpl {
 	parse2(quote!(
 		impl<'cx> #ion::conversions::FromValue<'cx> for #class_ident {
 			type Config = ();
-			unsafe fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, _: bool, _: ()) -> #ion::Result<#class_ident>
+			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, _: bool, _: ()) -> #ion::Result<#class_ident>
 			where
 				'cx: 'v
 			{
@@ -42,7 +42,7 @@ pub(crate) fn to_value(ion: &TokenStream, class_ident: &Ident, is_clone: bool) -
 	if is_clone {
 		parse2(quote!(
 			impl<'cx> #ion::conversions::ToValue<'cx> for #class_ident {
-				unsafe fn to_value(&self, cx: &'cx #ion::Context, value: &mut #ion::Value) {
+				fn to_value(&self, cx: &'cx #ion::Context, value: &mut #ion::Value) {
 					<#class_ident as #ion::ClassDefinition>::new_object(cx, self.clone()).to_value(cx, value)
 				}
 			}
@@ -51,7 +51,7 @@ pub(crate) fn to_value(ion: &TokenStream, class_ident: &Ident, is_clone: bool) -
 	} else {
 		parse2(quote!(
 			impl<'cx> #ion::conversions::IntoValue<'cx> for #class_ident {
-				unsafe fn into_value(self: ::std::boxed::Box<Self>, cx: &'cx #ion::Context, value: &mut #ion::Value) {
+				fn into_value(self: ::std::boxed::Box<Self>, cx: &'cx #ion::Context, value: &mut #ion::Value) {
 					#ion::conversions::ToValue::to_value(&<#class_ident as #ion::ClassDefinition>::new_object(cx, *self), cx, value)
 				}
 			}

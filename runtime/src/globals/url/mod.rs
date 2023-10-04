@@ -3,9 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+pub use class::Url;
 use ion::{ClassDefinition, Context, Object};
 pub use search_params::UrlSearchParams;
-pub use class::Url;
 
 mod search_params;
 
@@ -233,7 +233,9 @@ mod class {
 	unsafe impl Traceable for Url {
 		#[inline]
 		unsafe fn trace(&self, trc: *mut JSTracer) {
-			self.search_params.trace(trc);
+			unsafe {
+				self.search_params.trace(trc);
+			}
 		}
 	}
 }

@@ -11,7 +11,7 @@ use ion::{Context, ErrorReport, Exception, Function, Promise, Value};
 use crate::cache::map::transform_error_report_with_sourcemaps;
 
 #[js_fn]
-unsafe fn on_rejected<'cx>(cx: &'cx Context, value: Value<'cx>) {
+fn on_rejected<'cx>(cx: &'cx Context, value: Value<'cx>) {
 	let exception = Exception::from_value(cx, &value);
 	let mut report = ErrorReport::from_exception_with_error_stack(cx, exception);
 	transform_error_report_with_sourcemaps(&mut report);

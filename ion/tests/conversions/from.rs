@@ -22,17 +22,15 @@ fn from_value() {
 
 	let cx = &Context::from_runtime(&runtime);
 
-	unsafe {
-		test_booleans(cx);
-		test_integers(cx);
-		test_strings(cx);
-		test_objects(cx);
-		test_options(cx);
-		test_vec(cx);
-	}
+	test_booleans(cx);
+	test_integers(cx);
+	test_strings(cx);
+	test_objects(cx);
+	test_options(cx);
+	test_vec(cx);
 }
 
-unsafe fn test_booleans(cx: &Context) {
+fn test_booleans(cx: &Context) {
 	let value = Value::bool(cx, false);
 	let result = bool::from_value(cx, &value, true, ());
 	assert!(!result.unwrap());
@@ -88,7 +86,7 @@ unsafe fn test_booleans(cx: &Context) {
 	assert!(result.unwrap());
 }
 
-unsafe fn test_integers(cx: &Context) {
+fn test_integers(cx: &Context) {
 	let value = Value::bool(cx, true);
 	let result = i32::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
 	assert!(result.is_err());
@@ -131,7 +129,7 @@ unsafe fn test_integers(cx: &Context) {
 	assert!(result.is_err());
 }
 
-unsafe fn test_strings(cx: &Context) {
+fn test_strings(cx: &Context) {
 	let value = Value::bool(cx, false);
 	let result = String::from_value(cx, &value, true, ());
 	assert!(result.is_err());
@@ -168,7 +166,7 @@ unsafe fn test_strings(cx: &Context) {
 	assert_eq!(&result.unwrap(), "[object Object]");
 }
 
-unsafe fn test_objects(cx: &Context) {
+fn test_objects(cx: &Context) {
 	let value = Value::bool(cx, false);
 	let result = Object::from_value(cx, &value, true, ());
 	assert!(result.is_err());
@@ -221,7 +219,7 @@ unsafe fn test_objects(cx: &Context) {
 	assert!(result.is_ok());
 }
 
-unsafe fn test_options(cx: &Context) {
+fn test_options(cx: &Context) {
 	type Opt = Option<bool>;
 
 	let value = Value::bool(cx, true);
@@ -237,7 +235,7 @@ unsafe fn test_options(cx: &Context) {
 	assert_eq!(result.unwrap(), None);
 }
 
-unsafe fn test_vec(cx: &Context) {
+fn test_vec(cx: &Context) {
 	let int_vec = vec![1, 256, -65536, 2147483647];
 	let vec: Vec<_> = int_vec.iter().map(|i| Int32Value(*i)).collect();
 	let array = Array::from_slice(cx, vec.as_slice());

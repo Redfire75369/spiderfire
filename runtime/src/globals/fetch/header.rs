@@ -40,7 +40,7 @@ pub enum HeadersInit {
 }
 
 impl ToValue<'_> for Header {
-	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
+	fn to_value(&self, cx: &Context, value: &mut Value) {
 		match self {
 			Header::Multiple(vec) => vec.to_value(cx, value),
 			Header::Single(str) => str.to_value(cx, value),
@@ -50,7 +50,7 @@ impl ToValue<'_> for Header {
 
 impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeaderEntry>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeaderEntry>
 	where
 		'cx: 'v,
 	{
@@ -69,7 +69,7 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 }
 
 impl ToValue<'_> for HeaderEntry {
-	unsafe fn to_value(&self, cx: &Context, value: &mut Value) {
+	fn to_value(&self, cx: &Context, value: &mut Value) {
 		let mut array = Array::new(cx);
 		array.set_as(cx, 0, &self.name);
 		array.set_as(cx, 1, &self.value);
@@ -80,7 +80,7 @@ impl ToValue<'_> for HeaderEntry {
 impl<'cx> FromValue<'cx> for HeadersObject {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
 	where
 		'cx: 'v,
 	{
@@ -93,15 +93,13 @@ impl<'cx> FromValue<'cx> for HeadersObject {
 
 impl HeadersInit {
 	pub(crate) fn into_headers(self) -> Result<Headers> {
-		unsafe {
-			match self {
-				HeadersInit::Existing(existing) => {
-					let headers = existing.headers;
-					Ok(Headers { headers, readonly: existing.readonly })
-				}
-				HeadersInit::Array(vec) => Headers::from_array(vec, false),
-				HeadersInit::Object(object) => Ok(Headers { headers: object.headers, readonly: false }),
+		match self {
+			HeadersInit::Existing(existing) => {
+				let headers = existing.headers;
+				Ok(Headers { headers, readonly: existing.readonly })
 			}
+			HeadersInit::Array(vec) => Headers::from_array(vec, false),
+			HeadersInit::Object(object) => Ok(Headers { headers: object.headers, readonly: false }),
 		}
 	}
 }
@@ -143,7 +141,7 @@ mod class {
 		}
 
 		#[ion(skip)]
-		pub unsafe fn from_array(vec: Vec<HeaderEntry>, readonly: bool) -> Result<Headers> {
+		pub fn from_array(vec: Vec<HeaderEntry>, readonly: bool) -> Result<Headers> {
 			let mut headers = HeaderMap::new();
 			for entry in vec {
 				let mut name = entry.name;
@@ -251,7 +249,7 @@ fn append_to_headers<'cx: 'o, 'o>(cx: &'cx Context, headers: &mut HeaderMap, obj
 
 		let name = HeaderName::from_str(&key.to_lowercase())?;
 		let value = obj.get(cx, &key).unwrap();
-		if let Ok(array) = unsafe { Array::from_value(cx, &value, false, ()) } {
+		if let Ok(array) = Array::from_value(cx, &value, false, ()) {
 			if !unique {
 				for i in 0..array.len(cx) {
 					if let Some(str) = array.get_as::<String>(cx, i, false, ()) {
@@ -263,13 +261,13 @@ fn append_to_headers<'cx: 'o, 'o>(cx: &'cx Context, headers: &mut HeaderMap, obj
 				let vec: Vec<_> = array
 					.to_vec(cx)
 					.into_iter()
-					.map(|v| unsafe { String::from_value(cx, &v, false, ()) })
+					.map(|v| String::from_value(cx, &v, false, ()))
 					.collect::<Result<_>>()?;
 				let str = vec.join(";");
 				let value = HeaderValue::from_str(&str)?;
 				headers.insert(name, value);
 			}
-		} else if let Ok(str) = unsafe { String::from_value(cx, &value, false, ()) } {
+		} else if let Ok(str) = String::from_value(cx, &value, false, ()) {
 			let value = HeaderValue::from_str(&str)?;
 			headers.insert(name, value);
 		} else {

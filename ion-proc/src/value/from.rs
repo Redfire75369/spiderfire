@@ -82,14 +82,14 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	let (body, requires_object) = impl_body(ion, &input.data, name, input.span(), tag, inherit, repr)?;
 
-	let object = requires_object.then(|| quote_spanned!(input.span() => let object = #ion::Object::from_value(cx, value, true, ())?;));
+	let object = requires_object.then(|| quote_spanned!(input.span() => let __object = #ion::Object::from_value(cx, value, true, ())?;));
 
 	parse2(quote_spanned!(input.span() =>
 		#[automatically_derived]
 		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			unsafe fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ())
+			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ())
 				-> #ion::Result<Self> where 'cx: 'v
 			{
 				#object
@@ -239,7 +239,7 @@ fn map_fields(
 			if let Some(variant) = variant {
 				let error = format!("Expected Object at External Tag {}", variant);
 				quote_spanned!(kw.span() =>
-					let object: #ion::Object = object.get_as(cx, #variant, true, ())
+					let __object: #ion::Object = __object.get_as(cx, #variant, true, ())
 						.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
 				)
 			} else {
@@ -252,8 +252,8 @@ fn map_fields(
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
 				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
 				quote_spanned!(kw.span() =>
-					let key: ::std::string::String = object.get_as(cx, #key, true, ()).ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
-					if key != #variant {
+					let __key: ::std::string::String = __object.get_as(cx, #key, true, ()).ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
+					if __key != #variant {
 						return Err(#ion::Error::new(#error, #ion::ErrorKind::Type));
 					}
 				)
@@ -271,7 +271,7 @@ fn map_fields(
 			let (ident, mut key) = if let Some(ident) = &field.ident {
 				(ident.clone(), ident.to_string().to_case(Case::Camel))
 			} else {
-				let ident = format_ident!("var{}", index);
+				let ident = format_ident!("field{}", index);
 				(ident, index.to_string())
 			};
 
@@ -330,12 +330,12 @@ fn map_fields(
 			} else if let Some(parser) = &parser {
 				requires_object = true;
 				let error = format!("Expected Value at Key {}", key);
-				quote_spanned!(field.span() => let #ident: #ty = object.get(cx, #key).ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)).and_then(#parser))
+				quote_spanned!(field.span() => let #ident: #ty = __object.get(cx, #key).ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)).and_then(#parser))
 			} else {
 				requires_object = true;
 				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
 				let ok_or_else = quote!(.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)));
-				quote_spanned!(field.span() => let #ident: #ty = object.get_as(cx, #key, #strict || strict, #convert)#ok_or_else)
+				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)#ok_or_else)
 			};
 
 			let stmt = if optional {

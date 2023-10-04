@@ -373,7 +373,7 @@ fn regular_param_statement(ion: &TokenStream, pat: &Pat, ty: &Type, option: Opti
 	};
 
 	parse2(quote!(
-		let #pat: #ty = match __accessor.arg(#strict, #conversion) {
+		let #pat: #ty = match unsafe { __accessor.arg(#strict, #conversion) } {
 			::std::option::Option::Some(value) => value?,
 			::std::option::Option::None => #if_none
 		};
@@ -381,7 +381,7 @@ fn regular_param_statement(ion: &TokenStream, pat: &Pat, ty: &Type, option: Opti
 }
 
 fn varargs_param_statement(pat: &Pat, ty: &Type, conversion: &Expr, strict: bool) -> Result<Stmt> {
-	parse2(quote!(let #pat: #ty = __accessor.args(#strict, #conversion)?;))
+	parse2(quote!(let #pat: #ty = unsafe { __accessor.args(#strict, #conversion)? };))
 }
 
 pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {

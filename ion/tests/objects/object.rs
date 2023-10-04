@@ -25,10 +25,8 @@ fn object() {
 
 	let value1 = object.get(cx, "key1").unwrap();
 	let value2 = object.get(cx, "key2").unwrap();
-	unsafe {
-		assert_eq!(String::from("null"), String::from_value(cx, &value1, false, ()).unwrap());
-		assert_eq!(String::from("undefined"), String::from_value(cx, &value2, false, ()).unwrap());
-	}
+	assert_eq!(String::from("null"), String::from_value(cx, &value1, false, ()).unwrap());
+	assert_eq!(String::from("undefined"), String::from_value(cx, &value2, false, ()).unwrap());
 
 	let keys = object.keys(cx, None);
 	for (i, key) in keys.enumerate() {

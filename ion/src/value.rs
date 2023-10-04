@@ -41,7 +41,7 @@ impl<'v> Value<'v> {
 
 	/// Creates a [Value] from a string.
 	pub fn string<'cx>(cx: &'cx Context, str: &str) -> Value<'cx> {
-		unsafe { str.as_value(cx) }
+		str.as_value(cx)
 	}
 
 	/// Creates a [Value] from an [Object].

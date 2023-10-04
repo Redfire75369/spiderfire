@@ -137,7 +137,7 @@ impl<'a, 'c, 'cx> Accessor<'a, 'c, 'cx> {
 	}
 
 	pub fn arg<T: FromValue<'cx>>(&mut self, strict: bool, config: T::Config) -> Option<Result<T>> {
-		self.args.values.get(self.index).map(|value| unsafe {
+		self.args.values.get(self.index).map(|value| {
 			self.index += 1;
 			T::from_value(self.args.cx, value, strict, config)
 		})
@@ -149,7 +149,7 @@ impl<'a, 'c, 'cx> Accessor<'a, 'c, 'cx> {
 	{
 		self.args.values[self.index..]
 			.iter()
-			.map(|value| unsafe { T::from_value(self.args.cx, value, strict, config.clone()) })
+			.map(|value| T::from_value(self.args.cx, value, strict, config.clone()))
 			.collect()
 	}
 }

@@ -126,7 +126,7 @@ impl<'c> Context<'c> {
 
 	pub unsafe fn new_unchecked(context: *mut JSContext) -> Context<'c> {
 		Context {
-			context: NonNull::new_unchecked(context),
+			context: unsafe { NonNull::new_unchecked(context) },
 			rooted: RootedArena::default(),
 			local: LocalArena::default(),
 			private: OnceCell::new(),
@@ -138,23 +138,27 @@ impl<'c> Context<'c> {
 		self.context.as_ptr()
 	}
 
-	pub unsafe fn get_inner_data(&self) -> *mut ContextInner {
-		*self.private.get_or_init(|| JS_GetContextPrivate(self.as_ptr()) as *mut ContextInner)
+	pub fn get_inner_data(&self) -> *mut ContextInner {
+		*self
+			.private
+			.get_or_init(|| unsafe { JS_GetContextPrivate(self.as_ptr()) } as *mut ContextInner)
 	}
 
-	pub unsafe fn get_raw_private(&self) -> *mut c_void {
+	pub fn get_raw_private(&self) -> *mut c_void {
 		let inner = self.get_inner_data();
 		if inner.is_null() {
 			ptr::null_mut()
 		} else {
-			(*inner).private
+			unsafe { (*inner).private }
 		}
 	}
 
-	pub unsafe fn set_raw_private(&self, private: *mut c_void) {
+	pub fn set_raw_private(&self, private: *mut c_void) {
 		let inner_private = self.get_inner_data();
 		if !inner_private.is_null() {
-			(*inner_private).private = private;
+			unsafe {
+				(*inner_private).private = private;
+			}
 		}
 	}
 }
@@ -177,23 +181,27 @@ macro_rules! impl_root_methods {
 	};
 	(persistent $(($root_fn:ident, $unroot_fn:ident, $pointer:ty, $key:ident)$(,)?)*) => {
 		$(
-			pub unsafe fn $root_fn(&self, ptr: $pointer) -> Local<$pointer> {
+			pub fn $root_fn(&self, ptr: $pointer) -> Local<$pointer> {
 				let heap = Heap::boxed(ptr);
-				let persistent = &mut (*self.get_inner_data()).persistent.$key;
+				let persistent = unsafe { &mut (*self.get_inner_data()).persistent.$key };
 				persistent.push(heap);
 				let ptr = &persistent[persistent.len() - 1];
-				RootedTraceableSet::add(ptr);
-				Local::from_heap(ptr)
+				unsafe {
+					RootedTraceableSet::add(ptr);
+					Local::from_heap(ptr)
+				}
 			}
 
-			pub unsafe fn $unroot_fn(&self, ptr: $pointer) {
-				let persistent = &mut (*self.get_inner_data()).persistent.$key;
+			pub fn $unroot_fn(&self, ptr: $pointer) {
+				let persistent = unsafe { &mut (*self.get_inner_data()).persistent.$key };
 				let idx = match persistent.iter().rposition(|x| x.get() == ptr) {
 					Some(idx) => idx,
 					None => return,
 				};
 				let heap = persistent.swap_remove(idx);
-				RootedTraceableSet::remove(&heap);
+				unsafe {
+					RootedTraceableSet::remove(&heap);
+				}
 			}
 		)*
 	};

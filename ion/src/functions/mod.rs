@@ -24,7 +24,7 @@ mod function;
 
 #[doc(hidden)]
 pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context, result: Result<ResultExc<T>>, rval: &mut Value) -> bool {
-	__handle_result(cx, result, move |cx, result| unsafe {
+	__handle_result(cx, result, move |cx, result| {
 		Box::new(result).into_value(cx, rval);
 		true
 	})
@@ -34,7 +34,7 @@ pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context,
 pub fn __handle_native_constructor_result<'cx, T: IntoValue<'cx>>(
 	cx: &'cx Context, result: Result<ResultExc<T>>, this: &Object<'cx>, rval: &mut Value,
 ) -> bool {
-	__handle_result(cx, result, move |cx, _| unsafe {
+	__handle_result(cx, result, move |cx, _| {
 		this.to_value(cx, rval);
 		true
 	})
@@ -44,9 +44,9 @@ pub fn __handle_native_constructor_result<'cx, T: IntoValue<'cx>>(
 pub fn __handle_native_constructor_private_result<'cx, T: IntoValue<'cx>>(
 	cx: &'cx Context, result: Result<ResultExc<T>>, index: u32, this: &Object<'cx>, rval: &mut Value,
 ) -> bool {
-	__handle_result(cx, result, move |cx, result| unsafe {
+	__handle_result(cx, result, move |cx, result| {
 		let b = Box::new(Some(result));
-		JS_SetReservedSlot(this.handle().get(), index, &PrivateValue(Box::into_raw(b) as *mut c_void));
+		unsafe { JS_SetReservedSlot(this.handle().get(), index, &PrivateValue(Box::into_raw(b) as *mut c_void)) };
 		this.to_value(cx, rval);
 		true
 	})

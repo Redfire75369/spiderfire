@@ -130,7 +130,7 @@ pub struct Symbol<'s> {
 impl<'s> Symbol<'s> {
 	/// Creates a new unique symbol with a given description.
 	pub fn new<'cx>(cx: &'cx Context, description: &str) -> Symbol<'cx> {
-		let description = unsafe { description.as_value(cx) };
+		let description = description.as_value(cx);
 		let description = cx.root_string(description.handle().to_string());
 
 		let symbol = unsafe { NewSymbol(cx.as_ptr(), description.handle().into()) };
@@ -139,7 +139,7 @@ impl<'s> Symbol<'s> {
 
 	/// Gets a [Symbol] from the symbol registry with the given key.
 	pub fn for_key<'cx>(cx: &'cx Context, key: &str) -> Symbol<'cx> {
-		let key = unsafe { key.as_value(cx) };
+		let key = key.as_value(cx);
 		let key = cx.root_string(key.handle().to_string());
 
 		let symbol = unsafe { GetSymbolFor(cx.as_ptr(), key.handle().into()) };
@@ -162,10 +162,8 @@ impl<'s> Symbol<'s> {
 	pub fn description(&self, cx: &Context) -> Option<String> {
 		let description = unsafe { GetSymbolDescription(self.sym.handle().into()) };
 		if !description.is_null() {
-			unsafe {
-				let description = description.as_value(cx);
-				String::from_value(cx, &description, true, ()).ok()
-			}
+			let description = description.as_value(cx);
+			String::from_value(cx, &description, true, ()).ok()
 		} else {
 			None
 		}

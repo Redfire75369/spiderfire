@@ -60,7 +60,7 @@ impl<'r> ModuleRequest<'r> {
 	/// ### Safety
 	/// `request` must be a valid module request object.
 	pub unsafe fn from_raw_request(request: Handle<*mut JSObject>) -> ModuleRequest<'r> {
-		ModuleRequest(Object::from(Local::from_raw_handle(request)))
+		ModuleRequest(Object::from(unsafe { Local::from_raw_handle(request) }))
 	}
 
 	/// Returns the specifier of the request.
@@ -132,10 +132,10 @@ impl<'cx> Module<'cx> {
 
 			let eval_result = module.evaluate(cx);
 			match eval_result {
-				Ok(val) => unsafe {
+				Ok(val) => {
 					let promise = Promise::from_value(cx, &val, true, ()).ok();
 					Ok((module, promise))
-				},
+				}
 				Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
 			}
 		} else {
@@ -193,13 +193,13 @@ impl ModuleLoader for () {
 /// Initialises a module loader in the current runtime.
 pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) {
 	unsafe extern "C" fn resolve(cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
-		let cx = Context::new_unchecked(cx);
+		let cx = unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
-				let private = Value::from(Local::from_raw_handle(private));
+				let private = unsafe { Value::from(Local::from_raw_handle(private)) };
 				let request = unsafe { ModuleRequest::from_raw_request(request) };
 				loader.resolve(&cx, &private, &request)
 			})
@@ -207,14 +207,14 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	}
 
 	unsafe extern "C" fn metadata(cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
-		let cx = Context::new_unchecked(cx);
+		let cx = unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
-				let private = Value::from(Local::from_raw_handle(private_data));
-				let mut metadata = Object::from(Local::from_raw_handle(metadata));
+				let private = Value::from(unsafe { Local::from_raw_handle(private_data) });
+				let mut metadata = Object::from(unsafe { Local::from_raw_handle(metadata) });
 				loader.metadata(&cx, &private, &mut metadata)
 			})
 			.unwrap_or_else(|| true)

@@ -43,14 +43,14 @@ impl FutureQueue {
 			let promise = Promise::from(cx.root_object(promise)).unwrap();
 
 			let result = match result {
-				Ok(o) => unsafe {
+				Ok(o) => {
 					o.into_value(cx, &mut value);
 					promise.resolve(cx, &value)
-				},
-				Err(e) => unsafe {
+				}
+				Err(e) => {
 					e.into_value(cx, &mut value);
 					promise.reject(cx, &value)
-				},
+				}
 			};
 
 			if !result {

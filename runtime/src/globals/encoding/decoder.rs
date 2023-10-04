@@ -66,16 +66,18 @@ mod class {
 			})
 		}
 
-		pub unsafe fn decode(&mut self, buffer: ArrayBufferView, options: Option<TextDecodeOptions>) -> Result<String> {
+		pub fn decode(&mut self, buffer: ArrayBufferView, options: Option<TextDecodeOptions>) -> Result<String> {
 			let mut string = String::with_capacity(self.decoder.max_utf8_buffer_length(buffer.len()).unwrap());
 			let stream = options.unwrap_or_default().stream;
 			if self.fatal {
-				let (result, _) = self.decoder.decode_to_string_without_replacement(buffer.as_slice(), &mut string, !stream);
+				let (result, _) = self
+					.decoder
+					.decode_to_string_without_replacement(unsafe { buffer.as_slice() }, &mut string, !stream);
 				if let DecoderResult::Malformed(_, _) = result {
 					return Err(Error::new("TextDecoder.decode: Decoding Failed", ErrorKind::Type));
 				}
 			} else {
-				let (_, _, _) = self.decoder.decode_to_string(buffer.as_slice(), &mut string, !stream);
+				let (_, _, _) = self.decoder.decode_to_string(unsafe { buffer.as_slice() }, &mut string, !stream);
 			}
 			Ok(string)
 		}

@@ -229,7 +229,7 @@ impl ThrowException for Error {
 }
 
 impl<'cx> ToValue<'cx> for Error {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		self.to_object(cx).to_value(cx, value)
 	}
 }

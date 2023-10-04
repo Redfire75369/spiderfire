@@ -50,7 +50,7 @@ impl ClientRequestOptions {
 
 impl<'cx> FromValue<'cx> for ClientRequestOptions {
 	type Config = ();
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> ion::Result<ClientRequestOptions>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> ion::Result<ClientRequestOptions>
 	where
 		'cx: 'v,
 	{

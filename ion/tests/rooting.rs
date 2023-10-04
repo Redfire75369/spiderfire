@@ -26,7 +26,7 @@ fn main() {
 	let args = vec![Value::null(cx), Value::bool(cx, true), Value::string(cx, "Old String")];
 	let result = native.call(cx, &Object::null(cx), args.as_slice());
 	assert!(result.is_ok());
-	let result = unsafe { i32::from_value(cx, result.as_ref().unwrap(), true, ConversionBehavior::EnforceRange) }.unwrap();
+	let result = i32::from_value(cx, result.as_ref().unwrap(), true, ConversionBehavior::EnforceRange).unwrap();
 	assert_eq!(3, result);
 
 	let _ = Value::string(cx, "New String");

@@ -66,11 +66,11 @@ impl<'cx> Runtime<'_, 'cx> {
 
 impl Drop for Runtime<'_, '_> {
 	fn drop(&mut self) {
-		let private = unsafe { self.cx.get_raw_private() as *mut ContextPrivate };
+		let private = self.cx.get_raw_private() as *mut ContextPrivate;
 		if !private.is_null() {
 			let _ = unsafe { Box::from_raw(private) };
 		}
-		let inner_private = unsafe { self.cx.get_inner_data() };
+		let inner_private = self.cx.get_inner_data();
 		if !inner_private.is_null() {
 			let _ = unsafe { Box::from_raw(inner_private) };
 		}
@@ -124,9 +124,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 		init_globals(cx, &mut global);
 
 		let private = Box::<ContextPrivate>::default();
-		unsafe {
-			cx.set_raw_private(Box::into_raw(private) as *mut c_void);
-		}
+		cx.set_raw_private(Box::into_raw(private) as *mut c_void);
 
 		let mut event_loop = EventLoop {
 			futures: None,

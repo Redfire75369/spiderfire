@@ -78,7 +78,7 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// ### Safety
 	/// The pointer must point to a location marked by the Garbage Collector.
 	pub unsafe fn from_marked(ptr: *const T) -> Local<'local, T> {
-		Local::Handle(Handle::from_marked_location(ptr))
+		Local::Handle(unsafe { Handle::from_marked_location(ptr) })
 	}
 
 	/// Creates a [Local] from a [raw handle](RawHandle).
@@ -86,7 +86,7 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// ### Safety
 	/// The handle must be valid and still be recognised by the Garbage Collector.
 	pub unsafe fn from_raw_handle(handle: RawHandle<T>) -> Local<'local, T> {
-		Local::Handle(Handle::from_raw(handle))
+		Local::Handle(unsafe { Handle::from_raw(handle) })
 	}
 
 	/// Creates a [Local] from a marked [mutable pointer](pointer);
@@ -94,7 +94,7 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// ### Safety
 	/// The pointer must point to a location marked by the Garbage Collector.
 	pub unsafe fn from_marked_mut(ptr: *mut T) -> Local<'local, T> {
-		Local::Mutable(MutableHandle::from_marked_location(ptr))
+		Local::Mutable(unsafe { MutableHandle::from_marked_location(ptr) })
 	}
 
 	/// Creates a [Local] from a [raw mutable handle](RawMutableHandle);
@@ -102,13 +102,13 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// ### Safety
 	/// The mutable handle must be valid and still be recognised by the Garbage Collector.
 	pub unsafe fn from_raw_handle_mut(handle: RawMutableHandle<T>) -> Local<'local, T> {
-		Local::Mutable(MutableHandle::from_raw(handle))
+		Local::Mutable(unsafe { MutableHandle::from_raw(handle) })
 	}
 }
 
 impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	pub unsafe fn from_heap(heap: &Heap<T>) -> Local<'local, T> {
-		Local::from_raw_handle(heap.handle())
+		unsafe { Local::from_raw_handle(heap.handle()) }
 	}
 }
 

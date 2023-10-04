@@ -74,7 +74,7 @@ pub async fn eval_module(rt: &Runtime<'_, '_>, cx: &Context<'_>, test: (&str, &s
 }
 
 #[ion::js_fn]
-unsafe fn on_rejected(cx: &Context, value: Value) {
+fn on_rejected(cx: &Context, value: Value) {
 	let mut global = Object::global(cx);
 	global.set(cx, EXCEPTION_STRING, &value);
 	Exception::clear(cx);

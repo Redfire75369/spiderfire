@@ -93,20 +93,18 @@ impl<'p> Promise<'p> {
 		Promise::new_with_executor(cx, move |cx, resolve, reject| {
 			let null = Object::null(cx);
 			block_on(async {
-				unsafe {
-					let future = future.take().unwrap();
-					match future.await {
-						Ok(output) => {
-							let value = output.as_value(cx);
-							if let Err(Some(error)) = resolve.call(cx, &null, &[value]) {
-								println!("{}", error.format(cx));
-							}
+				let future = future.take().unwrap();
+				match future.await {
+					Ok(output) => {
+						let value = output.as_value(cx);
+						if let Err(Some(error)) = resolve.call(cx, &null, &[value]) {
+							println!("{}", error.format(cx));
 						}
-						Err(error) => {
-							let value = error.as_value(cx);
-							if let Err(Some(error)) = reject.call(cx, &null, &[value]) {
-								println!("{}", error.format(cx));
-							}
+					}
+					Err(error) => {
+						let value = error.as_value(cx);
+						if let Err(Some(error)) = reject.call(cx, &null, &[value]) {
+							println!("{}", error.format(cx));
 						}
 					}
 				}

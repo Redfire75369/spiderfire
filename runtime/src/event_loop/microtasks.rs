@@ -91,14 +91,14 @@ impl MicrotaskQueue {
 }
 
 unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: *mut JSContext) -> *mut JSObject {
-	CurrentGlobalOrNull(cx)
+	unsafe { CurrentGlobalOrNull(cx) }
 }
 
 unsafe extern "C" fn enqueue_promise_job(
 	extra: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
 	_: Handle<*mut JSObject>,
 ) -> bool {
-	let queue = &*(extra as *const MicrotaskQueue);
+	let queue = unsafe { &*(extra as *const MicrotaskQueue) };
 	if !job.is_null() {
 		queue.enqueue(cx, Microtask::Promise(job.get()))
 	} else {
@@ -108,7 +108,7 @@ unsafe extern "C" fn enqueue_promise_job(
 }
 
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
-	let queue = &*(extra as *const MicrotaskQueue);
+	let queue = unsafe { &*(extra as *const MicrotaskQueue) };
 	queue.queue.borrow().is_empty()
 }
 

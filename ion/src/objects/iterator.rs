@@ -30,7 +30,7 @@ where
 	T: for<'cx> IntoValue<'cx>,
 {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, _: &Value) -> Option<Value<'cx>> {
-		self.next().map(|val| unsafe {
+		self.next().map(|val| {
 			let mut rval = Value::undefined(cx);
 			Box::new(val).into_value(cx, &mut rval);
 			rval
@@ -44,7 +44,7 @@ pub struct IteratorResult<'cx> {
 }
 
 impl<'cx> ToValue<'cx> for IteratorResult<'cx> {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		let mut object = Object::new(cx);
 		object.set_as(cx, "value", &self.value);
 		object.set_as(cx, "done", &self.done);
@@ -77,14 +77,14 @@ impl Iterator {
 
 impl Iterator {
 	unsafe extern "C" fn constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
-		let cx = &Context::new_unchecked(cx);
+		let cx = &unsafe { Context::new_unchecked(cx) };
 		Error::new("Constructor should not be called", ErrorKind::Type).throw(cx);
 		false
 	}
 
 	unsafe extern "C" fn next_raw(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-		let cx = &Context::new_unchecked(cx);
-		let args = &mut Arguments::new(cx, argc, vp);
+		let cx = &unsafe { Context::new_unchecked(cx) };
+		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
 		let this = args.this().to_object(cx);
 		let iterator = Iterator::get_private(&this);
@@ -95,8 +95,8 @@ impl Iterator {
 	}
 
 	unsafe extern "C" fn iterable(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-		let cx = &Context::new_unchecked(cx);
-		let args = &mut Arguments::new(cx, argc, vp);
+		let cx = &unsafe { Context::new_unchecked(cx) };
+		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
 		let this = args.this().handle().get();
 		args.rval().handle_mut().set(this);
@@ -106,25 +106,31 @@ impl Iterator {
 
 	unsafe extern "C" fn finalise(_: *mut GCContext, this: *mut JSObject) {
 		let mut value = NullValue();
-		JS_GetReservedSlot(this, 0, &mut value);
+		unsafe {
+			JS_GetReservedSlot(this, 0, &mut value);
+		}
 		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-			let private = &mut *(value.to_private() as *mut Option<Iterator>);
+			let private = unsafe { &mut *(value.to_private() as *mut Option<Iterator>) };
 			let _ = private.take();
 		}
 	}
 
 	unsafe extern "C" fn trace(trc: *mut JSTracer, this: *mut JSObject) {
 		let mut value = NullValue();
-		JS_GetReservedSlot(this, 0, &mut value);
+		unsafe {
+			JS_GetReservedSlot(this, 0, &mut value);
+		}
 		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-			let private = &*(value.to_private() as *mut Option<Iterator>);
-			private.trace(trc);
+			let private = unsafe { &*(value.to_private() as *mut Option<Iterator>) };
+			unsafe {
+				private.trace(trc);
+			}
 		}
 	}
 }
 
 impl IntoValue<'_> for Iterator {
-	unsafe fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
+	fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
 		let object = cx.root_object(Iterator::new_object(cx, *self));
 		object.handle().get().to_value(cx, value);
 	}
@@ -132,7 +138,9 @@ impl IntoValue<'_> for Iterator {
 
 unsafe impl Traceable for Iterator {
 	unsafe fn trace(&self, trc: *mut JSTracer) {
-		self.private.trace(trc);
+		unsafe {
+			self.private.trace(trc);
+		}
 	}
 }
 

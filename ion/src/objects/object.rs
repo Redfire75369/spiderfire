@@ -93,7 +93,7 @@ impl<'o> Object<'o> {
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
-		self.get(cx, key).and_then(|val| unsafe { T::from_value(cx, &val, strict, config).ok() })
+		self.get(cx, key).and_then(|val| T::from_value(cx, &val, strict, config).ok())
 	}
 
 	/// Sets the [Value] at the given key of the [Object].
@@ -108,7 +108,7 @@ impl<'o> Object<'o> {
 	///
 	/// Returns `false` if the property cannot be set.
 	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
-		self.set(cx, key, unsafe { &value.as_value(cx) })
+		self.set(cx, key, &value.as_value(cx))
 	}
 
 	/// Defines the [Value] at the given key of the [Object] with the given attributes.
@@ -133,7 +133,7 @@ impl<'o> Object<'o> {
 	pub fn define_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
 		&mut self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags,
 	) -> bool {
-		self.define(cx, key, unsafe { &value.as_value(cx) }, attrs)
+		self.define(cx, key, &value.as_value(cx), attrs)
 	}
 
 	/// Defines a method with the given name, and the given number of arguments and attributes on the [Object].

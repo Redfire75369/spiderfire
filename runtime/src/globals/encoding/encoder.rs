@@ -14,7 +14,7 @@ pub struct EncodeResult {
 }
 
 impl<'cx> ToValue<'cx> for EncodeResult {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		let mut object = Object::new(cx);
 		object.set_as(cx, "read", &self.read);
 		object.set_as(cx, "written", &self.written);
@@ -48,9 +48,9 @@ mod class {
 			Uint8Array::from(buf)
 		}
 
-		pub unsafe fn encodeInto(&mut self, input: String, destination: mozjs::typedarray::Uint8Array) -> EncodeResult {
+		pub fn encodeInto(&mut self, input: String, destination: mozjs::typedarray::Uint8Array) -> EncodeResult {
 			let mut destination = destination;
-			let (_, read, written, _) = self.encoder.encode_from_utf8(&input, destination.as_mut_slice(), true);
+			let (_, read, written, _) = self.encoder.encode_from_utf8(&input, unsafe { destination.as_mut_slice() }, true);
 			EncodeResult {
 				read: read as u64,
 				written: written as u64,

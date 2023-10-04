@@ -82,7 +82,7 @@ async fn readBinary(path_str: String) -> Result<Uint8Array> {
 }
 
 #[js_fn]
-unsafe fn readBinarySync(path_str: String) -> Result<Uint8Array> {
+fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 	let path = Path::new(&path_str);
 
 	check_is_file(path)?;

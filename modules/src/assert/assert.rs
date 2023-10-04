@@ -27,9 +27,9 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 }
 
 #[js_fn]
-unsafe fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
+fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
 	let mut same = false;
-	if SameValue(cx.as_ptr(), actual.handle().into(), expected.handle().into(), &mut same) {
+	if unsafe { SameValue(cx.as_ptr(), actual.handle().into(), expected.handle().into(), &mut same) } {
 		if same {
 			Ok(())
 		} else {
@@ -41,7 +41,7 @@ unsafe fn equals(cx: &Context, actual: Value, expected: Value, message: Option<S
 }
 
 #[js_fn]
-unsafe fn throws(cx: &Context, func: Function, message: Option<String>) -> Result<()> {
+fn throws(cx: &Context, func: Function, message: Option<String>) -> Result<()> {
 	if func.call(cx, &Object::global(cx), &[]).is_err() {
 		assert_internal(message)
 	} else {

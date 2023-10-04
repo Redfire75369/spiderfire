@@ -120,7 +120,7 @@ mod class {
 
 		#[ion(name = WellKnownSymbolCode::Iterator)]
 		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
-			let thisv = unsafe { this.as_value(cx) };
+			let thisv = this.as_value(cx);
 			ion::Iterator::new(SearchParamsIterator::default(), &thisv)
 		}
 	}
@@ -133,7 +133,7 @@ mod class {
 			let object = private.to_object(cx);
 			let search_params = UrlSearchParams::get_private(&object);
 			let pair = search_params.pairs.get(self.0);
-			pair.map(move |(k, v)| unsafe {
+			pair.map(move |(k, v)| {
 				self.0 += 1;
 				[k, v].as_value(cx)
 			})
@@ -143,7 +143,9 @@ mod class {
 	unsafe impl Traceable for UrlSearchParams {
 		#[inline]
 		unsafe fn trace(&self, trc: *mut JSTracer) {
-			self.url.trace(trc);
+			unsafe {
+				self.url.trace(trc);
+			}
 		}
 	}
 }

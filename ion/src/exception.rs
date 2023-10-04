@@ -151,7 +151,7 @@ impl ThrowException for Exception {
 }
 
 impl<'cx> ToValue<'cx> for Exception {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		match self {
 			Exception::Error(error) => error.to_value(cx, value),
 			Exception::Other(other) => value.handle_mut().set(*other),

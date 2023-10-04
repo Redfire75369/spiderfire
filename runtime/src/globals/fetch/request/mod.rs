@@ -36,7 +36,7 @@ pub enum Resource {
 pub struct RequestInit {
 	#[ion(default)]
 	pub(crate) headers: HeadersInit,
-	#[ion(default, parser = | b | parse_body(cx, b))]
+	#[ion(default, parser = |b| parse_body(cx, b))]
 	pub(crate) body: Option<Bytes>,
 
 	#[allow(dead_code)]
@@ -191,7 +191,7 @@ pub mod class {
 
 	impl<'cx> FromValue<'cx> for Request {
 		type Config = ();
-		unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Request>
+		fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Request>
 		where
 			'cx: 'v,
 		{
@@ -212,9 +212,9 @@ macro_rules! typedarray_to_bytes {
 	($body:expr, [$arr:ident, true]$(, $($rest:tt)*)?) => {
 		paste::paste! {
 			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
-				Ok(Bytes::copy_from_slice(arr.as_slice()))
+				Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
 			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
-				Ok(Bytes::copy_from_slice(arr.as_slice()))
+				Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
 			} else {
 				typedarray_to_bytes!($body$(, $($rest)*)?)
 			}
@@ -235,18 +235,18 @@ macro_rules! typedarray_to_bytes {
 	};
 }
 
-pub(crate) unsafe fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes> {
+pub(crate) fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes> {
 	if body.handle().is_string() {
 		Ok(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
 	} else if body.handle().is_object() {
 		let body = body.to_object(cx);
 
 		let mut class = ESClass::Other;
-		if GetBuiltinClass(cx.as_ptr(), body.handle().into(), &mut class) {
+		if unsafe { GetBuiltinClass(cx.as_ptr(), body.handle().into(), &mut class) } {
 			if class == ESClass::String {
 				let mut unboxed = Value::undefined(cx);
 
-				if Unbox(cx.as_ptr(), body.handle().into(), unboxed.handle_mut().into()) {
+				if unsafe { Unbox(cx.as_ptr(), body.handle().into(), unboxed.handle_mut().into()) } {
 					return Ok(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
 				}
 			}

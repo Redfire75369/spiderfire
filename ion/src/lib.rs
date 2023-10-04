@@ -5,6 +5,7 @@
  */
 
 #![allow(clippy::missing_safety_doc)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 extern crate bitflags;

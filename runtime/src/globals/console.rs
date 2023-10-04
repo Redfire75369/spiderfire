@@ -152,7 +152,7 @@ fn clear() {
 }
 
 #[js_fn]
-unsafe fn trace<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn trace<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -311,7 +311,7 @@ fn timeEnd(label: Option<String>) {
 }
 
 #[js_fn]
-unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
+fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
 	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -392,7 +392,7 @@ unsafe fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<
 			)];
 
 			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
-				for column in columns.iter() {
+				for column in &columns {
 					if let Some(value) = object.get(cx, column) {
 						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
 						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))

@@ -32,7 +32,7 @@ mod class {
 		}
 
 		#[ion(name = "callback", alias = ["if_toggled", "if_switched"])]
-		pub unsafe fn if_toggled(&self, cx: &Context, function: Function) -> Result<String> {
+		pub fn if_toggled(&self, cx: &Context, function: Function) -> Result<String> {
 			let value = function.call(cx, &Object::null(cx), &[Value::i32(cx, self.toggled)]).unwrap();
 			String::from_value(cx, &value, false, ())
 		}

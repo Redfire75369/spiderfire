@@ -70,7 +70,7 @@ impl<'a> Array<'a> {
 	/// Returns an empty [Vec] if the conversion fails.
 	pub fn to_vec<'cx>(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
 		let value = cx.root_value(ObjectValue(self.arr.handle().get())).into();
-		if let Ok(vec) = unsafe { Vec::from_value(cx, &value, true, ()) } {
+		if let Ok(vec) = Vec::from_value(cx, &value, true, ()) {
 			vec
 		} else {
 			Vec::new()

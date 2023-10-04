@@ -34,17 +34,17 @@ pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>
 }
 
 pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
-	let cx = &Context::new_unchecked(cx);
-	let args = &mut Arguments::new(cx, argc, vp);
+	let cx = &unsafe { Context::new_unchecked(cx) };
+	let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
 	let callee = cx.root_object(args.call_args().callee());
-	let reserved = cx.root_value(*unsafe { GetFunctionNativeReserved(callee.get(), 0) });
+	let reserved = cx.root_value(unsafe { *GetFunctionNativeReserved(callee.get(), 0) });
 
 	let mut value = UndefinedValue();
-	JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value);
-	let closure = &mut *(value.to_private() as *mut Box<Closure>);
+	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };
+	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
-	let rval = &mut *(args.access().rval() as *mut Value);
+	let rval = unsafe { &mut *(args.access().rval() as *mut Value) };
 
 	let result: thread::Result<ResultExc<Value>> = catch_unwind(AssertUnwindSafe(|| closure(args)));
 	__handle_native_function_result(cx, result, rval)
@@ -52,8 +52,10 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 
 unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {
 	let mut value = UndefinedValue();
-	JS_GetReservedSlot(object, CLOSURE_SLOT, &mut value);
-	let _ = Box::from_raw(value.to_private() as *mut Box<Closure>);
+	unsafe {
+		JS_GetReservedSlot(object, CLOSURE_SLOT, &mut value);
+		let _ = Box::from_raw(value.to_private() as *mut Box<Closure>);
+	}
 }
 
 static CLOSURE_OPS: JSClassOps = JSClassOps {

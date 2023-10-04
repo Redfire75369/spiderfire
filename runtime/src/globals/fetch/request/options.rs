@@ -68,7 +68,7 @@ impl Display for RequestDestination {
 }
 
 impl<'cx> ToValue<'cx> for RequestDestination {
-	unsafe fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		self.to_string().to_value(cx, value);
 	}
 }
@@ -103,7 +103,7 @@ impl FromStr for Referrer {
 impl<'cx> FromValue<'cx> for Referrer {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<Referrer>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<Referrer>
 	where
 		'cx: 'v,
 	{
@@ -149,7 +149,7 @@ impl FromStr for ReferrerPolicy {
 impl<'cx> FromValue<'cx> for ReferrerPolicy {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<ReferrerPolicy>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<ReferrerPolicy>
 	where
 		'cx: 'v,
 	{
@@ -187,7 +187,7 @@ impl FromStr for RequestMode {
 impl<'cx> FromValue<'cx> for RequestMode {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestMode>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestMode>
 	where
 		'cx: 'v,
 	{
@@ -221,7 +221,7 @@ impl FromStr for RequestCredentials {
 impl<'cx> FromValue<'cx> for RequestCredentials {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestCredentials>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestCredentials>
 	where
 		'cx: 'v,
 	{
@@ -261,7 +261,7 @@ impl FromStr for RequestCache {
 impl<'cx> FromValue<'cx> for RequestCache {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestCache>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestCache>
 	where
 		'cx: 'v,
 	{
@@ -295,7 +295,7 @@ impl FromStr for RequestRedirect {
 impl<'cx> FromValue<'cx> for RequestRedirect {
 	type Config = ();
 
-	unsafe fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestRedirect>
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestRedirect>
 	where
 		'cx: 'v,
 	{

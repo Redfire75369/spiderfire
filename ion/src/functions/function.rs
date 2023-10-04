@@ -150,7 +150,7 @@ impl<'f> Function<'f> {
 
 	/// Checks if [a raw object](*mut JSObject) is a function.
 	pub unsafe fn is_function_raw(obj: *mut JSObject) -> bool {
-		JS_ObjectIsFunction(obj)
+		unsafe { JS_ObjectIsFunction(obj) }
 	}
 }
 
