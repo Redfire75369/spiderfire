@@ -111,7 +111,7 @@ impl<'c> Context<'c> {
 			let inner_private = Box::<ContextInner>::default();
 			let inner_private = Box::into_raw(inner_private);
 			unsafe {
-				JS_SetContextPrivate(cx, inner_private as *mut c_void);
+				JS_SetContextPrivate(cx, inner_private.cast());
 			}
 		}
 
@@ -139,9 +139,7 @@ impl<'c> Context<'c> {
 	}
 
 	pub fn get_inner_data(&self) -> *mut ContextInner {
-		*self
-			.private
-			.get_or_init(|| unsafe { JS_GetContextPrivate(self.as_ptr()) } as *mut ContextInner)
+		*self.private.get_or_init(|| unsafe { JS_GetContextPrivate(self.as_ptr()).cast() })
 	}
 
 	pub fn get_raw_private(&self) -> *mut c_void {

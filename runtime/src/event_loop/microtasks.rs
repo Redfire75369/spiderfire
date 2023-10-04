@@ -88,7 +88,7 @@ unsafe extern "C" fn enqueue_promise_job(
 	extra: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
 	_: Handle<*mut JSObject>,
 ) -> bool {
-	let queue = unsafe { &*(extra as *const MicrotaskQueue) };
+	let queue: &MicrotaskQueue = unsafe { &*extra.cast() };
 	if !job.is_null() {
 		queue.enqueue(cx, Microtask::Promise(job.get()))
 	} else {
@@ -98,7 +98,7 @@ unsafe extern "C" fn enqueue_promise_job(
 }
 
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
-	let queue = unsafe { &*(extra as *const MicrotaskQueue) };
+	let queue: &MicrotaskQueue = unsafe { &*extra.cast() };
 	queue.queue.borrow().is_empty()
 }
 
@@ -111,7 +111,8 @@ static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
 pub(crate) fn init_microtask_queue(cx: &Context) -> Rc<MicrotaskQueue> {
 	let microtask_queue = Rc::new(MicrotaskQueue::default());
 	unsafe {
-		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, &*microtask_queue as *const _ as *const c_void);
+		let queue = Rc::into_raw(Rc::clone(&microtask_queue));
+		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, queue.cast());
 		SetJobQueue(cx.as_ptr(), queue);
 	}
 	microtask_queue

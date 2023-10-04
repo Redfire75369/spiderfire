@@ -217,7 +217,7 @@ impl ThrowException for Error {
 		unsafe {
 			use ErrorKind as EK;
 			match self.kind {
-				EK::Normal => JS_ReportErrorUTF8(cx.as_ptr(), format!("{}\0", self.message).as_ptr() as *const i8),
+				EK::Normal => JS_ReportErrorUTF8(cx.as_ptr(), format!("{}\0", self.message).as_ptr().cast()),
 				EK::Internal => throw_internal_error(cx.as_ptr(), &self.message),
 				EK::Range => throw_range_error(cx.as_ptr(), &self.message),
 				EK::Type => throw_type_error(cx.as_ptr(), &self.message),

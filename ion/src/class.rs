@@ -5,7 +5,7 @@
  */
 
 use std::any::TypeId;
-use std::ffi::c_void;
+use std::collections::hash_map::Entry;
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
@@ -61,51 +61,49 @@ pub trait ClassDefinition {
 		Self: Sized + 'static,
 	{
 		let infos = unsafe { &mut (*cx.get_inner_data()).class_infos };
-		let info = infos.get(&TypeId::of::<Self>());
+		let entry: Entry<'cx, _, _> = infos.entry(TypeId::of::<Self>());
 
-		if let Some(info) = info {
-			unsafe {
-				return (false, &*(info as *const _));
+		match entry {
+			Entry::Occupied(o) => (false, o.into_mut()),
+			Entry::Vacant(entry) => {
+				let (parent_class, parent_proto) = Self::parent_class_info(cx)
+					.map(|(class, proto)| (class as *const _, Object::from(proto)))
+					.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
+				let (constructor, nargs) = Self::constructor();
+				let properties = Self::properties();
+				let functions = Self::functions();
+				let static_properties = Self::static_properties();
+				let static_functions = Self::static_functions();
+
+				let class = unsafe {
+					JS_InitClass(
+						cx.as_ptr(),
+						object.handle().into(),
+						parent_class,
+						parent_proto.handle().into(),
+						Self::NAME.as_ptr().cast(),
+						Some(constructor),
+						nargs,
+						properties.as_ptr(),
+						functions.as_ptr(),
+						static_properties.as_ptr(),
+						static_functions.as_ptr(),
+					)
+				};
+				let prototype = cx.root_object(class);
+
+				let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) }));
+				let constructor = Function::from_object(cx, &constructor).unwrap();
+
+				let class_info = ClassInfo {
+					class: Self::class(),
+					constructor: constructor.get(),
+					prototype: prototype.get(),
+				};
+
+				(true, entry.insert(class_info))
 			}
 		}
-
-		let (parent_class, parent_proto) = Self::parent_class_info(cx)
-			.map(|(class, proto)| (class as *const _, Object::from(proto)))
-			.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
-		let (constructor, nargs) = Self::constructor();
-		let properties = Self::properties();
-		let functions = Self::functions();
-		let static_properties = Self::static_properties();
-		let static_functions = Self::static_functions();
-
-		let class = unsafe {
-			JS_InitClass(
-				cx.as_ptr(),
-				object.handle().into(),
-				parent_class,
-				parent_proto.handle().into(),
-				Self::NAME.as_ptr() as *const _,
-				Some(constructor),
-				nargs,
-				properties.as_ptr() as *const _,
-				functions.as_ptr() as *const _,
-				static_properties.as_ptr() as *const _,
-				static_functions.as_ptr() as *const _,
-			)
-		};
-		let prototype = cx.root_object(class);
-
-		let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) }));
-		let constructor = Function::from_object(cx, &constructor).unwrap();
-
-		let info = ClassInfo {
-			class: Self::class(),
-			constructor: constructor.get(),
-			prototype: prototype.get(),
-		};
-
-		let info = infos.entry(TypeId::of::<Self>()).or_insert(info);
-		(true, info)
 	}
 
 	fn new_object(cx: &Context, native: Self) -> *mut JSObject
@@ -117,11 +115,7 @@ pub trait ClassDefinition {
 		let boxed = Box::new(Some(native));
 		unsafe {
 			let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype));
-			JS_SetReservedSlot(
-				obj,
-				Self::PARENT_PROTOTYPE_CHAIN_LENGTH,
-				&PrivateValue(Box::into_raw(boxed) as *mut c_void),
-			);
+			JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
 			obj
 		}
 	}

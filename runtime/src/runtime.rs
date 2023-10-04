@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::c_void;
 use std::rc::Rc;
 
 use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm};
@@ -118,7 +117,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 		init_globals(cx, &mut global);
 
 		let private = Box::<ContextPrivate>::default();
-		cx.set_raw_private(Box::into_raw(private) as *mut c_void);
+		cx.set_raw_private(Box::into_raw(private).cast());
 
 		let mut event_loop = EventLoop {
 			futures: None,

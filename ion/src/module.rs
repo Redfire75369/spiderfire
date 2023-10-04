@@ -9,7 +9,7 @@ use std::ptr;
 
 use mozjs::jsapi::{
 	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject, ModuleEvaluate, ModuleLink,
-	ReadOnlyCompileOptions, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -112,7 +112,7 @@ impl<'cx> Module<'cx> {
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
 		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), filename, 1) };
 
-		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr as *const ReadOnlyCompileOptions, &mut source) };
+		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const().cast(), &mut source) };
 
 		if !module.is_null() {
 			let module = Module(Object::from(cx.root_object(module)));

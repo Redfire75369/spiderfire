@@ -54,7 +54,7 @@ impl<'f> Function<'f> {
 					Some(call_closure),
 					nargs,
 					flags.bits() as u32,
-					name.as_ptr() as *const i8,
+					name.as_ptr().cast(),
 				)),
 			};
 			let closure_object = create_closure_object(cx, closure);

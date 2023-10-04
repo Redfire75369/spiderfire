@@ -41,7 +41,7 @@ pub(crate) fn class_ops(has_trace: bool) -> ItemStatic {
 		none.clone()
 	};
 	parse_quote!(
-		static OPERATIONS: ::mozjs::jsapi::JSClassOps = ::mozjs::jsapi::JSClassOps {
+		static OPERATIONS: &::mozjs::jsapi::JSClassOps = &::mozjs::jsapi::JSClassOps {
 			addProperty: #none,
 			delProperty: #none,
 			enumerate: #none,

@@ -14,7 +14,7 @@ use crate::symbol::WellKnownSymbolCode;
 /// Creates a [function spec](JSFunctionSpec) with the given name, native function, number of arguments and flags.
 pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
 	JSFunctionSpec {
-		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		call: func,
 		nargs,
 		flags: flags.bits(),

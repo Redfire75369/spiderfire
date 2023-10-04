@@ -20,9 +20,9 @@ pub(crate) fn class_spec(ion: &TokenStream, class: &Ident, literal: &LitStr) -> 
 	let name = String::from_utf8(CString::new(literal.value()).unwrap().into_bytes_with_nul()).unwrap();
 	parse_quote!(
 		static CLASS: ::mozjs::jsapi::JSClass = ::mozjs::jsapi::JSClass {
-			name: #name.as_ptr() as *const ::core::primitive::i8,
+			name: #name.as_ptr().cast(),
 			flags: #ion::objects::class_reserved_slots(<#class as #ion::ClassDefinition>::PARENT_PROTOTYPE_CHAIN_LENGTH + 1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
-			cOps: &OPERATIONS as *const _ as *mut _,
+			cOps: OPERATIONS as *const _ as *mut _,
 			spec: ::std::ptr::null_mut(),
 			ext: ::std::ptr::null_mut(),
 			oOps: ::std::ptr::null_mut(),

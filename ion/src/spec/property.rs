@@ -18,7 +18,7 @@ pub const fn create_property_spec_accessor(
 	name: &'static str, getter: JSNativeWrapper, setter: JSNativeWrapper, attrs: PropertyFlags,
 ) -> JSPropertySpec {
 	JSPropertySpec {
-		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		attributes_: attrs.bits() as u8,
 		kind_: JSPropertySpec_Kind::NativeAccessor,
 		u: JSPropertySpec_AccessorsOrValue {
@@ -33,13 +33,13 @@ pub const fn create_property_spec_accessor(
 /// Creates a [property spec](JSPropertySpec) with a name, static string and attributes.
 pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
-		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		attributes_: attrs.bits() as u8,
 		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
 				type_: JSPropertySpec_ValueWrapper_Type::String,
-				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { string: string as *const _ as *const i8 },
+				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { string: string.as_ptr().cast() },
 			},
 		},
 	}
@@ -48,7 +48,7 @@ pub const fn create_property_spec_string(name: &'static str, string: &'static st
 /// Creates a [property spec](JSPropertySpec) with a name, integer and attributes.
 pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
-		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		attributes_: attrs.bits() as u8,
 		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
@@ -63,7 +63,7 @@ pub const fn create_property_spec_int(name: &'static str, int: i32, attrs: Prope
 /// Creates a [property spec](JSPropertySpec) with a name, double and attributes.
 pub const fn create_property_spec_double(name: &'static str, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
 	JSPropertySpec {
-		name: JSPropertySpec_Name { string_: name.as_ptr() as *const i8 },
+		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		attributes_: attrs.bits() as u8,
 		kind_: JSPropertySpec_Kind::Value,
 		u: JSPropertySpec_AccessorsOrValue {
@@ -101,7 +101,7 @@ pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, str
 		u: JSPropertySpec_AccessorsOrValue {
 			value: JSPropertySpec_ValueWrapper {
 				type_: JSPropertySpec_ValueWrapper_Type::String,
-				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { string: string as *const _ as *const i8 },
+				__bindgen_anon_1: JSPropertySpec_ValueWrapper__bindgen_ty_1 { string: string.as_ptr().cast() },
 			},
 		},
 	}

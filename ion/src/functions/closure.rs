@@ -27,7 +27,7 @@ pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>
 		JS_SetReservedSlot(
 			object.handle().get(),
 			CLOSURE_SLOT,
-			&PrivateValue(Box::into_raw(Box::new(closure)) as *const _),
+			&PrivateValue(Box::into_raw(Box::new(closure)).cast_const().cast()),
 		);
 		object
 	}
@@ -44,10 +44,9 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };
 	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
-	let rval = unsafe { &mut *(args.access().rval() as *mut Value) };
-
 	let result: thread::Result<ResultExc<Value>> = catch_unwind(AssertUnwindSafe(|| closure(args)));
-	__handle_native_function_result(cx, result, rval)
+	let mut accessor = args.access();
+	__handle_native_function_result(cx, result, accessor.rval())
 }
 
 unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {
@@ -72,7 +71,7 @@ static CLOSURE_OPS: JSClassOps = JSClassOps {
 };
 
 static CLOSURE_CLASS: JSClass = JSClass {
-	name: "Closure\0".as_ptr() as *const _,
+	name: "Closure\0".as_ptr().cast(),
 	flags: JSCLASS_BACKGROUND_FINALIZE | class_reserved_slots(1),
 	cOps: &CLOSURE_OPS,
 	spec: ptr::null_mut(),

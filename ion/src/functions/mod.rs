@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::c_void;
 use std::mem::forget;
 use std::thread::Result;
 
@@ -46,7 +45,7 @@ pub fn __handle_native_constructor_private_result<'cx, T: IntoValue<'cx>>(
 ) -> bool {
 	__handle_result(cx, result, move |cx, result| {
 		let b = Box::new(Some(result));
-		unsafe { JS_SetReservedSlot(this.handle().get(), index, &PrivateValue(Box::into_raw(b) as *mut c_void)) };
+		unsafe { JS_SetReservedSlot(this.handle().get(), index, &PrivateValue(Box::into_raw(b).cast())) };
 		this.to_value(cx, rval);
 		true
 	})
