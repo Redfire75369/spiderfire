@@ -8,6 +8,7 @@ use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
 
 use crate::{Context, Symbol, Value};
+use crate::bigint::BigInt;
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
@@ -40,6 +41,13 @@ pub fn format_primitive(cx: &Context, cfg: Config, value: &Value) -> String {
 		"null".color(colors.null).to_string()
 	} else if value.is_undefined() {
 		"undefined".color(colors.undefined).to_string()
+	} else if value.is_bigint() {
+		let bi = BigInt::from(cx.root_bigint(value.to_bigint()));
+		format!(
+			"{}{}",
+			bi.to_string(cx, 10).unwrap().to_owned(cx).color(colors.bigint),
+			"n".color(colors.bigint)
+		)
 	} else if value.is_symbol() {
 		let symbol = Symbol::from(cx.root_symbol(value.to_symbol()));
 		format_symbol(cx, cfg, &symbol)

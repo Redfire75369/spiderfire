@@ -392,8 +392,8 @@ impl NativeModule for FileSystem {
 		let mut fs = Object::new(cx);
 		let mut sync = Object::new(cx);
 
-		if fs.define_methods(cx, ASYNC_FUNCTIONS)
-			&& sync.define_methods(cx, SYNC_FUNCTIONS)
+		if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
+			&& unsafe { sync.define_methods(cx, SYNC_FUNCTIONS) }
 			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
 		{
 			return Some(fs);

@@ -6,11 +6,11 @@
 
 use std::ops::{Deref, DerefMut};
 
-use mozjs::glue::SetDataPropertyDescriptor;
+use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
 use mozjs::jsapi::{FromPropertyDescriptor, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
 
-use crate::{Context, Local, Object, Value};
+use crate::{Context, Function, Local, Object, Value};
 use crate::flags::PropertyFlags;
 
 pub struct PropertyDescriptor<'pd> {
@@ -24,11 +24,28 @@ impl<'pd> PropertyDescriptor<'pd> {
 		desc
 	}
 
+	pub fn new_accessor(cx: &'pd Context, getter: &Function, setter: &Function, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
+		let getter = getter.to_object(cx);
+		let setter = setter.to_object(cx);
+		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		unsafe {
+			SetAccessorPropertyDescriptor(
+				desc.handle_mut().into(),
+				getter.handle().into(),
+				setter.handle().into(),
+				attrs.bits() as u32,
+			)
+		};
+		desc
+	}
+
 	pub fn from_object(cx: &'pd Context, object: &Object) -> Option<PropertyDescriptor<'pd>> {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
-		unsafe { ObjectToCompletePropertyDescriptor(cx.as_ptr(), object.handle().into(), desc_value.handle().into(), desc.handle_mut().into()) }
-			.then_some(desc)
+		unsafe {
+			ObjectToCompletePropertyDescriptor(cx.as_ptr(), object.handle().into(), desc_value.handle().into(), desc.handle_mut().into())
+				.then_some(desc)
+		}
 	}
 
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {

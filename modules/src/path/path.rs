@@ -125,6 +125,7 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 const PROPERTIES: &[JSPropertySpec] = &[
 	create_property_spec_string("separator", SEPARATOR, PropertyFlags::CONSTANT_ENUMERATED),
 	create_property_spec_string("delimiter", DELIMITER, PropertyFlags::CONSTANT_ENUMERATED),
+	JSPropertySpec::ZERO,
 ];
 
 #[derive(Default)]
@@ -136,7 +137,7 @@ impl NativeModule for PathM {
 
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut path = Object::new(cx);
-		if path.define_methods(cx, FUNCTIONS) && path.define_properties(cx, PROPERTIES) {
+		if unsafe { path.define_methods(cx, FUNCTIONS) && path.define_properties(cx, PROPERTIES) } {
 			return Some(path);
 		}
 		None

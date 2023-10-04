@@ -15,8 +15,8 @@ use std::ptr::NonNull;
 
 use mozjs::gc::RootedTraceableSet;
 use mozjs::jsapi::{
-	Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted,
-	Symbol,
+	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey,
+	Rooted, Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{RootedGuard, Runtime};
@@ -36,6 +36,7 @@ pub enum GCType {
 	PropertyKey,
 	PropertyDescriptor,
 	Function,
+	BigInt,
 	Symbol,
 }
 
@@ -49,6 +50,7 @@ struct RootedArena {
 	property_keys: Arena<Rooted<PropertyKey>>,
 	property_descriptors: Arena<Rooted<PropertyDescriptor>>,
 	functions: Arena<Rooted<*mut JSFunction>>,
+	big_ints: Arena<Rooted<*mut BigInt>>,
 	symbols: Arena<Rooted<*mut Symbol>>,
 }
 
@@ -63,6 +65,7 @@ struct LocalArena<'a> {
 	property_keys: Arena<RootedGuard<'a, PropertyKey>>,
 	property_descriptors: Arena<RootedGuard<'a, PropertyDescriptor>>,
 	functions: Arena<RootedGuard<'a, *mut JSFunction>>,
+	big_ints: Arena<RootedGuard<'a, *mut BigInt>>,
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
@@ -214,6 +217,7 @@ impl Context<'_> {
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
 		(root_property_descriptor, PropertyDescriptor, property_descriptors, PropertyDescriptor),
 		(root_function, *mut JSFunction, functions, Function),
+		(root_bigint, *mut BigInt, big_ints, BigInt),
 		(root_symbol, *mut Symbol, symbols, Symbol),
 	}
 
@@ -253,6 +257,7 @@ impl Drop for Context<'_> {
 			(PropertyKey, property_keys, PropertyKey),
 			(PropertyDescriptor, property_descriptors, PropertyDescriptor),
 			(*mut JSFunction, functions, Function),
+			(*mut BigInt, big_ints, BigInt),
 			(*mut Symbol, symbols, Symbol),
 		}
 	}

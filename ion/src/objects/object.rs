@@ -160,21 +160,21 @@ impl<'o> Object<'o> {
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
 	#[cfg_attr(feature = "macros", doc = "\nThey can be created through [function_spec](crate::function_spec).")]
-	pub fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
+	pub unsafe fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
 		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Defines methods on the objects using the given [specs](JSFunctionSpecWithHelp), with help.
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
-	pub fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
+	pub unsafe fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
 		unsafe { JS_DefineFunctionsWithHelp(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Defines properties on the object using the given [specs](JSPropertySpec).
 	///
 	/// The final element of the `properties` slice must be `JSPropertySpec::ZERO`.
-	pub fn define_properties(&mut self, cx: &Context, properties: &[JSPropertySpec]) -> bool {
+	pub unsafe fn define_properties(&mut self, cx: &Context, properties: &[JSPropertySpec]) -> bool {
 		unsafe { JS_DefineProperties(cx.as_ptr(), self.handle().into(), properties.as_ptr()) }
 	}
 

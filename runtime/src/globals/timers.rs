@@ -88,5 +88,5 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 ];
 
 pub fn define<'cx>(cx: &'cx Context, global: &'cx mut Object) -> bool {
-	global.define_methods(cx, FUNCTIONS)
+	unsafe { global.define_methods(cx, FUNCTIONS) }
 }

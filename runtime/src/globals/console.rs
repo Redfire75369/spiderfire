@@ -448,5 +448,5 @@ const METHODS: &[JSFunctionSpec] = &[
 
 pub fn define<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	let mut console = Object::new(cx);
-	console.define_methods(cx, METHODS) && global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
+	(unsafe { console.define_methods(cx, METHODS) }) && global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
 }

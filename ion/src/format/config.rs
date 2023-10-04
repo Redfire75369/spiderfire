@@ -55,13 +55,14 @@ pub struct ColourConfig {
 	pub boolean: Color,
 	pub number: Color,
 	pub string: Color,
+	pub bigint: Color,
+	pub symbol: Color,
 	pub null: Color,
 	pub undefined: Color,
 	pub array: Color,
 	pub object: Color,
 	pub date: Color,
 	pub promise: Color,
-	pub symbol: Color,
 }
 
 impl Default for ColourConfig {
@@ -70,13 +71,14 @@ impl Default for ColourConfig {
 			boolean: Color::Cyan,
 			number: Color::Blue,
 			string: Color::Green,
+			bigint: Color::Blue,
+			symbol: Color::Magenta,
 			null: Color::TrueColor { r: 118, g: 118, b: 118 },
 			undefined: Color::TrueColor { r: 118, g: 118, b: 118 },
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
 			promise: Color::Yellow,
-			symbol: Color::Magenta,
 		}
 	}
 }
@@ -88,13 +90,14 @@ impl ColourConfig {
 			boolean: Color::White,
 			number: Color::White,
 			string: Color::White,
+			bigint: Color::White,
+			symbol: Color::White,
 			null: Color::White,
 			undefined: Color::White,
 			array: Color::White,
 			object: Color::White,
 			date: Color::White,
 			promise: Color::White,
-			symbol: Color::White,
 		}
 	}
 }

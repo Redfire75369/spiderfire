@@ -40,7 +40,7 @@ impl NativeModule for UrlM {
 		let mut url = Object::new(cx);
 		let global = Object::global(cx);
 
-		if url.define_methods(cx, FUNCTIONS) {
+		if unsafe { url.define_methods(cx, FUNCTIONS) } {
 			if let Some(global_url) = global.get(cx, stringify!(URL)) {
 				url.set(cx, stringify!(URL), &global_url);
 			} else {

@@ -32,6 +32,7 @@ pub use string::String;
 pub use symbol::Symbol;
 pub use value::Value;
 
+mod bigint;
 pub mod class;
 mod context;
 pub mod conversions;

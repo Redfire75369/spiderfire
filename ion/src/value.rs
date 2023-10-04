@@ -7,9 +7,10 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::SameValue;
-use mozjs::jsval::{BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, UInt32Value, UndefinedValue};
+use mozjs::jsval::{BigIntValue, BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, SymbolValue, UInt32Value, UndefinedValue};
 
-use crate::{Array, Context, Local, Object};
+use crate::{Array, Context, Local, Object, Symbol};
+use crate::bigint::BigInt;
 use crate::conversions::ToValue;
 
 /// Represents a JavaScript Value in the runtime.
@@ -43,6 +44,16 @@ impl<'v> Value<'v> {
 	/// Creates a [Value] from a string.
 	pub fn string<'cx>(cx: &'cx Context, str: &str) -> Value<'cx> {
 		str.as_value(cx)
+	}
+
+	/// Creates a [Value] from a [BigInt].
+	pub fn bigint<'cx>(cx: &'cx Context, bi: &BigInt) -> Value<'cx> {
+		Value::from(cx.root_value(BigIntValue(unsafe { &*bi.handle().get() })))
+	}
+
+	/// Creates a [Value] from a [Symbol].
+	pub fn symbol<'cx>(cx: &'cx Context, sym: &Symbol) -> Value<'cx> {
+		Value::from(cx.root_value(SymbolValue(unsafe { &*sym.handle().get() })))
 	}
 
 	/// Creates a [Value] from an [Object].

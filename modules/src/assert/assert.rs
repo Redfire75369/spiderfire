@@ -66,9 +66,6 @@ impl NativeModule for Assert {
 
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut assert = Object::new(cx);
-		if assert.define_methods(cx, FUNCTIONS) {
-			return Some(assert);
-		}
-		None
+		unsafe { assert.define_methods(cx, FUNCTIONS).then_some(assert) }
 	}
 }

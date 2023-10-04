@@ -87,7 +87,9 @@ impl NativeModule for Http {
 		let mut http = Object::new(cx);
 		let global = Object::global(cx);
 
-		http.define_methods(cx, FUNCTIONS);
+		unsafe {
+			http.define_methods(cx, FUNCTIONS);
+		}
 		Client::init_class(cx, &mut http);
 		GLOBAL_CLIENT.get_or_init(default_client);
 
