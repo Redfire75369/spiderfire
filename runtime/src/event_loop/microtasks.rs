@@ -10,12 +10,9 @@ use std::ffi::c_void;
 use std::rc::Rc;
 
 use mozjs::glue::{CreateJobQueue, JobQueueTraps};
-use mozjs::jsapi::{
-	Call, CurrentGlobalOrNull, Handle, HandleValueArray, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject, SetJobQueue,
-	UndefinedHandleValue,
-};
+use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject, SetJobQueue};
 
-use ion::{Context, ErrorReport, Function, Object, Value};
+use ion::{Context, ErrorReport, Function, Object};
 
 #[derive(Clone, Debug)]
 pub enum Microtask {
@@ -33,19 +30,12 @@ pub struct MicrotaskQueue {
 impl Microtask {
 	pub fn run(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		match self {
-			Microtask::Promise(promise) => unsafe {
-				let object = Object::from(cx.root_object(*promise));
-				let value = Value::object(cx, &object);
+			Microtask::Promise(job) => {
+				let object = cx.root_object(*job);
+				let function = Function::from_object(cx, &object).unwrap();
 
-				let mut rval = Value::undefined(cx);
-				let args = HandleValueArray::new();
-
-				if Call(cx.as_ptr(), UndefinedHandleValue, value.handle().into(), &args, rval.handle_mut().into()) {
-					Ok(())
-				} else {
-					Err(ErrorReport::new_with_exception_stack(cx))
-				}
-			},
+				function.call(cx, &Object::null(cx), &[]).map(|_| ())
+			}
 			Microtask::User(callback) => {
 				let callback = Function::from(cx.root_function(*callback));
 				callback.call(cx, &Object::global(cx), &[])?;

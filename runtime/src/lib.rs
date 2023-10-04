@@ -21,5 +21,4 @@ pub mod globals;
 pub mod modules;
 pub mod promise;
 pub mod runtime;
-pub mod script;
 pub mod typescript;

@@ -9,7 +9,7 @@ use std::path::Path;
 use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use ion::{Context, ErrorReport, Local, Value};
+use crate::{Context, ErrorReport, Local, Value};
 
 #[derive(Debug)]
 pub struct Script<'cx> {
@@ -49,10 +49,7 @@ impl<'s> Script<'s> {
 	/// Returns [Err] when script compilation fails or an exception occurs during script evaluation.
 	pub fn compile_and_evaluate<'cx>(cx: &'cx Context, path: &Path, script: &str) -> Result<Value<'cx>, ErrorReport> {
 		match Script::compile(cx, path, script) {
-			Ok(s) => match s.evaluate(cx) {
-				Ok(v) => Ok(v),
-				Err(e) => Err(e),
-			},
+			Ok(s) => s.evaluate(cx),
 			Err(e) => Err(e),
 		}
 	}

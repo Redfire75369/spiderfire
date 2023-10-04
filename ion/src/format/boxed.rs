@@ -4,27 +4,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{ESClass, Unbox};
-
-use crate::{Context, Object, Value};
+use crate::{Context, Object};
 use crate::format::Config;
 use crate::format::primitive::format_primitive;
 
 /// Formats a boxed primitive ([Object]) as a string using the given [configuration](Config).
-/// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt` (Unimplemented).
-pub fn format_boxed(cx: &Context, cfg: Config, object: &Object, class: ESClass) -> String {
-	let mut unboxed = Value::object(cx, &Object::new(cx));
-
-	unsafe {
-		if Unbox(cx.as_ptr(), object.handle().into(), unboxed.handle_mut().into()) {
-			use ESClass::*;
-			match class {
-				Boolean | Number | String => format_primitive(cx, cfg, &unboxed),
-				BigInt => format!("Unimplemented Formatting: {}", "BigInt"),
-				_ => unreachable!(),
-			}
-		} else {
-			String::from("Boxed Value")
-		}
+/// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt`.
+pub fn format_boxed(cx: &Context, cfg: Config, object: &Object) -> String {
+	if let Some(primitive) = object.unbox_primitive(cx) {
+		format_primitive(cx, cfg, &primitive)
+	} else {
+		String::from("(boxed value)")
 	}
 }

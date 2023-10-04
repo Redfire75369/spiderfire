@@ -6,21 +6,22 @@
 
 use std::path::{Path, PathBuf};
 
-use mozjs::jsapi::JSFunctionSpec;
+use mozjs::jsapi::{JSFunctionSpec, JSPropertySpec};
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
+use ion::spec::create_property_spec_string;
 use runtime::modules::NativeModule;
 
 #[cfg(windows)]
-const SEPARATOR: &str = "\\";
+const SEPARATOR: &str = "\\\0";
 #[cfg(unix)]
-const SEPARATOR: &str = "/";
+const SEPARATOR: &str = "/\0";
 
 #[cfg(windows)]
-const DELIMITER: &str = ";";
+const DELIMITER: &str = ";\0";
 #[cfg(unix)]
-const DELIMITER: &str = ":";
+const DELIMITER: &str = ":\0";
 
 #[js_fn]
 fn join(#[ion(varargs)] segments: Vec<String>) -> String {
@@ -121,6 +122,11 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
+const PROPERTIES: &[JSPropertySpec] = &[
+	create_property_spec_string("separator", SEPARATOR, PropertyFlags::CONSTANT_ENUMERATED),
+	create_property_spec_string("delimiter", DELIMITER, PropertyFlags::CONSTANT_ENUMERATED),
+];
+
 #[derive(Default)]
 pub struct PathM;
 
@@ -130,10 +136,7 @@ impl NativeModule for PathM {
 
 	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut path = Object::new(cx);
-		if path.define_methods(cx, FUNCTIONS)
-			&& path.define_as(cx, "separator", SEPARATOR, PropertyFlags::CONSTANT_ENUMERATED)
-			&& path.define_as(cx, "delimiter", DELIMITER, PropertyFlags::CONSTANT_ENUMERATED)
-		{
+		if path.define_methods(cx, FUNCTIONS) && path.define_properties(cx, PROPERTIES) {
 			return Some(path);
 		}
 		None

@@ -17,6 +17,7 @@ use ion::Context;
 use ion::format::Config as FormatConfig;
 use ion::format::format_value;
 use ion::module::Module;
+use ion::script::Script;
 use modules::Modules;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
@@ -24,7 +25,6 @@ use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps
 use runtime::config::Config;
 use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Loader;
-use runtime::script::Script;
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_, '_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);

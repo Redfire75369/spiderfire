@@ -1,24 +1,19 @@
-use std::ptr;
-
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, JSContext, OnNewGlobalHookOption};
+use mozjs::jsapi::{JSAutoRealm, JSContext};
 use mozjs::jsval::JSVal;
-use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
+use mozjs::rust::{JSEngine, Runtime};
 
 use ion::{Arguments, Context, Function, Object, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
+use ion::objects::default_new_global;
 
 fn main() {
 	let engine = JSEngine::init().unwrap();
 	let runtime = Runtime::new(engine.handle());
-	let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
-	let c_options = RealmOptions::default();
-
-	let global = unsafe { JS_NewGlobalObject(runtime.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-	let _realm = JSAutoRealm::new(runtime.cx(), global);
 
 	let cx = &Context::from_runtime(&runtime);
-	let mut global = Object::from(cx.root_object(global));
+	let mut global = default_new_global(cx);
+	let _realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 	let _native = global.define_method(cx, "native", native, 1, PropertyFlags::all());
 	let native: Function = global.get_as(cx, "native", true, ()).unwrap();

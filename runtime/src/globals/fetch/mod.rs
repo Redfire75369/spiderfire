@@ -27,7 +27,7 @@ async fn fetch(resource: Resource, init: Option<RequestBuilderInit>) -> ResultEx
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	global.define_method(cx, "fetch", fetch, 1, PropertyFlags::CONSTANT_ENUMERATED);
 	let _ = GLOBAL_CLIENT.set(default_client());
+	global.define_method(cx, "fetch", fetch, 1, PropertyFlags::CONSTANT_ENUMERATED);
 	Headers::init_class(cx, global).0 && Request::init_class(cx, global).0 && Response::init_class(cx, global).0
 }

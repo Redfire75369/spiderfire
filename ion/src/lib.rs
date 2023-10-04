@@ -44,6 +44,7 @@ mod future;
 pub mod local;
 pub mod module;
 pub mod objects;
+pub mod script;
 pub mod spec;
 pub mod stack;
 mod string;

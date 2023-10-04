@@ -1,23 +1,19 @@
-use std::ptr;
-
-use mozjs::jsapi::{JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::rust::{JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS};
+use mozjs::jsapi::JSAutoRealm;
+use mozjs::rust::{JSEngine, Runtime};
 
 use ion::{Array, Context, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
+use ion::objects::default_new_global;
 
 #[test]
 fn array() {
 	let engine = JSEngine::init().unwrap();
 	let runtime = Runtime::new(engine.handle());
-	let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
-	let c_options = RealmOptions::default();
-
-	let global = unsafe { JS_NewGlobalObject(runtime.cx(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-	let _realm = JSAutoRealm::new(runtime.cx(), global);
 
 	let cx = &Context::from_runtime(&runtime);
+	let global = default_new_global(cx);
+	let _realm = JSAutoRealm::new(runtime.cx(), global.handle().get());
 
 	let mut array = Array::new(cx);
 	array.set(cx, 0, &Value::null(cx));

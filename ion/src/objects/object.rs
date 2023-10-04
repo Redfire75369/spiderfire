@@ -11,9 +11,9 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use mozjs::jsapi::{
-	CurrentGlobalOrNull, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp, JS_DefinePropertyById2,
-	JS_DeletePropertyById, JS_GetPropertyById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
-	JSFunctionSpecWithHelp, JSObject,
+	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp,
+	JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById, JS_HasOwnPropertyById, JS_HasPropertyById,
+	JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
@@ -156,7 +156,7 @@ impl<'o> Object<'o> {
 		.into()
 	}
 
-	/// Defines methods on the [Object] using the given [specs](JSFunctionSpec).
+	/// Defines methods on the objects using the given [specs](JSFunctionSpec).
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
 	#[cfg_attr(feature = "macros", doc = "\nThey can be created through [function_spec](crate::function_spec).")]
@@ -164,11 +164,18 @@ impl<'o> Object<'o> {
 		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
-	/// Defines methods on the [Object] using the given [specs with help](JSFunctionSpecWithHelp).
+	/// Defines methods on the objects using the given [specs](JSFunctionSpecWithHelp), with help.
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
 	pub fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
 		unsafe { JS_DefineFunctionsWithHelp(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
+	}
+
+	/// Defines properties on the object using the given [specs](JSPropertySpec).
+	///
+	/// The final element of the `properties` slice must be `JSPropertySpec::ZERO`.
+	pub fn define_properties(&mut self, cx: &Context, properties: &[JSPropertySpec]) -> bool {
+		unsafe { JS_DefineProperties(cx.as_ptr(), self.handle().into(), properties.as_ptr()) }
 	}
 
 	/// Deletes the [Value] at the given index.
@@ -180,8 +187,40 @@ impl<'o> Object<'o> {
 		unsafe { JS_DeletePropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
 	}
 
-	/// Returns an iterator of the keys of the [Object].
+	/// Gets the builtin class of the object as described in the ECMAScript specification.
 	///
+	/// Returns [ESClass::Other] for other projects or proxies that cannot be unwrapped.
+	pub fn get_builtin_class(&self, cx: &Context) -> ESClass {
+		let mut class = ESClass::Other;
+		unsafe {
+			GetBuiltinClass(cx.as_ptr(), self.handle().into(), &mut class);
+		}
+		class
+	}
+
+	/// Returns the builtin class of the object if it a wrapper around a primitive.
+	///
+	/// The boxed types are `Boolean`, `Number`, `String` and `BigInt`
+	pub fn is_boxed_primitive(&self, cx: &Context) -> Option<ESClass> {
+		let class = self.get_builtin_class(cx);
+		match class {
+			ESClass::Boolean | ESClass::Number | ESClass::String | ESClass::BigInt => Some(class),
+			_ => None,
+		}
+	}
+
+	/// Unboxes primitive wrappers. See [Object::is_boxed_primitive] for details.
+	pub fn unbox_primitive<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {
+		if self.is_boxed_primitive(cx).is_some() {
+			let mut rval = Value::undefined(cx);
+			if unsafe { Unbox(cx.as_ptr(), self.handle().into(), rval.handle_mut().into()) } {
+				return Some(rval);
+			}
+		}
+		None
+	}
+
+	/// Returns an iterator of the keys of the [Object].
 	/// Each key can be a [String], [Symbol](crate::symbol) or integer.
 	pub fn keys<'c, 'cx: 'o>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);

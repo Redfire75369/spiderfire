@@ -6,7 +6,7 @@
 
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
-	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetBuiltinClass, GetPendingExceptionStack, IdentifyStandardInstance,
+	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetPendingExceptionStack, IdentifyStandardInstance,
 	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException, Rooted,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
@@ -64,9 +64,8 @@ impl Exception {
 	/// If the object is an error object, it is parsed as an [Error].
 	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
 		unsafe {
-			let mut class = ESClass::Other;
 			let handle = exception.handle();
-			if GetBuiltinClass(cx.as_ptr(), handle.into(), &mut class) && class == ESClass::Error {
+			if exception.get_builtin_class(cx) == ESClass::Error {
 				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
 				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
 				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();

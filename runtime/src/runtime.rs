@@ -5,14 +5,13 @@
  */
 
 use std::ffi::c_void;
-use std::ptr;
 use std::rc::Rc;
 
-use mozjs::jsapi::{ContextOptionsRef, JS_NewGlobalObject, JSAutoRealm, OnNewGlobalHookOption};
-use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
+use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm};
 
 use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
+use ion::objects::default_new_global;
 
 use crate::event_loop::{EVENT_LOOP, EventLoop};
 use crate::event_loop::future::FutureQueue;
@@ -111,16 +110,11 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 	}
 
 	pub fn build<'c, 'cx>(self, cx: &'cx Context<'c>) -> Runtime<'c, 'cx> {
-		let h_options = OnNewGlobalHookOption::FireOnNewGlobalHook;
-		let c_options = RealmOptions::default();
+		let mut global = default_new_global(cx);
+		let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
-		let global = unsafe { JS_NewGlobalObject(cx.as_ptr(), &SIMPLE_GLOBAL_CLASS, ptr::null_mut(), h_options, &*c_options) };
-		let realm = JSAutoRealm::new(cx.as_ptr(), global);
-
-		let mut global: Object = Object::from(cx.root_object(global));
-
-		let global_ref = global.handle().get();
-		global.set_as(cx, "global", &global_ref);
+		let global_obj = global.handle().get();
+		global.set_as(cx, "global", &global_obj);
 		init_globals(cx, &mut global);
 
 		let private = Box::<ContextPrivate>::default();

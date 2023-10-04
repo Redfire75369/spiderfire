@@ -9,9 +9,9 @@ use std::path::Path;
 use mozjs::rust::{JSEngine, Runtime};
 
 use ion::Context;
+use ion::script::Script;
 use runtime::config::{Config, CONFIG, LogLevel};
 use runtime::RuntimeBuilder;
-use runtime::script::Script;
 
 const FILE_NAME: &str = "console.js";
 const SCRIPT: &str = include_str!("scripts/console.js");

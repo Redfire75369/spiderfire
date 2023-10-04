@@ -8,7 +8,7 @@ use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Method};
 use http::header::HeaderName;
 use hyper::Body;
-use mozjs::jsapi::{ESClass, GetBuiltinClass, Unbox};
+use mozjs::jsapi::ESClass;
 use url::Url;
 
 pub use class::*;
@@ -241,17 +241,10 @@ pub(crate) fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Resu
 	} else if body.handle().is_object() {
 		let body = body.to_object(cx);
 
-		let mut class = ESClass::Other;
-		if unsafe { GetBuiltinClass(cx.as_ptr(), body.handle().into(), &mut class) } {
-			if class == ESClass::String {
-				let mut unboxed = Value::undefined(cx);
-
-				if unsafe { Unbox(cx.as_ptr(), body.handle().into(), unboxed.handle_mut().into()) } {
-					return Ok(Bytes::from(String::from_value(cx, &unboxed, true, ()).unwrap()));
-				}
-			}
-		} else {
-			return Err(Error::new("Failed to Get Class of Input", ErrorKind::Type));
+		let class = body.get_builtin_class(cx);
+		if class == ESClass::String {
+			let string = body.unbox_primitive(cx).unwrap();
+			return Ok(Bytes::from(String::from_value(cx, &string, true, ()).unwrap()));
 		}
 
 		typedarray_to_bytes!(body.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])

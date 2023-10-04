@@ -9,7 +9,7 @@ use std::fmt::Write;
 
 use colored::Colorize;
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{ESClass, GetBuiltinClass, JS_ValueToSource};
+use mozjs::jsapi::{ESClass, JS_ValueToSource};
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise};
 use crate::conversions::ToValue;
@@ -28,14 +28,11 @@ use crate::format::promise::format_promise;
 pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
 	unsafe {
 		use ESClass as ESC;
-		let mut class = ESC::Other;
-		if !GetBuiltinClass(cx.as_ptr(), object.handle().into(), &mut class) {
-			return String::from("");
-		}
+		let class = object.get_builtin_class(cx);
 
 		// TODO: Add Formatting for Errors
 		match class {
-			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &Object::from(object.into_local()), class),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &object),
 			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
 			ESC::Object => format_plain_object(cx, cfg, &Object::from(object.into_local())),
 			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),

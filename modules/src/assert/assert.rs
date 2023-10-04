@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{JSFunctionSpec, SameValue};
+use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{Context, Error, Function, Object, Result, Value};
 use runtime::modules::NativeModule;
@@ -28,15 +28,10 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 
 #[js_fn]
 fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
-	let mut same = false;
-	if unsafe { SameValue(cx.as_ptr(), actual.handle().into(), expected.handle().into(), &mut same) } {
-		if same {
-			Ok(())
-		} else {
-			assert_internal(message)
-		}
+	if actual.is_same(cx, &expected) {
+		Ok(())
 	} else {
-		Err(Error::new("", None))
+		assert_internal(message)
 	}
 }
 

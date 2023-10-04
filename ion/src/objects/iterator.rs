@@ -9,9 +9,11 @@ use std::ptr;
 
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
-use mozjs::jsapi::{GCContext, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper, JSObject, JSTracer};
+use mozjs::jsapi::{
+	GCContext, GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper,
+	JSObject, JSTracer,
+};
 use mozjs::jsval::{JSVal, NullValue};
-use mozjs_sys::jsapi::JS::GetRealmIteratorPrototype;
 
 use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
 use crate::conversions::{IntoValue, ToValue};

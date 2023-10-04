@@ -6,6 +6,7 @@
 
 use std::ops::{Deref, DerefMut};
 
+use mozjs::jsapi::SameValue;
 use mozjs::jsval::{BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, UInt32Value, UndefinedValue};
 
 use crate::{Array, Context, Local, Object};
@@ -70,6 +71,13 @@ impl<'v> Value<'v> {
 	/// This panics if the [Value] is not an object.
 	pub fn to_object<'cx: 'v>(&self, cx: &'cx Context) -> Object<'cx> {
 		cx.root_object(self.handle().to_object()).into()
+	}
+
+	/// Compares two values for equality using the [SameValue algorithm](https://tc39.es/ecma262/multipage/abstract-operations.html#sec-samevalue).
+	/// This is identical to strict equality (===), except that NaN's are equal and 0 !== -0.
+	pub fn is_same(&self, cx: &Context, other: &Value) -> bool {
+		let mut same = false;
+		unsafe { SameValue(cx.as_ptr(), self.handle().into(), other.handle().into(), &mut same) && same }
 	}
 }
 
