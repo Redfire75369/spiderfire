@@ -128,7 +128,7 @@ fn impl_body(ion: &TokenStream, data: &Data, ident: &Ident, span: Span, tag: Tag
 			let variants: Vec<(Block, _)> = data
 				.variants
 				.iter()
-				.map(|variant| {
+				.filter_map(|variant| {
 					let variant_ident = &variant.ident;
 					let variant_string = variant_ident.to_string();
 
@@ -137,7 +137,10 @@ fn impl_body(ion: &TokenStream, data: &Data, ident: &Ident, span: Span, tag: Tag
 
 					for attr in &variant.attrs {
 						if attr.path().is_ident("ion") {
-							let args: Punctuated<VariantAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+							let args: Punctuated<VariantAttribute, Token![,]> = match attr.parse_args_with(Punctuated::parse_terminated) {
+								Ok(args) => args,
+								Err(e) => return Some(Err(e)),
+							};
 
 							for arg in args {
 								match arg {
@@ -146,6 +149,9 @@ fn impl_body(ion: &TokenStream, data: &Data, ident: &Ident, span: Span, tag: Tag
 									}
 									VariantAttribute::Inherit(_) => {
 										inherit = true;
+									}
+									VariantAttribute::Skip(_) => {
+										return None;
 									}
 								}
 							}
@@ -158,44 +164,56 @@ fn impl_body(ion: &TokenStream, data: &Data, ident: &Ident, span: Span, tag: Tag
 					match &variant.fields {
 						Fields::Named(fields) => {
 							let (requirement, idents, declarations, requires_object) =
-								map_fields(ion, &fields.named, Some(variant_string), tag, inherit)?;
-							parse2(quote_spanned!(variant.span() => {
-								let variant: #ion::Result<Self> = (|| {
-									#requirement
-									#(#declarations)*
-									::std::result::Result::Ok(Self::#variant_ident { #(#idents, )* })
-								})();
-								#handle_result
-							}))
-							.map(|block| (block, requires_object))
+								match map_fields(ion, &fields.named, Some(variant_string), tag, inherit) {
+									Ok(mapped) => mapped,
+									Err(e) => return Some(Err(e)),
+								};
+							Some(
+								parse2(quote_spanned!(variant.span() => {
+									let variant: #ion::Result<Self> = (|| {
+										#requirement
+										#(#declarations)*
+										::std::result::Result::Ok(Self::#variant_ident { #(#idents, )* })
+									})();
+									#handle_result
+								}))
+								.map(|block| (block, requires_object)),
+							)
 						}
 						Fields::Unnamed(fields) => {
 							let (requirement, idents, declarations, requires_object) =
-								map_fields(ion, &fields.unnamed, Some(variant_string), tag, inherit)?;
-							parse2(quote_spanned!(variant.span() => {
-								let variant: #ion::Result<Self> = (|| {
-									#requirement
-									#(#declarations)*
-									::std::result::Result::Ok(Self::#variant_ident(#(#idents, )*))
-								})();
-								#handle_result
-							}))
-							.map(|block| (block, requires_object))
+								match map_fields(ion, &fields.unnamed, Some(variant_string), tag, inherit) {
+									Ok(mapped) => mapped,
+									Err(e) => return Some(Err(e)),
+								};
+							Some(
+								parse2(quote_spanned!(variant.span() => {
+									let variant: #ion::Result<Self> = (|| {
+										#requirement
+										#(#declarations)*
+										::std::result::Result::Ok(Self::#variant_ident(#(#idents, )*))
+									})();
+									#handle_result
+								}))
+								.map(|block| (block, requires_object)),
+							)
 						}
 						Fields::Unit => {
 							if let Some((_, discriminant)) = &variant.discriminant {
 								if unit && repr.is_some() {
-									return parse2(quote_spanned!(
-										variant.fields.span() => {
-											if discriminant == #discriminant {
-												return ::std::result::Result::Ok(Self::#variant_ident);
+									return Some(
+										parse2(quote_spanned!(
+											variant.fields.span() => {
+												if discriminant == #discriminant {
+													return ::std::result::Result::Ok(Self::#variant_ident);
+												}
 											}
-										}
-									))
-									.map(|block| (block, false));
+										))
+										.map(|block| (block, false)),
+									);
 								}
 							}
-							parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);})).map(|block| (block, false))
+							Some(parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);})).map(|block| (block, false)))
 						}
 					}
 				})
@@ -267,7 +285,7 @@ fn map_fields(
 	let vec: Vec<_> = fields
 		.iter()
 		.enumerate()
-		.map(|(index, field)| {
+		.filter_map(|(index, field)| {
 			let (ident, mut key) = if let Some(ident) = &field.ident {
 				(ident.clone(), ident.to_string().to_case(Case::Camel))
 			} else {
@@ -293,7 +311,11 @@ fn map_fields(
 
 			for attr in attrs {
 				if attr.path().is_ident("ion") {
-					let args: Punctuated<FieldAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+					let args: Punctuated<FieldAttribute, Token![,]> = match attr.parse_args_with(Punctuated::parse_terminated) {
+						Ok(args) => args,
+						Err(e) => return Some(Err(e)),
+					};
+
 					for arg in args {
 						use FieldAttribute as FA;
 						match arg {
@@ -302,6 +324,9 @@ fn map_fields(
 							}
 							FA::Inherit(_) => {
 								inherit = true;
+							}
+							FA::Skip(_) => {
+								return None;
 							}
 							FA::Convert { expr, .. } => {
 								convert = Some(expr);
@@ -324,7 +349,7 @@ fn map_fields(
 
 			let base = if inherit {
 				if is_tagged.is_some() {
-					return Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum"));
+					return Some(Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum")));
 				}
 				quote_spanned!(field.span() => let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
 			} else if let Some(parser) = &parser {
@@ -344,10 +369,10 @@ fn map_fields(
 				match default {
 					Some(Some(DefaultValue::Expr(expr))) => {
 						if inherit {
-							return Err(Error::new(
+							return Some(Err(Error::new(
 								field.span(),
 								"Cannot have Default Expression with Inherited Field. Use a Closure with One Argument Instead",
-							));
+							)));
 						} else {
 							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 						}
@@ -359,7 +384,7 @@ fn map_fields(
 				}
 			};
 
-			Ok((ident, stmt))
+			Some(Ok((ident, stmt)))
 		})
 		.collect::<Result<_>>()?;
 

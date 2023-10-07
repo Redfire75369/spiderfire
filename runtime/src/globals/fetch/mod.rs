@@ -12,6 +12,7 @@ pub use network::request_internal;
 pub use request::{Request, RequestBuilderInit, RequestInit, Resource};
 pub use response::Response;
 
+mod body;
 mod client;
 mod header;
 mod network;

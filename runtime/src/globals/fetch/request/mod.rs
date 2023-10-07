@@ -4,21 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use bytes::Bytes;
 use http::{HeaderMap, HeaderValue, Method};
 use http::header::HeaderName;
 use hyper::Body;
-use mozjs::jsapi::ESClass;
 use url::Url;
 
 pub use class::*;
-use ion::{Context, Error, ErrorKind, Result, Value};
-use ion::conversions::FromValue;
-use options::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode};
-pub use options::RequestRedirect;
-
-use crate::globals::abort::AbortSignal;
-use crate::globals::fetch::header::HeadersInit;
+use ion::{Error, Result};
+pub use options::*;
 
 mod options;
 
@@ -31,77 +24,10 @@ pub enum Resource {
 	String(String),
 }
 
-#[derive(Derivative, FromValue)]
-#[derivative(Default)]
-pub struct RequestInit {
-	#[ion(default)]
-	pub(crate) headers: HeadersInit,
-	#[ion(default, parser = |b| parse_body(cx, b))]
-	pub(crate) body: Option<Bytes>,
-
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) referrer: Referrer,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) referrer_policy: ReferrerPolicy,
-
-	#[allow(dead_code)]
-	pub(crate) mode: Option<RequestMode>,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) credentials: RequestCredentials,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) cache: RequestCache,
-	#[ion(default)]
-	pub(crate) redirect: RequestRedirect,
-
-	#[allow(dead_code)]
-	pub(crate) integrity: Option<String>,
-
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) keepalive: bool,
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) is_reload_navigation: bool,
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) is_history_navigation: bool,
-
-	#[ion(default)]
-	pub(crate) signal: AbortSignal,
-
-	pub(crate) auth: Option<String>,
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) set_host: bool,
-}
-
-#[derive(Default, FromValue)]
-pub struct RequestBuilderInit {
-	pub(crate) method: Option<String>,
-	#[ion(default, inherit)]
-	pub(crate) init: RequestInit,
-}
-
-impl RequestBuilderInit {
-	pub fn from_request_init<O: Into<Option<RequestInit>>, M: Into<Option<String>>>(init: O, method: M) -> RequestBuilderInit {
-		let init = init.into().unwrap_or_default();
-		let method = method.into();
-		RequestBuilderInit { method, init }
-	}
-}
-
 #[js_class]
 pub mod class {
 	use std::str::FromStr;
 
-	use bytes::Bytes;
 	use hyper::{Body, Method, Uri};
 	use url::Url;
 
@@ -110,6 +36,7 @@ pub mod class {
 
 	use crate::globals::abort::AbortSignal;
 	use crate::globals::fetch::{Headers, Resource};
+	use crate::globals::fetch::body::FetchBody;
 	use crate::globals::fetch::request::{
 		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, RequestBuilderInit, RequestRedirect,
 	};
@@ -117,7 +44,7 @@ pub mod class {
 	#[ion(into_value)]
 	pub struct Request {
 		pub(crate) request: hyper::Request<Body>,
-		pub(crate) body: Bytes,
+		pub(crate) body: FetchBody,
 
 		pub(crate) redirect: RequestRedirect,
 		pub(crate) signal: AbortSignal,
@@ -149,7 +76,7 @@ pub mod class {
 
 					Request {
 						request,
-						body: Bytes::new(),
+						body: FetchBody::default(),
 
 						redirect: RequestRedirect::Follow,
 						signal: AbortSignal::default(),
@@ -175,7 +102,6 @@ pub mod class {
 
 			if let Some(body) = init.body {
 				request.body = body;
-				*request.request.body_mut() = Body::empty();
 			}
 			request.redirect = init.redirect;
 			request.signal = init.signal;
@@ -202,54 +128,6 @@ pub mod class {
 				Err(Error::new("Expected Request", ErrorKind::Type))
 			}
 		}
-	}
-}
-
-macro_rules! typedarray_to_bytes {
-	($body:expr) => {
-		Err(Error::new("Expected TypedArray or ArrayBuffer", ErrorKind::Type))
-	};
-	($body:expr, [$arr:ident, true]$(, $($rest:tt)*)?) => {
-		paste::paste! {
-			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
-				Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
-			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
-				Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
-			} else {
-				typedarray_to_bytes!($body$(, $($rest)*)?)
-			}
-		}
-	};
-	($body:expr, [$arr:ident, false]$(, $($rest:tt)*)?) => {
-		paste::paste! {
-			if let Ok(arr) = <::mozjs::typedarray::$arr>::from($body) {
-				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Ok(Bytes::copy_from_slice(bytes))
-			} else if let Ok(arr) = <::mozjs::typedarray::[<Heap $arr>]>::from($body) {
-				let bytes: &[u8] = cast_slice(arr.as_slice());
-				Ok(Bytes::copy_from_slice(bytes))
-			} else {
-				typedarray_to_bytes!($body$(, $($rest)*)?)
-			}
-		}
-	};
-}
-
-pub(crate) fn parse_body<'cx: 'v, 'v>(cx: &'cx Context, body: Value<'v>) -> Result<Bytes> {
-	if body.handle().is_string() {
-		Ok(Bytes::from(String::from_value(cx, &body, true, ()).unwrap()))
-	} else if body.handle().is_object() {
-		let body = body.to_object(cx);
-
-		let class = body.get_builtin_class(cx);
-		if class == ESClass::String {
-			let string = body.unbox_primitive(cx).unwrap();
-			return Ok(Bytes::from(String::from_value(cx, &string, true, ()).unwrap()));
-		}
-
-		typedarray_to_bytes!(body.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])
-	} else {
-		Err(Error::new("Expected Body to be String or Object", ErrorKind::Type))
 	}
 }
 

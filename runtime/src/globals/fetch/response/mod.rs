@@ -4,37 +4,85 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+mod options;
+
 pub use class::*;
 
 #[js_class]
 #[ion(runtime = crate)]
 pub mod class {
 	use bytes::{Buf, BufMut};
-	use hyper::Body;
+	use hyper::{Body, StatusCode};
 	use hyper::body::HttpBody;
 	use url::Url;
 
-	use ion::{Error, Result};
+	use ion::{Error, ErrorKind, Result};
 	use ion::typedarray::ArrayBuffer;
+	use crate::globals::fetch::body::FetchBody;
 
 	use crate::globals::fetch::Headers;
+	use crate::globals::fetch::response::options::ResponseInit;
 
-	#[ion(no_constructor, into_value)]
+	#[ion(into_value)]
 	pub struct Response {
 		pub(crate) response: hyper::Response<Body>,
+		pub(crate) body: Option<FetchBody>,
 		pub(crate) body_used: bool,
-		pub(crate) redirections: u8,
-		pub(crate) locations: Vec<Url>,
+
+		pub(crate) url: Option<Url>,
+		pub(crate) redirected: bool,
+
+		pub(crate) status: Option<StatusCode>,
+		pub(crate) status_text: Option<String>,
 	}
 
 	impl Response {
-		pub(crate) fn new(response: hyper::Response<Body>, redirections: u8, locations: Vec<Url>) -> Response {
+		pub(crate) fn new(mut response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
+			*response.body_mut() = Body::empty();
+			let status = response.status();
+			let status_text = String::from(status.canonical_reason().unwrap());
+
 			Response {
 				response,
+				body: None,
 				body_used: false,
-				redirections,
-				locations,
+
+				url: Some(url),
+				redirected,
+
+				status: Some(status),
+				status_text: Some(status_text),
 			}
+		}
+
+		#[ion(constructor)]
+		pub fn constructor(body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
+			let init = init.unwrap_or_default();
+
+			let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
+			let mut response = Response {
+				response,
+				body: None,
+				body_used: false,
+
+				url: None,
+				redirected: false,
+
+				status: Some(init.status),
+				status_text: Some(init.status_text),
+			};
+
+			*response.response.headers_mut() = init.headers.into_headers()?.inner();
+
+			if let Some(body) = body {
+				if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {
+					return Err(Error::new("Received non-null body with null body status.", ErrorKind::Type));
+				}
+				// TODO: Add Content-Type Header
+				response.body = Some(body);
+			}
+
+			Ok(response)
 		}
 
 		#[ion(get)]
@@ -54,27 +102,25 @@ pub mod class {
 
 		#[ion(get)]
 		pub fn get_status(&self) -> u16 {
-			self.response.status().as_u16()
+			self.status.as_ref().map(StatusCode::as_u16).unwrap_or(0)
 		}
 
 		#[ion(get)]
 		pub fn get_status_text(&self) -> Option<String> {
-			self.response.status().canonical_reason().map(String::from)
+			self.status_text
+				.as_deref()
+				.or_else(|| self.response.status().canonical_reason())
+				.map(String::from)
 		}
 
 		#[ion(get)]
 		pub fn get_redirected(&self) -> bool {
-			self.redirections >= 1
-		}
-
-		#[ion(get)]
-		pub fn get_locations(&self) -> Vec<String> {
-			self.locations.iter().map(|u| String::from(u.as_str())).collect()
+			self.redirected
 		}
 
 		#[ion(get)]
 		pub fn get_url(&self) -> String {
-			String::from(self.locations[self.locations.len() - 1].as_str())
+			self.url.as_ref().map(Url::to_string).unwrap_or_default()
 		}
 
 		async fn read_to_bytes(&mut self) -> Result<Vec<u8>> {

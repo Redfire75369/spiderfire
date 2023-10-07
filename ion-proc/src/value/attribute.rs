@@ -12,6 +12,7 @@ mod keywords {
 	custom_keyword!(untagged);
 
 	custom_keyword!(inherit);
+	custom_keyword!(skip);
 
 	custom_keyword!(name);
 	custom_keyword!(convert);
@@ -100,6 +101,7 @@ impl Parse for DataAttribute {
 pub(crate) enum VariantAttribute {
 	Tag(Tag),
 	Inherit(keywords::inherit),
+	Skip(keywords::skip),
 }
 
 impl Parse for VariantAttribute {
@@ -111,6 +113,8 @@ impl Parse for VariantAttribute {
 			Ok(VA::Tag(input.parse()?))
 		} else if lookahead.peek(keywords::inherit) {
 			Ok(VA::Inherit(input.parse()?))
+		} else if lookahead.peek(keywords::skip) {
+			Ok(VA::Skip(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -126,6 +130,7 @@ pub(crate) enum FieldAttribute {
 		name: LitStr,
 	},
 	Inherit(keywords::inherit),
+	Skip(keywords::skip),
 	Convert {
 		kw: keywords::convert,
 		eq: Token![=],
@@ -157,6 +162,8 @@ impl Parse for FieldAttribute {
 			})
 		} else if lookahead.peek(keywords::inherit) {
 			Ok(FA::Inherit(input.parse()?))
+		} else if lookahead.peek(keywords::skip) {
+			Ok(FA::Skip(input.parse()?))
 		} else if lookahead.peek(keywords::convert) {
 			Ok(FA::Convert {
 				kw: input.parse()?,

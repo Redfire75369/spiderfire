@@ -6,7 +6,6 @@
 
 use std::str::FromStr;
 
-use bytes::Bytes;
 use futures::future::{Either, select};
 use http::{Method, StatusCode, Uri};
 use http::header::{CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LOCATION, CONTENT_TYPE, HOST, LOCATION};
@@ -18,6 +17,7 @@ use url::Url;
 use ion::{Error, Exception, ResultExc};
 
 use crate::globals::fetch::{Request, Response};
+use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::request::{add_host_header, clone_request, RequestRedirect};
 
 pub async fn request_internal(request: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
@@ -29,15 +29,14 @@ pub async fn request_internal(request: Request, client: Client<HttpsConnector<Ht
 	}
 }
 
-pub(crate) async fn send_requests(mut req: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
+pub(crate) async fn send_requests(req: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
 	let mut redirections = 0;
 
 	let mut request = req.clone()?;
-	*request.request.body_mut() = Body::from(request.body.clone());
+	*request.request.body_mut() = request.body.to_body();
 
-	*req.request.body_mut() = Body::from(req.body);
 	let mut response = client.request(req.request).await?;
-	let mut locations = vec![request.url.clone()];
+	let mut url = request.url.clone();
 
 	while response.status().is_redirection() {
 		if redirections >= 20 {
@@ -54,7 +53,7 @@ pub(crate) async fn send_requests(mut req: Request, client: Client<HttpsConnecto
 
 				if let Some(location) = response.headers().get(LOCATION) {
 					let location = location.to_str()?;
-					let url = {
+					url = {
 						let options = Url::options();
 						options.base_url(Some(&request.url));
 						options.parse(location)
@@ -67,7 +66,7 @@ pub(crate) async fn send_requests(mut req: Request, client: Client<HttpsConnecto
 					{
 						*request.request.method_mut() = Method::GET;
 
-						request.body = Bytes::new();
+						request.body = FetchBody::default();
 						*request.request.body_mut() = Body::empty();
 
 						let headers = request.request.headers_mut();
@@ -80,19 +79,18 @@ pub(crate) async fn send_requests(mut req: Request, client: Client<HttpsConnecto
 					request.request.headers_mut().remove(HOST);
 					add_host_header(request.request.headers_mut(), &url, true)?;
 
-					locations.push(url.clone());
 					*request.request.uri_mut() = Uri::from_str(url.as_str())?;
 
 					let request = { clone_request(&request.request) }?;
 					response = client.request(request).await?;
 				} else {
-					return Ok(Response::new(response, redirections, locations));
+					return Ok(Response::new(response, url, redirections > 0));
 				}
 			}
 			RequestRedirect::Error => return Err(Error::new("Received Redirection", None).into()),
-			RequestRedirect::Manual => return Ok(Response::new(response, redirections, locations)),
+			RequestRedirect::Manual => return Ok(Response::new(response, url, redirections > 0)),
 		}
 	}
 
-	Ok(Response::new(response, redirections, locations))
+	Ok(Response::new(response, url, redirections > 0))
 }

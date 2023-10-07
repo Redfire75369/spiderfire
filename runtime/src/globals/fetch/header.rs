@@ -20,16 +20,14 @@ pub enum Header {
 	Single(String),
 }
 
-pub struct HeadersObject {
-	headers: HeaderMap,
-}
+pub struct HeadersObject(HeaderMap);
 
 pub struct HeaderEntry {
 	name: String,
 	value: String,
 }
 
-#[derive(FromValue)]
+#[derive(Default, FromValue)]
 pub enum HeadersInit {
 	#[ion(inherit)]
 	Existing(Headers),
@@ -37,6 +35,9 @@ pub enum HeadersInit {
 	Array(Vec<HeaderEntry>),
 	#[ion(inherit)]
 	Object(HeadersObject),
+	#[default]
+	#[ion(skip)]
+	Empty,
 }
 
 impl ToValue<'_> for Header {
@@ -87,7 +88,7 @@ impl<'cx> FromValue<'cx> for HeadersObject {
 		let object = Object::from_value(cx, value, true, ())?;
 		let mut headers = HeaderMap::new();
 		append_to_headers(cx, &mut headers, object, false)?;
-		Ok(HeadersObject { headers })
+		Ok(HeadersObject(headers))
 	}
 }
 
@@ -99,14 +100,9 @@ impl HeadersInit {
 				Ok(Headers { headers, readonly: existing.readonly })
 			}
 			HeadersInit::Array(vec) => Headers::from_array(vec, false),
-			HeadersInit::Object(object) => Ok(Headers { headers: object.headers, readonly: false }),
+			HeadersInit::Object(object) => Ok(Headers::new(object.0, false)),
+			HeadersInit::Empty => Ok(Headers::new(HeaderMap::new(), false)),
 		}
-	}
-}
-
-impl Default for HeadersInit {
-	fn default() -> HeadersInit {
-		HeadersInit::Existing(Headers::new(HeaderMap::new(), false))
 	}
 }
 

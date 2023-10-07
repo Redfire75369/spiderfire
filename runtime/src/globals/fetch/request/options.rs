@@ -7,11 +7,14 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
-
 use url::Url;
 
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::{FromValue, ToValue};
+
+use crate::globals::abort::AbortSignal;
+use crate::globals::fetch::body::FetchBody;
+use crate::globals::fetch::header::HeadersInit;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -301,5 +304,71 @@ impl<'cx> FromValue<'cx> for RequestRedirect {
 	{
 		let redirect = String::from_value(cx, value, true, ())?;
 		RequestRedirect::from_str(&redirect)
+	}
+}
+
+#[derive(Derivative, FromValue)]
+#[derivative(Default)]
+pub struct RequestInit {
+	#[ion(default)]
+	pub(crate) headers: HeadersInit,
+	#[ion(default)]
+	pub(crate) body: Option<FetchBody>,
+
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) referrer: Referrer,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) referrer_policy: ReferrerPolicy,
+
+	#[allow(dead_code)]
+	pub(crate) mode: Option<RequestMode>,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) credentials: RequestCredentials,
+	#[allow(dead_code)]
+	#[ion(default)]
+	pub(crate) cache: RequestCache,
+	#[ion(default)]
+	pub(crate) redirect: RequestRedirect,
+
+	#[allow(dead_code)]
+	pub(crate) integrity: Option<String>,
+
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) keepalive: bool,
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) is_reload_navigation: bool,
+	#[allow(dead_code)]
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) is_history_navigation: bool,
+
+	#[ion(default)]
+	pub(crate) signal: AbortSignal,
+
+	pub(crate) auth: Option<String>,
+	#[derivative(Default(value = "true"))]
+	#[ion(default = true)]
+	pub(crate) set_host: bool,
+}
+
+#[derive(Default, FromValue)]
+pub struct RequestBuilderInit {
+	pub(crate) method: Option<String>,
+	#[ion(default, inherit)]
+	pub(crate) init: RequestInit,
+}
+
+impl RequestBuilderInit {
+	pub fn from_request_init<O: Into<Option<RequestInit>>, M: Into<Option<String>>>(init: O, method: M) -> RequestBuilderInit {
+		let init = init.into().unwrap_or_default();
+		let method = method.into();
+		RequestBuilderInit { method, init }
 	}
 }
