@@ -6,8 +6,10 @@
 
 use http::StatusCode;
 use mozjs::conversions::ConversionBehavior;
-use ion::{Context, Value, Result, Error, ErrorKind};
+
+use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
+
 use crate::globals::fetch::header::HeadersInit;
 
 #[derive(Default, FromValue)]

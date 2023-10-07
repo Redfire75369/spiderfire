@@ -7,7 +7,8 @@
 use bytes::Bytes;
 use hyper::Body;
 use mozjs::jsapi::ESClass;
-use ion::{Context, Value, Result, Error, ErrorKind};
+
+use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
 #[derive(Debug, Clone)]

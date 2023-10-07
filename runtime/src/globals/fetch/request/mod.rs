@@ -95,7 +95,7 @@ pub mod class {
 				*request.request.method_mut() = method;
 			}
 
-			*request.request.headers_mut() = init.headers.into_headers()?.inner();
+			*request.request.headers_mut() = init.headers.into_headers()?.headers;
 
 			add_authorisation_header(request.request.headers_mut(), &request.url, init.auth)?;
 			add_host_header(request.request.headers_mut(), &request.url, init.set_host)?;

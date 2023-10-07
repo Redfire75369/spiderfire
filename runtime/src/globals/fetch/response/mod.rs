@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-mod options;
-
 pub use class::*;
+
+mod options;
 
 #[js_class]
 #[ion(runtime = crate)]
@@ -18,8 +18,8 @@ pub mod class {
 
 	use ion::{Error, ErrorKind, Result};
 	use ion::typedarray::ArrayBuffer;
-	use crate::globals::fetch::body::FetchBody;
 
+	use crate::globals::fetch::body::FetchBody;
 	use crate::globals::fetch::Headers;
 	use crate::globals::fetch::response::options::ResponseInit;
 
@@ -72,7 +72,7 @@ pub mod class {
 				status_text: Some(init.status_text),
 			};
 
-			*response.response.headers_mut() = init.headers.into_headers()?.inner();
+			*response.response.headers_mut() = init.headers.into_headers()?.headers;
 
 			if let Some(body) = body {
 				if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {

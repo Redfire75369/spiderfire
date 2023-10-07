@@ -7,6 +7,7 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+
 use url::Url;
 
 use ion::{Context, Error, ErrorKind, Result, Value};

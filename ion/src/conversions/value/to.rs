@@ -210,19 +210,19 @@ impl<'cx> ToValue<'cx> for PropertyKey<'cx> {
 	}
 }
 
-impl<'cx, T: ToValue<'cx>> ToValue<'cx> for &'_ T {
+impl<'cx, T: ToValue<'cx> + ?Sized> ToValue<'cx> for &'_ T {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(*self).to_value(cx, value);
 	}
 }
 
-impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Box<T> {
+impl<'cx, T: ToValue<'cx> + ?Sized> ToValue<'cx> for Box<T> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}
 }
 
-impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Rc<T> {
+impl<'cx, T: ToValue<'cx> + ?Sized> ToValue<'cx> for Rc<T> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
 	}

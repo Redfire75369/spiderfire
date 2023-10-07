@@ -371,18 +371,8 @@ struct ForOfIteratorGuard<'a> {
 
 impl<'a> ForOfIteratorGuard<'a> {
 	fn new(cx: &Context, root: &'a mut ForOfIterator) -> Self {
-		unsafe {
-			root.iterator.add_to_root_stack(cx.as_ptr());
-		}
+		cx.root_object(root.iterator.ptr);
 		ForOfIteratorGuard { root }
-	}
-}
-
-impl<'a> Drop for ForOfIteratorGuard<'a> {
-	fn drop(&mut self) {
-		unsafe {
-			self.root.iterator.remove_from_root_stack();
-		}
 	}
 }
 

@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
@@ -40,12 +43,18 @@ pub enum HeadersInit {
 	Empty,
 }
 
+impl Display for Header {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			Header::Multiple(vec) => f.write_str(&vec.join(", ")),
+			Header::Single(str) => f.write_str(str),
+		}
+	}
+}
+
 impl ToValue<'_> for Header {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
-		match self {
-			Header::Multiple(vec) => vec.to_value(cx, value),
-			Header::Single(str) => str.to_value(cx, value),
-		}
+		self.to_string().to_value(cx, value)
 	}
 }
 
@@ -108,15 +117,17 @@ impl HeadersInit {
 
 #[js_class]
 mod class {
-	use std::cmp::Ordering;
 	use std::ops::{Deref, DerefMut};
 	use std::str::FromStr;
+	use std::vec;
 
-	use http::header::{Entry, HeaderMap, HeaderName, HeaderValue};
+	use http::header::{Entry, HeaderMap, HeaderName, HeaderValue, SET_COOKIE};
 
-	use ion::{Error, Result};
+	use ion::{ClassDefinition, Context, Error, JSIterator, Object, Result, Value};
+	use ion::conversions::ToValue;
+	use ion::symbol::WellKnownSymbolCode;
 
-	use crate::globals::fetch::header::{Header, HeaderEntry, HeadersInit};
+	use crate::globals::fetch::header::{get_header, Header, HeaderEntry, HeadersInit};
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]
@@ -129,11 +140,6 @@ mod class {
 		#[ion(skip)]
 		pub fn new(headers: HeaderMap, readonly: bool) -> Headers {
 			Headers { headers, readonly }
-		}
-
-		#[ion(skip)]
-		pub fn inner(self) -> HeaderMap {
-			self.headers
 		}
 
 		#[ion(skip)]
@@ -151,25 +157,9 @@ mod class {
 			Ok(Headers { headers, readonly })
 		}
 
-		#[ion(skip)]
-		pub fn get_internal(&self, name: &HeaderName) -> Result<Option<Header>> {
-			let values: Vec<_> = self.headers.get_all(name).into_iter().collect();
-			match values.len().cmp(&1) {
-				Ordering::Less => Ok(None),
-				Ordering::Equal => Ok(Some(Header::Single(String::from(values[0].to_str()?)))),
-				Ordering::Greater => {
-					let values: Vec<String> = values.iter().map(|v| Ok(String::from(v.to_str()?))).collect::<Result<_>>()?;
-					Ok(Some(Header::Multiple(values)))
-				}
-			}
-		}
-
 		#[ion(constructor)]
 		pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
-			match init {
-				Some(init) => init.into_headers(),
-				None => Ok(Headers::default()),
-			}
+			init.unwrap_or_default().into_headers()
 		}
 
 		pub fn append(&mut self, name: String, value: String) -> Result<()> {
@@ -200,7 +190,15 @@ mod class {
 
 		pub fn get(&self, name: String) -> Result<Option<Header>> {
 			let name = HeaderName::from_str(&name.to_lowercase())?;
-			self.get_internal(&name)
+			get_header(&self.headers, &name)
+		}
+
+		pub fn get_set_cookie(&self) -> Result<Vec<String>> {
+			let header = get_header(&self.headers, &SET_COOKIE)?;
+			Ok(header.map_or_else(Vec::new, |header| match header {
+				Header::Multiple(vec) => vec,
+				Header::Single(str) => vec![str],
+			}))
 		}
 
 		pub fn has(&self, name: String) -> Result<bool> {
@@ -217,6 +215,49 @@ mod class {
 			} else {
 				Err(Error::new("Cannot Modify Readonly Headers", None))
 			}
+		}
+
+		#[ion(name = WellKnownSymbolCode::Iterator)]
+		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
+			let thisv = this.as_value(cx);
+			let cookies: Vec<_> = self.headers.get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
+
+			let mut keys: Vec<_> = self.headers.keys().map(HeaderName::as_str).map(str::to_ascii_lowercase).collect();
+			keys.reserve(cookies.len() - 1);
+			for _ in 0..(cookies.len() - 1) {
+				keys.push(String::from(SET_COOKIE.as_str()));
+			}
+			keys.sort();
+
+			ion::Iterator::new(
+				HeadersIterator {
+					keys: keys.into_iter(),
+					cookies: cookies.into_iter(),
+				},
+				&thisv,
+			)
+		}
+	}
+
+	pub struct HeadersIterator {
+		keys: vec::IntoIter<String>,
+		cookies: vec::IntoIter<HeaderValue>,
+	}
+
+	impl JSIterator for HeadersIterator {
+		fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
+			let object = private.to_object(cx);
+			let headers = Headers::get_private(&object);
+			let key = self.keys.next();
+			key.and_then(|key| {
+				if key == SET_COOKIE.as_str() {
+					self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].as_value(cx))
+				} else {
+					get_header(&headers.headers, &HeaderName::from_bytes(key.as_bytes()).unwrap())
+						.unwrap()
+						.map(|value| [key.as_str(), &value.to_string()].as_value(cx))
+				}
+			})
 		}
 	}
 
@@ -271,4 +312,16 @@ fn append_to_headers<'cx: 'o, 'o>(cx: &'cx Context, headers: &mut HeaderMap, obj
 		};
 	}
 	Ok(())
+}
+
+pub fn get_header(headers: &HeaderMap, name: &HeaderName) -> Result<Option<Header>> {
+	let values: Vec<_> = headers.get_all(name).into_iter().collect();
+	match values.len().cmp(&1) {
+		Ordering::Less => Ok(None),
+		Ordering::Equal => Ok(Some(Header::Single(String::from(values[0].to_str()?)))),
+		Ordering::Greater => {
+			let values: Vec<String> = values.iter().map(|v| Ok(String::from(v.to_str()?))).collect::<Result<_>>()?;
+			Ok(Some(Header::Multiple(values)))
+		}
+	}
 }
