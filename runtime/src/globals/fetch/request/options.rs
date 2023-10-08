@@ -7,6 +7,7 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use mozjs::jsval::JSVal;
 
 use url::Url;
 
@@ -104,6 +105,16 @@ impl FromStr for Referrer {
 	}
 }
 
+impl Display for Referrer {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			Referrer::NoReferrer => f.write_str("no-referrer"),
+			Referrer::Client => f.write_str("about:client"),
+			Referrer::Url(url) => Display::fmt(url, f),
+		}
+	}
+}
+
 impl<'cx> FromValue<'cx> for Referrer {
 	type Config = ();
 
@@ -150,6 +161,23 @@ impl FromStr for ReferrerPolicy {
 	}
 }
 
+impl Display for ReferrerPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let str = match self {
+			ReferrerPolicy::None => "",
+			ReferrerPolicy::NoReferrer => "no-referrer",
+			ReferrerPolicy::NoReferrerWhenDowngrade => "no-referrer-when-downgrade",
+			ReferrerPolicy::Origin => "origin",
+			ReferrerPolicy::OriginWhenCrossOrigin => "origin-when-cross-origin",
+			ReferrerPolicy::SameOrigin => "same-origin",
+			ReferrerPolicy::StrictOrigin => "strict-origin",
+			ReferrerPolicy::StrictOriginWhenCrossOrigin => "strict-origin-when-cross-origin",
+			ReferrerPolicy::UnsafeUrl => "unsafe-url",
+		};
+		f.write_str(str)
+	}
+}
+
 impl<'cx> FromValue<'cx> for ReferrerPolicy {
 	type Config = ();
 
@@ -162,7 +190,7 @@ impl<'cx> FromValue<'cx> for ReferrerPolicy {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum RequestMode {
 	SameOrigin,
 	Cors,
@@ -185,6 +213,19 @@ impl FromStr for RequestMode {
 			"navigate" => Ok(RM::Navigate),
 			_ => Err(Error::new("Invalid value for Enumeration RequestMode", ErrorKind::Type)),
 		}
+	}
+}
+
+impl Display for RequestMode {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let str = match self {
+			RequestMode::SameOrigin => "same-origin",
+			RequestMode::Cors => "cors",
+			RequestMode::NoCors => "no-cors",
+			RequestMode::Navigate => "navigate",
+			RequestMode::Websocket => "websocket",
+		};
+		f.write_str(str)
 	}
 }
 
@@ -222,6 +263,17 @@ impl FromStr for RequestCredentials {
 	}
 }
 
+impl Display for RequestCredentials {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let str = match self {
+			RequestCredentials::Omit => "omit",
+			RequestCredentials::SameOrigin => "same-origin",
+			RequestCredentials::Include => "include",
+		};
+		f.write_str(str)
+	}
+}
+
 impl<'cx> FromValue<'cx> for RequestCredentials {
 	type Config = ();
 
@@ -234,7 +286,7 @@ impl<'cx> FromValue<'cx> for RequestCredentials {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum RequestCache {
 	#[default]
 	Default,
@@ -259,6 +311,20 @@ impl FromStr for RequestCache {
 			"only-if-cached" => Ok(RC::OnlyIfCached),
 			_ => Err(Error::new("Invalid value for Enumeration RequestCache", ErrorKind::Type)),
 		}
+	}
+}
+
+impl Display for RequestCache {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let str = match self {
+			RequestCache::Default => "default",
+			RequestCache::NoStore => "no-store",
+			RequestCache::Reload => "reload",
+			RequestCache::NoCache => "no-cache",
+			RequestCache::ForceCache => "force-cache",
+			RequestCache::OnlyIfCached => "only-if-cached",
+		};
+		f.write_str(str)
 	}
 }
 
@@ -296,6 +362,17 @@ impl FromStr for RequestRedirect {
 	}
 }
 
+impl Display for RequestRedirect {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let str = match self {
+			RequestRedirect::Follow => "follow",
+			RequestRedirect::Error => "error",
+			RequestRedirect::Manual => "manual",
+		};
+		f.write_str(str)
+	}
+}
+
 impl<'cx> FromValue<'cx> for RequestRedirect {
 	type Config = ();
 
@@ -308,61 +385,99 @@ impl<'cx> FromValue<'cx> for RequestRedirect {
 	}
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub enum RequestDuplex {
+	#[default]
+	Half,
+}
+
+impl FromStr for RequestDuplex {
+	type Err = Error;
+
+	fn from_str(redirect: &str) -> Result<RequestDuplex> {
+		match redirect {
+			"half" => Ok(RequestDuplex::Half),
+			_ => Err(Error::new("Invalid value for Enumeration RequestDuplex", ErrorKind::Type)),
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for RequestDuplex {
+	type Config = ();
+
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestDuplex>
+	where
+		'cx: 'v,
+	{
+		let redirect = String::from_value(cx, value, true, ())?;
+		RequestDuplex::from_str(&redirect)
+	}
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub enum RequestPriority {
+	High,
+	Low,
+	#[default]
+	Auto,
+}
+
+impl FromStr for RequestPriority {
+	type Err = Error;
+
+	fn from_str(priority: &str) -> Result<RequestPriority> {
+		use RequestPriority as RP;
+		match priority {
+			"high" => Ok(RP::High),
+			"low" => Ok(RP::Low),
+			"auto" => Ok(RP::Auto),
+			_ => Err(Error::new("Invalid value for Enumeration RequestPriority", ErrorKind::Type)),
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for RequestPriority {
+	type Config = ();
+
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<RequestPriority>
+	where
+		'cx: 'v,
+	{
+		let redirect = String::from_value(cx, value, true, ())?;
+		RequestPriority::from_str(&redirect)
+	}
+}
+
 #[derive(Derivative, FromValue)]
 #[derivative(Default)]
 pub struct RequestInit {
-	#[ion(default)]
-	pub(crate) headers: HeadersInit,
-	#[ion(default)]
+	pub(crate) headers: Option<HeadersInit>,
 	pub(crate) body: Option<FetchBody>,
 
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) referrer: Referrer,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) referrer_policy: ReferrerPolicy,
+	pub(crate) referrer: Option<Referrer>,
+	pub(crate) referrer_policy: Option<ReferrerPolicy>,
 
-	#[allow(dead_code)]
 	pub(crate) mode: Option<RequestMode>,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) credentials: RequestCredentials,
-	#[allow(dead_code)]
-	#[ion(default)]
-	pub(crate) cache: RequestCache,
-	#[ion(default)]
-	pub(crate) redirect: RequestRedirect,
+	pub(crate) credentials: Option<RequestCredentials>,
+	pub(crate) cache: Option<RequestCache>,
+	pub(crate) redirect: Option<RequestRedirect>,
 
-	#[allow(dead_code)]
 	pub(crate) integrity: Option<String>,
 
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) keepalive: bool,
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) is_reload_navigation: bool,
-	#[allow(dead_code)]
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) is_history_navigation: bool,
+	pub(crate) keepalive: Option<bool>,
+	pub(crate) signal: Option<AbortSignal>,
 
-	#[ion(default)]
-	pub(crate) signal: AbortSignal,
-
-	pub(crate) auth: Option<String>,
-	#[derivative(Default(value = "true"))]
-	#[ion(default = true)]
-	pub(crate) set_host: bool,
+	#[allow(dead_code)]
+	pub(crate) duplex: Option<RequestDuplex>,
+	#[ion(default, name = "priority")]
+	_priority: Option<RequestPriority>,
+	pub(crate) window: Option<JSVal>,
 }
 
 #[derive(Default, FromValue)]
 pub struct RequestBuilderInit {
 	pub(crate) method: Option<String>,
-	#[ion(default, inherit)]
+	#[ion(inherit)]
 	pub(crate) init: RequestInit,
 }
 

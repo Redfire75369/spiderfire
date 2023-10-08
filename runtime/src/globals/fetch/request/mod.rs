@@ -4,20 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use http::{HeaderMap, HeaderValue, Method};
-use http::header::HeaderName;
 use hyper::Body;
-use url::Url;
 
 pub use class::*;
-use ion::{Error, Result};
+use ion::Result;
 pub use options::*;
 
 mod options;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(FromValue)]
-pub enum Resource {
+pub enum RequestInfo {
 	#[ion(inherit)]
 	Request(Request),
 	#[ion(inherit)]
@@ -27,6 +24,8 @@ pub enum Resource {
 #[js_class]
 pub mod class {
 	use std::str::FromStr;
+	use http::header::CONTENT_TYPE;
+	use http::HeaderValue;
 
 	use hyper::{Body, Method, Uri};
 	use url::Url;
@@ -35,78 +34,217 @@ pub mod class {
 	use ion::conversions::FromValue;
 
 	use crate::globals::abort::AbortSignal;
-	use crate::globals::fetch::{Headers, Resource};
+	use crate::globals::fetch::{Headers, RequestInfo};
 	use crate::globals::fetch::body::FetchBody;
 	use crate::globals::fetch::request::{
-		add_authorisation_header, add_host_header, check_method_with_body, check_url_scheme, clone_request, RequestBuilderInit, RequestRedirect,
+		clone_request, Referrer, ReferrerPolicy, RequestBuilderInit, RequestCache, RequestCredentials, RequestMode, RequestRedirect,
 	};
 
 	#[ion(into_value)]
 	pub struct Request {
 		pub(crate) request: hyper::Request<Body>,
 		pub(crate) body: FetchBody,
+		pub(crate) body_used: bool,
 
-		pub(crate) redirect: RequestRedirect,
-		pub(crate) signal: AbortSignal,
 		pub(crate) url: Url,
+		pub(crate) locations: Vec<Url>,
+
+		pub(crate) referrer: Referrer,
+		pub(crate) referrer_policy: ReferrerPolicy,
+
+		pub(crate) mode: RequestMode,
+		pub(crate) credentials: RequestCredentials,
+		pub(crate) cache: RequestCache,
+		pub(crate) redirect: RequestRedirect,
+
+		pub(crate) integrity: String,
+
+		#[allow(dead_code)]
+		pub(crate) unsafe_request: bool,
+		pub(crate) keepalive: bool,
+		pub(crate) reload_navigation: bool,
+		pub(crate) history_navigation: bool,
+
+		pub(crate) client_window: bool,
+		pub(crate) signal: AbortSignal,
 	}
 
 	impl Request {
-		#[allow(clippy::should_implement_trait)]
-		#[ion(skip)]
-		pub fn clone(&self) -> Result<Request> {
-			let request = clone_request(&self.request)?;
-			let body = self.body.clone();
-
-			let redirect = self.redirect;
-			let signal = self.signal.clone();
-			let url = self.url.clone();
-
-			Ok(Request { request, body, redirect, signal, url })
-		}
-
 		#[ion(constructor)]
-		pub fn constructor(resource: Resource, init: Option<RequestBuilderInit>) -> Result<Request> {
-			let mut request = match resource {
-				Resource::Request(request) => request.clone()?,
-				Resource::String(url) => {
+		pub fn constructor(info: RequestInfo, init: Option<RequestBuilderInit>) -> Result<Request> {
+			let mut fallback_cors = false;
+
+			let mut request = match info {
+				RequestInfo::Request(request) => request.clone()?,
+				RequestInfo::String(url) => {
 					let uri = Uri::from_str(&url)?;
 					let url = Url::from_str(&url)?;
+					if url.username() != "" || url.password().is_some() {
+						return Err(Error::new("Received URL with embedded credentials", ErrorKind::Type));
+					}
 					let request = hyper::Request::builder().uri(uri).body(Body::empty())?;
+
+					fallback_cors = true;
 
 					Request {
 						request,
 						body: FetchBody::default(),
+						body_used: false,
 
-						redirect: RequestRedirect::Follow,
+						url: url.clone(),
+						locations: vec![url],
+
+						referrer: Referrer::default(),
+						referrer_policy: ReferrerPolicy::default(),
+
+						mode: RequestMode::default(),
+						credentials: RequestCredentials::default(),
+						cache: RequestCache::default(),
+						redirect: RequestRedirect::default(),
+
+						integrity: String::new(),
+
+						unsafe_request: false,
+						keepalive: false,
+						reload_navigation: false,
+						history_navigation: false,
+
+						client_window: true,
 						signal: AbortSignal::default(),
-						url,
 					}
 				}
 			};
 
-			check_url_scheme(&request.url)?;
+			let mut headers = None;
+			let mut body = None;
 
-			let RequestBuilderInit { method, init } = init.unwrap_or_default();
-			if let Some(mut method) = method {
-				method.make_ascii_uppercase();
-				let method = Method::from_str(&method)?;
-				check_method_with_body(&method, init.body.is_some())?;
-				*request.request.method_mut() = method;
+			if let Some(RequestBuilderInit { method, init }) = init {
+				if let Some(window) = init.window {
+					if window.is_null() {
+						request.client_window = false;
+					} else {
+						return Err(Error::new("Received non-null window type", ErrorKind::Type));
+					}
+				}
+
+				if request.mode == RequestMode::Navigate {
+					request.mode = RequestMode::SameOrigin;
+				}
+				request.reload_navigation = false;
+				request.history_navigation = false;
+
+				if let Some(referrer) = init.referrer {
+					request.referrer = referrer;
+				}
+				if let Some(policy) = init.referrer_policy {
+					request.referrer_policy = policy;
+				}
+
+				let mode = init.mode.or(fallback_cors.then_some(RequestMode::Cors));
+				if let Some(mode) = mode {
+					if mode == RequestMode::Navigate {
+						return Err(Error::new("Received 'navigate' mode", ErrorKind::Type));
+					}
+					request.mode = mode;
+				}
+
+				if let Some(credentials) = init.credentials {
+					request.credentials = credentials;
+				}
+				if let Some(cache) = init.cache {
+					request.cache = cache;
+				}
+				if let Some(redirect) = init.redirect {
+					request.redirect = redirect;
+				}
+				if let Some(integrity) = init.integrity {
+					request.integrity = integrity;
+				}
+				if let Some(keepalive) = init.keepalive {
+					request.keepalive = keepalive;
+				}
+
+				if let Some(signal) = init.signal {
+					request.signal = signal;
+				}
+
+				if let Some(mut method) = method {
+					method.make_ascii_uppercase();
+					let method = Method::from_str(&method)?;
+					if method == Method::CONNECT || method == Method::TRACE {
+						return Err(Error::new("Received invalid request method", ErrorKind::Type));
+					}
+					*request.request.method_mut() = method;
+				}
+
+				headers = init.headers;
+				body = init.body;
 			}
 
-			*request.request.headers_mut() = init.headers.into_headers()?.headers;
+			if request.cache == RequestCache::OnlyIfCached && request.mode != RequestMode::SameOrigin {
+				return Err(Error::new(
+					"Request cache mode 'only-if-cached' can only be used with request mode 'same-origin'",
+					ErrorKind::Type,
+				));
+			}
 
-			add_authorisation_header(request.request.headers_mut(), &request.url, init.auth)?;
-			add_host_header(request.request.headers_mut(), &request.url, init.set_host)?;
+			if request.mode == RequestMode::NoCors {
+				let method = request.request.method();
+				if method != Method::GET || method != Method::HEAD || method != Method::POST {
+					return Err(Error::new("Invalid request method.", ErrorKind::Type));
+				}
+			}
 
-			if let Some(body) = init.body {
+			if let Some(headers) = headers {
+				*request.request.headers_mut() = headers.into_headers()?.headers;
+			}
+
+			if let Some(body) = body {
+				if let Some(kind) = &body.kind {
+					let headers = request.request.headers_mut();
+					if headers.contains_key(CONTENT_TYPE) {
+						headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string())?);
+					}
+				}
+
 				request.body = body;
 			}
-			request.redirect = init.redirect;
-			request.signal = init.signal;
 
 			Ok(request)
+		}
+
+		#[allow(clippy::should_implement_trait)]
+		#[ion(skip)]
+		pub fn clone(&self) -> Result<Request> {
+			let request = clone_request(&self.request)?;
+			let url = self.locations.last().unwrap().clone();
+
+			Ok(Request {
+				request,
+				body: self.body.clone(),
+				body_used: self.body_used,
+
+				url: url.clone(),
+				locations: vec![url],
+
+				referrer: self.referrer.clone(),
+				referrer_policy: self.referrer_policy,
+
+				mode: self.mode,
+				credentials: self.credentials,
+				cache: self.cache,
+				redirect: self.redirect,
+
+				integrity: self.integrity.clone(),
+
+				unsafe_request: true,
+				keepalive: self.keepalive,
+				reload_navigation: false,
+				history_navigation: false,
+
+				client_window: self.client_window,
+				signal: self.signal.clone(),
+			})
 		}
 
 		#[ion(get)]
@@ -143,51 +281,4 @@ pub(crate) fn clone_request(request: &hyper::Request<Body>) -> Result<hyper::Req
 
 	let request = request.body(Body::empty())?;
 	Ok(request)
-}
-
-pub(crate) fn check_url_scheme(url: &Url) -> Result<()> {
-	if url.scheme() == "https" || url.scheme() == "http" {
-		Ok(())
-	} else {
-		Err(Error::new("Invalid Scheme", None))
-	}
-}
-
-pub(crate) fn check_method_with_body(method: &Method, has_body: bool) -> Result<()> {
-	match (has_body, method) {
-		(true, &Method::GET | &Method::HEAD | &Method::CONNECT | &Method::OPTIONS | &Method::TRACE) => {
-			Err(Error::new(&format!("{} cannot have a body.", method.as_str()), None))
-		}
-		(false, &Method::POST | &Method::PUT | &Method::PATCH) => Err(Error::new(&format!("{} must have a body.", method.as_str()), None)),
-		_ => Ok(()),
-	}
-}
-
-pub(crate) fn add_authorisation_header(headers: &mut HeaderMap, url: &Url, auth: Option<String>) -> Result<()> {
-	let auth = url.password().map(|pw| format!("{}:{}", url.username(), pw)).or(auth);
-
-	if let Some(auth) = auth {
-		let auth = HeaderValue::from_str(&auth)?;
-		if !headers.contains_key("authorization") {
-			headers.insert(HeaderName::from_static("authorization"), auth);
-		}
-	}
-	Ok(())
-}
-
-pub(crate) fn add_host_header(headers: &mut HeaderMap, url: &Url, set_host: bool) -> Result<()> {
-	if set_host {
-		let host = url.host_str().map(|host| {
-			if let Some(port) = url.port() {
-				format!("{}:{}", host, port)
-			} else {
-				String::from(host)
-			}
-		});
-		if let Some(host) = host {
-			let host = HeaderValue::from_str(&host)?;
-			headers.append(HeaderName::from_static("host"), host);
-		}
-	}
-	Ok(())
 }

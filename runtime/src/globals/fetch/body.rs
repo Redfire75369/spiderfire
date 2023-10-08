@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt::{Display, Formatter};
 use bytes::Bytes;
 use hyper::Body;
 use mozjs::jsapi::ESClass;
@@ -12,33 +13,49 @@ use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
 #[derive(Debug, Clone)]
-pub enum FetchBody {
+enum FetchBodyInner {
 	Bytes(Bytes),
+}
+
+#[derive(Debug, Clone)]
+pub enum FetchBodyKind {
+	String,
+}
+
+impl Display for FetchBodyKind {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			FetchBodyKind::String => f.write_str("text/plain;charset=UTF-8"),
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct FetchBody {
+	body: FetchBodyInner,
+	pub(crate) kind: Option<FetchBodyKind>,
 }
 
 impl FetchBody {
 	pub fn is_empty(&self) -> bool {
-		match self {
-			FetchBody::Bytes(bytes) => bytes.is_empty(),
+		match &self.body {
+			FetchBodyInner::Bytes(bytes) => bytes.is_empty(),
 		}
 	}
 
 	pub fn to_body(&self) -> Body {
-		match self {
-			FetchBody::Bytes(bytes) => Body::from(bytes.clone()),
+		match &self.body {
+			FetchBodyInner::Bytes(bytes) => Body::from(bytes.clone()),
 		}
 	}
 }
 
 impl Default for FetchBody {
 	fn default() -> FetchBody {
-		FetchBody::Bytes(Bytes::new())
-	}
-}
-
-impl From<Bytes> for FetchBody {
-	fn from(bytes: Bytes) -> FetchBody {
-		FetchBody::Bytes(bytes)
+		FetchBody {
+			body: FetchBodyInner::Bytes(Bytes::new()),
+			kind: None,
+		}
 	}
 }
 
@@ -78,21 +95,30 @@ impl<'cx> FromValue<'cx> for FetchBody {
 	where
 		'cx: 'v,
 	{
-		let bytes = if value.handle().is_string() {
-			Ok(Bytes::from(String::from_value(cx, value, true, ()).unwrap()))
+		if value.handle().is_string() {
+			Ok(FetchBody {
+				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, true, ()).unwrap())),
+				kind: Some(FetchBodyKind::String),
+			})
 		} else if value.handle().is_object() {
 			let object = value.to_object(cx);
 
 			let class = object.get_builtin_class(cx);
 			if class == ESClass::String {
 				let string = object.unbox_primitive(cx).unwrap();
-				Ok(Bytes::from(String::from_value(cx, &string, true, ())?))
+				Ok(FetchBody {
+					body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, &string, true, ()).unwrap())),
+					kind: Some(FetchBodyKind::String),
+				})
 			} else {
-				typedarray_to_bytes!(object.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])
+				let bytes = typedarray_to_bytes!(object.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])?;
+				Ok(FetchBody {
+					body: FetchBodyInner::Bytes(bytes),
+					kind: None,
+				})
 			}
 		} else {
 			Err(Error::new("Expected Body to be String or Object", ErrorKind::Type))
-		};
-		bytes.map(FetchBody::from)
+		}
 	}
 }

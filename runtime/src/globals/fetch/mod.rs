@@ -9,7 +9,7 @@ pub use header::Headers;
 use ion::{ClassDefinition, Context, Object, ResultExc};
 use ion::flags::PropertyFlags;
 pub use network::request_internal;
-pub use request::{Request, RequestBuilderInit, RequestInit, Resource};
+pub use request::{Request, RequestBuilderInit, RequestInit, RequestInfo};
 pub use response::Response;
 
 mod body;
@@ -22,7 +22,7 @@ mod response;
 // TODO: Specification-Compliant Fetch Implementation
 #[js_fn]
 #[ion(runtime = crate)]
-async fn fetch(resource: Resource, init: Option<RequestBuilderInit>) -> ResultExc<Response> {
+async fn fetch(resource: RequestInfo, init: Option<RequestBuilderInit>) -> ResultExc<Response> {
 	let request = Request::constructor(resource, init)?;
 	request_internal(request, GLOBAL_CLIENT.get().unwrap().clone()).await
 }

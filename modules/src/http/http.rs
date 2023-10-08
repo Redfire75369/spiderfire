@@ -10,7 +10,7 @@ use hyper_rustls::HttpsConnector;
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{ClassDefinition, Context, Object, ResultExc};
-use runtime::globals::fetch::{default_client, GLOBAL_CLIENT, Headers, Request, request_internal, RequestBuilderInit, RequestInit, Resource, Response};
+use runtime::globals::fetch::{default_client, GLOBAL_CLIENT, Headers, Request, request_internal, RequestBuilderInit, RequestInit, RequestInfo, Response};
 use runtime::modules::NativeModule;
 
 use crate::http::client::{Client, ClientRequestOptions};
@@ -31,7 +31,7 @@ fn to_client(init: Option<&RequestClientInit>) -> hyper::client::Client<HttpsCon
 async fn get(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
 	let client = to_client(init.as_ref());
 	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::GET.to_string());
-	let request = Request::constructor(Resource::String(url), Some(options))?;
+	let request = Request::constructor(RequestInfo::String(url), Some(options))?;
 
 	request_internal(request, client).await
 }
@@ -40,7 +40,7 @@ async fn get(url: String, init: Option<RequestClientInit>) -> ResultExc<Response
 async fn post(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
 	let client = to_client(init.as_ref());
 	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::POST.to_string());
-	let request = Request::constructor(Resource::String(url), Some(options))?;
+	let request = Request::constructor(RequestInfo::String(url), Some(options))?;
 
 	request_internal(request, client).await
 }
@@ -49,19 +49,19 @@ async fn post(url: String, init: Option<RequestClientInit>) -> ResultExc<Respons
 async fn put(url: String, init: Option<RequestClientInit>) -> ResultExc<Response> {
 	let client = to_client(init.as_ref());
 	let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), Method::PUT.to_string());
-	let request = Request::constructor(Resource::String(url), Some(options))?;
+	let request = Request::constructor(RequestInfo::String(url), Some(options))?;
 
 	request_internal(request, client).await
 }
 
 #[js_fn]
-async fn request(resource: Resource, method: Option<String>, init: Option<RequestClientInit>) -> ResultExc<Response> {
+async fn request(resource: RequestInfo, method: Option<String>, init: Option<RequestClientInit>) -> ResultExc<Response> {
 	let client = to_client(init.as_ref());
 	match resource {
-		Resource::Request(request) => request_internal(request, client).await,
-		Resource::String(url) => {
+		RequestInfo::Request(request) => request_internal(request, client).await,
+		RequestInfo::String(url) => {
 			let options = RequestBuilderInit::from_request_init(init.map(|opt| opt.init), method);
-			let request = Request::constructor(Resource::String(url), Some(options))?;
+			let request = Request::constructor(RequestInfo::String(url), Some(options))?;
 
 			request_internal(request, client).await
 		}

@@ -18,7 +18,7 @@ use ion::{Error, Exception, ResultExc};
 
 use crate::globals::fetch::{Request, Response};
 use crate::globals::fetch::body::FetchBody;
-use crate::globals::fetch::request::{add_host_header, clone_request, RequestRedirect};
+use crate::globals::fetch::request::{clone_request, RequestRedirect};
 
 pub async fn request_internal(request: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
 	let signal = request.signal.poll();
@@ -77,7 +77,6 @@ pub(crate) async fn send_requests(req: Request, client: Client<HttpsConnector<Ht
 					}
 
 					request.request.headers_mut().remove(HOST);
-					add_host_header(request.request.headers_mut(), &url, true)?;
 
 					*request.request.uri_mut() = Uri::from_str(url.as_str())?;
 
