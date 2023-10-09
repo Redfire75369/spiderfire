@@ -14,10 +14,10 @@ pub mod class {
 	use bytes::{Buf, BufMut};
 	use hyper::{Body, StatusCode};
 	use hyper::body::HttpBody;
+	use mozjs::jsapi::{Heap, JSObject};
 	use url::Url;
 
-	use mozjs::jsapi::{Heap, JSObject};
-	use ion::{Context, ClassDefinition, Error, ErrorKind, Result};
+	use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 	use ion::typedarray::ArrayBuffer;
 
 	use crate::globals::fetch::body::FetchBody;

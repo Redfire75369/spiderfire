@@ -179,7 +179,7 @@ mod class {
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 
-	use crate::globals::fetch::header::{get_header, Header, HeadersInner, HeaderEntry, HeadersInit, HeadersKind};
+	use crate::globals::fetch::header::{get_header, Header, HeaderEntry, HeadersInit, HeadersInner, HeadersKind};
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]

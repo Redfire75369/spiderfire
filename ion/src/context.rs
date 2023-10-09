@@ -69,8 +69,6 @@ struct LocalArena<'a> {
 	symbols: Arena<RootedGuard<'a, *mut Symbol>>,
 }
 
-thread_local!(static HEAP_OBJECTS: RefCell<Vec<Heap<*mut JSObject>>> = RefCell::new(Vec::new()));
-
 #[allow(clippy::vec_box)]
 #[derive(Default)]
 pub struct Persistent {
@@ -199,10 +197,10 @@ macro_rules! impl_root_methods {
 					Some(idx) => idx,
 					None => return,
 				};
-				let heap = persistent.swap_remove(idx);
 				unsafe {
-					RootedTraceableSet::remove(&heap);
+					RootedTraceableSet::remove(&persistent[idx]);
 				}
+				persistent.swap_remove(idx);
 			}
 		)*
 	};

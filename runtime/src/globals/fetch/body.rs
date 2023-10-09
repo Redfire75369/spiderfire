@@ -5,6 +5,7 @@
  */
 
 use std::fmt::{Display, Formatter};
+
 use bytes::Bytes;
 use hyper::Body;
 use mozjs::gc::Traceable;

@@ -58,6 +58,7 @@ where
 			let mut this = args.access().this().to_object(cx);
 
 			#wrapper
+
 			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args, &mut this)));
 			#ion::functions::__handle_native_function_result(cx, result, args.rval())
 		});

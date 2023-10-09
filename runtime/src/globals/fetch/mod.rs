@@ -9,8 +9,9 @@ pub use header::Headers;
 use ion::{ClassDefinition, Context, Object, Promise, ResultExc};
 use ion::flags::PropertyFlags;
 pub use network::request_internal;
-pub use request::{Request, RequestBuilderInit, RequestInit, RequestInfo};
+pub use request::{Request, RequestBuilderInit, RequestInfo, RequestInit};
 pub use response::Response;
+
 use crate::promise::future_to_promise;
 
 mod body;
