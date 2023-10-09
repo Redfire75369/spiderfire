@@ -24,21 +24,21 @@ pub enum RequestInfo {
 #[js_class]
 pub mod class {
 	use std::str::FromStr;
+
 	use http::header::CONTENT_TYPE;
 	use http::HeaderValue;
-
 	use hyper::{Body, Method, Uri};
+	use mozjs::gc::Traceable;
+	use mozjs::jsapi::{Heap, JSObject, JSTracer};
 	use url::Url;
 
-	use mozjs::jsapi::{Heap, JSObject, JSTracer};
-	use mozjs::gc::Traceable;
 	use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Value};
 	use ion::conversions::{FromValue, ToValue};
 
 	use crate::globals::abort::AbortSignal;
 	use crate::globals::fetch::{Headers, RequestInfo};
 	use crate::globals::fetch::body::FetchBody;
-	use crate::globals::fetch::header::HeadersKind;
+	use crate::globals::fetch::header::{HeadersInner, HeadersKind};
 	use crate::globals::fetch::request::{
 		clone_request, Referrer, ReferrerPolicy, RequestBuilderInit, RequestCache, RequestCredentials, RequestMode, RequestRedirect,
 	};
@@ -46,6 +46,7 @@ pub mod class {
 	#[ion(into_value)]
 	pub struct Request {
 		pub(crate) request: hyper::Request<Body>,
+		pub(crate) headers: Box<Heap<*mut JSObject>>,
 		pub(crate) body: FetchBody,
 		pub(crate) body_used: bool,
 
@@ -82,7 +83,7 @@ pub mod class {
 			let mut fallback_cors = false;
 
 			let mut request = match info {
-				RequestInfo::Request(request) => request.clone()?,
+				RequestInfo::Request(request) => request.clone(cx)?,
 				RequestInfo::String(url) => {
 					let uri = Uri::from_str(&url)?;
 					let url = Url::from_str(&url)?;
@@ -94,10 +95,11 @@ pub mod class {
 					fallback_cors = true;
 
 					let signal = AbortSignal::default();
-					let signal_object = Heap::boxed(AbortSignal::new_object(cx, signal.clone()));
+					let signal_object = AbortSignal::new_object(cx, signal.clone());
 
 					Request {
 						request,
+						headers: Box::default(),
 						body: FetchBody::default(),
 						body_used: false,
 
@@ -107,7 +109,7 @@ pub mod class {
 						referrer: Referrer::default(),
 						referrer_policy: ReferrerPolicy::default(),
 
-						mode: RequestMode::default(),
+						mode: RequestMode::Cors,
 						credentials: RequestCredentials::default(),
 						cache: RequestCache::default(),
 						redirect: RequestRedirect::default(),
@@ -121,7 +123,7 @@ pub mod class {
 
 						client_window: true,
 						signal,
-						signal_object,
+						signal_object: Heap::boxed(signal_object),
 					}
 				}
 			};
@@ -203,14 +205,23 @@ pub mod class {
 
 			if request.mode == RequestMode::NoCors {
 				let method = request.request.method();
-				if method != Method::GET || method != Method::HEAD || method != Method::POST {
-					return Err(Error::new("Invalid request method.", ErrorKind::Type));
+				if method != Method::GET && method != Method::HEAD && method != Method::POST {
+					return Err(Error::new("Invalid request method", ErrorKind::Type));
 				}
 			}
 
-			if let Some(headers) = headers {
-				*request.request.headers_mut() = headers.into_headers(HeadersKind::Request)?.headers;
-			}
+			let kind = if request.mode == RequestMode::NoCors {
+				HeadersKind::RequestNoCors
+			} else {
+				HeadersKind::Request
+			};
+
+			let headers = if let Some(headers) = headers {
+				headers.into_headers(HeadersInner::MutRef(request.request.headers_mut()), kind)?
+			} else {
+				Headers { headers: HeadersInner::default(), kind }
+			};
+			request.headers.set(Headers::new_object(cx, headers));
 
 			if let Some(body) = body {
 				if let Some(kind) = &body.kind {
@@ -234,6 +245,11 @@ pub mod class {
 		#[ion(get)]
 		pub fn get_url(&self) -> String {
 			self.request.uri().to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_headers(&self) -> *mut JSObject {
+			self.headers.get()
 		}
 
 		#[ion(get)]
@@ -288,12 +304,17 @@ pub mod class {
 
 		#[allow(clippy::should_implement_trait)]
 		#[ion(skip)]
-		pub fn clone(&self) -> Result<Request> {
-			let request = clone_request(&self.request)?;
+		pub fn clone(&self, cx: &Context) -> Result<Request> {
+			let mut request = clone_request(&self.request)?;
 			let url = self.locations.last().unwrap().clone();
+			let headers = Headers {
+				headers: HeadersInner::MutRef(request.headers_mut()),
+				kind: HeadersKind::Request,
+			};
 
 			Ok(Request {
 				request,
+				headers: Heap::boxed(Headers::new_object(cx, headers)),
 				body: self.body.clone(),
 				body_used: self.body_used,
 
@@ -320,19 +341,12 @@ pub mod class {
 				signal_object: Heap::boxed(self.signal_object.get()),
 			})
 		}
-
-		#[ion(get)]
-		pub fn get_headers(&self) -> Headers {
-			Headers {
-				headers: self.request.headers().clone(),
-				kind: HeadersKind::Request,
-			}
-		}
 	}
 
 	unsafe impl Traceable for Request {
 		unsafe fn trace(&self, trc: *mut JSTracer) {
 			unsafe {
+				self.headers.trace(trc);
 				self.signal_object.trace(trc);
 			}
 		}
@@ -346,7 +360,7 @@ pub mod class {
 		{
 			let object = Object::from_value(cx, value, true, ())?;
 			if Request::instance_of(cx, &object, None) {
-				Request::get_private(&object).clone()
+				Request::get_private(&object).clone(cx)
 			} else {
 				Err(Error::new("Expected Request", ErrorKind::Type))
 			}

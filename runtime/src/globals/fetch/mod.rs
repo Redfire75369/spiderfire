@@ -24,7 +24,10 @@ mod response;
 #[js_fn]
 fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestBuilderInit>) -> ResultExc<Promise<'cx>> {
 	let request = Request::constructor(cx, resource, init)?;
-	Ok(future_to_promise(cx, request_internal(request, GLOBAL_CLIENT.get().unwrap().clone())))
+	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
+	Ok(future_to_promise(cx, async move {
+		request_internal(&cx2, request, GLOBAL_CLIENT.get().unwrap().clone()).await
+	}))
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {

@@ -14,25 +14,25 @@ use hyper::client::HttpConnector;
 use hyper_rustls::HttpsConnector;
 use url::Url;
 
-use ion::{Error, Exception, ResultExc};
+use ion::{Context, Error, Exception, ResultExc};
 
 use crate::globals::fetch::{Request, Response};
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::request::{clone_request, RequestRedirect};
 
-pub async fn request_internal(request: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
+pub async fn request_internal<'c>(cx: &Context<'c>, request: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
 	let signal = request.signal.poll();
-	let send = Box::pin(send_requests(request, client));
+	let send = Box::pin(send_requests(cx, request, client));
 	match select(send, signal).await {
 		Either::Left((response, _)) => response,
 		Either::Right((exception, _)) => Err(Exception::Other(exception)),
 	}
 }
 
-pub(crate) async fn send_requests(req: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
+pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
 	let mut redirections = 0;
 
-	let mut request = req.clone()?;
+	let mut request = req.clone(cx)?;
 	*request.request.body_mut() = request.body.to_http_body();
 
 	let mut response = client.request(req.request).await?;
@@ -83,13 +83,13 @@ pub(crate) async fn send_requests(req: Request, client: Client<HttpsConnector<Ht
 					let request = { clone_request(&request.request) }?;
 					response = client.request(request).await?;
 				} else {
-					return Ok(Response::new(response, url, redirections > 0));
+					return Ok(Response::new(cx, response, url, redirections > 0));
 				}
 			}
 			RequestRedirect::Error => return Err(Error::new("Received Redirection", None).into()),
-			RequestRedirect::Manual => return Ok(Response::new(response, url, redirections > 0)),
+			RequestRedirect::Manual => return Ok(Response::new(cx, response, url, redirections > 0)),
 		}
 	}
 
-	Ok(Response::new(response, url, redirections > 0))
+	Ok(Response::new(cx, response, url, redirections > 0))
 }

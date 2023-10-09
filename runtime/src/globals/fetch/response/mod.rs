@@ -16,17 +16,19 @@ pub mod class {
 	use hyper::body::HttpBody;
 	use url::Url;
 
-	use ion::{Error, ErrorKind, Result};
+	use mozjs::jsapi::{Heap, JSObject};
+	use ion::{Context, ClassDefinition, Error, ErrorKind, Result};
 	use ion::typedarray::ArrayBuffer;
 
 	use crate::globals::fetch::body::FetchBody;
-	use crate::globals::fetch::header::HeadersKind;
+	use crate::globals::fetch::header::{HeadersInner, HeadersKind};
 	use crate::globals::fetch::Headers;
 	use crate::globals::fetch::response::options::ResponseInit;
 
 	#[ion(into_value)]
 	pub struct Response {
 		pub(crate) response: hyper::Response<Body>,
+		pub(crate) headers: Box<Heap<*mut JSObject>>,
 		pub(crate) body: Option<FetchBody>,
 		pub(crate) body_used: bool,
 
@@ -38,13 +40,20 @@ pub mod class {
 	}
 
 	impl Response {
-		pub(crate) fn new(mut response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
-			*response.body_mut() = Body::empty();
+		pub(crate) fn new(cx: &Context, mut response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
+			let headers = Headers::new_object(
+				cx,
+				Headers {
+					headers: HeadersInner::MutRef(response.headers_mut()),
+					kind: HeadersKind::Response,
+				},
+			);
 			let status = response.status();
 			let status_text = String::from(status.canonical_reason().unwrap());
 
 			Response {
 				response,
+				headers: Heap::boxed(headers),
 				body: None,
 				body_used: false,
 
@@ -57,12 +66,13 @@ pub mod class {
 		}
 
 		#[ion(constructor)]
-		pub fn constructor(body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
+		pub fn constructor(cx: &Context, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
 			let init = init.unwrap_or_default();
 
 			let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
 			let mut response = Response {
 				response,
+				headers: Box::default(),
 				body: None,
 				body_used: false,
 
@@ -73,7 +83,10 @@ pub mod class {
 				status_text: Some(init.status_text),
 			};
 
-			*response.response.headers_mut() = init.headers.into_headers(HeadersKind::Response)?.headers;
+			let headers = init
+				.headers
+				.into_headers(HeadersInner::MutRef(response.response.headers_mut()), HeadersKind::Response)?;
+			response.headers.set(Headers::new_object(cx, headers));
 
 			if let Some(body) = body {
 				if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {
@@ -87,16 +100,8 @@ pub mod class {
 		}
 
 		#[ion(get)]
-		pub fn get_body_used(&self) -> bool {
-			self.body_used
-		}
-
-		#[ion(get)]
-		pub fn get_headers(&self) -> Headers {
-			Headers {
-				headers: self.response.headers().clone(),
-				kind: HeadersKind::Response,
-			}
+		pub fn get_headers(&self) -> *mut JSObject {
+			self.headers.get()
 		}
 
 		#[ion(get)]
@@ -125,6 +130,11 @@ pub mod class {
 		#[ion(get)]
 		pub fn get_url(&self) -> String {
 			self.url.as_ref().map(Url::to_string).unwrap_or_default()
+		}
+
+		#[ion(get)]
+		pub fn get_body_used(&self) -> bool {
+			self.body_used
 		}
 
 		async fn read_to_bytes(&mut self) -> Result<Vec<u8>> {

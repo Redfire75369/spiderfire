@@ -102,13 +102,58 @@ pub enum HeadersInit {
 }
 
 impl HeadersInit {
-	pub(crate) fn into_headers(self, kind: HeadersKind) -> Result<Headers> {
+	pub(crate) fn into_headers(self, mut headers: HeadersInner, kind: HeadersKind) -> Result<Headers> {
 		match self {
-			HeadersInit::Existing(existing) => Ok(Headers { headers: existing.headers, kind }),
-			HeadersInit::Array(vec) => Headers::from_array(vec, kind),
-			HeadersInit::Object(object) => Ok(Headers { headers: object.0, kind }),
-			HeadersInit::Empty => Ok(Headers { headers: HeaderMap::new(), kind }),
+			HeadersInit::Existing(existing) => {
+				headers
+					.as_mut()
+					.extend(existing.headers.as_ref().into_iter().map(|(name, value)| (name.clone(), value.clone())));
+				Ok(Headers { headers, kind })
+			}
+			HeadersInit::Array(vec) => Headers::from_array(vec, headers, kind),
+			HeadersInit::Object(object) => {
+				headers.as_mut().extend(object.0);
+				Ok(Headers { headers, kind })
+			}
+			HeadersInit::Empty => Ok(Headers { headers, kind }),
 		}
+	}
+}
+
+#[derive(Debug)]
+pub(crate) enum HeadersInner {
+	Owned(HeaderMap),
+	MutRef(*mut HeaderMap),
+}
+
+impl HeadersInner {
+	pub fn as_ref(&self) -> &HeaderMap {
+		match self {
+			HeadersInner::Owned(map) => map,
+			HeadersInner::MutRef(map) => unsafe { &**map },
+		}
+	}
+
+	pub fn as_mut(&mut self) -> &mut HeaderMap {
+		match self {
+			HeadersInner::Owned(map) => map,
+			HeadersInner::MutRef(map) => unsafe { &mut **map },
+		}
+	}
+}
+
+impl Clone for HeadersInner {
+	fn clone(&self) -> HeadersInner {
+		match self {
+			HeadersInner::Owned(map) => HeadersInner::Owned(map.clone()),
+			HeadersInner::MutRef(map) => HeadersInner::Owned(unsafe { (**map).clone() }),
+		}
+	}
+}
+
+impl Default for HeadersInner {
+	fn default() -> HeadersInner {
+		HeadersInner::Owned(HeaderMap::new())
 	}
 }
 
@@ -134,19 +179,17 @@ mod class {
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 
-	use crate::globals::fetch::header::{get_header, Header, HeaderEntry, HeadersInit, HeadersKind};
+	use crate::globals::fetch::header::{get_header, Header, HeadersInner, HeaderEntry, HeadersInit, HeadersKind};
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]
 	pub struct Headers {
-		pub(crate) headers: HeaderMap,
+		pub(crate) headers: HeadersInner,
 		pub(crate) kind: HeadersKind,
 	}
 
 	impl Headers {
-		#[ion(skip)]
-		pub fn from_array(vec: Vec<HeaderEntry>, kind: HeadersKind) -> Result<Headers> {
-			let mut headers = HeaderMap::new();
+		pub(crate) fn from_array(vec: Vec<HeaderEntry>, mut headers: HeadersInner, kind: HeadersKind) -> Result<Headers> {
 			for entry in vec {
 				let mut name = entry.name;
 				let value = entry.value;
@@ -154,21 +197,21 @@ mod class {
 
 				let name = HeaderName::from_str(&name)?;
 				let value = HeaderValue::try_from(&value)?;
-				headers.append(name, value);
+				headers.as_mut().append(name, value);
 			}
 			Ok(Headers { headers, kind })
 		}
 
 		#[ion(constructor)]
 		pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
-			init.unwrap_or_default().into_headers(HeadersKind::None)
+			init.unwrap_or_default().into_headers(HeadersInner::default(), HeadersKind::None)
 		}
 
 		pub fn append(&mut self, name: String, value: String) -> Result<()> {
 			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
 				let value = HeaderValue::from_str(&value)?;
-				self.headers.append(name, value);
+				self.headers.as_mut().append(name, value);
 				Ok(())
 			} else {
 				Err(Error::new("Cannot Modify Readonly Headers", None))
@@ -178,7 +221,7 @@ mod class {
 		pub fn delete(&mut self, name: String) -> Result<bool> {
 			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
-				match self.headers.entry(name) {
+				match self.headers.as_mut().entry(name) {
 					Entry::Occupied(o) => {
 						o.remove_entry_mult();
 						Ok(true)
@@ -192,11 +235,11 @@ mod class {
 
 		pub fn get(&self, name: String) -> Result<Option<Header>> {
 			let name = HeaderName::from_str(&name.to_lowercase())?;
-			get_header(&self.headers, &name)
+			get_header(self.headers.as_ref(), &name)
 		}
 
 		pub fn get_set_cookie(&self) -> Result<Vec<String>> {
-			let header = get_header(&self.headers, &SET_COOKIE)?;
+			let header = get_header(self.headers.as_ref(), &SET_COOKIE)?;
 			Ok(header.map_or_else(Vec::new, |header| match header {
 				Header::Multiple(vec) => vec,
 				Header::Single(str) => vec![str],
@@ -205,14 +248,14 @@ mod class {
 
 		pub fn has(&self, name: String) -> Result<bool> {
 			let name = HeaderName::from_str(&name.to_lowercase())?;
-			Ok(self.headers.contains_key(name))
+			Ok(self.headers.as_ref().contains_key(name))
 		}
 
 		pub fn set(&mut self, name: String, value: String) -> Result<()> {
 			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
 				let value = HeaderValue::from_str(&value)?;
-				self.headers.insert(name, value);
+				self.headers.as_mut().insert(name, value);
 				Ok(())
 			} else {
 				Err(Error::new("Cannot Modify Readonly Headers", None))
@@ -222,9 +265,15 @@ mod class {
 		#[ion(name = WellKnownSymbolCode::Iterator)]
 		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
 			let thisv = this.as_value(cx);
-			let cookies: Vec<_> = self.headers.get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
+			let cookies: Vec<_> = self.headers.as_ref().get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
 
-			let mut keys: Vec<_> = self.headers.keys().map(HeaderName::as_str).map(str::to_ascii_lowercase).collect();
+			let mut keys: Vec<_> = self
+				.headers
+				.as_ref()
+				.keys()
+				.map(HeaderName::as_str)
+				.map(str::to_ascii_lowercase)
+				.collect();
 			keys.reserve(cookies.len() - 1);
 			for _ in 0..(cookies.len() - 1) {
 				keys.push(String::from(SET_COOKIE.as_str()));
@@ -255,7 +304,7 @@ mod class {
 				if key == SET_COOKIE.as_str() {
 					self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].as_value(cx))
 				} else {
-					get_header(&headers.headers, &HeaderName::from_bytes(key.as_bytes()).unwrap())
+					get_header(headers.headers.as_ref(), &HeaderName::from_bytes(key.as_bytes()).unwrap())
 						.unwrap()
 						.map(|value| [key.as_str(), &value.to_string()].as_value(cx))
 				}
@@ -267,13 +316,13 @@ mod class {
 		type Target = HeaderMap;
 
 		fn deref(&self) -> &HeaderMap {
-			&self.headers
+			self.headers.as_ref()
 		}
 	}
 
 	impl DerefMut for Headers {
 		fn deref_mut(&mut self) -> &mut HeaderMap {
-			&mut self.headers
+			self.headers.as_mut()
 		}
 	}
 }
