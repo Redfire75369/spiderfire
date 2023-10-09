@@ -20,6 +20,7 @@ pub mod class {
 	use ion::typedarray::ArrayBuffer;
 
 	use crate::globals::fetch::body::FetchBody;
+	use crate::globals::fetch::header::HeadersKind;
 	use crate::globals::fetch::Headers;
 	use crate::globals::fetch::response::options::ResponseInit;
 
@@ -72,7 +73,7 @@ pub mod class {
 				status_text: Some(init.status_text),
 			};
 
-			*response.response.headers_mut() = init.headers.into_headers()?.headers;
+			*response.response.headers_mut() = init.headers.into_headers(HeadersKind::Response)?.headers;
 
 			if let Some(body) = body {
 				if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {
@@ -92,7 +93,10 @@ pub mod class {
 
 		#[ion(get)]
 		pub fn get_headers(&self) -> Headers {
-			Headers::new(self.response.headers().clone(), true)
+			Headers {
+				headers: self.response.headers().clone(),
+				kind: HeadersKind::Response,
+			}
 		}
 
 		#[ion(get)]

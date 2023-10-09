@@ -7,7 +7,9 @@
 use std::fmt::{Display, Formatter};
 use bytes::Bytes;
 use hyper::Body;
-use mozjs::jsapi::ESClass;
+use mozjs::gc::Traceable;
+use mozjs::jsapi::{ESClass, Heap, JSTracer};
+use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
@@ -17,7 +19,7 @@ enum FetchBodyInner {
 	Bytes(Bytes),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum FetchBodyKind {
 	String,
 }
@@ -30,9 +32,10 @@ impl Display for FetchBodyKind {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FetchBody {
 	body: FetchBodyInner,
+	source: Option<Box<Heap<JSVal>>>,
 	pub(crate) kind: Option<FetchBodyKind>,
 }
 
@@ -43,9 +46,19 @@ impl FetchBody {
 		}
 	}
 
-	pub fn to_body(&self) -> Body {
+	pub fn to_http_body(&self) -> Body {
 		match &self.body {
 			FetchBodyInner::Bytes(bytes) => Body::from(bytes.clone()),
+		}
+	}
+}
+
+impl Clone for FetchBody {
+	fn clone(&self) -> FetchBody {
+		FetchBody {
+			body: self.body.clone(),
+			source: self.source.as_ref().map(|s| Heap::boxed(s.get())),
+			kind: self.kind,
 		}
 	}
 }
@@ -54,7 +67,16 @@ impl Default for FetchBody {
 	fn default() -> FetchBody {
 		FetchBody {
 			body: FetchBodyInner::Bytes(Bytes::new()),
+			source: None,
 			kind: None,
+		}
+	}
+}
+
+unsafe impl Traceable for FetchBody {
+	unsafe fn trace(&self, trc: *mut JSTracer) {
+		unsafe {
+			self.source.trace(trc);
 		}
 	}
 }
@@ -98,6 +120,7 @@ impl<'cx> FromValue<'cx> for FetchBody {
 		if value.handle().is_string() {
 			Ok(FetchBody {
 				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, true, ()).unwrap())),
+				source: Some(Heap::boxed(value.handle().get())),
 				kind: Some(FetchBodyKind::String),
 			})
 		} else if value.handle().is_object() {
@@ -108,12 +131,14 @@ impl<'cx> FromValue<'cx> for FetchBody {
 				let string = object.unbox_primitive(cx).unwrap();
 				Ok(FetchBody {
 					body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, &string, true, ()).unwrap())),
+					source: Some(Heap::boxed(value.handle().get())),
 					kind: Some(FetchBodyKind::String),
 				})
 			} else {
 				let bytes = typedarray_to_bytes!(object.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])?;
 				Ok(FetchBody {
 					body: FetchBodyInner::Bytes(bytes),
+					source: Some(Heap::boxed(value.handle().get())),
 					kind: None,
 				})
 			}

@@ -5,6 +5,7 @@
  */
 
 use std::collections::HashMap;
+use either::Either;
 
 use quote::ToTokens;
 use syn::{Error, ImplItem, Item, ItemFn, ItemImpl, ItemMod, LitStr, Meta, parse2, Result, Visibility};
@@ -52,171 +53,198 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 	let mut has_trace = false;
 
 	let mut content_to_remove = Vec::new();
-	for (i, item) in (**content).iter().enumerate() {
-		content_to_remove.push(i);
-		match item {
-			Item::Struct(str) if class.is_none() => class = Some(str.clone()),
-			Item::Impl(imp) => {
-				let impl_ty = extract_last_type_segment(&imp.self_ty);
-				if implementation.is_none() && imp.trait_.is_none() && impl_ty.is_some() && impl_ty.as_ref() == class.as_ref().map(|c| &c.ident) {
-					let mut impl_items_to_remove = Vec::new();
-					let mut impl_items_to_add = Vec::new();
-					let mut imp = imp.clone();
 
-					for (j, item) in imp.items.iter().enumerate() {
-						match item {
-							ImplItem::Fn(method) => {
-								let mut method: ItemFn = parse2(method.to_token_stream())?;
-								match &method.vis {
-									Visibility::Public(_) => (),
-									_ => continue,
-								}
+	for (i, item) in content.iter().enumerate() {
+		if let Item::Struct(str) = item {
+			let mut custom = false;
+			for attr in str.attrs.iter() {
+				if attr.path().is_ident("ion") {
+					let args: Punctuated<ClassAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
 
-								let mut name = None;
-								let mut names = vec![];
-								let mut indexes = Vec::new();
-
-								let mut kind = None;
-								let mut internal = None;
-
-								for (index, attr) in method.attrs.iter().enumerate() {
-									if attr.path().is_ident("ion") {
-										let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
-
-										for arg in args {
-											kind = kind.or_else(|| arg.to_kind());
-											match arg {
-												MethodAttribute::Skip(_) => internal = Some(index),
-												MethodAttribute::Name(name_) => name = Some(name_.name),
-												MethodAttribute::Alias(alias) => {
-													for alias in alias.aliases {
-														names.push(Name::String(alias));
-													}
-												}
-												_ => (),
-											}
-										}
-										indexes.push(index);
-									}
-								}
-
-								match name {
-									Some(name) => names.insert(0, name),
-									None => {
-										if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
-											names.insert(
-												0,
-												Name::from_string(
-													get_accessor_name(method.sig.ident.to_string(), kind == Some(MethodKind::Setter)),
-													method.sig.ident.span(),
-												),
-											)
-										} else {
-											names.insert(0, Name::from_string(method.sig.ident.to_string(), method.sig.ident.span()))
-										}
-									}
-								}
-								let name = names[0].clone();
-
-								impl_items_to_remove.push(j);
-								if let Some(internal) = internal {
-									method.attrs.remove(internal);
-									impl_items_to_add.push(ImplItem::Fn(parse2(method.to_token_stream())?));
-								} else {
-									for index in indexes {
-										method.attrs.remove(index);
-									}
-
-									match kind {
-										Some(MethodKind::Constructor) => {
-											let (cons, _) = impl_constructor(&crates, method.clone(), &imp.self_ty)?;
-											constructor = Some(Method { names, ..cons });
-										}
-										Some(MethodKind::Getter) => {
-											let (getter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, false)?;
-											let getter = Method { names, ..getter };
-
-											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name.as_string(), Some(getter), None);
-											} else {
-												insert_accessor(&mut static_accessors, name.as_string(), Some(getter), None);
-											}
-										}
-										Some(MethodKind::Setter) => {
-											let (setter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, true)?;
-											let setter = Method { names, ..setter };
-
-											if parameters.this.is_some() {
-												insert_accessor(&mut accessors, name.as_string(), None, Some(setter));
-											} else {
-												insert_accessor(&mut static_accessors, name.as_string(), None, Some(setter));
-											}
-										}
-										None => {
-											let (method, _) = impl_method(&crates, method.clone(), &imp.self_ty, false, |_| Ok(()))?;
-											let method = Method { names, ..method };
-
-											if method.receiver == MethodReceiver::Dynamic {
-												methods.push(method);
-											} else {
-												static_methods.push(method);
-											}
-										}
-										Some(MethodKind::Internal) => continue,
-									}
-								}
-							}
-							ImplItem::Const(con) => {
-								if let Visibility::Public(_) = con.vis {
-									if let Some((con, property, stat)) = Property::from_const(con.clone())? {
-										impl_items_to_remove.push(j);
-										if stat {
-											static_properties.push(property);
-										} else {
-											properties.push(property);
-										}
-										impl_items_to_add.push(ImplItem::Const(con));
-									}
-								}
-							}
-							_ => (),
+					for arg in args {
+						if let ClassAttribute::Class(_) = arg {
+							custom = true;
 						}
-					}
-
-					impl_items_to_remove.reverse();
-					for index in impl_items_to_remove {
-						imp.items.remove(index);
-					}
-					for item in impl_items_to_add {
-						imp.items.push(item);
-					}
-
-					implementation = Some(imp);
-				} else {
-					content_to_remove.pop();
-					if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Clone)) {
-						has_clone = true;
-					} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Traceable)) {
-						has_trace = true;
 					}
 				}
 			}
-			_ => {
-				content_to_remove.pop();
+
+			if class.is_none() || custom {
+				let tuple = (i, str.clone());
+				if custom {
+					class = Some(Either::Right(tuple));
+				} else {
+					class = Some(Either::Left(tuple));
+				}
 			}
 		}
 	}
 
-	content_to_remove.reverse();
-	for index in content_to_remove {
-		content.remove(index);
+	for (i, item) in content.iter().enumerate() {
+		if let Item::Impl(imp) = item {
+			content_to_remove.push(i);
+			let impl_ty = extract_last_type_segment(&imp.self_ty);
+			if implementation.is_none()
+				&& imp.trait_.is_none()
+				&& impl_ty.is_some()
+				&& impl_ty.as_ref() == class.as_ref().map(|c| &c.as_ref().into_inner().1.ident)
+			{
+				let mut impl_items_to_remove = Vec::new();
+				let mut impl_items_to_add = Vec::new();
+				let mut imp = imp.clone();
+
+				for (j, item) in imp.items.iter().enumerate() {
+					match item {
+						ImplItem::Fn(method) => {
+							let mut method: ItemFn = parse2(method.to_token_stream())?;
+							match &method.vis {
+								Visibility::Public(_) => (),
+								_ => continue,
+							}
+
+							let mut name = None;
+							let mut names = vec![];
+							let mut indexes = Vec::new();
+
+							let mut kind = None;
+							let mut internal = None;
+
+							for (index, attr) in method.attrs.iter().enumerate() {
+								if attr.path().is_ident("ion") {
+									let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+
+									for arg in args {
+										kind = kind.or_else(|| arg.to_kind());
+										match arg {
+											MethodAttribute::Skip(_) => internal = Some(index),
+											MethodAttribute::Name(name_) => name = Some(name_.name),
+											MethodAttribute::Alias(alias) => {
+												for alias in alias.aliases {
+													names.push(Name::String(alias));
+												}
+											}
+											_ => (),
+										}
+									}
+									indexes.push(index);
+								}
+							}
+
+							match name {
+								Some(name) => names.insert(0, name),
+								None => {
+									if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
+										names.insert(
+											0,
+											Name::from_string(
+												get_accessor_name(method.sig.ident.to_string(), kind == Some(MethodKind::Setter)),
+												method.sig.ident.span(),
+											),
+										)
+									} else {
+										names.insert(0, Name::from_string(method.sig.ident.to_string(), method.sig.ident.span()))
+									}
+								}
+							}
+							let name = names[0].clone();
+
+							impl_items_to_remove.push(j);
+							if let Some(internal) = internal {
+								method.attrs.remove(internal);
+								impl_items_to_add.push(ImplItem::Fn(parse2(method.to_token_stream())?));
+							} else {
+								for index in indexes {
+									method.attrs.remove(index);
+								}
+
+								match kind {
+									Some(MethodKind::Constructor) => {
+										let (cons, _) = impl_constructor(&crates, method.clone(), &imp.self_ty)?;
+										constructor = Some(Method { names, ..cons });
+									}
+									Some(MethodKind::Getter) => {
+										let (getter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, false)?;
+										let getter = Method { names, ..getter };
+
+										if parameters.this.is_some() {
+											insert_accessor(&mut accessors, name.as_string(), Some(getter), None);
+										} else {
+											insert_accessor(&mut static_accessors, name.as_string(), Some(getter), None);
+										}
+									}
+									Some(MethodKind::Setter) => {
+										let (setter, parameters) = impl_accessor(&crates, &method, &imp.self_ty, false, true)?;
+										let setter = Method { names, ..setter };
+
+										if parameters.this.is_some() {
+											insert_accessor(&mut accessors, name.as_string(), None, Some(setter));
+										} else {
+											insert_accessor(&mut static_accessors, name.as_string(), None, Some(setter));
+										}
+									}
+									None => {
+										let (method, _) = impl_method(&crates, method.clone(), &imp.self_ty, false, |_| Ok(()))?;
+										let method = Method { names, ..method };
+
+										if method.receiver == MethodReceiver::Dynamic {
+											methods.push(method);
+										} else {
+											static_methods.push(method);
+										}
+									}
+									Some(MethodKind::Internal) => continue,
+								}
+							}
+						}
+						ImplItem::Const(con) => {
+							if let Visibility::Public(_) = con.vis {
+								if let Some((con, property, stat)) = Property::from_const(con.clone())? {
+									impl_items_to_remove.push(j);
+									if stat {
+										static_properties.push(property);
+									} else {
+										properties.push(property);
+									}
+									impl_items_to_add.push(ImplItem::Const(con));
+								}
+							}
+						}
+						_ => (),
+					}
+				}
+
+				impl_items_to_remove.reverse();
+				for index in impl_items_to_remove {
+					imp.items.remove(index);
+				}
+				for item in impl_items_to_add {
+					imp.items.push(item);
+				}
+
+				implementation = Some(imp);
+			} else {
+				content_to_remove.pop();
+				if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Clone)) {
+					has_clone = true;
+				} else if imp.trait_.as_ref().map(|tr| &tr.1) == Some(&parse_quote!(Traceable)) {
+					has_trace = true;
+				}
+			}
+		}
 	}
 
 	let mut class = if let Some(class) = class {
-		class
+		let (index, str) = class.into_inner();
+		content_to_remove.push(index);
+		str
 	} else {
 		return Err(Error::new(module.span(), "Expected Struct within Module"));
 	};
+
+	content_to_remove.sort_by(|a, b| usize::cmp(a, b).reverse());
+	for index in content_to_remove {
+		content.remove(index);
+	}
 
 	let has_clone = has_clone
 		|| (*class.attrs).iter().any(|attr| {
@@ -248,6 +276,7 @@ pub(crate) fn impl_js_class(mut module: ItemMod) -> Result<ItemMod> {
 					ClassAttribute::ToValue(_) => impl_to_value = true,
 					ClassAttribute::IntoValue(_) => impl_into_value = true,
 					ClassAttribute::NoStringTag(_) => has_string_tag = false,
+					_ => {}
 				}
 			}
 			class_attrs_to_remove.push(index);

@@ -977,6 +977,7 @@ name = "ion-proc"
 version = "0.1.0"
 dependencies = [
  "convert_case",
+ "either",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -1148,7 +1149,6 @@ dependencies = [
 name = "modules"
 version = "0.1.0"
 dependencies = [
- "derivative",
  "futures",
  "hyper",
  "hyper-rustls",

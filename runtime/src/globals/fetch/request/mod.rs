@@ -30,12 +30,15 @@ pub mod class {
 	use hyper::{Body, Method, Uri};
 	use url::Url;
 
+	use mozjs::jsapi::{Heap, JSObject, JSTracer};
+	use mozjs::gc::Traceable;
 	use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Value};
-	use ion::conversions::FromValue;
+	use ion::conversions::{FromValue, ToValue};
 
 	use crate::globals::abort::AbortSignal;
 	use crate::globals::fetch::{Headers, RequestInfo};
 	use crate::globals::fetch::body::FetchBody;
+	use crate::globals::fetch::header::HeadersKind;
 	use crate::globals::fetch::request::{
 		clone_request, Referrer, ReferrerPolicy, RequestBuilderInit, RequestCache, RequestCredentials, RequestMode, RequestRedirect,
 	};
@@ -61,17 +64,21 @@ pub mod class {
 
 		#[allow(dead_code)]
 		pub(crate) unsafe_request: bool,
-		pub(crate) keepalive: bool,
-		pub(crate) reload_navigation: bool,
-		pub(crate) history_navigation: bool,
+		#[ion(readonly)]
+		pub keepalive: bool,
+		#[ion(readonly, name = "isReloadNavigation")]
+		pub reload_navigation: bool,
+		#[ion(readonly, name = "isHistoryNavigation")]
+		pub history_navigation: bool,
 
 		pub(crate) client_window: bool,
 		pub(crate) signal: AbortSignal,
+		pub(crate) signal_object: Box<Heap<*mut JSObject>>,
 	}
 
 	impl Request {
 		#[ion(constructor)]
-		pub fn constructor(info: RequestInfo, init: Option<RequestBuilderInit>) -> Result<Request> {
+		pub fn constructor(cx: &Context, info: RequestInfo, init: Option<RequestBuilderInit>) -> Result<Request> {
 			let mut fallback_cors = false;
 
 			let mut request = match info {
@@ -85,6 +92,9 @@ pub mod class {
 					let request = hyper::Request::builder().uri(uri).body(Body::empty())?;
 
 					fallback_cors = true;
+
+					let signal = AbortSignal::default();
+					let signal_object = Heap::boxed(AbortSignal::new_object(cx, signal.clone()));
 
 					Request {
 						request,
@@ -110,7 +120,8 @@ pub mod class {
 						history_navigation: false,
 
 						client_window: true,
-						signal: AbortSignal::default(),
+						signal,
+						signal_object,
 					}
 				}
 			};
@@ -164,8 +175,10 @@ pub mod class {
 					request.keepalive = keepalive;
 				}
 
-				if let Some(signal) = init.signal {
-					request.signal = signal;
+				if let Some(signal_object) = init.signal {
+					let signal = Object::from(cx.root_object(signal_object)).as_value(cx);
+					request.signal = AbortSignal::from_value(cx, &signal, false, ())?;
+					request.signal_object = Heap::boxed(signal_object);
 				}
 
 				if let Some(mut method) = method {
@@ -196,7 +209,7 @@ pub mod class {
 			}
 
 			if let Some(headers) = headers {
-				*request.request.headers_mut() = headers.into_headers()?.headers;
+				*request.request.headers_mut() = headers.into_headers(HeadersKind::Request)?.headers;
 			}
 
 			if let Some(body) = body {
@@ -211,6 +224,66 @@ pub mod class {
 			}
 
 			Ok(request)
+		}
+
+		#[ion(get)]
+		pub fn get_method(&self) -> String {
+			self.request.method().to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_url(&self) -> String {
+			self.request.uri().to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_destination(&self) -> String {
+			String::new()
+		}
+
+		#[ion(get)]
+		pub fn get_referrer(&self) -> String {
+			self.referrer.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_referrer_policy(&self) -> String {
+			self.referrer.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_mode(&self) -> String {
+			self.mode.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_credentials(&self) -> String {
+			self.credentials.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_cache(&self) -> String {
+			self.cache.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_redirect(&self) -> String {
+			self.redirect.to_string()
+		}
+
+		#[ion(get)]
+		pub fn get_integrity(&self) -> String {
+			self.integrity.clone()
+		}
+
+		#[ion(get)]
+		pub fn get_signal(&self) -> *mut JSObject {
+			self.signal_object.get()
+		}
+
+		#[ion(get)]
+		pub fn get_duplex(&self) -> String {
+			String::from("half")
 		}
 
 		#[allow(clippy::should_implement_trait)]
@@ -244,12 +317,24 @@ pub mod class {
 
 				client_window: self.client_window,
 				signal: self.signal.clone(),
+				signal_object: Heap::boxed(self.signal_object.get()),
 			})
 		}
 
 		#[ion(get)]
 		pub fn get_headers(&self) -> Headers {
-			Headers::new(self.request.headers().clone(), true)
+			Headers {
+				headers: self.request.headers().clone(),
+				kind: HeadersKind::Request,
+			}
+		}
+	}
+
+	unsafe impl Traceable for Request {
+		unsafe fn trace(&self, trc: *mut JSTracer) {
+			unsafe {
+				self.signal_object.trace(trc);
+			}
 		}
 	}
 

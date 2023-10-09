@@ -7,6 +7,7 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use mozjs::jsapi::JSObject;
 use mozjs::jsval::JSVal;
 
 use url::Url;
@@ -14,7 +15,6 @@ use url::Url;
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::{FromValue, ToValue};
 
-use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersInit;
 
@@ -465,7 +465,7 @@ pub struct RequestInit {
 	pub(crate) integrity: Option<String>,
 
 	pub(crate) keepalive: Option<bool>,
-	pub(crate) signal: Option<AbortSignal>,
+	pub(crate) signal: Option<*mut JSObject>,
 
 	#[allow(dead_code)]
 	pub(crate) duplex: Option<RequestDuplex>,

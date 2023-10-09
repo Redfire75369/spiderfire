@@ -33,7 +33,7 @@ pub(crate) async fn send_requests(req: Request, client: Client<HttpsConnector<Ht
 	let mut redirections = 0;
 
 	let mut request = req.clone()?;
-	*request.request.body_mut() = request.body.to_body();
+	*request.request.body_mut() = request.body.to_http_body();
 
 	let mut response = client.request(req.request).await?;
 	let mut url = request.url.clone();

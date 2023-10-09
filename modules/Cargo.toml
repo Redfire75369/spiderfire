@@ -8,7 +8,6 @@ license = "MPL-2.0"
 [dependencies]
 idna = "0.4.0"
 
-derivative.workspace = true
 futures.workspace = true
 mozjs.workspace = true
 url.workspace = true

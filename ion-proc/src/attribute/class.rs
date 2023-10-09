@@ -18,6 +18,7 @@ mod keywords {
 	custom_keyword!(alias);
 	custom_keyword!(skip);
 
+	custom_keyword!(class);
 	custom_keyword!(no_constructor);
 	custom_keyword!(from_value);
 	custom_keyword!(to_value);
@@ -146,6 +147,7 @@ impl Parse for AliasAttribute {
 #[derive(Debug)]
 pub(crate) enum ClassAttribute {
 	Name(ClassNameAttribute),
+	Class(keywords::class),
 	NoConstructor(keywords::no_constructor),
 	FromValue(keywords::from_value),
 	ToValue(keywords::to_value),
@@ -160,6 +162,8 @@ impl Parse for ClassAttribute {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::name) {
 			Ok(CA::Name(input.parse()?))
+		} else if lookahead.peek(keywords::class) {
+			Ok(CA::Class(input.parse()?))
 		} else if lookahead.peek(keywords::no_constructor) {
 			Ok(CA::NoConstructor(input.parse()?))
 		} else if lookahead.peek(keywords::from_value) {

@@ -23,26 +23,6 @@ pub enum Header {
 	Single(String),
 }
 
-pub struct HeadersObject(HeaderMap);
-
-pub struct HeaderEntry {
-	name: String,
-	value: String,
-}
-
-#[derive(Default, FromValue)]
-pub enum HeadersInit {
-	#[ion(inherit)]
-	Existing(Headers),
-	#[ion(inherit)]
-	Array(Vec<HeaderEntry>),
-	#[ion(inherit)]
-	Object(HeadersObject),
-	#[default]
-	#[ion(skip)]
-	Empty,
-}
-
 impl Display for Header {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
@@ -56,6 +36,27 @@ impl ToValue<'_> for Header {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
 		self.to_string().to_value(cx, value)
 	}
+}
+
+pub struct HeadersObject(HeaderMap);
+
+impl<'cx> FromValue<'cx> for HeadersObject {
+	type Config = ();
+
+	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
+	where
+		'cx: 'v,
+	{
+		let object = Object::from_value(cx, value, true, ())?;
+		let mut headers = HeaderMap::new();
+		append_to_headers(cx, &mut headers, object, false)?;
+		Ok(HeadersObject(headers))
+	}
+}
+
+pub struct HeaderEntry {
+	name: String,
+	value: String,
 }
 
 impl<'cx> FromValue<'cx> for HeaderEntry {
@@ -87,32 +88,38 @@ impl ToValue<'_> for HeaderEntry {
 	}
 }
 
-impl<'cx> FromValue<'cx> for HeadersObject {
-	type Config = ();
-
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
-	where
-		'cx: 'v,
-	{
-		let object = Object::from_value(cx, value, true, ())?;
-		let mut headers = HeaderMap::new();
-		append_to_headers(cx, &mut headers, object, false)?;
-		Ok(HeadersObject(headers))
-	}
+#[derive(Default, FromValue)]
+pub enum HeadersInit {
+	#[ion(inherit)]
+	Existing(Headers),
+	#[ion(inherit)]
+	Array(Vec<HeaderEntry>),
+	#[ion(inherit)]
+	Object(HeadersObject),
+	#[default]
+	#[ion(skip)]
+	Empty,
 }
 
 impl HeadersInit {
-	pub(crate) fn into_headers(self) -> Result<Headers> {
+	pub(crate) fn into_headers(self, kind: HeadersKind) -> Result<Headers> {
 		match self {
-			HeadersInit::Existing(existing) => {
-				let headers = existing.headers;
-				Ok(Headers { headers, readonly: existing.readonly })
-			}
-			HeadersInit::Array(vec) => Headers::from_array(vec, false),
-			HeadersInit::Object(object) => Ok(Headers::new(object.0, false)),
-			HeadersInit::Empty => Ok(Headers::new(HeaderMap::new(), false)),
+			HeadersInit::Existing(existing) => Ok(Headers { headers: existing.headers, kind }),
+			HeadersInit::Array(vec) => Headers::from_array(vec, kind),
+			HeadersInit::Object(object) => Ok(Headers { headers: object.0, kind }),
+			HeadersInit::Empty => Ok(Headers { headers: HeaderMap::new(), kind }),
 		}
 	}
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub enum HeadersKind {
+	Immutable,
+	Request,
+	RequestNoCors,
+	Response,
+	#[default]
+	None,
 }
 
 #[js_class]
@@ -127,23 +134,18 @@ mod class {
 	use ion::conversions::ToValue;
 	use ion::symbol::WellKnownSymbolCode;
 
-	use crate::globals::fetch::header::{get_header, Header, HeaderEntry, HeadersInit};
+	use crate::globals::fetch::header::{get_header, Header, HeaderEntry, HeadersInit, HeadersKind};
 
 	#[derive(Clone, Default)]
 	#[ion(from_value, to_value)]
 	pub struct Headers {
 		pub(crate) headers: HeaderMap,
-		pub(crate) readonly: bool,
+		pub(crate) kind: HeadersKind,
 	}
 
 	impl Headers {
 		#[ion(skip)]
-		pub fn new(headers: HeaderMap, readonly: bool) -> Headers {
-			Headers { headers, readonly }
-		}
-
-		#[ion(skip)]
-		pub fn from_array(vec: Vec<HeaderEntry>, readonly: bool) -> Result<Headers> {
+		pub fn from_array(vec: Vec<HeaderEntry>, kind: HeadersKind) -> Result<Headers> {
 			let mut headers = HeaderMap::new();
 			for entry in vec {
 				let mut name = entry.name;
@@ -154,16 +156,16 @@ mod class {
 				let value = HeaderValue::try_from(&value)?;
 				headers.append(name, value);
 			}
-			Ok(Headers { headers, readonly })
+			Ok(Headers { headers, kind })
 		}
 
 		#[ion(constructor)]
 		pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
-			init.unwrap_or_default().into_headers()
+			init.unwrap_or_default().into_headers(HeadersKind::None)
 		}
 
 		pub fn append(&mut self, name: String, value: String) -> Result<()> {
-			if !self.readonly {
+			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
 				let value = HeaderValue::from_str(&value)?;
 				self.headers.append(name, value);
@@ -174,7 +176,7 @@ mod class {
 		}
 
 		pub fn delete(&mut self, name: String) -> Result<bool> {
-			if !self.readonly {
+			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
 				match self.headers.entry(name) {
 					Entry::Occupied(o) => {
@@ -207,7 +209,7 @@ mod class {
 		}
 
 		pub fn set(&mut self, name: String, value: String) -> Result<()> {
-			if !self.readonly {
+			if self.kind != HeadersKind::Immutable {
 				let name = HeaderName::from_str(&name.to_lowercase())?;
 				let value = HeaderValue::from_str(&value)?;
 				self.headers.insert(name, value);

@@ -5,12 +5,11 @@
  */
 
 use std::future::Future;
-use std::pin::Pin;
+use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 
-use futures::FutureExt;
 use mozjs::jsval::JSVal;
 use tokio::sync::watch::Receiver;
 
@@ -42,19 +41,13 @@ impl Future for SignalFuture {
 				if let Some(abort) = *receiver.borrow() {
 					return Poll::Ready(abort);
 				}
-				let changed = { Box::pin(receiver.changed()).poll_unpin(cx) };
+				let changed = { pin!(receiver.changed()).poll(cx) };
 				match changed {
 					Poll::Ready(_) => match *receiver.borrow() {
 						Some(abort) => Poll::Ready(abort),
-						None => {
-							cx.waker().wake_by_ref();
-							Poll::Pending
-						}
+						None => Poll::Pending,
 					},
-					Poll::Pending => {
-						cx.waker().wake_by_ref();
-						Poll::Pending
-					}
+					Poll::Pending => Poll::Pending,
 				}
 			}
 		}

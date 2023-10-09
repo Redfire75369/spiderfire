@@ -6,11 +6,12 @@
 
 pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
-use ion::{ClassDefinition, Context, Object, ResultExc};
+use ion::{ClassDefinition, Context, Object, Promise, ResultExc};
 use ion::flags::PropertyFlags;
 pub use network::request_internal;
 pub use request::{Request, RequestBuilderInit, RequestInit, RequestInfo};
 pub use response::Response;
+use crate::promise::future_to_promise;
 
 mod body;
 mod client;
@@ -21,10 +22,9 @@ mod response;
 
 // TODO: Specification-Compliant Fetch Implementation
 #[js_fn]
-#[ion(runtime = crate)]
-async fn fetch(resource: RequestInfo, init: Option<RequestBuilderInit>) -> ResultExc<Response> {
-	let request = Request::constructor(resource, init)?;
-	request_internal(request, GLOBAL_CLIENT.get().unwrap().clone()).await
+fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestBuilderInit>) -> ResultExc<Promise<'cx>> {
+	let request = Request::constructor(cx, resource, init)?;
+	Ok(future_to_promise(cx, request_internal(request, GLOBAL_CLIENT.get().unwrap().clone())))
 }
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
