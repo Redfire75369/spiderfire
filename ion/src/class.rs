@@ -6,6 +6,7 @@
 
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
+use std::ffi::CString;
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
@@ -75,13 +76,15 @@ pub trait ClassDefinition {
 				let static_properties = Self::static_properties();
 				let static_functions = Self::static_functions();
 
+				let name = CString::new(Self::NAME).unwrap();
+
 				let class = unsafe {
 					JS_InitClass(
 						cx.as_ptr(),
 						object.handle().into(),
 						parent_class,
 						parent_proto.handle().into(),
-						Self::NAME.as_ptr().cast(),
+						name.as_ptr().cast(),
 						Some(constructor),
 						nargs,
 						properties.as_ptr(),
