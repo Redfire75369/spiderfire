@@ -61,7 +61,7 @@ pub trait ClassDefinition {
 	where
 		Self: Sized + 'static,
 	{
-		let infos = unsafe { &mut (*cx.get_inner_data()).class_infos };
+		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let entry: Entry<'cx, _, _> = infos.entry(TypeId::of::<Self>());
 
 		match entry {
@@ -113,7 +113,7 @@ pub trait ClassDefinition {
 	where
 		Self: Sized + 'static,
 	{
-		let infos = unsafe { &mut (*cx.get_inner_data()).class_infos };
+		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
 		let boxed = Box::new(Some(native));
 		unsafe {

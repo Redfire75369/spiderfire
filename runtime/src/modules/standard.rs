@@ -42,7 +42,7 @@ impl<M: NativeModule> StandardModules for M {
 }
 
 // TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
-//TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
+// TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
 pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
 	let internal = format!("______{}Internal______", M::NAME);
 	let module = M::module(cx);
@@ -50,7 +50,7 @@ pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut 
 	if let Some(module) = module {
 		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT) {
 			let (module, _) = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
-			let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
+			let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 			return loader.as_mut().is_some_and(|loader| {
 				let request = ModuleRequest::new(cx, M::NAME);
 				loader.register(cx, module.0.handle().get(), &request);

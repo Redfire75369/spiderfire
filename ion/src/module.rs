@@ -195,7 +195,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn resolve(cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
 		let cx = unsafe { Context::new_unchecked(cx) };
 
-		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
+		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
@@ -209,7 +209,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn metadata(cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
 		let cx = unsafe { Context::new_unchecked(cx) };
 
-		let loader = unsafe { &mut (*cx.get_inner_data()).module_loader };
+		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
@@ -221,7 +221,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	}
 
 	unsafe {
-		(*cx.get_inner_data()).module_loader = Some(Box::new(loader));
+		(*cx.get_inner_data().as_ptr()).module_loader = Some(Box::new(loader));
 
 		let rt = JS_GetRuntime(cx.as_ptr());
 		SetModuleResolveHook(rt, Some(resolve));

@@ -7,11 +7,13 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
+use mozjs::gc::{GCMethods, Handle, MutableHandle};
+use mozjs::jsapi::{Heap, Rooted};
 use mozjs::jsapi::Handle as RawHandle;
-use mozjs::jsapi::Heap;
 use mozjs::jsapi::MutableHandle as RawMutableHandle;
-use mozjs::rust::{GCMethods, Handle, MutableHandle, RootedGuard};
 use mozjs_sys::jsgc::RootKind;
+
+use crate::Context;
 
 /// Represents a local reference managed by the Garbage Collector.
 /// Prevents a local value that is currently being used from being garbage collected and causing undefined behaviour.
@@ -19,7 +21,7 @@ pub enum Local<'local, T: 'local>
 where
 	T: GCMethods + RootKind,
 {
-	Rooted(&'local mut RootedGuard<'local, T>),
+	Rooted(&'local mut Rooted<T>),
 	Mutable(MutableHandle<'local, T>),
 	Handle(Handle<'local, T>),
 }
@@ -31,7 +33,7 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 		'local: 'a,
 	{
 		match self {
-			Self::Rooted(rooted) => rooted.handle(),
+			Self::Rooted(root) => unsafe { Handle::from_marked_location(&root.ptr) },
 			Self::Mutable(handle) => handle.handle(),
 			Self::Handle(handle) => *handle,
 		}
@@ -46,21 +48,30 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 		'local: 'a,
 	{
 		match self {
-			Local::Rooted(rooted) => rooted.handle_mut(),
+			Local::Rooted(root) => unsafe { MutableHandle::from_marked_location(&mut root.ptr) },
 			Local::Mutable(handle) => *handle,
 			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
 		}
 	}
 
 	pub fn get(&self) -> T {
-		self.handle().get()
+		match self {
+			Self::Rooted(root) => root.ptr,
+			Self::Mutable(handle) => handle.get(),
+			Self::Handle(handle) => handle.get(),
+		}
 	}
 }
 
 impl<'local, T: GCMethods + RootKind> Local<'local, T> {
-	/// Creates a [Local] from a [&mut] [RootedGuard].
-	pub fn from_rooted(rooted: &'local mut RootedGuard<'local, T>) -> Local<'local, T> {
-		Local::Rooted(rooted)
+	/// Creates a new [Local].
+	/// `Context::root_*` should be used instead.
+	pub(crate) fn new(cx: &Context, root: &'local mut Rooted<T>, initial: T) -> Local<'local, T> {
+		root.ptr = initial;
+		unsafe {
+			root.add_to_root_stack(cx.as_ptr());
+		}
+		Local::Rooted(root)
 	}
 
 	/// Creates a [Local] from a [MutableHandle].

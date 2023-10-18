@@ -69,9 +69,7 @@ impl Drop for Runtime<'_, '_> {
 			let _ = unsafe { Box::from_raw(private) };
 		}
 		let inner_private = self.cx.get_inner_data();
-		if !inner_private.is_null() {
-			let _ = unsafe { Box::from_raw(inner_private) };
-		}
+		let _ = unsafe { Box::from_raw(inner_private.as_ptr()) };
 	}
 }
 
