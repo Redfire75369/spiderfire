@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Dependencies on OS X
         if: matrix.id == 'macos'
-        run: brew install autoconf@2.13 llvm sccache yasm
+        run: brew install --overwrite python autoconf@2.13 llvm sccache yasm
 
       - name: Install Dependencies on Linux
         if: matrix.id == 'linux'
