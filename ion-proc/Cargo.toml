@@ -10,10 +10,10 @@ convert_case = "0.6.0"
 either = "1.9.0"
 quote = "1.0.33"
 prettyplease = "0.2.15"
-proc-macro2 = "1.0.67"
+proc-macro2 = "1.0.69"
 
 [dependencies.syn]
-version = "2.0.37"
+version = "2.0.38"
 features = ["extra-traits", "full", "visit-mut"]
 
 [lib]

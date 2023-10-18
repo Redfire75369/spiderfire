@@ -14,7 +14,6 @@ use std::str::{from_utf8, Utf8Error};
 use base64_url::encode;
 use dirs::home_dir;
 use dunce::canonicalize;
-use os_str_bytes::OsStrBytes;
 use sha3::{Digest, Sha3_512};
 use sourcemap::SourceMap;
 
@@ -52,7 +51,7 @@ impl Cache {
 		let folder = canonical.parent().ok_or(Error::Other)?;
 		let folder_name = folder.file_name().and_then(OsStr::to_str).ok_or(Error::Other)?;
 
-		let hash = hash(folder.to_raw_bytes(), Some(16));
+		let hash = hash(folder.as_os_str().to_str().unwrap().as_bytes(), Some(16));
 		let folder = self.dir.join(format!("{}-{}", folder_name, hash));
 		Ok(folder)
 	}

@@ -12,7 +12,6 @@ dirs = "5.0.1"
 encoding_rs = "0.8.33"
 form_urlencoded = "1.2.0"
 indexmap = "2.0.2"
-os_str_bytes = "6.5.1"
 paste = "1.0.14"
 sha3 = "0.10.8"
 term-table = "1.3.2"
@@ -47,20 +46,22 @@ path = "../ion"
 features = ["macros", "sourcemap"]
 
 [dependencies.swc_core]
-version = "0.79.69"
-features = ["common"]
-
-[dependencies.swc_common]
-version = "0.31.21"
-features = ["sourcemap", "tty-emitter"]
-
-[dependencies.swc_ecmascript]
-version = "0.231.59"
-features = ["codegen", "parser", "transforms", "typescript", "visit"]
+version = "0.86.4"
+features = [
+	"common",
+	"common_sourcemap",
+	"common_tty",
+	"ecma_ast",
+	"ecma_codegen",
+	"ecma_parser",
+	"ecma_transforms",
+	"ecma_parser_typescript",
+	"ecma_transforms_typescript",
+	"ecma_visit",
+]
 
 [dependencies.tokio]
-version = "1.32.0"
-default-features = false
+workspace = true
 features = ["sync"]
 
 [features]

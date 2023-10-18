@@ -6,8 +6,8 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-bitflags = "2.4.0"
-byteorder = "1.4.3"
+bitflags = "2.4.1"
+byteorder = "1.5.0"
 bytemuck = "1.14.0"
 libffi = "3.2.0"
 typed-arena = "2.0.2"

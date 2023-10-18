@@ -26,7 +26,7 @@ features = ["fetch", "promise-logger"]
 
 [dependencies.tokio]
 workspace = true
-features = ["macros"]
+features = ["macros", "rt"]
 
 [features]
 debugmozjs = ["ion/debugmozjs"]

@@ -15,14 +15,16 @@ use swc_core::common::comments::{Comments, SingleThreadedComments};
 use swc_core::common::errors::{ColorConfig, Handler};
 use swc_core::common::input::StringInput;
 use swc_core::common::sync::Lrc;
-use swc_ecmascript::ast::EsVersion;
-use swc_ecmascript::codegen::{Config as CodegenConfig, Emitter};
-use swc_ecmascript::codegen::text_writer::JsWriter;
-use swc_ecmascript::parser::{Capturing, Parser, Syntax};
-use swc_ecmascript::parser::lexer::Lexer;
-use swc_ecmascript::transforms::{fixer, hygiene, resolver};
-use swc_ecmascript::transforms::typescript::strip;
-use swc_ecmascript::visit::FoldWith;
+use swc_core::ecma::ast::EsVersion;
+use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};
+use swc_core::ecma::codegen::text_writer::JsWriter;
+use swc_core::ecma::parser::{Capturing, Parser, Syntax};
+use swc_core::ecma::parser::lexer::Lexer;
+use swc_core::ecma::transforms::base::fixer::fixer;
+use swc_core::ecma::transforms::base::hygiene::hygiene;
+use swc_core::ecma::transforms::base::resolver;
+use swc_core::ecma::transforms::typescript::strip;
+use swc_core::ecma::visit::FoldWith;
 
 use crate::config::Config;
 
@@ -115,12 +117,7 @@ fn initialise_emitter<'a>(
 	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, buffer: &'a mut Vec<u8>, mappings: &'a mut Vec<(BytePos, LineCol)>,
 ) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
-		cfg: CodegenConfig {
-			target: EsVersion::Es2022,
-			ascii_only: false,
-			minify: false,
-			omit_last_semi: false,
-		},
+		cfg: CodegenConfig::default().with_target(EsVersion::Es2022),
 		cm: source_map.clone(),
 		comments: Some(comments),
 		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),
