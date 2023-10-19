@@ -12,15 +12,20 @@ use http::header::{CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LOCATION, CONTENT
 use hyper::{Body, Client};
 use hyper::client::HttpConnector;
 use hyper_rustls::HttpsConnector;
+use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{Context, Error, Exception, ResultExc};
+use ion::{ClassDefinition, Context, Error, Exception, Object, ResultExc};
 
-use crate::globals::fetch::{Request, Response};
+use crate::globals::fetch::{Headers, Request, Response};
 use crate::globals::fetch::body::FetchBody;
+use crate::globals::fetch::header::{HeadersInner, HeadersKind};
 use crate::globals::fetch::request::{clone_request, RequestRedirect};
 
-pub async fn request_internal<'c>(cx: &Context<'c>, request: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
+pub async fn request_internal<'c, 'o>(
+	cx: &Context<'c>, request: &Object<'o>, client: Client<HttpsConnector<HttpConnector>>,
+) -> ResultExc<*mut JSObject> {
+	let request = Request::get_private(request);
 	let signal = request.signal.poll();
 	let send = Box::pin(send_requests(cx, request, client));
 	match select(send, signal).await {
@@ -29,13 +34,13 @@ pub async fn request_internal<'c>(cx: &Context<'c>, request: Request, client: Cl
 	}
 }
 
-pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<Response> {
+pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: &Request, client: Client<HttpsConnector<HttpConnector>>) -> ResultExc<*mut JSObject> {
 	let mut redirections = 0;
 
-	let mut request = req.clone(cx)?;
+	let mut request = req.clone()?;
 	*request.request.body_mut() = request.body.to_http_body();
 
-	let mut response = client.request(req.request).await?;
+	let mut response = client.request(clone_request(&req.request)?).await?;
 	let mut url = request.url.clone();
 
 	while response.status().is_redirection() {
@@ -47,7 +52,7 @@ pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: Request, client: Cl
 			return Err(Error::new("Redirected with a Body", None).into());
 		}
 
-		match req.redirect {
+		match request.redirect {
 			RequestRedirect::Follow => {
 				let method = request.request.method().clone();
 
@@ -83,13 +88,26 @@ pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: Request, client: Cl
 					let request = { clone_request(&request.request) }?;
 					response = client.request(request).await?;
 				} else {
-					return Ok(Response::new(cx, response, url, redirections > 0));
+					break;
 				}
 			}
 			RequestRedirect::Error => return Err(Error::new("Received Redirection", None).into()),
-			RequestRedirect::Manual => return Ok(Response::new(cx, response, url, redirections > 0)),
+			RequestRedirect::Manual => break,
 		}
 	}
 
-	Ok(Response::new(cx, response, url, redirections > 0))
+	let mut response_object = Object::from(cx.root_object(Response::new_raw_object(cx)));
+	Response::set_private(response_object.handle().get(), Response::new(response, url, redirections > 0));
+
+	let heap = Heap::boxed(response_object.handle().get());
+	let response = Response::get_mut_private(&mut response_object);
+	let headers = Headers::new_object(
+		cx,
+		Headers {
+			headers: HeadersInner::MutRef(response.response.headers_mut(), heap),
+			kind: HeadersKind::Response,
+		},
+	);
+	response.headers.set(headers);
+	return Ok(response_object.handle().get());
 }

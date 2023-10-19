@@ -16,12 +16,6 @@ use crate::attribute::function::ParameterAttribute;
 use crate::utils::{format_pat, type_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum ThisKind {
-	Ref(Option<Lifetime>, Option<Token![mut]>),
-	Owned,
-}
-
 #[derive(Debug)]
 pub(crate) enum Parameter {
 	Regular {
@@ -39,7 +33,13 @@ pub(crate) enum Parameter {
 	},
 	Context(Box<Pat>, Box<Type>),
 	Arguments(Box<Pat>, Box<Type>),
-	This(Box<Pat>, Box<Type>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ThisKind {
+	Ref(Option<Lifetime>, Option<Token![mut]>),
+	Object(Option<Lifetime>, Option<Token![mut]>),
+	Owned,
 }
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub(crate) struct Parameters {
 }
 
 impl Parameter {
-	pub(crate) fn from_arg(arg: &FnArg, is_class: bool) -> Result<Parameter> {
+	pub(crate) fn from_arg(arg: &FnArg) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let PatType { pat, ty, .. } = pat_ty.clone();
@@ -94,9 +94,6 @@ impl Parameter {
 								PA::Strict(_) => {
 									strict = true;
 								}
-								PA::This(_) if is_class => {
-									return Ok(Parameter::This(pat, ty));
-								}
 								_ => (),
 							}
 						}
@@ -128,10 +125,9 @@ impl Parameter {
 
 	pub(crate) fn get_type_without_lifetimes(&self) -> Type {
 		use Parameter as P;
-		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty) | P::This(_, ty)) = self;
+		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty)) = self;
 		let mut ty = *ty.clone();
-		let mut lifetime_remover = LifetimeRemover;
-		visit_type_mut(&mut lifetime_remover, &mut ty);
+		visit_type_mut(&mut LifetimeRemover, &mut ty);
 		ty
 	}
 
@@ -143,36 +139,28 @@ impl Parameter {
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
 			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
-			P::This(pat, _) => parse2(quote!(let #pat: #ty = __this;)),
 		}
 	}
 }
 
 impl ThisParameter {
-	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>, is_class: bool) -> Result<Option<ThisParameter>> {
+	pub(crate) fn from_arg(arg: &FnArg, class_ty: Option<&Type>) -> Result<Option<ThisParameter>> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
-				let PatType { pat, ty, .. } = pat_ty.clone();
+				let PatType { pat, mut ty, .. } = pat_ty.clone();
 				match class_ty {
 					Some(class_ty) if pat == parse_quote!(self) => {
-						let class_ty = Box::new(class_ty.clone());
-						let mut self_renamer = SelfRenamer { ty: class_ty };
-						let mut ty = ty;
-						visit_type_mut(&mut self_renamer, &mut ty);
+						visit_type_mut(&mut SelfRenamer { ty: class_ty }, &mut ty);
 						parse_this(pat, ty, true, span).map(Some)
 					}
 					_ => {
-						if !is_class {
-							for attr in &pat_ty.attrs {
-								if attr.path().is_ident("ion") {
-									let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
-
-									use ParameterAttribute as PA;
-									for arg in args {
-										if let PA::This(_) = arg {
-											return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
-										}
+						for attr in &pat_ty.attrs {
+							if attr.path().is_ident("ion") {
+								let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+								for arg in args {
+									if let ParameterAttribute::This(_) = arg {
+										return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
 									}
 								}
 							}
@@ -203,55 +191,69 @@ impl ThisParameter {
 
 	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
-		if is_class {
-			let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
-			match kind {
-				ThisKind::Ref(lt, mutability) => parse2(quote!(
-					let #pat: &#lt #mutability #ty = <#ty as #ion::ClassDefinition>::get_private(__this);
-				)),
-				ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
+		let self_ = parse_quote!(self_);
+		let pat = if is_class && &**pat == &parse_quote!(self) { &self_ } else { pat };
+		let mut ty = ty.clone();
+		visit_type_mut(&mut LifetimeRemover, &mut ty);
+
+		match kind {
+			ThisKind::Ref(lt, mutability) => {
+				if is_class {
+					parse2(quote!(
+						let #pat: &#lt #mutability #ty = <#ty as #ion::ClassDefinition>::get_mut_private(__this);
+					))
+				} else {
+					parse2(quote!(
+						let #pat: #ty = <#ty as #ion::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;
+					))
+				}
 			}
-		} else {
-			parse2(quote!(let #pat: #ty = <#ty as #ion::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;))
+			ThisKind::Object(_, mutability) => parse2(quote!(let #pat: &#mutability #ty = __this;)),
+			ThisKind::Owned => Err(Error::new(pat.span(), "This cannot be owned")),
 		}
 	}
 
 	pub(crate) fn to_async_class_statement(&self, ion: &TokenStream) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
-
 		let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
+		let mut ty = ty.clone();
+		visit_type_mut(&mut LifetimeRemover, &mut ty);
+
 		match kind {
-			ThisKind::Ref(_, mutability) => {
-				parse2(quote!(let #pat: &'static #mutability #ty = &mut *(<#ty as #ion::ClassDefinition>::get_private(&__this) as *mut #ty);))
-			}
-			ThisKind::Owned => Err(Error::new(pat.span(), "Self cannot be owned on Class Methods")),
+			ThisKind::Ref(_, mutability) => parse2(quote!(
+				let #pat: &'static #mutability #ty = &mut *(<#ty as #ion::ClassDefinition>::get_mut_private(&mut __this) as *mut #ty);
+			)),
+			ThisKind::Object(_, mutability) => parse2(quote!(let #pat: &#mutability #ty = __this;)),
+			ThisKind::Owned => Err(Error::new(pat.span(), "This cannot be owned")),
 		}
 	}
 }
 
 impl Parameters {
-	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>, is_class: bool) -> Result<Parameters> {
+	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>) -> Result<Parameters> {
 		let mut nargs = (0, 0);
-		let mut this = None;
+		let mut this: Option<(ThisParameter, Ident, usize)> = None;
 		let mut idents = Vec::new();
 
 		let parameters: Vec<_> = parameters
 			.iter()
 			.enumerate()
 			.filter_map(|(i, arg)| {
-				let this_param = ThisParameter::from_arg(arg, ty, is_class);
+				let this_param = ThisParameter::from_arg(arg, ty);
 				match this_param {
 					Ok(Some(this_param)) => {
-						if let Pat::Ident(ident) = &*this_param.pat {
-							let ident2 = ident.ident.clone();
-							this = Some((this_param, ident2, i));
+						if let Pat::Ident(ident) = (*this_param.pat).clone() {
+							if let Some(this) = &this {
+								return Some(Err(Error::new(this.1.span(), "Unable to have multiple this/self parameters")));
+							}
+							this = Some((this_param, ident.ident.clone(), i));
 						}
 						return None;
 					}
 					Err(e) => return Some(Err(e)),
 					_ => (),
 				}
-				let param = Parameter::from_arg(arg, is_class);
+				let param = Parameter::from_arg(arg);
 				match param {
 					Ok(Parameter::Regular { pat, ty, conversion, strict, option }) => {
 						if option.is_none() {
@@ -282,12 +284,6 @@ impl Parameters {
 						}
 						Some(Ok(Parameter::Arguments(pat, ty)))
 					}
-					Ok(Parameter::This(pat, ty)) => {
-						if let Some(ident) = get_ident(&pat) {
-							idents.push(ident);
-						}
-						Some(Ok(Parameter::This(pat, ty)))
-					}
 					Err(e) => Some(Err(e)),
 				}
 			})
@@ -304,7 +300,7 @@ impl Parameters {
 		self.this.as_ref().map(|x| x.1.clone())
 	}
 
-	pub(crate) fn to_this_statements(&self, ion: &TokenStream, is_class: bool, is_async: bool) -> Result<TokenStream> {
+	pub(crate) fn to_this_statement(&self, ion: &TokenStream, is_class: bool, is_async: bool) -> Result<Option<TokenStream>> {
 		match &self.this {
 			Some((this, _, _)) => {
 				let statement = if is_class && is_async {
@@ -312,9 +308,9 @@ impl Parameters {
 				} else {
 					this.to_statement(ion, is_class)?
 				};
-				Ok(statement.to_token_stream())
+				Ok(Some(statement.into_token_stream()))
 			}
-			None => Ok(TokenStream::default()),
+			None => Ok(None),
 		}
 	}
 
@@ -328,9 +324,7 @@ impl Parameters {
 					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
 						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
 					}
-					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) | Parameter::This(pat, ty) => {
-						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
-					}
+					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
 				})
 				.collect::<Vec<_>>(),
 		);
@@ -340,6 +334,7 @@ impl Parameters {
 				*index,
 				match kind {
 					ThisKind::Ref(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
+					ThisKind::Object(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
 					ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
 				},
 			);
@@ -395,12 +390,22 @@ pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {
 pub(crate) fn parse_this(pat: Box<Pat>, ty: Box<Type>, is_class: bool, span: Span) -> Result<ThisParameter> {
 	match *ty {
 		Type::Reference(reference) => {
-			let ty = reference.elem;
-			Ok(ThisParameter {
-				pat,
-				ty,
-				kind: ThisKind::Ref(reference.lifetime, reference.mutability),
-			})
+			let lt = reference.lifetime;
+			let mutability = reference.mutability;
+			match *reference.elem {
+				Type::Path(ty) if type_ends_with(&ty, "Object") => {
+					return Ok(ThisParameter {
+						pat,
+						ty: Box::new(Type::Path(ty)),
+						kind: ThisKind::Object(lt, mutability),
+					});
+				}
+				ty => Ok(ThisParameter {
+					pat,
+					ty: Box::new(ty),
+					kind: ThisKind::Ref(lt, mutability),
+				}),
+			}
 		}
 		ty if !is_class => Ok(ThisParameter {
 			pat,

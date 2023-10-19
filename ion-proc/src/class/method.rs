@@ -39,7 +39,7 @@ pub(crate) fn impl_method<F>(crates: &Crates, mut method: ItemFn, ty: &Type, kee
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {
-	let (wrapper, mut inner, parameters) = impl_wrapper_fn(crates, method.clone(), Some(ty), keep_inner, true)?;
+	let (wrapper, mut inner, parameters) = impl_wrapper_fn(crates, method.clone(), Some(ty), keep_inner, false)?;
 	let ion = &crates.ion;
 
 	predicate(&method.sig).and_then(|_| {
@@ -55,11 +55,10 @@ where
 		let body = parse_quote!({
 			let cx = &#ion::Context::new_unchecked(cx);
 			let args = &mut #ion::Arguments::new(cx, argc, vp);
-			let mut this = args.access().this().to_object(cx);
 
 			#wrapper
 
-			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args, &mut this)));
+			let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
 			#ion::functions::__handle_native_function_result(cx, result, args.rval())
 		});
 		method.block = Box::new(body);

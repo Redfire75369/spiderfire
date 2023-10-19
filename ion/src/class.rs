@@ -109,22 +109,40 @@ pub trait ClassDefinition {
 		}
 	}
 
-	fn new_object(cx: &Context, native: Self) -> *mut JSObject
+	fn new_raw_object(cx: &Context) -> *mut JSObject
 	where
 		Self: Sized + 'static,
 	{
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
+		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype)) }
+	}
+
+	fn new_object(cx: &Context, native: Self) -> *mut JSObject
+	where
+		Self: Sized + 'static,
+	{
+		let object = Self::new_raw_object(cx);
 		let boxed = Box::new(Some(native));
 		unsafe {
-			let obj = JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype));
-			JS_SetReservedSlot(obj, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
-			obj
+			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
 		}
+		object
 	}
 
 	#[allow(clippy::mut_from_ref)]
-	fn get_private<'a>(object: &'a Object) -> &'a mut Self
+	fn get_private<'a>(object: &'a Object) -> &'a Self
+	where
+		Self: Sized,
+	{
+		unsafe {
+			let mut value = UndefinedValue();
+			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			(*(value.to_private() as *const Option<Self>)).as_ref().unwrap()
+		}
+	}
+
+	fn get_mut_private<'a>(object: &'a mut Object) -> &'a mut Self
 	where
 		Self: Sized,
 	{
@@ -132,6 +150,16 @@ pub trait ClassDefinition {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
 			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
+		}
+	}
+
+	fn set_private(object: *mut JSObject, native: Self)
+	where
+		Self: Sized,
+	{
+		let boxed = Box::new(Some(native));
+		unsafe {
+			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
 		}
 	}
 

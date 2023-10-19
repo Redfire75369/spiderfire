@@ -79,11 +79,11 @@ pub mod class {
 
 	impl Request {
 		#[ion(constructor)]
-		pub fn constructor(cx: &Context, info: RequestInfo, init: Option<RequestBuilderInit>) -> Result<Request> {
+		pub fn constructor(cx: &Context, #[ion(this)] this: &mut Object, info: RequestInfo, init: Option<RequestBuilderInit>) -> Result<()> {
 			let mut fallback_cors = false;
 
-			let mut request = match info {
-				RequestInfo::Request(request) => request.clone(cx)?,
+			let request = match info {
+				RequestInfo::Request(request) => request.clone()?,
 				RequestInfo::String(url) => {
 					let uri = Uri::from_str(&url)?;
 					let url = Url::from_str(&url)?;
@@ -127,6 +127,9 @@ pub mod class {
 					}
 				}
 			};
+			Request::set_private(this.handle().get(), request);
+			let heap = Heap::boxed(this.handle().get());
+			let request = Request::get_mut_private(this);
 
 			let mut headers = None;
 			let mut body = None;
@@ -217,9 +220,12 @@ pub mod class {
 			};
 
 			let headers = if let Some(headers) = headers {
-				headers.into_headers(HeadersInner::MutRef(request.request.headers_mut()), kind)?
+				headers.into_headers(HeadersInner::MutRef(request.request.headers_mut(), heap), kind)?
 			} else {
-				Headers { headers: HeadersInner::default(), kind }
+				Headers {
+					headers: HeadersInner::MutRef(request.request.headers_mut(), heap),
+					kind,
+				}
 			};
 			request.headers.set(Headers::new_object(cx, headers));
 
@@ -234,7 +240,7 @@ pub mod class {
 				request.body = body;
 			}
 
-			Ok(request)
+			Ok(())
 		}
 
 		#[ion(get)]
@@ -304,17 +310,13 @@ pub mod class {
 
 		#[allow(clippy::should_implement_trait)]
 		#[ion(skip)]
-		pub fn clone(&self, cx: &Context) -> Result<Request> {
-			let mut request = clone_request(&self.request)?;
+		pub fn clone(&self) -> Result<Request> {
+			let request = clone_request(&self.request)?;
 			let url = self.locations.last().unwrap().clone();
-			let headers = Headers {
-				headers: HeadersInner::MutRef(request.headers_mut()),
-				kind: HeadersKind::Request,
-			};
 
 			Ok(Request {
 				request,
-				headers: Heap::boxed(Headers::new_object(cx, headers)),
+				headers: Box::default(),
 				body: self.body.clone(),
 				body_used: self.body_used,
 
@@ -360,7 +362,7 @@ pub mod class {
 		{
 			let object = Object::from_value(cx, value, true, ())?;
 			if Request::instance_of(cx, &object, None) {
-				Request::get_private(&object).clone(cx)
+				Request::get_private(&object).clone()
 			} else {
 				Err(Error::new("Expected Request", ErrorKind::Type))
 			}

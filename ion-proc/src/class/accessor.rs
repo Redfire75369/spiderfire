@@ -86,7 +86,7 @@ impl Accessor {
 
 				let setter = parse2(quote!(
 					fn #setter_ident(#[ion(this)] this: &mut #ion::Object, #[ion(convert = #convert)] #ident: #ty) -> #ion::Result<()> {
-						let self_ = <#class_ty as #ion::ClassDefinition>::get_private(this);
+						let self_ = <#class_ty as #ion::ClassDefinition>::get_mut_private(this);
 						self_.#ident = #ident;
 						Ok(())
 					}
@@ -192,7 +192,7 @@ pub(crate) fn impl_accessor(crates: &Crates, method: &ItemFn, ty: &Type, keep_in
 	let error = Error::new_spanned(&method.sig, error_message);
 
 	let (accessor, parameters) = impl_method(crates, method.clone(), ty, keep_inner, |sig| {
-		let parameters = Parameters::parse(&sig.inputs, Some(ty), false)?;
+		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
 				if let Type::Path(_) = &**ty {

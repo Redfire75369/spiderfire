@@ -88,8 +88,8 @@ impl Iterator {
 		let cx = &unsafe { Context::new_unchecked(cx) };
 		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
-		let this = args.this().to_object(cx);
-		let iterator = Iterator::get_private(&this);
+		let mut this = args.this().to_object(cx);
+		let iterator = Iterator::get_mut_private(&mut this);
 		let result = iterator.next_value(cx);
 
 		result.to_value(cx, args.rval());

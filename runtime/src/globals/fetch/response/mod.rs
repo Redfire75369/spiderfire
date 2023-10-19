@@ -17,7 +17,7 @@ pub mod class {
 	use mozjs::jsapi::{Heap, JSObject};
 	use url::Url;
 
-	use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
+	use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result};
 	use ion::typedarray::ArrayBuffer;
 
 	use crate::globals::fetch::body::FetchBody;
@@ -40,20 +40,13 @@ pub mod class {
 	}
 
 	impl Response {
-		pub(crate) fn new(cx: &Context, mut response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
-			let headers = Headers::new_object(
-				cx,
-				Headers {
-					headers: HeadersInner::MutRef(response.headers_mut()),
-					kind: HeadersKind::Response,
-				},
-			);
+		pub(crate) fn new(response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
 			let status = response.status();
 			let status_text = String::from(status.canonical_reason().unwrap());
 
 			Response {
 				response,
-				headers: Heap::boxed(headers),
+				headers: Box::default(),
 				body: None,
 				body_used: false,
 
@@ -66,11 +59,11 @@ pub mod class {
 		}
 
 		#[ion(constructor)]
-		pub fn constructor(cx: &Context, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
+		pub fn constructor(cx: &Context, #[ion(this)] this: &mut Object, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<()> {
 			let init = init.unwrap_or_default();
 
 			let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
-			let mut response = Response {
+			let response = Response {
 				response,
 				headers: Box::default(),
 				body: None,
@@ -82,10 +75,13 @@ pub mod class {
 				status: Some(init.status),
 				status_text: Some(init.status_text),
 			};
+			Response::set_private(this.handle().get(), response);
+			let heap = Heap::boxed(this.handle().get());
+			let response = Response::get_mut_private(this);
 
 			let headers = init
 				.headers
-				.into_headers(HeadersInner::MutRef(response.response.headers_mut()), HeadersKind::Response)?;
+				.into_headers(HeadersInner::MutRef(response.response.headers_mut(), heap), HeadersKind::Response)?;
 			response.headers.set(Headers::new_object(cx, headers));
 
 			if let Some(body) = body {
@@ -96,7 +92,7 @@ pub mod class {
 				response.body = Some(body);
 			}
 
-			Ok(response)
+			Ok(())
 		}
 
 		#[ion(get)]

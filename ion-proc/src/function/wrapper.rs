@@ -15,17 +15,17 @@ use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
-	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_class: bool,
+	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
 	if function.sig.asyncness.is_some() {
 		return impl_async_wrapper_fn(crates, function, class_ty, keep_inner);
 	}
 
 	let ion = &crates.ion;
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty, is_class)?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = parameters.to_idents();
 	let statements = parameters.to_statements(ion)?;
-	let this_statements = parameters.to_this_statements(ion, class_ty.is_some(), false)?;
+	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some(), false)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
@@ -33,18 +33,20 @@ pub(crate) fn impl_wrapper_fn(
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
-	let wrapper_args: Vec<FnArg> = if is_class {
-		vec![
-			parse_quote!(__cx: &'cx #ion::Context),
-			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
-			parse_quote!(__this: &mut #ion::Object<'cx>),
-		]
+	let mut wrapper_args: Vec<FnArg> = vec![
+		parse_quote!(__cx: &'cx #ion::Context),
+		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
+	];
+	if is_constructor {
+		wrapper_args.push(parse_quote!(__this: &mut #ion::Object<'cx>));
 	} else {
-		vec![
-			parse_quote!(__cx: &'cx #ion::Context),
-			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
-		]
-	};
+		this_statements = this_statements.map(|statement| {
+			quote!(
+				let __this = &mut __accessor.this_mut().to_object(__cx);
+				#statement
+			)
+		});
+	}
 
 	let mut output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
@@ -131,10 +133,10 @@ pub(crate) fn impl_async_wrapper_fn(
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
 	let Crates { ion, runtime } = crates;
 
-	let parameters = Parameters::parse(&function.sig.inputs, class_ty, false)?;
+	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = &parameters.idents;
 	let statements = parameters.to_statements(ion)?;
-	let this_statements = parameters.to_this_statements(ion, class_ty.is_some(), true)?;
+	let this_statement = parameters.to_this_statement(ion, class_ty.is_some(), true)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
 
@@ -142,18 +144,10 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
-	let wrapper_args: Vec<FnArg> = if class_ty.is_some() {
-		vec![
-			parse_quote!(__cx: &'cx #ion::Context),
-			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
-			parse_quote!(__this: &mut #ion::Object<'cx>),
-		]
-	} else {
-		vec![
-			parse_quote!(__cx: &'cx #ion::Context),
-			parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
-		]
-	};
+	let wrapper_args: Vec<FnArg> = vec![
+		parse_quote!(__cx: &'cx #ion::Context),
+		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
+	];
 
 	let inner_output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
@@ -197,7 +191,7 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	let wrapper = parameters.this.is_some().then(|| {
 		quote!(
-			let mut __this: #ion::Object<'static> = ::std::mem::transmute(#ion::Object::from(__cx.root_persistent_object(__this.handle().get())));
+			let mut __this: #ion::Object<'static> = ::std::mem::transmute(#ion::Object::from(__cx.root_persistent_object(__accessor.this_mut().handle().to_object())));
 			let __cx2: #ion::Context<'static> = #ion::Context::new_unchecked(__cx.as_ptr());
 		)
 	});
@@ -217,7 +211,7 @@ pub(crate) fn impl_async_wrapper_fn(
 
 		let __result: #output = {
 			let __future = async move {
-				#this_statements
+				#this_statement
 
 				#[allow(clippy::let_unit_value)]
 				let __result: #inner_output = #call.await;

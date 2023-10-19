@@ -222,7 +222,7 @@ impl<'o> Object<'o> {
 
 	/// Returns an iterator of the keys of the [Object].
 	/// Each key can be a [String], [Symbol](crate::symbol) or integer.
-	pub fn keys<'c, 'cx: 'o>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
+	pub fn keys<'c, 'cx>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(cx.as_ptr()) };
 		unsafe { GetPropertyKeys(cx.as_ptr(), self.handle().into(), flags.bits(), ids.handle_mut()) };
@@ -233,7 +233,7 @@ impl<'o> Object<'o> {
 		ObjectIter::new(cx, self, self.keys(cx, flags))
 	}
 
-	pub fn to_hashmap<'cx: 'o>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>> {
+	pub fn to_hashmap<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>> {
 		self.iter(cx, flags).map(|(k, v)| (k.to_owned_key(cx), v)).collect()
 	}
 

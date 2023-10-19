@@ -108,8 +108,8 @@ mod class {
 
 		pub(crate) fn update(&mut self) {
 			if let Some(url) = &self.url {
-				let url = Object::from(unsafe { Local::from_heap(url) });
-				let url = Url::get_private(&url);
+				let mut url = Object::from(unsafe { Local::from_heap(url) });
+				let url = Url::get_mut_private(&mut url);
 				if self.pairs.is_empty() {
 					url.url.set_query(None);
 				} else {
@@ -119,7 +119,7 @@ mod class {
 		}
 
 		#[ion(name = WellKnownSymbolCode::Iterator)]
-		pub fn iterator<'cx: 'o, 'o>(&self, cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
+		pub fn iterator<'cx: 'o, 'o>(cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
 			let thisv = this.as_value(cx);
 			ion::Iterator::new(SearchParamsIterator::default(), &thisv)
 		}

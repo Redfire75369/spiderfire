@@ -87,12 +87,13 @@ mod class {
 		}
 
 		#[ion(set)]
-		pub fn set_href(&mut self, #[ion(this)] this: &Object, cx: &Context, input: String) -> Result<()> {
+		pub fn set_href(#[ion(this)] this: &mut Object, cx: &Context, input: String) -> Result<()> {
 			match url::Url::parse(&input) {
 				Ok(url) => {
 					let search_params = UrlSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
-					self.search_params = Heap::boxed(UrlSearchParams::new_object(cx, search_params));
-					self.url = url;
+					let self_ = Url::get_mut_private(this);
+					self_.search_params.set(UrlSearchParams::new_object(cx, search_params));
+					self_.url = url;
 					Ok(())
 				}
 				Err(error) => Err(Error::new(&error.to_string(), None)),

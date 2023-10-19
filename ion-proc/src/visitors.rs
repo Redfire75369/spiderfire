@@ -31,14 +31,14 @@ impl VisitMut for LifetimeRemover {
 	}
 }
 
-pub(crate) struct SelfRenamer {
-	pub(crate) ty: Box<Type>,
+pub(crate) struct SelfRenamer<'t> {
+	pub(crate) ty: &'t Type,
 }
 
-impl VisitMut for SelfRenamer {
+impl VisitMut for SelfRenamer<'_> {
 	fn visit_type_mut(&mut self, ty: &mut Type) {
 		if ty == &mut parse_quote!(Self) {
-			*ty = *self.ty.clone();
+			*ty = self.ty.clone();
 		}
 		visit_type_mut(self, ty);
 	}
