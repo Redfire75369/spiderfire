@@ -181,7 +181,7 @@ impl<'o> Object<'o> {
 	/// Deletes the [Value] at the given index.
 	///
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete<'cx: 'o, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
+	pub fn delete<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut result = MaybeUninit::uninit();
 		unsafe { JS_DeletePropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
@@ -329,13 +329,13 @@ impl ExactSizeIterator for ObjectKeysIter<'_, '_> {
 
 impl FusedIterator for ObjectKeysIter<'_, '_> {}
 
-pub struct ObjectIter<'c, 'cx: 'oo, 'oo, 'o> {
+pub struct ObjectIter<'c, 'cx, 'oo, 'o> {
 	cx: &'cx Context<'c>,
 	object: &'o Object<'oo>,
 	keys: ObjectKeysIter<'c, 'cx>,
 }
 
-impl<'c, 'cx: 'oo, 'oo, 'o> ObjectIter<'c, 'cx, 'oo, 'o> {
+impl<'c, 'cx, 'oo, 'o> ObjectIter<'c, 'cx, 'oo, 'o> {
 	fn new(cx: &'cx Context<'c>, object: &'o Object<'oo>, keys: ObjectKeysIter<'c, 'cx>) -> ObjectIter<'c, 'cx, 'oo, 'o> {
 		ObjectIter { cx, object, keys }
 	}

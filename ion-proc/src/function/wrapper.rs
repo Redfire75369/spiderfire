@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::{Ident, TokenStream};
-use syn::{FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type, WhereClause};
+use syn::{FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -32,7 +32,6 @@ pub(crate) fn impl_wrapper_fn(
 	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
-	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let mut wrapper_args: Vec<FnArg> = vec![
 		parse_quote!(__cx: &'cx #ion::Context),
 		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
@@ -117,7 +116,6 @@ pub(crate) fn impl_wrapper_fn(
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
-	function.sig.generics.where_clause = Some(wrapper_where);
 	function.sig.output = parse_quote!(-> #wrapper_output);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
@@ -143,7 +141,6 @@ pub(crate) fn impl_async_wrapper_fn(
 	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
-	let wrapper_where: WhereClause = parse_quote!(where 'cx: 'a);
 	let wrapper_args: Vec<FnArg> = vec![
 		parse_quote!(__cx: &'cx #ion::Context),
 		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
@@ -228,7 +225,6 @@ pub(crate) fn impl_async_wrapper_fn(
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
-	function.sig.generics.where_clause = Some(wrapper_where);
 	function.sig.output = parse_quote!(-> #wrapper_output);
 	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());

@@ -97,7 +97,9 @@ pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: &Request, client: C
 	}
 
 	let mut response_object = Object::from(cx.root_object(Response::new_raw_object(cx)));
-	Response::set_private(response_object.handle().get(), Response::new(response, url, redirections > 0));
+	unsafe {
+		Response::set_private(response_object.handle().get(), Response::new(response, url, redirections > 0));
+	}
 
 	let heap = Heap::boxed(response_object.handle().get());
 	let response = Response::get_mut_private(&mut response_object);

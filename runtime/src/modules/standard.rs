@@ -9,17 +9,17 @@ use ion::flags::PropertyFlags;
 use ion::module::{Module, ModuleRequest};
 
 pub trait StandardModules {
-	fn init<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool;
+	fn init(self, cx: &Context, global: &mut Object) -> bool;
 
-	fn init_globals<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool;
+	fn init_globals(self, cx: &Context, global: &mut Object) -> bool;
 }
 
 impl StandardModules for () {
-	fn init<'cx: 'o, 'o>(self, _: &'cx Context, _: &mut Object<'o>) -> bool {
+	fn init(self, _: &Context, _: &mut Object) -> bool {
 		true
 	}
 
-	fn init_globals<'cx: 'o, 'o>(self, _: &'cx Context, _: &mut Object<'o>) -> bool {
+	fn init_globals(self, _: &Context, _: &mut Object) -> bool {
 		true
 	}
 }
@@ -32,18 +32,18 @@ pub trait NativeModule {
 }
 
 impl<M: NativeModule> StandardModules for M {
-	fn init<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool {
+	fn init(self, cx: &Context, global: &mut Object) -> bool {
 		init_module::<M>(cx, global)
 	}
 
-	fn init_globals<'cx: 'o, 'o>(self, cx: &'cx Context, global: &mut Object<'o>) -> bool {
+	fn init_globals(self, cx: &Context, global: &mut Object) -> bool {
 		init_global_module::<M>(cx, global)
 	}
 }
 
 // TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
 // TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
-pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
+pub fn init_module<M: NativeModule>(cx: &Context, global: &mut Object) -> bool {
 	let internal = format!("______{}Internal______", M::NAME);
 	let module = M::module(cx);
 
@@ -61,7 +61,7 @@ pub fn init_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut 
 	false
 }
 
-pub fn init_global_module<'cx: 'o, 'o, M: NativeModule>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
+pub fn init_global_module<M: NativeModule>(cx: &Context, global: &mut Object) -> bool {
 	let module = M::module(cx);
 
 	if let Some(module) = module {

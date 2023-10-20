@@ -80,7 +80,7 @@ impl<'v> Value<'v> {
 	///
 	/// ### Panics
 	/// This panics if the [Value] is not an object.
-	pub fn to_object<'cx: 'v>(&self, cx: &'cx Context) -> Object<'cx> {
+	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
 		cx.root_object(self.handle().to_object()).into()
 	}
 

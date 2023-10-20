@@ -27,10 +27,7 @@ pub(crate) fn from_value(ion: &TokenStream, class_ident: &Ident) -> ItemImpl {
 	parse2(quote!(
 		impl<'cx> #ion::conversions::FromValue<'cx> for #class_ident {
 			type Config = ();
-			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, _: bool, _: ()) -> #ion::Result<#class_ident>
-			where
-				'cx: 'v
-			{
+			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, _: bool, _: ()) -> #ion::Result<#class_ident> {
 				#ion::class::class_from_value(cx, value)
 			}
 		}

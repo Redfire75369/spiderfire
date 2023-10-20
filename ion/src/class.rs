@@ -153,7 +153,7 @@ pub trait ClassDefinition {
 		}
 	}
 
-	fn set_private(object: *mut JSObject, native: Self)
+	unsafe fn set_private(object: *mut JSObject, native: Self)
 	where
 		Self: Sized,
 	{
@@ -172,7 +172,7 @@ pub trait ClassDefinition {
 }
 
 /// Converts an instance of a native class into its native value, by cloning it.
-pub fn class_from_value<'cx: 'v, 'v, T: ClassDefinition + Clone>(cx: &'cx Context, value: &Value<'v>) -> Result<T> {
+pub fn class_from_value<T: ClassDefinition + Clone>(cx: &Context, value: &Value) -> Result<T> {
 	let object = Object::from_value(cx, value, true, ()).unwrap();
 	if T::instance_of(cx, &object, None) {
 		Ok(T::get_private(&object).clone())

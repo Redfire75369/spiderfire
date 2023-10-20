@@ -26,7 +26,7 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 /// Formats a [JavaScript Value](Value) as a string with the given [configuration](Config).
-pub fn format_value<'cx: 'v, 'v>(cx: &'cx Context, cfg: Config, value: &Value<'v>) -> String {
+pub fn format_value(cx: &Context, cfg: Config, value: &Value) -> String {
 	if !value.handle().is_object() {
 		format_primitive(cx, cfg, value)
 	} else {

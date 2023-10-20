@@ -192,7 +192,7 @@ impl ThisParameter {
 	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
 		let self_ = parse_quote!(self_);
-		let pat = if is_class && &**pat == &parse_quote!(self) { &self_ } else { pat };
+		let pat = if is_class && **pat == parse_quote!(self) { &self_ } else { pat };
 		let mut ty = ty.clone();
 		visit_type_mut(&mut LifetimeRemover, &mut ty);
 
@@ -393,13 +393,11 @@ pub(crate) fn parse_this(pat: Box<Pat>, ty: Box<Type>, is_class: bool, span: Spa
 			let lt = reference.lifetime;
 			let mutability = reference.mutability;
 			match *reference.elem {
-				Type::Path(ty) if type_ends_with(&ty, "Object") => {
-					return Ok(ThisParameter {
-						pat,
-						ty: Box::new(Type::Path(ty)),
-						kind: ThisKind::Object(lt, mutability),
-					});
-				}
+				Type::Path(ty) if type_ends_with(&ty, "Object") => Ok(ThisParameter {
+					pat,
+					ty: Box::new(Type::Path(ty)),
+					kind: ThisKind::Object(lt, mutability),
+				}),
 				ty => Ok(ThisParameter {
 					pat,
 					ty: Box::new(ty),

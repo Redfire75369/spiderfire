@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#![allow(clippy::declare_interior_mutable_const)]
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -52,10 +54,7 @@ pub struct HeadersObject(HeaderMap);
 impl<'cx> FromValue<'cx> for HeadersObject {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeadersObject>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeadersObject> {
 		let object = Object::from_value(cx, value, true, ())?;
 		let mut headers = HeaderMap::new();
 		append_to_headers(cx, &mut headers, object)?;
@@ -70,11 +69,8 @@ pub struct HeaderEntry {
 
 impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<HeaderEntry>
-	where
-		'cx: 'v,
-	{
-		let vec = Vec::<String>::from_value(cx, value, false, ())?;
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
+		let vec: Vec<String> = Vec::from_value(cx, value, false, ())?;
 		if vec.len() != 2 {
 			return Err(Error::new(
 				&format!("Received Header Entry with Length {}, Expected Length 2", vec.len()),
@@ -301,7 +297,7 @@ mod class {
 		}
 
 		#[ion(name = WellKnownSymbolCode::Iterator)]
-		pub fn iterator<'cx: 'o, 'o>(cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
+		pub fn iterator(cx: &Context, #[ion(this)] this: &Object) -> ion::Iterator {
 			let thisv = this.as_value(cx);
 
 			let self_ = Headers::get_private(this);
@@ -410,20 +406,20 @@ fn validate_header(name: &HeaderName, value: &HeaderValue, kind: HeadersKind) ->
 		return Err(Error::new("Headers cannot be modified", ErrorKind::Type));
 	}
 
-	if FORBIDDEN_REQUEST_HEADERS.contains(&name) {
+	if FORBIDDEN_REQUEST_HEADERS.contains(name) {
 		return Ok(false);
 	}
 	if name.as_str().starts_with("proxy-") || name.as_str().starts_with("sec-") {
 		return Ok(false);
 	}
-	if FORBIDDEN_REQUEST_HEADER_METHODS.contains(&name) {
-		let value = split_value(&value);
+	if FORBIDDEN_REQUEST_HEADER_METHODS.contains(name) {
+		let value = split_value(value);
 		if value.iter().any(|v| v == "CONNECT" || v == "TRACE" || v == "TRACK") {
 			return Ok(false);
 		}
 	}
 
-	if FORBIDDEN_RESPONSE_HEADERS.contains(&name) {
+	if FORBIDDEN_RESPONSE_HEADERS.contains(name) {
 		return Ok(false);
 	}
 
@@ -431,11 +427,11 @@ fn validate_header(name: &HeaderName, value: &HeaderValue, kind: HeadersKind) ->
 }
 
 fn validate_no_cors_safelisted_request_header(headers: &mut HeaderMap, name: &HeaderName, value: &HeaderValue) -> bool {
-	if !NO_CORS_SAFELISTED_REQUEST_HEADERS.contains(&name) {
+	if !NO_CORS_SAFELISTED_REQUEST_HEADERS.contains(name) {
 		return false;
 	}
 
-	let temp = get_header(headers, &name);
+	let temp = get_header(headers, name);
 	let str = value.to_str().unwrap();
 	let temp = match temp {
 		Some(temp) => format!("{}, {}", temp, str),
@@ -471,9 +467,9 @@ fn validate_no_cors_safelisted_request_header(headers: &mut HeaderMap, name: &He
 		let mime = Mime::from_str(str);
 		match mime {
 			Ok(mime) => {
-				if !(mime.type_() == APPLICATION && mime.subtype() == WWW_FORM_URLENCODED)
-					&& !(mime.type_() == MULTIPART && mime.subtype() == FORM_DATA)
-					&& !(mime.type_() == TEXT && mime.subtype() == PLAIN)
+				if !(mime.type_() == APPLICATION && mime.subtype() == WWW_FORM_URLENCODED
+					|| mime.type_() == MULTIPART && mime.subtype() == FORM_DATA
+					|| mime.type_() == TEXT && mime.subtype() == PLAIN)
 				{
 					return false;
 				}
@@ -485,7 +481,7 @@ fn validate_no_cors_safelisted_request_header(headers: &mut HeaderMap, name: &He
 			return false;
 		}
 		let str = &str[5..];
-		let digit = str.char_indices().find_map(|(i, c)| matches!(c, '0'..='9').then(|| i + 1));
+		let digit = str.char_indices().find_map(|(i, c)| c.is_ascii_digit().then_some(i + 1));
 		let digit = digit.unwrap_or_default();
 		let start = str[0..digit].parse::<usize>().ok();
 		if str.as_bytes()[digit] != b'-' {
@@ -493,7 +489,7 @@ fn validate_no_cors_safelisted_request_header(headers: &mut HeaderMap, name: &He
 		}
 
 		let str = &str[digit..];
-		let digit = str.char_indices().find_map(|(i, c)| matches!(c, '0'..='9').then(|| i + 1));
+		let digit = str.char_indices().find_map(|(i, c)| c.is_ascii_digit().then_some(i + 1));
 		let digit = digit.unwrap_or_default();
 		let end = str[0..digit].parse().ok();
 		if digit != str.len() {

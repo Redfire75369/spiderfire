@@ -114,10 +114,7 @@ macro_rules! typedarray_to_bytes {
 
 impl<'cx> FromValue<'cx> for FetchBody {
 	type Config = ();
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: Self::Config) -> Result<FetchBody>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: Self::Config) -> Result<FetchBody> {
 		if value.handle().is_string() {
 			Ok(FetchBody {
 				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, true, ()).unwrap())),

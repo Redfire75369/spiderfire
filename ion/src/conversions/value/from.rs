@@ -26,18 +26,13 @@ pub trait FromValue<'cx>: Sized {
 	/// Converts `value` to the desired type.
 	/// `strict` and `config` determine the strictness of the conversion and specify additional conversion constraints respectively.
 	/// Returns [Err] with the [error](Error) if conversion fails.
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: Self::Config) -> Result<Self>
-	where
-		'cx: 'v;
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: Self::Config) -> Result<Self>;
 }
 
 impl<'cx> FromValue<'cx> for bool {
 	type Config = ();
 
-	fn from_value<'v>(_: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<bool>
-	where
-		'cx: 'v,
-	{
+	fn from_value(_: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<bool> {
 		let value = value.handle();
 		if value.is_boolean() {
 			return Ok(value.to_boolean());
@@ -56,10 +51,7 @@ macro_rules! impl_from_value_for_integer {
 		impl<'cx> FromValue<'cx> for $ty {
 			type Config = ConversionBehavior;
 
-			fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ConversionBehavior) -> Result<$ty>
-			where
-				'cx: 'v,
-			{
+			fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ConversionBehavior) -> Result<$ty> {
 				let value = value.handle();
 				if strict && !value.is_number() {
 					return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
@@ -88,10 +80,7 @@ impl_from_value_for_integer!(i64);
 impl<'cx> FromValue<'cx> for f32 {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<f32>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<f32> {
 		f64::from_value(cx, value, strict, ()).map(|float| float as f32)
 	}
 }
@@ -99,10 +88,7 @@ impl<'cx> FromValue<'cx> for f32 {
 impl<'cx> FromValue<'cx> for f64 {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<f64>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<f64> {
 		let value = value.handle();
 		if strict && !value.is_number() {
 			return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
@@ -116,10 +102,7 @@ impl<'cx> FromValue<'cx> for f64 {
 impl<'cx> FromValue<'cx> for *mut JSString {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, _: ()) -> Result<*mut JSString>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<*mut JSString> {
 		let value = value.handle();
 		if strict && !value.is_string() {
 			return Err(Error::new("Expected String in Strict Conversion", ErrorKind::Type));
@@ -131,10 +114,7 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 impl<'cx> FromValue<'cx> for String<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<String<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<String<'cx>> {
 		<*mut JSString>::from_value(cx, value, strict, config).map(|str| String::from(cx.root_string(str)))
 	}
 }
@@ -142,10 +122,7 @@ impl<'cx> FromValue<'cx> for String<'cx> {
 impl<'cx> FromValue<'cx> for RustString {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<RustString>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<RustString> {
 		String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx))
 	}
 }
@@ -153,10 +130,7 @@ impl<'cx> FromValue<'cx> for RustString {
 impl<'cx> FromValue<'cx> for *mut JSObject {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<*mut JSObject>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<*mut JSObject> {
 		let value = value.handle();
 		if !value.is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
@@ -173,10 +147,7 @@ impl<'cx> FromValue<'cx> for *mut JSObject {
 impl<'cx> FromValue<'cx> for Object<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Object<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Object<'cx>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
@@ -192,10 +163,7 @@ impl<'cx> FromValue<'cx> for Object<'cx> {
 impl<'cx> FromValue<'cx> for Array<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Array<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Array<'cx>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Array", ErrorKind::Type));
 		}
@@ -215,10 +183,7 @@ impl<'cx> FromValue<'cx> for Array<'cx> {
 impl<'cx> FromValue<'cx> for Date<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Date<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Date<'cx>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Date", ErrorKind::Type));
 		}
@@ -238,10 +203,7 @@ impl<'cx> FromValue<'cx> for Date<'cx> {
 impl<'cx> FromValue<'cx> for Promise<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Promise<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Promise<'cx>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Promise", ErrorKind::Type));
 		}
@@ -261,10 +223,7 @@ impl<'cx> FromValue<'cx> for Promise<'cx> {
 impl<'cx> FromValue<'cx> for *mut JSFunction {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: ()) -> Result<*mut JSFunction>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<*mut JSFunction> {
 		Function::from_value(cx, value, strict, config).map(|f| f.get())
 	}
 }
@@ -272,10 +231,7 @@ impl<'cx> FromValue<'cx> for *mut JSFunction {
 impl<'cx> FromValue<'cx> for Function<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Function<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Function<'cx>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Function", ErrorKind::Type));
 		}
@@ -295,10 +251,7 @@ impl<'cx> FromValue<'cx> for Function<'cx> {
 impl<'cx> FromValue<'cx> for *mut JSSymbol {
 	type Config = ();
 
-	fn from_value<'v>(_: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<*mut JSSymbol>
-	where
-		'cx: 'v,
-	{
+	fn from_value(_: &'cx Context, value: &Value, _: bool, _: ()) -> Result<*mut JSSymbol> {
 		let value = value.handle();
 		if value.is_symbol() {
 			Ok(value.to_symbol())
@@ -311,10 +264,7 @@ impl<'cx> FromValue<'cx> for *mut JSSymbol {
 impl<'cx> FromValue<'cx> for Symbol<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: Self::Config) -> Result<Symbol<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: Self::Config) -> Result<Symbol<'cx>> {
 		<*mut JSSymbol>::from_value(cx, value, strict, config).map(|s| cx.root_symbol(s).into())
 	}
 }
@@ -322,10 +272,7 @@ impl<'cx> FromValue<'cx> for Symbol<'cx> {
 impl<'cx> FromValue<'cx> for JSVal {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<JSVal>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<JSVal> {
 		let value = value.handle();
 		unsafe {
 			AssertSameCompartment1(cx.as_ptr(), value.into());
@@ -337,10 +284,7 @@ impl<'cx> FromValue<'cx> for JSVal {
 impl<'cx> FromValue<'cx> for Value<'cx> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Value<'cx>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Value<'cx>> {
 		let value = value.handle();
 		unsafe {
 			AssertSameCompartment1(cx.as_ptr(), value.into());
@@ -352,10 +296,7 @@ impl<'cx> FromValue<'cx> for Value<'cx> {
 impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Option<T> {
 	type Config = T::Config;
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: T::Config) -> Result<Option<T>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: T::Config) -> Result<Option<T>> {
 		if value.handle().is_null_or_undefined() {
 			Ok(None)
 		} else {
@@ -383,10 +324,7 @@ where
 	type Config = T::Config;
 
 	// Adapted from [rust-mozjs](https://github.com/servo/rust-mozjs/blob/master/src/conversions.rs#L644-L707)
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, strict: bool, config: T::Config) -> Result<Vec<T>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: T::Config) -> Result<Vec<T>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
@@ -433,10 +371,7 @@ where
 impl<'cx, T: TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for TypedArray<T, S> {
 	type Config = ();
 
-	fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<TypedArray<T, S>>
-	where
-		'cx: 'v,
-	{
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<TypedArray<T, S>> {
 		let value = value.handle();
 		if value.is_object() {
 			let object = value.to_object();

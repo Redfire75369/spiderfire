@@ -119,7 +119,7 @@ mod class {
 		}
 
 		#[ion(name = WellKnownSymbolCode::Iterator)]
-		pub fn iterator<'cx: 'o, 'o>(cx: &'cx Context, #[ion(this)] this: &Object<'o>) -> ion::Iterator {
+		pub fn iterator(cx: &Context, #[ion(this)] this: &Object) -> ion::Iterator {
 			let thisv = this.as_value(cx);
 			ion::Iterator::new(SearchParamsIterator::default(), &thisv)
 		}

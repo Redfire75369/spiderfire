@@ -25,7 +25,7 @@ use crate::format::promise::format_promise;
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
-pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<'o>) -> String {
+pub fn format_object(cx: &Context, cfg: Config, object: Object) -> String {
 	unsafe {
 		use ESClass as ESC;
 		let class = object.get_builtin_class(cx);
@@ -57,7 +57,7 @@ pub fn format_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: Object<
 /// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
 /// Disregards the class of the object.
 #[allow(clippy::unnecessary_to_owned)]
-pub fn format_plain_object<'cx: 'o, 'o>(cx: &'cx Context, cfg: Config, object: &Object<'o>) -> String {
+pub fn format_plain_object(cx: &Context, cfg: Config, object: &Object) -> String {
 	let color = cfg.colours.object;
 	if cfg.depth < 4 {
 		let keys = object.keys(cx, Some(cfg.iteration));

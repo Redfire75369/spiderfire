@@ -89,9 +89,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ())
-				-> #ion::Result<Self> where 'cx: 'v
-			{
+			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ()) -> #ion::Result<Self> {
 				#object
 				#body
 			}

@@ -31,7 +31,7 @@ impl<'k> PropertyKey<'k> {
 		string.to_key(cx)
 	}
 
-	pub fn with_symbol<'cx: 's, 's>(cx: &'cx Context, symbol: &Symbol<'s>) -> PropertyKey<'cx> {
+	pub fn with_symbol<'cx>(cx: &'cx Context, symbol: &Symbol) -> PropertyKey<'cx> {
 		symbol.to_key(cx).unwrap()
 	}
 

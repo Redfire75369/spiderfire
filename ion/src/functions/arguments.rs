@@ -67,10 +67,7 @@ impl<'c, 'cx> Arguments<'c, 'cx> {
 	}
 
 	/// Returns a vector of arguments as [Values](Value) based on the indices of the iterator.
-	pub fn range<'a, R: Iterator<Item = usize>>(&'a self, range: R) -> Vec<&'a Value<'cx>>
-	where
-		'cx: 'a,
-	{
+	pub fn range<R: Iterator<Item = usize>>(&self, range: R) -> Vec<&Value<'cx>> {
 		range.filter_map(|index| self.value(index)).collect()
 	}
 

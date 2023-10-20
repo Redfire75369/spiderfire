@@ -23,7 +23,7 @@ pub struct ResponseInit {
 	pub(crate) status_text: String,
 }
 
-fn parse_status<'cx: 'v, 'v>(cx: &'cx Context, status: Value<'v>) -> Result<StatusCode> {
+fn parse_status(cx: &Context, status: Value) -> Result<StatusCode> {
 	let code = u16::from_value(cx, &status, true, ConversionBehavior::Clamp).map(StatusCode::from_u16);
 
 	match code {

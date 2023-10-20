@@ -52,7 +52,7 @@ fn print_indent(is_stderr: bool) {
 	});
 }
 
-fn print_args<'cx: 'v, 'v>(cx: &'cx Context, args: &[Value<'v>], stderr: bool) {
+fn print_args(cx: &Context, args: &[Value], stderr: bool) {
 	let indents = get_indents();
 	for value in args.iter() {
 		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
@@ -74,7 +74,7 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn log(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
 		print_args(cx, values.as_slice(), false);
@@ -83,7 +83,7 @@ fn log<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 }
 
 #[js_fn]
-fn warn<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn warn(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
 		print_args(cx, values.as_slice(), true);
@@ -92,7 +92,7 @@ fn warn<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
 }
 
 #[js_fn]
-fn error<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn error(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
 		print_args(cx, values.as_slice(), true);
@@ -101,7 +101,7 @@ fn error<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) 
 }
 
 #[js_fn]
-fn debug<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn debug(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print_args(cx, values.as_slice(), false);
@@ -110,7 +110,7 @@ fn debug<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) 
 }
 
 #[js_fn]
-fn assert<'cx: 'v, 'v>(cx: &'cx Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn assert(cx: &Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -152,7 +152,7 @@ fn clear() {
 }
 
 #[js_fn]
-fn trace<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn trace(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
@@ -177,7 +177,7 @@ fn trace<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) 
 }
 
 #[js_fn]
-fn group<'cx: 'v, 'v>(cx: &'cx Context, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn group(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 	INDENTS.with(|indents| {
 		let mut indents = indents.borrow_mut();
 		*indents = (*indents).min(u16::MAX - 1) + 1;
@@ -260,7 +260,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog<'cx: 'v, 'v>(cx: &'cx Context, label: Option<String>, #[ion(varargs)] values: Vec<Value<'v>>) {
+fn timeLog(cx: &Context, label: Option<String>, #[ion(varargs)] values: Vec<Value>) {
 	let label = get_label(label);
 	TIMER_MAP.with(|map| {
 		let mut map = map.borrow_mut();
@@ -311,7 +311,7 @@ fn timeEnd(label: Option<String>) {
 }
 
 #[js_fn]
-fn table<'cx: 'v, 'v>(cx: &'cx Context, data: Value<'v>, columns: Option<Vec<String>>) {
+fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -446,7 +446,7 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define<'cx: 'o, 'o>(cx: &'cx Context, global: &mut Object<'o>) -> bool {
+pub fn define(cx: &Context, global: &mut Object) -> bool {
 	let mut console = Object::new(cx);
 	(unsafe { console.define_methods(cx, METHODS) }) && global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
 }

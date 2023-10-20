@@ -127,7 +127,9 @@ pub mod class {
 					}
 				}
 			};
-			Request::set_private(this.handle().get(), request);
+			unsafe {
+				Request::set_private(this.handle().get(), request);
+			}
 			let heap = Heap::boxed(this.handle().get());
 			let request = Request::get_mut_private(this);
 
@@ -356,10 +358,7 @@ pub mod class {
 
 	impl<'cx> FromValue<'cx> for Request {
 		type Config = ();
-		fn from_value<'v>(cx: &'cx Context, value: &Value<'v>, _: bool, _: ()) -> Result<Request>
-		where
-			'cx: 'v,
-		{
+		fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<Request> {
 			let object = Object::from_value(cx, value, true, ())?;
 			if Request::instance_of(cx, &object, None) {
 				Request::get_private(&object).clone()

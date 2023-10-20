@@ -135,11 +135,11 @@ impl<'a> Array<'a> {
 
 	/// Deletes the [JSVal] at the given index.
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete<'cx: 'a>(&mut self, cx: &'cx Context, index: u32) -> bool {
+	pub fn delete(&mut self, cx: &Context, index: u32) -> bool {
 		self.arr.delete(cx, index)
 	}
 
-	pub fn indices<'c, 'cx: 'a>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIndicesIter<'c, 'cx> {
+	pub fn indices<'c, 'cx>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIndicesIter<'c, 'cx> {
 		ArrayIndicesIter(self.arr.keys(cx, flags))
 	}
 
@@ -213,13 +213,13 @@ impl DoubleEndedIterator for ArrayIndicesIter<'_, '_> {
 
 impl FusedIterator for ArrayIndicesIter<'_, '_> {}
 
-pub struct ArrayIter<'c, 'cx: 'aa, 'aa, 'a> {
+pub struct ArrayIter<'c, 'cx, 'aa, 'a> {
 	cx: &'cx Context<'c>,
 	array: &'a Array<'aa>,
 	indices: ArrayIndicesIter<'c, 'cx>,
 }
 
-impl<'c, 'cx: 'aa, 'aa, 'a> ArrayIter<'c, 'cx, 'aa, 'a> {
+impl<'c, 'cx, 'aa, 'a> ArrayIter<'c, 'cx, 'aa, 'a> {
 	fn new(cx: &'cx Context<'c>, array: &'a Array<'aa>, indices: ArrayIndicesIter<'c, 'cx>) -> ArrayIter<'c, 'cx, 'aa, 'a> {
 		ArrayIter { cx, array, indices }
 	}

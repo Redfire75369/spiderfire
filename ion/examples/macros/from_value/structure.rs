@@ -21,6 +21,6 @@ pub struct Complex<'cx> {
 	pub parsed: Arc<AtomicU64>,
 }
 
-fn parse_as_atomic_arc<'cx: 'v, 'v>(cx: &'cx Context, value: Value<'v>) -> Result<Arc<AtomicU64>> {
+fn parse_as_atomic_arc(cx: &Context, value: Value) -> Result<Arc<AtomicU64>> {
 	u64::from_value(cx, &value, true, ConversionBehavior::Default).map(|num| Arc::new(AtomicU64::new(num)))
 }

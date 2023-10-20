@@ -75,7 +75,9 @@ pub mod class {
 				status: Some(init.status),
 				status_text: Some(init.status_text),
 			};
-			Response::set_private(this.handle().get(), response);
+			unsafe {
+				Response::set_private(this.handle().get(), response);
+			}
 			let heap = Heap::boxed(this.handle().get());
 			let response = Response::get_mut_private(this);
 
