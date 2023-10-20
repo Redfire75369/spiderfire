@@ -45,7 +45,7 @@ impl<'d> Date<'d> {
 	/// Creates a [Date] from an object.
 	///
 	/// ### Safety
-	/// Object must be a Date.
+	/// Object must be a [Date].
 	pub unsafe fn from_unchecked(object: Local<'d, *mut JSObject>) -> Date<'d> {
 		Date { date: object }
 	}

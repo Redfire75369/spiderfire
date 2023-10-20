@@ -6,6 +6,7 @@
 
 use std::{ptr, slice};
 use std::ops::{Deref, DerefMut, Range};
+use std::ptr::NonNull;
 use std::string::String as RustString;
 
 use bytemuck::cast_slice;
@@ -38,14 +39,9 @@ impl<'s> String<'s> {
 
 	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
 	pub fn new<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
-		let mut utf16: Vec<u16> = Vec::with_capacity(string.len());
-		utf16.extend(string.encode_utf16());
+		let utf16: Vec<u16> = string.encode_utf16().collect();
 		let jsstr = unsafe { JS_NewUCStringCopyN(cx.as_ptr(), utf16.as_ptr(), utf16.len()) };
-		if !jsstr.is_null() {
-			Some(String::from(cx.root_string(jsstr)))
-		} else {
-			None
-		}
+		NonNull::new(jsstr).map(|str| String::from(cx.root_string(str.as_ptr())))
 	}
 
 	/// Creates a new external string by moving ownership of the UTF-16 string to the JS Runtime.

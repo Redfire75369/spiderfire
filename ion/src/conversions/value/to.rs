@@ -17,6 +17,7 @@ use mozjs::jsval::{
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
 
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, String, Symbol, Value};
+use crate::objects::RegExp;
 
 /// Represents types that can be converted to JavaScript [Values](Value).
 pub trait ToValue<'cx> {
@@ -152,6 +153,12 @@ impl<'cx> ToValue<'cx> for Date<'cx> {
 }
 
 impl<'cx> ToValue<'cx> for Promise<'cx> {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		self.handle().to_value(cx, value);
+	}
+}
+
+impl<'cx> ToValue<'cx> for RegExp<'cx> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		self.handle().to_value(cx, value);
 	}

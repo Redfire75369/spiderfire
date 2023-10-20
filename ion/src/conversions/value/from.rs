@@ -18,6 +18,7 @@ use mozjs::rust::{ToBoolean, ToNumber, ToString};
 use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
 use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, String, Symbol, Value};
+use crate::objects::RegExp;
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {
@@ -216,6 +217,26 @@ impl<'cx> FromValue<'cx> for Promise<'cx> {
 			Ok(promise)
 		} else {
 			Err(Error::new("Expected Promise", ErrorKind::Type))
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for RegExp<'cx> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RegExp<'cx>> {
+		if !value.handle().is_object() {
+			return Err(Error::new("Expected RegExp", ErrorKind::Type));
+		}
+
+		let object = value.to_object(cx).into_local();
+		if let Some(regexp) = RegExp::from(cx, object) {
+			unsafe {
+				AssertSameCompartment(cx.as_ptr(), regexp.get());
+			}
+			Ok(regexp)
+		} else {
+			Err(Error::new("Expected RegExp", ErrorKind::Type))
 		}
 	}
 }

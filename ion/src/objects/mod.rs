@@ -16,6 +16,7 @@ pub use iterator::{Iterator, JSIterator};
 pub use key::{OwnedKey, PropertyKey};
 pub use object::Object;
 pub use promise::Promise;
+pub use regexp::RegExp;
 
 use crate::Context;
 
@@ -26,6 +27,7 @@ mod iterator;
 mod key;
 mod object;
 mod promise;
+mod regexp;
 pub mod typedarray;
 
 /// Returns the bit-masked representation of reserved slots for a class.
