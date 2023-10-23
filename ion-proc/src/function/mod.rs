@@ -16,9 +16,9 @@ pub(crate) mod wrapper;
 
 // TODO: Partially Remove Error Handling in Infallible Functions
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
-	let crates = Crates::from_attributes(&mut function.attrs)?;
+	let crates = &Crates::from_attributes(&function.attrs);
 
-	let (wrapper, _, _) = impl_wrapper_fn(&crates, function.clone(), None, true, false)?;
+	let (wrapper, _) = impl_wrapper_fn(crates, function.clone(), None, true, false)?;
 
 	let ion = &crates.ion;
 

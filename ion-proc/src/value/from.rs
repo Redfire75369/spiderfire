@@ -15,7 +15,7 @@ use crate::utils::{add_trait_bounds, format_type, type_ends_with};
 use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
-	let crates = Crates::from_attributes(&mut input.attrs)?;
+	let crates = &Crates::from_attributes(&input.attrs);
 	let ion = &crates.ion;
 
 	add_trait_bounds(&mut input.generics, &parse2(quote!(#ion::conversions::FromValue)).unwrap());

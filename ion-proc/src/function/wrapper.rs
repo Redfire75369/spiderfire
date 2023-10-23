@@ -16,7 +16,7 @@ use crate::utils::type_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
 	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
-) -> Result<(ItemFn, ItemFn, Parameters)> {
+) -> Result<(ItemFn, Parameters)> {
 	if function.sig.asyncness.is_some() {
 		return impl_async_wrapper_fn(crates, function, class_ty, keep_inner);
 	}
@@ -123,12 +123,12 @@ pub(crate) fn impl_wrapper_fn(
 	function.attrs.clear();
 	function.block = body;
 
-	Ok((function, inner, parameters))
+	Ok((function, parameters))
 }
 
 pub(crate) fn impl_async_wrapper_fn(
 	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool,
-) -> Result<(ItemFn, ItemFn, Parameters)> {
+) -> Result<(ItemFn, Parameters)> {
 	let Crates { ion, runtime } = crates;
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
@@ -231,7 +231,7 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	function.block = body;
 
-	Ok((function, inner, parameters))
+	Ok((function, parameters))
 }
 
 pub(crate) fn argument_checker(ion: &TokenStream, ident: &Ident, nargs: usize) -> TokenStream {

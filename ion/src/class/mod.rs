@@ -11,31 +11,35 @@ use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
-	JSObject, JSPropertySpec,
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction, JSFunctionSpec, JSObject,
+	JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
+pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, TypeIdWrapper};
+pub use crate::class::reflect::{Castable, DerivedFrom, NativeMutObject, NativeObject, Reflector};
 use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
+
+mod native;
+mod reflect;
 
 /// Stores information about a native class created for JS.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ClassInfo {
-	class: &'static JSClass,
+	class: &'static NativeClass,
 	constructor: *mut JSFunction,
 	prototype: *mut JSObject,
 }
 
 pub trait ClassDefinition {
 	const NAME: &'static str;
-	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
 
-	fn class() -> &'static JSClass;
+	fn class() -> &'static NativeClass;
 
-	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static JSClass, Local<'cx, *mut JSObject>)> {
+	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static NativeClass, Local<'cx, *mut JSObject>)> {
 		None
 	}
 
@@ -68,7 +72,7 @@ pub trait ClassDefinition {
 			Entry::Occupied(o) => (false, o.into_mut()),
 			Entry::Vacant(entry) => {
 				let (parent_class, parent_proto) = Self::parent_class_info(cx)
-					.map(|(class, proto)| (class as *const _, Object::from(proto)))
+					.map(|(class, proto)| (&class.base as *const _, Object::from(proto)))
 					.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
 				let (constructor, nargs) = Self::constructor();
 				let properties = Self::properties();
@@ -115,7 +119,7 @@ pub trait ClassDefinition {
 	{
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype)) }
+		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), &Self::class().base, Handle::from_marked_location(&info.prototype)) }
 	}
 
 	fn new_object(cx: &Context, native: Self) -> *mut JSObject
@@ -125,7 +129,7 @@ pub trait ClassDefinition {
 		let object = Self::new_raw_object(cx);
 		let boxed = Box::new(Some(native));
 		unsafe {
-			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
+			JS_SetReservedSlot(object, 0, &PrivateValue(Box::into_raw(boxed).cast()));
 		}
 		object
 	}
@@ -137,7 +141,7 @@ pub trait ClassDefinition {
 	{
 		unsafe {
 			let mut value = UndefinedValue();
-			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
 			(*(value.to_private() as *const Option<Self>)).as_ref().unwrap()
 		}
 	}
@@ -148,7 +152,7 @@ pub trait ClassDefinition {
 	{
 		unsafe {
 			let mut value = UndefinedValue();
-			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
+			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
 			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
 		}
 	}
@@ -159,14 +163,14 @@ pub trait ClassDefinition {
 	{
 		let boxed = Box::new(Some(native));
 		unsafe {
-			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
+			JS_SetReservedSlot(object, 0, &PrivateValue(Box::into_raw(boxed).cast()));
 		}
 	}
 
 	fn instance_of(cx: &Context, object: &Object, args: Option<&Arguments>) -> bool {
 		unsafe {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			JS_InstanceOf(cx.as_ptr(), object.handle().into(), Self::class(), args)
+			JS_InstanceOf(cx.as_ptr(), object.handle().into(), &Self::class().base, args)
 		}
 	}
 }

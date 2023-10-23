@@ -29,7 +29,7 @@ pub(crate) struct Property {
 }
 
 impl Property {
-	pub(crate) fn from_const(mut con: ImplItemConst) -> Result<Option<(ImplItemConst, Property, bool)>> {
+	pub(crate) fn from_const(con: &mut ImplItemConst) -> Result<Option<(Property, bool)>> {
 		let mut name = None;
 		let mut names = Vec::new();
 		let mut skip = false;
@@ -69,9 +69,9 @@ impl Property {
 		match &con.ty {
 			Type::Path(ty) => {
 				if type_ends_with(ty, "i32") {
-					Ok(Some((con, Property { ty: PropertyType::Int32, ident, names }, stat)))
+					Ok(Some((Property { ty: PropertyType::Int32, ident, names }, stat)))
 				} else if type_ends_with(ty, "f64") {
-					Ok(Some((con, Property { ty: PropertyType::Double, ident, names }, stat)))
+					Ok(Some((Property { ty: PropertyType::Double, ident, names }, stat)))
 				} else {
 					Ok(None)
 				}
@@ -79,7 +79,7 @@ impl Property {
 			Type::Reference(re) => {
 				if let Type::Path(ty) = &*re.elem {
 					if type_ends_with(ty, "str") {
-						return Ok(Some((con, Property { ty: PropertyType::String, ident, names }, stat)));
+						return Ok(Some((Property { ty: PropertyType::String, ident, names }, stat)));
 					}
 				}
 				Ok(None)

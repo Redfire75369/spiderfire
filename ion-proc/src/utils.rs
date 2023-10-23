@@ -19,14 +19,6 @@ where
 	}
 }
 
-pub(crate) fn extract_last_type_segment(ty: &Type) -> Option<Ident> {
-	if let Type::Path(path) = ty {
-		path.path.segments.last().map(|segment| segment.ident.clone())
-	} else {
-		None
-	}
-}
-
 pub(crate) fn add_trait_bounds(generics: &mut Generics, bound: &TypeParamBound) {
 	for param in &mut generics.params {
 		if let GenericParam::Type(type_param) = param {

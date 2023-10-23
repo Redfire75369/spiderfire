@@ -41,11 +41,11 @@ pub fn __handle_native_constructor_result<'cx, T: IntoValue<'cx>>(
 
 #[doc(hidden)]
 pub fn __handle_native_constructor_private_result<'cx, T: IntoValue<'cx>>(
-	cx: &'cx Context, result: Result<ResultExc<T>>, index: u32, this: &Object<'cx>, rval: &mut Value,
+	cx: &'cx Context, result: Result<ResultExc<T>>, this: &Object<'cx>, rval: &mut Value,
 ) -> bool {
 	__handle_result(cx, result, move |cx, result| {
 		let b = Box::new(Some(result));
-		unsafe { JS_SetReservedSlot(this.handle().get(), index, &PrivateValue(Box::into_raw(b).cast())) };
+		unsafe { JS_SetReservedSlot(this.handle().get(), 0, &PrivateValue(Box::into_raw(b).cast())) };
 		this.to_value(cx, rval);
 		true
 	})

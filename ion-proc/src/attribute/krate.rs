@@ -50,31 +50,28 @@ pub(crate) struct Crates {
 }
 
 impl Crates {
-	pub(crate) fn from_attributes(attrs: &mut Vec<Attribute>) -> Result<Crates> {
+	pub(crate) fn from_attributes(attrs: &[Attribute]) -> Crates {
 		let mut ion = None;
 		let mut runtime = None;
 
-		let mut indices = vec![];
-		for (index, attr) in attrs.iter().enumerate() {
+		for attr in attrs {
 			if attr.path().is_ident("ion") {
-				let args: Punctuated<CrateAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+				let args: Punctuated<CrateAttribute, Token![,]> = match attr.parse_args_with(Punctuated::parse_terminated) {
+					Ok(p) => p,
+					Err(_) => continue,
+				};
 				for arg in args {
 					match arg {
 						CrateAttribute::Ion { krate, .. } => ion = Some(krate),
 						CrateAttribute::Runtime { krate, .. } => runtime = Some(krate),
 					}
 				}
-				indices.push(index);
 			}
 		}
 
-		for index in indices.into_iter().rev() {
-			attrs.remove(index);
-		}
-
-		Ok(Crates {
+		Crates {
 			ion: ion.unwrap_or_else(|| parse_quote!(::ion)),
 			runtime: runtime.unwrap_or_else(|| parse_quote!(::runtime)),
-		})
+		}
 	}
 }
