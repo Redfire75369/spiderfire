@@ -176,5 +176,18 @@ pub mod class {
 			let bytes = self.read_to_bytes().await?;
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
 		}
+
+		pub async fn json(&mut self, cx: &Context<'_>) -> Result<*mut JSObject> {
+			let text = self.text().await?;
+			let Some(str) = ion::String::new(cx, text.as_str()) else {
+				return Err(ion::Error::new("Failed to allocate string", ion::ErrorKind::Normal));
+			};
+			let mut result = ion::Value::undefined(cx);
+			if !unsafe { mozjs::jsapi::JS_ParseJSON1(cx.as_ptr(), str.handle().into(), result.handle_mut().into()) } {
+				return Err(ion::Error::new("Failed to deserialize JSON", ion::ErrorKind::Normal));
+			}
+
+			Ok((*result.to_object(cx)).get())
+		}
 	}
 }
