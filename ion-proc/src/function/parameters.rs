@@ -131,13 +131,19 @@ impl Parameter {
 		ty
 	}
 
-	pub(crate) fn to_statement(&self, ion: &TokenStream) -> Result<Stmt> {
+	pub(crate) fn to_statement(&self, ion: &TokenStream, is_async: bool) -> Result<Stmt> {
 		use Parameter as P;
 		let ty = self.get_type_without_lifetimes();
 		match self {
 			P::Regular { pat, conversion, strict, option, .. } => regular_param_statement(ion, pat, &ty, option.as_deref(), conversion, *strict),
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
-			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
+			P::Context(pat, _) => {
+				if is_async {
+					parse2(quote!(let __cx3: ::ion::Context<'static> = ::ion::Context::new_unchecked(__cx.as_ptr());))
+				} else {
+					parse2(quote!(let #pat: #ty = __cx;))
+				}
+			}
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
 		}
 	}
@@ -292,8 +298,8 @@ impl Parameters {
 		Ok(Parameters { parameters, this, idents, nargs })
 	}
 
-	pub(crate) fn to_statements(&self, ion: &TokenStream) -> Result<Vec<Stmt>> {
-		self.parameters.iter().map(|parameter| parameter.to_statement(ion)).collect()
+	pub(crate) fn to_statements(&self, ion: &TokenStream, is_async: bool) -> Result<Vec<Stmt>> {
+		self.parameters.iter().map(|parameter| parameter.to_statement(ion, is_async)).collect()
 	}
 
 	pub(crate) fn get_this_ident(&self) -> Option<Ident> {

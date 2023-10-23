@@ -14,6 +14,8 @@ use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
 use crate::utils::type_ends_with;
 
+use super::parameters::Parameter;
+
 pub(crate) fn impl_wrapper_fn(
 	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
 ) -> Result<(ItemFn, ItemFn, Parameters)> {
@@ -24,7 +26,7 @@ pub(crate) fn impl_wrapper_fn(
 	let ion = &crates.ion;
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = parameters.to_idents();
-	let statements = parameters.to_statements(ion)?;
+	let statements = parameters.to_statements(ion, false)?;
 	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some(), false)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
@@ -133,7 +135,7 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = &parameters.idents;
-	let statements = parameters.to_statements(ion)?;
+	let statements = parameters.to_statements(ion, true)?;
 	let this_statement = parameters.to_this_statement(ion, class_ty.is_some(), true)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
@@ -197,6 +199,16 @@ pub(crate) fn impl_async_wrapper_fn(
 		.is_some()
 		.then(|| quote!(__cx2.unroot_persistent_object(__this.handle().get());));
 
+	let context_arg = parameters
+		.parameters
+		.iter()
+		.filter_map(|p| match p {
+			Parameter::Context(pat, typ) => Some((pat, typ)),
+			_ => None,
+		})
+		.map(|(pat, ty)| quote!(let #pat: #ty = &__cx3;))
+		.collect::<Vec<_>>();
+
 	let body = parse2(quote_spanned!(function.span() => {
 		#argument_checker
 
@@ -209,6 +221,8 @@ pub(crate) fn impl_async_wrapper_fn(
 		let __result: #output = {
 			let __future = async move {
 				#this_statement
+
+				#(#context_arg)*
 
 				#[allow(clippy::let_unit_value)]
 				let __result: #inner_output = #call.await;
