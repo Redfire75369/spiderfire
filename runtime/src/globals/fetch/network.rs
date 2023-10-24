@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::mem::take;
 use std::str::FromStr;
 
 use futures::future::{Either, select};
@@ -12,21 +13,24 @@ use http::header::{CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LOCATION, CONTENT
 use hyper::{Body, Client};
 use hyper::client::HttpConnector;
 use hyper_rustls::HttpsConnector;
-use mozjs::jsapi::{Heap, JSObject};
+use mozjs::jsapi::JSObject;
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, Exception, Object, ResultExc};
+use ion::{ClassDefinition, Context, Error, Exception, Local, Object, ResultExc};
+use ion::class::Reflector;
 
+use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::{Headers, Request, Response};
 use crate::globals::fetch::body::FetchBody;
-use crate::globals::fetch::header::{HeadersInner, HeadersKind};
+use crate::globals::fetch::header::HeadersKind;
 use crate::globals::fetch::request::{clone_request, RequestRedirect};
 
 pub async fn request_internal<'c, 'o>(
 	cx: &Context<'c>, request: &Object<'o>, client: Client<HttpsConnector<HttpConnector>>,
 ) -> ResultExc<*mut JSObject> {
 	let request = Request::get_private(request);
-	let signal = request.signal.poll();
+	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
+	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
 	let send = Box::pin(send_requests(cx, request, client));
 	match select(send, signal).await {
 		Either::Left((response, _)) => response,
@@ -39,6 +43,10 @@ pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: &Request, client: C
 
 	let mut request = req.clone()?;
 	*request.request.body_mut() = request.body.to_http_body();
+
+	let headers = Object::from(unsafe { Local::from_heap(&req.headers) });
+	let headers = Headers::get_private(&headers);
+	*request.request.headers_mut() = headers.headers.clone();
 
 	let mut response = client.request(clone_request(&req.request)?).await?;
 	let mut url = request.url.clone();
@@ -96,20 +104,15 @@ pub(crate) async fn send_requests<'c>(cx: &Context<'c>, req: &Request, client: C
 		}
 	}
 
-	let mut response_object = Object::from(cx.root_object(Response::new_raw_object(cx)));
-	unsafe {
-		Response::set_private(response_object.handle().get(), Response::new(response, url, redirections > 0));
-	}
+	let mut response = Response::new(response, url, redirections > 0);
 
-	let heap = Heap::boxed(response_object.handle().get());
-	let response = Response::get_mut_private(&mut response_object);
-	let headers = Headers::new_object(
-		cx,
-		Headers {
-			headers: HeadersInner::MutRef(response.response.headers_mut(), heap),
-			kind: HeadersKind::Response,
-		},
-	);
-	response.headers.set(headers);
-	return Ok(response_object.handle().get());
+	let headers = Headers {
+		reflector: Reflector::default(),
+		headers: take(response.response.headers_mut()),
+		kind: HeadersKind::Response,
+	};
+	response.headers.set(Headers::new_object(cx, Box::new(headers)));
+
+	let response = Object::from(cx.root_object(Response::new_object(cx, Box::new(response))));
+	Ok(response.handle().get())
 }

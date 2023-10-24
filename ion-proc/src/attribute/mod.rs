@@ -8,3 +8,4 @@ pub(crate) mod class;
 pub(crate) mod function;
 pub(crate) mod krate;
 pub(crate) mod property;
+pub(crate) mod trace;

@@ -8,103 +8,20 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Error, Field, Fields, ItemFn, ItemStruct, LitStr, parse2, Result, Type, Visibility};
-use syn::punctuated::Punctuated;
+use syn::{Error, ItemFn, LitStr, Result, Type};
+use syn::spanned::Spanned;
 
-use crate::attribute::class::{FieldAttribute, Name};
-use crate::attribute::krate::Crates;
+use crate::attribute::class::Name;
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
 #[derive(Debug)]
-pub(crate) struct Accessor(pub(crate) Option<Method>, Option<Method>);
+pub(super) struct Accessor(pub(super) Option<Method>, Option<Method>);
 
 impl Accessor {
-	pub(crate) fn from_field(crates: &Crates, field: &mut Field, class_ty: &Type) -> Result<Option<Accessor>> {
-		let ion = &crates.ion;
-		if let Visibility::Public(_) = field.vis {
-			let ident = field.ident.as_ref().unwrap().clone();
-			let ty = field.ty.clone();
-			let mut conversion = None;
-
-			let mut name = None;
-			let mut names = Vec::new();
-			let mut readonly = false;
-			let mut skip = false;
-
-			let mut indexes = Vec::new();
-			for (index, attr) in field.attrs.iter().enumerate() {
-				if attr.path().is_ident("ion") {
-					let args: Punctuated<FieldAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
-
-					for arg in args {
-						match arg {
-							FieldAttribute::Name(name_) => name = Some(name_.name),
-							FieldAttribute::Alias(alias) => {
-								for alias in alias.aliases {
-									names.push(Name::String(alias));
-								}
-							}
-							FieldAttribute::Convert(convert) => conversion = conversion.or(Some(convert.conversion)),
-							FieldAttribute::Readonly(_) => readonly = true,
-							FieldAttribute::Skip(_) => skip = true,
-						}
-					}
-					indexes.push(index);
-				}
-			}
-			indexes.reverse();
-			for index in indexes {
-				field.attrs.remove(index);
-			}
-
-			if skip {
-				return Ok(None);
-			}
-
-			match name {
-				Some(name) => names.insert(0, name),
-				None => names.insert(0, Name::from_string(get_accessor_name(ident.to_string(), !readonly), ident.span())),
-			}
-
-			let getter_ident = format_ident!("get_{}", ident);
-			let getter = parse2(quote!(
-				fn #getter_ident(#[ion(this)] this: &#ion::Object) -> #ion::Result<#ty> {
-					let self_ = <#class_ty as #ion::ClassDefinition>::get_private(this);
-					Ok(self_.#ident)
-				}
-			))
-			.unwrap();
-			let (mut getter, _) = impl_accessor(crates, &getter, class_ty, true, false)?;
-			getter.names = names.clone();
-
-			if !readonly {
-				let convert = conversion.unwrap_or_else(|| parse_quote!(()));
-				let setter_ident = format_ident!("set_{}", ident);
-
-				let setter = parse2(quote!(
-					fn #setter_ident(#[ion(this)] this: &mut #ion::Object, #[ion(convert = #convert)] #ident: #ty) -> #ion::Result<()> {
-						let self_ = <#class_ty as #ion::ClassDefinition>::get_mut_private(this);
-						self_.#ident = #ident;
-						Ok(())
-					}
-				))
-				.unwrap();
-				let (mut setter, _) = impl_accessor(crates, &setter, class_ty, true, true)?;
-				setter.names = names;
-
-				Ok(Some(Accessor(Some(getter), Some(setter))))
-			} else {
-				Ok(Some(Accessor(Some(getter), None)))
-			}
-		} else {
-			Ok(None)
-		}
-	}
-
-	pub(crate) fn to_specs(&self, ion: &TokenStream) -> Vec<TokenStream> {
+	pub(super) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
 		let names = self.0.as_ref().or(self.1.as_ref()).map(|method| &*method.names).unwrap_or_default();
 		names
 			.iter()
@@ -135,18 +52,18 @@ impl Accessor {
 						let setter = setter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter_setter", function_ident);
-						quote!(#ion::#function_ident!(#getter, #setter, #key, #flags))
+						quote!(#ion::#function_ident!(#class::#getter, #class::#setter, #key, #flags))
 					}
 					Accessor(Some(getter), None) => {
 						let getter = getter.method.sig.ident.clone();
 
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#ion::#function_ident!(#getter, #key, #flags))
+						quote!(#ion::#function_ident!(#class::#getter, #key, #flags))
 					}
 					Accessor(None, Some(setter)) => {
 						let setter = setter.method.sig.ident.clone();
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#ion::#function_ident!(#setter, #key, #flags))
+						quote!(#ion::#function_ident!(#class::#setter, #key, #flags))
 					}
 					Accessor(None, None) => {
 						function_ident = format_ident!("create_{}_accessor", function_ident);
@@ -165,7 +82,7 @@ impl Accessor {
 	}
 }
 
-pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
+pub(super) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	let pat_snake = if is_setter { "set_" } else { "get_" };
 	let pat_camel = if is_setter { "set" } else { "get" };
 	if name.starts_with(pat_snake) {
@@ -182,16 +99,21 @@ pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(crates: &Crates, method: &ItemFn, ty: &Type, keep_inner: bool, is_setter: bool) -> Result<(Method, Parameters)> {
+pub(super) fn impl_accessor(ion: &TokenStream, method: ItemFn, ty: &Type, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
 	} else {
 		format!("Expected Getter to have {} arguments", expected_args)
 	};
-	let error = Error::new_spanned(&method.sig, error_message);
+	let error = Error::new(method.sig.span(), error_message);
 
-	let (accessor, parameters) = impl_method(crates, method.clone(), ty, keep_inner, |sig| {
+	let ident = if is_setter {
+		format_ident!("__ion_bindings_setter_{}", method.sig.ident)
+	} else {
+		format_ident!("__ion_bindings_getter_{}", method.sig.ident)
+	};
+	let (mut accessor, parameters) = impl_method(ion, method, ty, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {
@@ -203,11 +125,12 @@ pub(crate) fn impl_accessor(crates: &Crates, method: &ItemFn, ty: &Type, keep_in
 		});
 		(nargs == expected_args).then_some(()).ok_or(error)
 	})?;
+	accessor.method.sig.ident = ident;
 
 	Ok((accessor, parameters))
 }
 
-pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<Method>, setter: Option<Method>) {
+pub(super) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<Method>, setter: Option<Method>) {
 	match accessors.entry(name) {
 		Entry::Occupied(mut o) => match (getter, setter) {
 			(Some(g), Some(s)) => *o.get_mut() = Accessor(Some(g), Some(s)),
@@ -221,28 +144,6 @@ pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: S
 	}
 }
 
-pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> Vec<Method> {
-	accessors
-		.into_iter()
-		.flat_map(|(_, Accessor(getter, setter))| [getter, setter])
-		.flatten()
-		.collect()
-}
-
-pub(crate) fn insert_property_accessors(crates: &Crates, accessors: &mut HashMap<String, Accessor>, class: &mut ItemStruct) -> Result<()> {
-	let ident = &class.ident;
-	let ty = parse2(quote!(#ident))?;
-	if let Fields::Named(fields) = &mut class.fields {
-		return fields.named.iter_mut().try_for_each(|field| {
-			if let Some(accessor) = Accessor::from_field(crates, field, &ty)? {
-				if let Some(getter) = accessor.0.as_ref() {
-					insert_accessor(accessors, getter.names[0].as_string(), accessor.0.clone(), accessor.1.clone());
-				} else if let Some(setter) = accessor.1.as_ref() {
-					insert_accessor(accessors, setter.names[0].as_string(), accessor.0.clone(), accessor.1.clone());
-				}
-			}
-			Ok(())
-		});
-	}
-	Ok(())
+pub(super) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> impl Iterator<Item = Method> {
+	accessors.into_iter().flat_map(|(_, Accessor(getter, setter))| [getter, setter]).flatten()
 }

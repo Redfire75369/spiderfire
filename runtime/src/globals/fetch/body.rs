@@ -8,19 +8,18 @@ use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
 use hyper::Body;
-use mozjs::gc::Traceable;
-use mozjs::jsapi::{ESClass, Heap, JSTracer};
+use mozjs::jsapi::{ESClass, Heap};
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Traceable)]
 enum FetchBodyInner {
-	Bytes(Bytes),
+	Bytes(#[ion(no_trace)] Bytes),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Traceable)]
 pub enum FetchBodyKind {
 	String,
 }
@@ -33,7 +32,7 @@ impl Display for FetchBodyKind {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Traceable)]
 pub struct FetchBody {
 	body: FetchBodyInner,
 	source: Option<Box<Heap<JSVal>>>,
@@ -70,14 +69,6 @@ impl Default for FetchBody {
 			body: FetchBodyInner::Bytes(Bytes::new()),
 			source: None,
 			kind: None,
-		}
-	}
-}
-
-unsafe impl Traceable for FetchBody {
-	unsafe fn trace(&self, trc: *mut JSTracer) {
-		unsafe {
-			self.source.trace(trc);
 		}
 	}
 }

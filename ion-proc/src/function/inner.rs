@@ -4,17 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{ItemFn, Result};
+use syn::ItemFn;
 use syn::punctuated::Punctuated;
 
 use crate::function::parameters::Parameters;
 
-pub(crate) fn impl_inner_fn(mut function: ItemFn, parameters: &Parameters, keep_inner: bool) -> Result<ItemFn> {
-	let arguments = parameters.to_args();
-
+pub(crate) fn impl_inner_fn(mut function: ItemFn, parameters: &Parameters, keep_inner: bool) -> ItemFn {
+	function.sig.inputs = Punctuated::from_iter(parameters.to_args());
 	if keep_inner {
 		function.sig.ident = format_ident!("inner", span = function.sig.ident.span());
 	}
-	function.sig.inputs = Punctuated::from_iter(arguments);
-	Ok(function)
+	function
 }

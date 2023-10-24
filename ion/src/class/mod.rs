@@ -11,31 +11,34 @@ use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSClass, JSFunction, JSFunctionSpec,
-	JSObject, JSPropertySpec,
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction, JSFunctionSpec, JSObject,
+	JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
-use crate::conversions::FromValue;
+use crate::{Arguments, Context, Function, Local, Object};
+pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
+pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::functions::NativeFunction;
+
+mod native;
+mod reflect;
 
 /// Stores information about a native class created for JS.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ClassInfo {
-	class: &'static JSClass,
+	class: &'static NativeClass,
 	constructor: *mut JSFunction,
 	prototype: *mut JSObject,
 }
 
-pub trait ClassDefinition {
+pub trait ClassDefinition: NativeObject {
 	const NAME: &'static str;
-	const PARENT_PROTOTYPE_CHAIN_LENGTH: u32 = 0;
 
-	fn class() -> &'static JSClass;
+	fn class() -> &'static NativeClass;
 
-	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static JSClass, Local<'cx, *mut JSObject>)> {
+	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static NativeClass, Local<'cx, *mut JSObject>)> {
 		None
 	}
 
@@ -57,18 +60,15 @@ pub trait ClassDefinition {
 		&[JSPropertySpec::ZERO]
 	}
 
-	fn init_class<'cx>(cx: &'cx Context, object: &mut Object) -> (bool, &'cx ClassInfo)
-	where
-		Self: Sized + 'static,
-	{
+	fn init_class<'cx>(cx: &'cx Context, object: &mut Object) -> (bool, &'cx ClassInfo) {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
-		let entry: Entry<'cx, _, _> = infos.entry(TypeId::of::<Self>());
+		let entry = infos.entry(TypeId::of::<Self>());
 
 		match entry {
 			Entry::Occupied(o) => (false, o.into_mut()),
 			Entry::Vacant(entry) => {
 				let (parent_class, parent_proto) = Self::parent_class_info(cx)
-					.map(|(class, proto)| (class as *const _, Object::from(proto)))
+					.map(|(class, proto)| (&class.base as *const _, Object::from(proto)))
 					.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
 				let (constructor, nargs) = Self::constructor();
 				let properties = Self::properties();
@@ -109,74 +109,47 @@ pub trait ClassDefinition {
 		}
 	}
 
-	fn new_raw_object(cx: &Context) -> *mut JSObject
-	where
-		Self: Sized + 'static,
-	{
+	fn new_raw_object(cx: &Context) -> *mut JSObject {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), Self::class(), Handle::from_marked_location(&info.prototype)) }
+		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), &Self::class().base, Handle::from_marked_location(&info.prototype)) }
 	}
 
-	fn new_object(cx: &Context, native: Self) -> *mut JSObject
-	where
-		Self: Sized + 'static,
-	{
+	fn new_object(cx: &Context, native: Box<Self>) -> *mut JSObject {
 		let object = Self::new_raw_object(cx);
-		let boxed = Box::new(Some(native));
 		unsafe {
-			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
+			Self::set_private(object, native);
 		}
 		object
 	}
 
-	#[allow(clippy::mut_from_ref)]
-	fn get_private<'a>(object: &'a Object) -> &'a Self
-	where
-		Self: Sized,
-	{
+	fn get_private<'a>(object: &Object<'a>) -> &'a Self {
 		unsafe {
 			let mut value = UndefinedValue();
-			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
-			(*(value.to_private() as *const Option<Self>)).as_ref().unwrap()
+			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
+			&*(value.to_private() as *const Self)
 		}
 	}
 
-	fn get_mut_private<'a>(object: &'a mut Object) -> &'a mut Self
-	where
-		Self: Sized,
-	{
+	fn get_mut_private<'a>(object: &mut Object<'a>) -> &'a mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
-			JS_GetReservedSlot(object.handle().get(), Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &mut value);
-			(*(value.to_private() as *mut Option<Self>)).as_mut().unwrap()
+			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
+			&mut *(value.to_private() as *mut Self)
 		}
 	}
 
-	unsafe fn set_private(object: *mut JSObject, native: Self)
-	where
-		Self: Sized,
-	{
-		let boxed = Box::new(Some(native));
+	unsafe fn set_private(object: *mut JSObject, native: Box<Self>) {
+		native.reflector().set(object);
 		unsafe {
-			JS_SetReservedSlot(object, Self::PARENT_PROTOTYPE_CHAIN_LENGTH, &PrivateValue(Box::into_raw(boxed).cast()));
+			JS_SetReservedSlot(object, 0, &PrivateValue(Box::into_raw(native).cast_const().cast()));
 		}
 	}
 
 	fn instance_of(cx: &Context, object: &Object, args: Option<&Arguments>) -> bool {
 		unsafe {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			JS_InstanceOf(cx.as_ptr(), object.handle().into(), Self::class(), args)
+			JS_InstanceOf(cx.as_ptr(), object.handle().into(), &Self::class().base, args)
 		}
-	}
-}
-
-/// Converts an instance of a native class into its native value, by cloning it.
-pub fn class_from_value<T: ClassDefinition + Clone>(cx: &Context, value: &Value) -> Result<T> {
-	let object = Object::from_value(cx, value, true, ()).unwrap();
-	if T::instance_of(cx, &object, None) {
-		Ok(T::get_private(&object).clone())
-	} else {
-		Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 	}
 }

@@ -89,11 +89,9 @@ impl<'p> Promise<'p> {
 		Output: for<'cx2> ToValue<'cx2> + 'static,
 		Error: for<'cx2> ToValue<'cx2> + 'static,
 	{
-		let mut future = Some(future);
 		Promise::new_with_executor(cx, move |cx, resolve, reject| {
 			let null = Object::null(cx);
-			block_on(async {
-				let future = future.take().unwrap();
+			block_on(async move {
 				match future.await {
 					Ok(output) => {
 						let value = output.as_value(cx);

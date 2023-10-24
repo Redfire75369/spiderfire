@@ -12,24 +12,24 @@ use syn::punctuated::Punctuated;
 
 use crate::attribute::class::Name;
 use crate::attribute::property::PropertyAttribute;
-use crate::utils::type_ends_with;
+use crate::utils::path_ends_with;
 
 #[derive(Clone, Debug)]
-pub(crate) enum PropertyType {
+pub(super) enum PropertyType {
 	Int32,
 	Double,
 	String,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Property {
-	pub(crate) ty: PropertyType,
-	pub(crate) ident: Ident,
-	pub(crate) names: Vec<Name>,
+pub(super) struct Property {
+	pub(super) ty: PropertyType,
+	pub(super) ident: Ident,
+	pub(super) names: Vec<Name>,
 }
 
 impl Property {
-	pub(crate) fn from_const(mut con: ImplItemConst) -> Result<Option<(ImplItemConst, Property, bool)>> {
+	pub(super) fn from_const(con: &mut ImplItemConst) -> Result<Option<(Property, bool)>> {
 		let mut name = None;
 		let mut names = Vec::new();
 		let mut skip = false;
@@ -68,18 +68,18 @@ impl Property {
 
 		match &con.ty {
 			Type::Path(ty) => {
-				if type_ends_with(ty, "i32") {
-					Ok(Some((con, Property { ty: PropertyType::Int32, ident, names }, stat)))
-				} else if type_ends_with(ty, "f64") {
-					Ok(Some((con, Property { ty: PropertyType::Double, ident, names }, stat)))
+				if path_ends_with(&ty.path, "i32") {
+					Ok(Some((Property { ty: PropertyType::Int32, ident, names }, stat)))
+				} else if path_ends_with(&ty.path, "f64") {
+					Ok(Some((Property { ty: PropertyType::Double, ident, names }, stat)))
 				} else {
 					Ok(None)
 				}
 			}
 			Type::Reference(re) => {
 				if let Type::Path(ty) = &*re.elem {
-					if type_ends_with(ty, "str") {
-						return Ok(Some((con, Property { ty: PropertyType::String, ident, names }, stat)));
+					if path_ends_with(&ty.path, "str") {
+						return Ok(Some((Property { ty: PropertyType::String, ident, names }, stat)));
 					}
 				}
 				Ok(None)
@@ -88,7 +88,7 @@ impl Property {
 		}
 	}
 
-	pub(crate) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
+	pub(super) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
 		let ident = &self.ident;
 
 		self.names

@@ -11,20 +11,20 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str;
 use std::str::FromStr;
+use std::vec;
 
 use http::header::{
 	ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, CONNECTION,
-	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, DATE, DNT, Entry, EXPECT, HOST, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER,
-	TRANSFER_ENCODING, UPGRADE, VIA,
+	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, DATE, DNT, Entry, EXPECT, HeaderMap, HeaderName, HeaderValue, HOST, ORIGIN, RANGE,
+	REFERER, SET_COOKIE, TE, TRAILER, TRANSFER_ENCODING, UPGRADE, VIA,
 };
-use hyper::header::{HeaderMap, HeaderName, HeaderValue};
 use mime::{APPLICATION, FORM_DATA, Mime, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
-use mozjs::gc::Traceable;
-use mozjs::jsapi::{Heap, JSObject, JSTracer};
 
-pub use class::*;
 use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
+use ion::{ClassDefinition, JSIterator};
+use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
+use ion::symbol::WellKnownSymbolCode;
 
 #[derive(FromValue)]
 pub enum Header {
@@ -94,9 +94,9 @@ impl ToValue<'_> for HeaderEntry {
 }
 
 #[derive(Default, FromValue)]
-pub enum HeadersInit {
+pub enum HeadersInit<'cx> {
 	#[ion(inherit)]
-	Existing(Headers),
+	Existing(&'cx Headers),
 	#[ion(inherit)]
 	Array(Vec<HeaderEntry>),
 	#[ion(inherit)]
@@ -106,14 +106,16 @@ pub enum HeadersInit {
 	Empty,
 }
 
-impl HeadersInit {
-	pub(crate) fn into_headers(self, mut headers: HeadersInner, kind: HeadersKind) -> Result<Headers> {
+impl HeadersInit<'_> {
+	pub(crate) fn into_headers(self, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
 		match self {
 			HeadersInit::Existing(existing) => {
-				headers
-					.as_mut()
-					.extend(existing.headers.as_ref().into_iter().map(|(name, value)| (name.clone(), value.clone())));
-				Ok(Headers { headers, kind })
+				headers.extend(existing.headers.iter().map(|(name, value)| (name.clone(), value.clone())));
+				Ok(Headers {
+					reflector: Reflector::default(),
+					headers,
+					kind,
+				})
 			}
 			HeadersInit::Array(vec) => Headers::from_array(vec, headers, kind),
 			HeadersInit::Object(object) => {
@@ -122,58 +124,19 @@ impl HeadersInit {
 					if let nm @ Some(_) = nm {
 						name = nm;
 					}
-					append_header(headers.as_mut(), name.clone().unwrap(), value, kind)?;
+					append_header(&mut headers, name.clone().unwrap(), value, kind)?;
 				}
-				Ok(Headers { headers, kind })
+				Ok(Headers {
+					reflector: Reflector::default(),
+					headers,
+					kind,
+				})
 			}
-			HeadersInit::Empty => Ok(Headers { headers, kind }),
-		}
-	}
-}
-
-#[derive(Debug)]
-pub(crate) enum HeadersInner {
-	Owned(HeaderMap),
-	MutRef(*mut HeaderMap, Box<Heap<*mut JSObject>>),
-}
-
-impl HeadersInner {
-	pub fn as_ref(&self) -> &HeaderMap {
-		match self {
-			HeadersInner::Owned(map) => map,
-			HeadersInner::MutRef(map, _) => unsafe { &**map },
-		}
-	}
-
-	pub fn as_mut(&mut self) -> &mut HeaderMap {
-		match self {
-			HeadersInner::Owned(map) => map,
-			HeadersInner::MutRef(map, _) => unsafe { &mut **map },
-		}
-	}
-}
-
-impl Clone for HeadersInner {
-	fn clone(&self) -> HeadersInner {
-		match self {
-			HeadersInner::Owned(map) => HeadersInner::Owned(map.clone()),
-			HeadersInner::MutRef(map, _) => HeadersInner::Owned(unsafe { (**map).clone() }),
-		}
-	}
-}
-
-impl Default for HeadersInner {
-	fn default() -> HeadersInner {
-		HeadersInner::Owned(HeaderMap::new())
-	}
-}
-
-unsafe impl Traceable for HeadersInner {
-	unsafe fn trace(&self, trc: *mut JSTracer) {
-		if let HeadersInner::MutRef(_, source) = self {
-			unsafe {
-				source.trace(trc);
-			}
+			HeadersInit::Empty => Ok(Headers {
+				reflector: Reflector::default(),
+				headers,
+				kind,
+			}),
 		}
 	}
 }
@@ -189,178 +152,154 @@ pub enum HeadersKind {
 }
 
 #[js_class]
-mod class {
-	use std::ops::{Deref, DerefMut};
-	use std::str::FromStr;
-	use std::vec;
+#[derive(Default)]
+pub struct Headers {
+	pub(crate) reflector: Reflector,
+	#[ion(no_trace)]
+	pub(crate) headers: HeaderMap,
+	#[ion(no_trace)]
+	pub(crate) kind: HeadersKind,
+}
 
-	use http::header::{Entry, HeaderMap, HeaderName, HeaderValue, RANGE, SET_COOKIE};
-	use mozjs::gc::Traceable;
-	use mozjs::jsapi::JSTracer;
+#[js_class]
+impl Headers {
+	pub(crate) fn from_array(vec: Vec<HeaderEntry>, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
+		for entry in vec {
+			let mut name = entry.name;
+			let value = entry.value;
+			name.make_ascii_lowercase();
 
-	use ion::{ClassDefinition, Context, Error, JSIterator, Object, Result, Value};
-	use ion::conversions::ToValue;
-	use ion::symbol::WellKnownSymbolCode;
-
-	use crate::globals::fetch::header::{
-		append_header, get_header, Header, HeaderEntry, HeadersInit, HeadersInner, HeadersKind, NO_CORS_SAFELISTED_REQUEST_HEADERS,
-		remove_privileged_no_cors_headers, validate_header, validate_no_cors_safelisted_request_header,
-	};
-
-	#[derive(Clone, Default)]
-	#[ion(from_value, to_value)]
-	pub struct Headers {
-		pub(crate) headers: HeadersInner,
-		pub(crate) kind: HeadersKind,
+			let name = HeaderName::from_str(&name)?;
+			let value = HeaderValue::try_from(&value)?;
+			append_header(&mut headers, name, value, kind)?;
+		}
+		Ok(Headers {
+			reflector: Reflector::default(),
+			headers,
+			kind,
+		})
 	}
 
-	impl Headers {
-		pub(crate) fn from_array(vec: Vec<HeaderEntry>, mut headers: HeadersInner, kind: HeadersKind) -> Result<Headers> {
-			for entry in vec {
-				let mut name = entry.name;
-				let value = entry.value;
-				name.make_ascii_lowercase();
+	#[ion(constructor)]
+	pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
+		init.unwrap_or_default().into_headers(HeaderMap::default(), HeadersKind::None)
+	}
 
-				let name = HeaderName::from_str(&name)?;
-				let value = HeaderValue::try_from(&value)?;
-				append_header(headers.as_mut(), name, value, kind)?;
-			}
-			Ok(Headers { headers, kind })
-		}
-
-		#[ion(constructor)]
-		pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
-			init.unwrap_or_default().into_headers(HeadersInner::default(), HeadersKind::None)
-		}
-
-		pub fn append(&mut self, name: String, value: String) -> Result<()> {
-			if self.kind != HeadersKind::Immutable {
-				let name = HeaderName::from_str(&name.to_lowercase())?;
-				let value = HeaderValue::from_str(&value)?;
-				self.headers.as_mut().append(name, value);
-				Ok(())
-			} else {
-				Err(Error::new("Cannot Modify Readonly Headers", None))
-			}
-		}
-
-		pub fn delete(&mut self, name: String) -> Result<()> {
-			let name = HeaderName::from_str(&name.to_lowercase())?;
-			if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
-				return Ok(());
-			}
-
-			if self.kind == HeadersKind::RequestNoCors && !NO_CORS_SAFELISTED_REQUEST_HEADERS.contains(&name) && name != RANGE {
-				return Ok(());
-			}
-
-			match self.headers.as_mut().entry(name) {
-				Entry::Occupied(o) => {
-					o.remove_entry_mult();
-				}
-				Entry::Vacant(_) => (),
-			}
-			remove_privileged_no_cors_headers(self.headers.as_mut(), self.kind);
-			Ok(())
-		}
-
-		pub fn get(&self, name: String) -> Result<Option<Header>> {
-			let name = HeaderName::from_str(&name.to_lowercase())?;
-			Ok(get_header(self.headers.as_ref(), &name))
-		}
-
-		pub fn get_set_cookie(&self) -> Vec<String> {
-			let header = get_header(self.headers.as_ref(), &SET_COOKIE);
-			header.map_or_else(Vec::new, |header| match header {
-				Header::Multiple(vec) => vec,
-				Header::Single(str) => vec![str],
-			})
-		}
-
-		pub fn has(&self, name: String) -> Result<bool> {
-			let name = HeaderName::from_str(&name.to_lowercase())?;
-			Ok(self.headers.as_ref().contains_key(name))
-		}
-
-		pub fn set(&mut self, name: String, value: String) -> Result<()> {
+	pub fn append(&mut self, name: String, value: String) -> Result<()> {
+		if self.kind != HeadersKind::Immutable {
 			let name = HeaderName::from_str(&name.to_lowercase())?;
 			let value = HeaderValue::from_str(&value)?;
-			if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
-				return Ok(());
-			}
-			if self.kind == HeadersKind::RequestNoCors && !validate_no_cors_safelisted_request_header(self.headers.as_mut(), &name, &value) {
-				return Ok(());
-			}
-			self.headers.as_mut().insert(name, value);
-			remove_privileged_no_cors_headers(self.headers.as_mut(), self.kind);
+			self.headers.append(name, value);
 			Ok(())
+		} else {
+			Err(Error::new("Cannot Modify Readonly Headers", None))
+		}
+	}
+
+	pub fn delete(&mut self, name: String) -> Result<()> {
+		let name = HeaderName::from_str(&name.to_lowercase())?;
+		if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
+			return Ok(());
 		}
 
-		#[ion(name = WellKnownSymbolCode::Iterator)]
-		pub fn iterator(cx: &Context, #[ion(this)] this: &Object) -> ion::Iterator {
-			let thisv = this.as_value(cx);
+		if self.kind == HeadersKind::RequestNoCors && !NO_CORS_SAFELISTED_REQUEST_HEADERS.contains(&name) && name != RANGE {
+			return Ok(());
+		}
 
-			let self_ = Headers::get_private(this);
-			let cookies: Vec<_> = self_.headers.as_ref().get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
-
-			let mut keys: Vec<_> = self_.headers.as_ref().keys().map(|name| name.as_str().to_ascii_lowercase()).collect();
-			keys.reserve(cookies.len() - 1);
-			for _ in 0..(cookies.len() - 1) {
-				keys.push(String::from(SET_COOKIE.as_str()));
+		match self.headers.entry(name) {
+			Entry::Occupied(o) => {
+				o.remove_entry_mult();
 			}
-			keys.sort();
+			Entry::Vacant(_) => (),
+		}
+		remove_privileged_no_cors_headers(&mut self.headers, self.kind);
+		Ok(())
+	}
 
-			ion::Iterator::new(
-				HeadersIterator {
-					keys: keys.into_iter(),
-					cookies: cookies.into_iter(),
-				},
-				&thisv,
-			)
+	pub fn get(&self, name: String) -> Result<Option<Header>> {
+		let name = HeaderName::from_str(&name.to_lowercase())?;
+		Ok(get_header(&self.headers, &name))
+	}
+
+	pub fn get_set_cookie(&self) -> Vec<String> {
+		let header = get_header(&self.headers, &SET_COOKIE);
+		header.map_or_else(Vec::new, |header| match header {
+			Header::Multiple(vec) => vec,
+			Header::Single(str) => vec![str],
+		})
+	}
+
+	pub fn has(&self, name: String) -> Result<bool> {
+		let name = HeaderName::from_str(&name.to_lowercase())?;
+		Ok(self.headers.contains_key(name))
+	}
+
+	pub fn set(&mut self, name: String, value: String) -> Result<()> {
+		let name = HeaderName::from_str(&name.to_lowercase())?;
+		let value = HeaderValue::from_str(&value)?;
+		if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
+			return Ok(());
+		}
+		if self.kind == HeadersKind::RequestNoCors && !validate_no_cors_safelisted_request_header(&mut self.headers, &name, &value) {
+			return Ok(());
+		}
+		self.headers.insert(name, value);
+		remove_privileged_no_cors_headers(&mut self.headers, self.kind);
+		Ok(())
+	}
+
+	#[ion(name = WellKnownSymbolCode::Iterator)]
+	pub fn iterator(&self, cx: &Context) -> ion::Iterator {
+		let cookies: Vec<_> = self.headers.get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
+
+		let mut keys: Vec<_> = self.headers.keys().map(|name| name.as_str().to_ascii_lowercase()).collect();
+		keys.reserve(cookies.len());
+		for _ in 0..cookies.len() {
+			keys.push(String::from(SET_COOKIE.as_str()));
+		}
+		keys.sort();
+
+		let this = self.reflector.get().as_value(cx);
+		ion::Iterator::new(
+			HeadersIterator {
+				keys: keys.into_iter(),
+				cookies: cookies.into_iter(),
+			},
+			&this,
+		)
+	}
+}
+
+impl<'cx> FromValue<'cx> for &'cx Headers {
+	type Config = ();
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<&'cx Headers> {
+		let object = Object::from_value(cx, value, strict, ())?;
+		if Headers::instance_of(cx, &object, None) {
+			Ok(Headers::get_private(&object))
+		} else {
+			Err(Error::new("Expected Headers", ErrorKind::Type))
 		}
 	}
+}
 
-	pub struct HeadersIterator {
-		keys: vec::IntoIter<String>,
-		cookies: vec::IntoIter<HeaderValue>,
-	}
+pub struct HeadersIterator {
+	keys: vec::IntoIter<String>,
+	cookies: vec::IntoIter<HeaderValue>,
+}
 
-	impl JSIterator for HeadersIterator {
-		fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
-			let object = private.to_object(cx);
-			let headers = Headers::get_private(&object);
-			let key = self.keys.next();
-			key.and_then(|key| {
-				if key == SET_COOKIE.as_str() {
-					self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].as_value(cx))
-				} else {
-					get_header(headers.headers.as_ref(), &HeaderName::from_bytes(key.as_bytes()).unwrap())
-						.map(|value| [key.as_str(), &value.to_string()].as_value(cx))
-				}
-			})
-		}
-	}
-
-	impl Deref for Headers {
-		type Target = HeaderMap;
-
-		fn deref(&self) -> &HeaderMap {
-			self.headers.as_ref()
-		}
-	}
-
-	impl DerefMut for Headers {
-		fn deref_mut(&mut self) -> &mut HeaderMap {
-			self.headers.as_mut()
-		}
-	}
-
-	unsafe impl Traceable for Headers {
-		unsafe fn trace(&self, trc: *mut JSTracer) {
-			unsafe {
-				self.headers.trace(trc);
+impl JSIterator for HeadersIterator {
+	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
+		let object = private.to_object(cx);
+		let headers = Headers::get_private(&object);
+		let key = self.keys.next();
+		key.and_then(|key| {
+			if key == SET_COOKIE.as_str() {
+				self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].as_value(cx))
+			} else {
+				get_header(&headers.headers, &HeaderName::from_bytes(key.as_bytes()).unwrap())
+					.map(|value| [key.as_str(), &value.to_string()].as_value(cx))
 			}
-		}
+		})
 	}
 }
 

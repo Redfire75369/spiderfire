@@ -10,7 +10,6 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Bracket;
 
-use crate::attribute::function::ConvertAttribute;
 use crate::class::method::MethodKind;
 
 mod keywords {
@@ -19,11 +18,6 @@ mod keywords {
 	custom_keyword!(skip);
 
 	custom_keyword!(class);
-	custom_keyword!(no_constructor);
-	custom_keyword!(from_value);
-	custom_keyword!(to_value);
-	custom_keyword!(into_value);
-	custom_keyword!(no_string_tag);
 
 	custom_keyword!(convert);
 	custom_keyword!(readonly);
@@ -148,11 +142,6 @@ impl Parse for AliasAttribute {
 pub(crate) enum ClassAttribute {
 	Name(ClassNameAttribute),
 	Class(keywords::class),
-	NoConstructor(keywords::no_constructor),
-	FromValue(keywords::from_value),
-	ToValue(keywords::to_value),
-	IntoValue(keywords::into_value),
-	NoStringTag(keywords::no_string_tag),
 }
 
 impl Parse for ClassAttribute {
@@ -164,47 +153,6 @@ impl Parse for ClassAttribute {
 			Ok(CA::Name(input.parse()?))
 		} else if lookahead.peek(keywords::class) {
 			Ok(CA::Class(input.parse()?))
-		} else if lookahead.peek(keywords::no_constructor) {
-			Ok(CA::NoConstructor(input.parse()?))
-		} else if lookahead.peek(keywords::from_value) {
-			Ok(CA::FromValue(input.parse()?))
-		} else if lookahead.peek(keywords::to_value) {
-			Ok(CA::ToValue(input.parse()?))
-		} else if lookahead.peek(keywords::into_value) {
-			Ok(CA::IntoValue(input.parse()?))
-		} else if lookahead.peek(keywords::no_string_tag) {
-			Ok(CA::NoStringTag(input.parse()?))
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) enum FieldAttribute {
-	Name(NameAttribute),
-	Alias(AliasAttribute),
-	Convert(ConvertAttribute),
-	Readonly(keywords::readonly),
-	Skip(keywords::skip),
-}
-
-impl Parse for FieldAttribute {
-	fn parse(input: ParseStream) -> Result<FieldAttribute> {
-		use FieldAttribute as FA;
-
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(FA::Name(input.parse()?))
-		} else if lookahead.peek(keywords::alias) {
-			Ok(FA::Alias(input.parse()?))
-		} else if lookahead.peek(keywords::convert) {
-			Ok(FA::Convert(input.parse()?))
-		} else if lookahead.peek(keywords::readonly) {
-			Ok(FA::Readonly(input.parse()?))
-		} else if lookahead.peek(keywords::skip) {
-			Ok(FA::Skip(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -228,7 +176,6 @@ impl MethodAttribute {
 			MA::Constructor(_) => Some(MethodKind::Constructor),
 			MA::Getter(_) => Some(MethodKind::Getter),
 			MA::Setter(_) => Some(MethodKind::Setter),
-			MA::Skip(_) => Some(MethodKind::Internal),
 			_ => None,
 		}
 	}
