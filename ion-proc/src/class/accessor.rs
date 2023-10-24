@@ -19,10 +19,10 @@ use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
 #[derive(Debug)]
-pub(crate) struct Accessor(pub(crate) Option<Method>, Option<Method>);
+pub(super) struct Accessor(pub(super) Option<Method>, Option<Method>);
 
 impl Accessor {
-	pub(crate) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
+	pub(super) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
 		let names = self.0.as_ref().or(self.1.as_ref()).map(|method| &*method.names).unwrap_or_default();
 		names
 			.iter()
@@ -83,7 +83,7 @@ impl Accessor {
 	}
 }
 
-pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
+pub(super) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	let pat_snake = if is_setter { "set_" } else { "get_" };
 	let pat_camel = if is_setter { "set" } else { "get" };
 	if name.starts_with(pat_snake) {
@@ -100,7 +100,7 @@ pub(crate) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	name
 }
 
-pub(crate) fn impl_accessor(crates: &Crates, method: ItemFn, ty: &Type, is_setter: bool) -> Result<(Method, Parameters)> {
+pub(super) fn impl_accessor(crates: &Crates, method: ItemFn, ty: &Type, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -131,7 +131,7 @@ pub(crate) fn impl_accessor(crates: &Crates, method: ItemFn, ty: &Type, is_sette
 	Ok((accessor, parameters))
 }
 
-pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<Method>, setter: Option<Method>) {
+pub(super) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: String, getter: Option<Method>, setter: Option<Method>) {
 	match accessors.entry(name) {
 		Entry::Occupied(mut o) => match (getter, setter) {
 			(Some(g), Some(s)) => *o.get_mut() = Accessor(Some(g), Some(s)),
@@ -145,6 +145,6 @@ pub(crate) fn insert_accessor(accessors: &mut HashMap<String, Accessor>, name: S
 	}
 }
 
-pub(crate) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> impl Iterator<Item = Method> {
+pub(super) fn flatten_accessors(accessors: HashMap<String, Accessor>) -> impl Iterator<Item = Method> {
 	accessors.into_iter().flat_map(|(_, Accessor(getter, setter))| [getter, setter]).flatten()
 }

@@ -12,9 +12,9 @@ use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
-use crate::utils::type_ends_with;
+use crate::utils::path_ends_with;
 
-pub(crate) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
+pub(super) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
 	let (wrapper, parameters) = impl_wrapper_fn(crates, constructor.clone(), Some(ty), false, true)?;
 
 	let ion = &crates.ion;
@@ -63,7 +63,7 @@ pub(crate) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Ty
 	Ok((method, parameters))
 }
 
-pub(crate) fn error_handler(ion: &TokenStream, return_type: &Type) -> TokenStream {
+fn error_handler(ion: &TokenStream, return_type: &Type) -> TokenStream {
 	let mut handler = quote!(
 		#ion::functions::__handle_native_constructor_private_result(cx, result, &this, args.rval())
 	);
@@ -71,7 +71,7 @@ pub(crate) fn error_handler(ion: &TokenStream, return_type: &Type) -> TokenStrea
 		handler = quote!(#ion::functions::__handle_native_constructor_result(cx, result, &this, args.rval()));
 	}
 	if let Type::Path(ty) = &return_type {
-		if type_ends_with(ty, "Result") || type_ends_with(ty, "ResultExc") {
+		if path_ends_with(&ty.path, "Result") || path_ends_with(&ty.path, "ResultExc") {
 			if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
 				if let Some(GenericArgument::Type(Type::Tuple(ty))) = args.args.first() {
 					if ty.elems.is_empty() {

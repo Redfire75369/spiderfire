@@ -18,7 +18,7 @@ use mozjs::jsval::{PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, TypeIdWrapper};
-pub use crate::class::reflect::{Castable, DerivedFrom, NativeMutObject, NativeObject, Reflector};
+pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
 

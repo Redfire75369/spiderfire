@@ -12,7 +12,7 @@ use syn::spanned::Spanned;
 use crate::attribute::krate::Crates;
 use crate::function::inner::impl_inner_fn;
 use crate::function::parameters::Parameters;
-use crate::utils::type_ends_with;
+use crate::utils::path_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
 	crates: &Crates, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
@@ -56,8 +56,8 @@ pub(crate) fn impl_wrapper_fn(
 	let mut result = quote!(__result.map_err(::std::convert::Into::into));
 
 	if let Type::Path(ty) = &output {
-		if !type_ends_with(ty, "ResultExc") {
-			if type_ends_with(ty, "Result") {
+		if !path_ends_with(&ty.path, "ResultExc") {
+			if path_ends_with(&ty.path, "Result") {
 				if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
 					let arg = args.args.first().unwrap();
 					wrapper_output = parse_quote!(#ion::ResultExc<#arg>);
@@ -155,7 +155,7 @@ pub(crate) fn impl_async_wrapper_fn(
 
 	let mut is_result = false;
 	if let Type::Path(ty) = &inner_output {
-		if type_ends_with(ty, "Result") || type_ends_with(ty, "ResultExc") {
+		if path_ends_with(&ty.path, "Result") || path_ends_with(&ty.path, "ResultExc") {
 			is_result = true;
 		}
 	}

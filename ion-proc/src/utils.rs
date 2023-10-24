@@ -6,13 +6,13 @@
 
 use prettyplease::unparse;
 use proc_macro2::Ident;
-use syn::{GenericParam, Generics, parse2, Pat, Type, TypeParamBound, TypePath};
+use syn::{GenericParam, Generics, parse2, Pat, Path, Type, TypeParamBound};
 
-pub(crate) fn type_ends_with<I: ?Sized>(ty: &TypePath, ident: &I) -> bool
+pub(crate) fn path_ends_with<I: ?Sized>(path: &Path, ident: &I) -> bool
 where
 	Ident: PartialEq<I>,
 {
-	if let Some(last) = ty.path.segments.last() {
+	if let Some(last) = path.segments.last() {
 		&last.ident == ident
 	} else {
 		false

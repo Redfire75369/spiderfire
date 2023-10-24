@@ -1,6 +1,3 @@
-use mozjs::gc::Traceable;
-use mozjs::jsapi::JSTracer;
-
 use ion::{Context, Function, js_class, Object, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::FromValue;
@@ -10,14 +7,6 @@ pub struct Toggle {
 	reflector: Reflector,
 	toggle: bool,
 	toggled: i32,
-}
-
-unsafe impl Traceable for Toggle {
-	unsafe fn trace(&self, trc: *mut JSTracer) {
-		unsafe {
-			self.reflector.trace(trc);
-		}
-	}
 }
 
 #[js_class]

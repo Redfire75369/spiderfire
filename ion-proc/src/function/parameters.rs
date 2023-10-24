@@ -13,7 +13,7 @@ use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
 use crate::attribute::function::ParameterAttribute;
-use crate::utils::{format_pat, type_ends_with};
+use crate::utils::{format_pat, path_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
 #[derive(Debug)]
@@ -64,9 +64,9 @@ impl Parameter {
 
 				if let Type::Reference(reference) = &*ty {
 					if let Type::Path(path) = &*reference.elem {
-						if type_ends_with(path, "Context") {
+						if path_ends_with(&path.path, "Context") {
 							return Ok(Parameter::Context(pat, ty));
-						} else if type_ends_with(path, "Arguments") {
+						} else if path_ends_with(&path.path, "Arguments") {
 							return Ok(Parameter::Arguments(pat, ty));
 						}
 					}
@@ -102,9 +102,9 @@ impl Parameter {
 
 				let conversion = conversion.unwrap_or_else(|| parse_quote!(()));
 
-				if let Type::Path(path) = &*ty {
-					if type_ends_with(path, "Option") {
-						let option_segment = path.path.segments.last().unwrap();
+				if let Type::Path(ty) = &*ty {
+					if path_ends_with(&ty.path, "Option") {
+						let option_segment = ty.path.segments.last().unwrap();
 						if let PathArguments::AngleBracketed(inner) = &option_segment.arguments {
 							if let GenericArgument::Type(inner) = inner.args.last().unwrap() {
 								option = Some(Box::new(inner.clone()));
@@ -393,7 +393,7 @@ pub(crate) fn parse_this(pat: Box<Pat>, ty: Box<Type>, is_class: bool, span: Spa
 			let lt = reference.lifetime;
 			let mutability = reference.mutability;
 			match *reference.elem {
-				Type::Path(ty) if type_ends_with(&ty, "Object") => Ok(ThisParameter {
+				Type::Path(ty) if path_ends_with(&ty.path, "Object") => Ok(ThisParameter {
 					pat,
 					ty: Box::new(Type::Path(ty)),
 					kind: ThisKind::Object(lt, mutability),

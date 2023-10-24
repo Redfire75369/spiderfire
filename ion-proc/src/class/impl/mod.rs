@@ -20,7 +20,7 @@ use crate::class::r#impl::spec::PrototypeSpecs;
 
 mod spec;
 
-pub(crate) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<Vec<ItemImpl>> {
+pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]> {
 	let crates = &Crates::from_attributes(&r#impl.attrs);
 	let ion = &crates.ion;
 
@@ -190,7 +190,7 @@ fn parse_class_method(crates: &Crates, r#fn: &mut ImplItemFn, specs: &mut Protot
 
 fn class_definition(
 	ion: &TokenStream, span: Span, r#type: &Type, ident: &Ident, constructor: Method, specs: PrototypeSpecs,
-) -> Result<Vec<ItemImpl>> {
+) -> Result<[ItemImpl; 2]> {
 	let spec_functions = specs.to_spec_functions(ion, span, ident)?.into_array();
 	let constructor_function = constructor.method;
 	let functions = specs.into_functions().into_iter().map(|method| method.method);
@@ -230,5 +230,5 @@ fn class_definition(
 			Self::__ion_static_property_specs()
 		}
 	}))?;
-	Ok(vec![spec_impls, class_definition])
+	Ok([spec_impls, class_definition])
 }

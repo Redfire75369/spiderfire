@@ -20,20 +20,20 @@ pub(crate) enum MethodKind {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) enum MethodReceiver {
+pub(super) enum MethodReceiver {
 	Dynamic,
 	Static,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Method {
-	pub(crate) receiver: MethodReceiver,
-	pub(crate) method: ItemFn,
-	pub(crate) nargs: usize,
-	pub(crate) names: Vec<Name>,
+pub(super) struct Method {
+	pub(super) receiver: MethodReceiver,
+	pub(super) method: ItemFn,
+	pub(super) nargs: usize,
+	pub(super) names: Vec<Name>,
 }
 
-pub(crate) fn impl_method<F>(crates: &Crates, mut method: ItemFn, ty: &Type, predicate: F) -> Result<(Method, Parameters)>
+pub(super) fn impl_method<F>(crates: &Crates, mut method: ItemFn, ty: &Type, predicate: F) -> Result<(Method, Parameters)>
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {

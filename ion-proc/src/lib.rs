@@ -15,11 +15,13 @@ use quote::ToTokens;
 
 use crate::class::impl_js_class;
 use crate::function::impl_js_fn;
+use crate::trace::impl_trace;
 use crate::value::impl_from_value;
 
 pub(crate) mod attribute;
 pub(crate) mod class;
 pub(crate) mod function;
+mod trace;
 pub(crate) mod utils;
 pub(crate) mod value;
 pub(crate) mod visitors;
@@ -36,6 +38,14 @@ pub fn js_fn(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 pub fn js_class(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	match impl_js_class(parse_macro_input!(stream)) {
 		Ok(module) => module.into_token_stream().into(),
+		Err(error) => error.to_compile_error().into(),
+	}
+}
+
+#[proc_macro_derive(Traceable, attributes(ion))]
+pub fn trace(input: TokenStream) -> TokenStream {
+	match impl_trace(parse_macro_input!(input)) {
+		Ok(trace) => trace.into_token_stream().into(),
 		Err(error) => error.to_compile_error().into(),
 	}
 }

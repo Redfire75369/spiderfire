@@ -16,14 +16,14 @@ use crate::class::method::Method;
 use crate::class::property::Property;
 
 #[derive(Debug, Default)]
-pub(crate) struct PrototypeSpecs {
-	pub(crate) methods: (Vec<Method>, Vec<Method>),
-	pub(crate) properties: (Vec<Property>, Vec<Property>),
-	pub(crate) accessors: (HashMap<String, Accessor>, HashMap<String, Accessor>),
+pub(super) struct PrototypeSpecs {
+	pub(super) methods: (Vec<Method>, Vec<Method>),
+	pub(super) properties: (Vec<Property>, Vec<Property>),
+	pub(super) accessors: (HashMap<String, Accessor>, HashMap<String, Accessor>),
 }
 
 impl PrototypeSpecs {
-	pub(crate) fn to_spec_functions(&self, ion: &TokenStream, span: Span, ident: &Ident) -> Result<SpecFunctions> {
+	pub(super) fn to_spec_functions(&self, ion: &TokenStream, span: Span, ident: &Ident) -> Result<SpecFunctions> {
 		Ok(SpecFunctions {
 			methods: (
 				methods_to_spec_function(ion, span, ident, &self.methods.0, false)?,
@@ -36,7 +36,7 @@ impl PrototypeSpecs {
 		})
 	}
 
-	pub(crate) fn into_functions(self) -> Vec<Method> {
+	pub(super) fn into_functions(self) -> Vec<Method> {
 		let mut functions = Vec::with_capacity(self.methods.0.len() + self.methods.1.len() + self.accessors.0.len() + self.accessors.1.len());
 
 		functions.extend(self.methods.0);
@@ -49,13 +49,13 @@ impl PrototypeSpecs {
 }
 
 #[derive(Debug)]
-pub(crate) struct SpecFunctions {
+pub(super) struct SpecFunctions {
 	methods: (ImplItemFn, ImplItemFn),
 	properties: (ImplItemFn, ImplItemFn),
 }
 
 impl SpecFunctions {
-	pub(crate) fn into_array(self) -> [ImplItemFn; 4] {
+	pub(super) fn into_array(self) -> [ImplItemFn; 4] {
 		[self.methods.0, self.properties.0, self.methods.1, self.properties.1]
 	}
 }

@@ -15,9 +15,7 @@ use crate::class::NativeClass;
 
 pub trait NativeObject: Traceable + Sized + 'static {
 	fn reflector(&self) -> &Reflector;
-}
 
-pub trait NativeMutObject: NativeObject {
 	fn init_reflector(&self, obj: *mut JSObject) {
 		self.reflector().set(obj);
 	}
@@ -57,7 +55,7 @@ pub trait Castable: NativeObject {
 	}
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Reflector(Heap<*mut JSObject>);
 
 impl Reflector {
@@ -108,7 +106,5 @@ impl NativeObject for Reflector {
 		self
 	}
 }
-
-impl NativeMutObject for Reflector {}
 
 impl Castable for Reflector {}

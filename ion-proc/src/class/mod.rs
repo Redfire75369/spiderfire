@@ -11,14 +11,14 @@ use syn::spanned::Spanned;
 use crate::class::r#impl::impl_js_class_impl;
 use crate::class::r#struct::impl_js_class_struct;
 
-pub(crate) mod accessor;
+mod accessor;
 pub(crate) mod constructor;
 mod r#impl;
 pub(crate) mod method;
 pub(crate) mod property;
 mod r#struct;
 
-pub(crate) fn impl_js_class(item: Item) -> Result<TokenStream> {
+pub(super) fn impl_js_class(item: Item) -> Result<TokenStream> {
 	match item {
 		Item::Struct(mut r#struct) => {
 			let impls = impl_js_class_struct(&mut r#struct)?;

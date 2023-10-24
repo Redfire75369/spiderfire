@@ -7,12 +7,14 @@
 use std::ffi::CString;
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Result, Type};
+use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::attribute::krate::Crates;
+use crate::utils::path_ends_with;
 
-pub(crate) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<Vec<ItemImpl>> {
+pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 4]> {
 	let crates = &Crates::from_attributes(&r#struct.attrs);
 	let ion = &crates.ion;
 
@@ -27,6 +29,18 @@ pub(crate) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<Vec<Item
 	})?;
 	if !repr_c {
 		r#struct.attrs.push(parse_quote!(#[repr(C)]));
+	}
+
+	let traceable = r#struct.attrs.iter().any(|attr| {
+		if attr.path().is_ident("derive") {
+			if let Ok(paths) = attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated) {
+				return paths.iter().any(|path| path_ends_with(path, "Traceable"));
+			}
+		}
+		false
+	});
+	if !traceable {
+		r#struct.attrs.push(parse_quote!(#[derive(#ion::Traceable)]));
 	}
 
 	if !r#struct.generics.params.is_empty() {
@@ -68,7 +82,7 @@ pub(crate) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<Vec<Item
 	class_impls(ion, r#struct.span(), &ident.to_string(), &r#type, &super_field, &super_type)
 }
 
-fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type) -> Result<Vec<ItemImpl>> {
+fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type) -> Result<[ItemImpl; 4]> {
 	let derived_from = parse2(quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {}))?;
 	let castable = parse2(quote_spanned!(span => impl #ion::class::Castable for #r#type {}))?;
 
@@ -77,7 +91,6 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 			#ion::class::NativeObject::reflector(&self.#super_field)
 		}
 	}))?;
-	let native_mut_object = parse2(quote_spanned!(span => impl #ion::class::NativeMutObject for #r#type {}))?;
 
 	let none = quote!(::std::option::Option::None);
 
@@ -134,7 +147,7 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 	}))?;
 	operations_native_class.attrs.push(parse_quote!(#[doc(hidden)]));
 
-	Ok(vec![derived_from, castable, native_object, native_mut_object, operations_native_class])
+	Ok([derived_from, castable, native_object, operations_native_class])
 }
 
 fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {
