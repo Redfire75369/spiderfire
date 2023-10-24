@@ -7,7 +7,7 @@
 use syn::{Abi, Error, FnArg, Generics, ItemFn, Result};
 use syn::punctuated::Punctuated;
 
-use crate::attribute::krate::Crates;
+use crate::attribute::krate::crate_from_attributes;
 use crate::function::wrapper::impl_wrapper_fn;
 
 pub(crate) mod inner;
@@ -16,11 +16,9 @@ pub(crate) mod wrapper;
 
 // TODO: Partially Remove Error Handling in Infallible Functions
 pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
-	let crates = &Crates::from_attributes(&function.attrs);
+	let ion = &crate_from_attributes(&function.attrs);
 
-	let (wrapper, _) = impl_wrapper_fn(crates, function.clone(), None, true, false)?;
-
-	let ion = &crates.ion;
+	let (wrapper, _) = impl_wrapper_fn(ion, function.clone(), None, true, false)?;
 
 	check_abi(&mut function)?;
 	set_signature(&mut function)?;

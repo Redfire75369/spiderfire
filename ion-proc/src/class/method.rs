@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use proc_macro2::TokenStream;
 use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::class::Name;
-use crate::attribute::krate::Crates;
 use crate::function::{check_abi, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
@@ -33,12 +33,11 @@ pub(super) struct Method {
 	pub(super) names: Vec<Name>,
 }
 
-pub(super) fn impl_method<F>(crates: &Crates, mut method: ItemFn, ty: &Type, predicate: F) -> Result<(Method, Parameters)>
+pub(super) fn impl_method<F>(ion: &TokenStream, mut method: ItemFn, ty: &Type, predicate: F) -> Result<(Method, Parameters)>
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {
-	let (wrapper, parameters) = impl_wrapper_fn(crates, method.clone(), Some(ty), false, false)?;
-	let ion = &crates.ion;
+	let (wrapper, parameters) = impl_wrapper_fn(ion, method.clone(), Some(ty), false, false)?;
 
 	predicate(&method.sig).and_then(|_| {
 		check_abi(&mut method)?;

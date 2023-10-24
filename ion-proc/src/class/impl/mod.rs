@@ -11,7 +11,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::attribute::class::{MethodAttribute, Name};
-use crate::attribute::krate::Crates;
+use crate::attribute::krate::crate_from_attributes;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
@@ -21,8 +21,7 @@ use crate::class::r#impl::spec::PrototypeSpecs;
 mod spec;
 
 pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]> {
-	let crates = &Crates::from_attributes(&r#impl.attrs);
-	let ion = &crates.ion;
+	let ion = &crate_from_attributes(&r#impl.attrs);
 
 	if !r#impl.generics.params.is_empty() {
 		return Err(Error::new(r#impl.generics.span(), "Native Class Impls cannot have generics."));
@@ -48,7 +47,7 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 				}
 			}
 			ImplItem::Fn(r#fn) => {
-				if let Some(parsed_constructor) = parse_class_method(crates, r#fn, &mut specs, &r#type)? {
+				if let Some(parsed_constructor) = parse_class_method(ion, r#fn, &mut specs, &r#type)? {
 					if let Some(constructor) = constructor.as_ref() {
 						return Err(Error::new(
 							r#fn.span(),
@@ -75,7 +74,7 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 	class_definition(ion, r#impl.span(), &r#type, &ident, constructor, specs)
 }
 
-fn parse_class_method(crates: &Crates, r#fn: &mut ImplItemFn, specs: &mut PrototypeSpecs, r#type: &Type) -> Result<Option<Method>> {
+fn parse_class_method(ion: &TokenStream, r#fn: &mut ImplItemFn, specs: &mut PrototypeSpecs, r#type: &Type) -> Result<Option<Method>> {
 	match &r#fn.vis {
 		Visibility::Public(_) => (),
 		_ => return Ok(None),
@@ -150,11 +149,11 @@ fn parse_class_method(crates: &Crates, r#fn: &mut ImplItemFn, specs: &mut Protot
 
 	match kind {
 		Some(MethodKind::Constructor) => {
-			let (cons, _) = impl_constructor(crates, method, r#type)?;
-			return Ok(Some(Method { names, ..cons }));
+			let constructor = impl_constructor(ion, method, r#type)?;
+			return Ok(Some(Method { names, ..constructor }));
 		}
 		Some(MethodKind::Getter) => {
-			let (getter, parameters) = impl_accessor(crates, method, r#type, false)?;
+			let (getter, parameters) = impl_accessor(ion, method, r#type, false)?;
 			let getter = Method { names, ..getter };
 
 			if parameters.this.is_some() {
@@ -164,7 +163,7 @@ fn parse_class_method(crates: &Crates, r#fn: &mut ImplItemFn, specs: &mut Protot
 			}
 		}
 		Some(MethodKind::Setter) => {
-			let (setter, parameters) = impl_accessor(crates, method, r#type, true)?;
+			let (setter, parameters) = impl_accessor(ion, method, r#type, true)?;
 			let setter = Method { names, ..setter };
 
 			if parameters.this.is_some() {
@@ -174,7 +173,7 @@ fn parse_class_method(crates: &Crates, r#fn: &mut ImplItemFn, specs: &mut Protot
 			}
 		}
 		None => {
-			let (method, _) = impl_method(crates, method, r#type, |_| Ok(()))?;
+			let (method, _) = impl_method(ion, method, r#type, |_| Ok(()))?;
 			let method = Method { names, ..method };
 
 			if method.receiver == MethodReceiver::Dynamic {

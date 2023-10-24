@@ -7,17 +7,13 @@
 use proc_macro2::TokenStream;
 use syn::{GenericArgument, ItemFn, PathArguments, Result, ReturnType, Type};
 
-use crate::attribute::krate::Crates;
 use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
-use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 use crate::utils::path_ends_with;
 
-pub(super) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Type) -> Result<(Method, Parameters)> {
-	let (wrapper, parameters) = impl_wrapper_fn(crates, constructor.clone(), Some(ty), false, true)?;
-
-	let ion = &crates.ion;
+pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &Type) -> Result<Method> {
+	let (wrapper, parameters) = impl_wrapper_fn(ion, constructor.clone(), Some(ty), false, true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
@@ -39,7 +35,6 @@ pub(super) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Ty
 				::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &<#ty as #ion::ClassDefinition>::class().base, &args.call_args())
 			)
 		);
-
 		#wrapper
 
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
@@ -60,7 +55,7 @@ pub(super) fn impl_constructor(crates: &Crates, mut constructor: ItemFn, ty: &Ty
 		nargs: parameters.nargs.0,
 		names: vec![],
 	};
-	Ok((method, parameters))
+	Ok(method)
 }
 
 fn error_handler(ion: &TokenStream, return_type: &Type) -> TokenStream {

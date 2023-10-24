@@ -10,13 +10,12 @@ use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::attribute::krate::Crates;
+use crate::attribute::krate::crate_from_attributes;
 use crate::utils::{add_trait_bounds, format_type, path_ends_with};
 use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
-	let crates = &Crates::from_attributes(&input.attrs);
-	let ion = &crates.ion;
+	let ion = &crate_from_attributes(&input.attrs);
 
 	add_trait_bounds(&mut input.generics, &parse_quote!(#ion::conversions::FromValue));
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

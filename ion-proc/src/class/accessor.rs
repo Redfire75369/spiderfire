@@ -14,7 +14,6 @@ use syn::{Error, ItemFn, LitStr, Result, Type};
 use syn::spanned::Spanned;
 
 use crate::attribute::class::Name;
-use crate::attribute::krate::Crates;
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
@@ -100,7 +99,7 @@ pub(super) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 	name
 }
 
-pub(super) fn impl_accessor(crates: &Crates, method: ItemFn, ty: &Type, is_setter: bool) -> Result<(Method, Parameters)> {
+pub(super) fn impl_accessor(ion: &TokenStream, method: ItemFn, ty: &Type, is_setter: bool) -> Result<(Method, Parameters)> {
 	let expected_args = is_setter as i32;
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
@@ -114,7 +113,7 @@ pub(super) fn impl_accessor(crates: &Crates, method: ItemFn, ty: &Type, is_sette
 	} else {
 		format_ident!("__ion_bindings_getter_{}", method.sig.ident)
 	};
-	let (mut accessor, parameters) = impl_method(crates, method, ty, |sig| {
+	let (mut accessor, parameters) = impl_method(ion, method, ty, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
 			if let Parameter::Regular { ty, .. } = &param {

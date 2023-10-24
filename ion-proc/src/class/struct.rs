@@ -11,12 +11,11 @@ use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path,
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::attribute::krate::Crates;
+use crate::attribute::krate::crate_from_attributes;
 use crate::utils::path_ends_with;
 
 pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 4]> {
-	let crates = &Crates::from_attributes(&r#struct.attrs);
-	let ion = &crates.ion;
+	let ion = &crate_from_attributes(&r#struct.attrs);
 
 	let repr_c = r#struct.attrs.iter().fold(Ok(false), |acc, attr| {
 		if attr.path().is_ident("repr") {
