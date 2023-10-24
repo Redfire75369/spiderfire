@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use mozjs::rust::IntoHandle;
+
 pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
 use ion::{ClassDefinition, Context, Local, Object, Promise, ResultExc};
@@ -27,9 +29,9 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 	let request = Request::constructor(cx, resource, init)?;
 	let request = cx.root_persistent_object(Request::new_object(cx, Box::new(request)));
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-	let request = request.handle().get();
+	let request = request.handle().into_handle();
 	Ok(future_to_promise(cx, async move {
-		let request = Object::from(unsafe { Local::from_marked(&request) });
+		let request = Object::from(unsafe { Local::from_raw_handle(request) });
 		let res = request_internal(&cx2, &request, GLOBAL_CLIENT.get().unwrap().clone()).await;
 		cx2.unroot_persistent_object(request.handle().get());
 		res

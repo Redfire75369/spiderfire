@@ -158,7 +158,7 @@ macro_rules! impl_root_methods {
 				let heap = Heap::boxed(ptr);
 				let persistent = unsafe { &mut (*self.get_inner_data().as_ptr()).persistent.$key };
 				persistent.push(heap);
-				let ptr = &persistent[persistent.len() - 1];
+				let ptr = &*persistent[persistent.len() - 1];
 				unsafe {
 					RootedTraceableSet::add(ptr);
 					Local::from_heap(ptr)
@@ -172,7 +172,7 @@ macro_rules! impl_root_methods {
 					None => return,
 				};
 				unsafe {
-					RootedTraceableSet::remove(&persistent[idx]);
+					RootedTraceableSet::remove(&*persistent[idx]);
 				}
 				persistent.swap_remove(idx);
 			}

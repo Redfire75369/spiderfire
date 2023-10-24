@@ -172,22 +172,26 @@ impl Response {
 	#[ion(name = "arrayBuffer")]
 	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Promise<'cx> {
 		let this = cx.root_persistent_object(self.reflector().get());
+		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut this = Object::from(unsafe { Local::from_raw_handle(this) });
-			let self_ = Response::get_mut_private(&mut this);
-			let bytes = self_.read_to_bytes().await?;
+			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&mut response);
+			let bytes = response.read_to_bytes().await?;
+			cx2.unroot_persistent_object(this.get());
 			Ok(ArrayBuffer::from(bytes))
 		})
 	}
 
 	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Promise<'cx> {
 		let this = cx.root_persistent_object(self.reflector().get());
+		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut this = Object::from(unsafe { Local::from_raw_handle(this) });
-			let self_ = Response::get_mut_private(&mut this);
-			let bytes = self_.read_to_bytes().await?;
+			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&mut response);
+			let bytes = response.read_to_bytes().await?;
+			cx2.unroot_persistent_object(this.get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
 		})
 	}

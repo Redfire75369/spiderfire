@@ -253,8 +253,8 @@ impl Headers {
 		let cookies: Vec<_> = self.headers.get_all(&SET_COOKIE).iter().map(HeaderValue::clone).collect();
 
 		let mut keys: Vec<_> = self.headers.keys().map(|name| name.as_str().to_ascii_lowercase()).collect();
-		keys.reserve(cookies.len() - 1);
-		for _ in 0..(cookies.len() - 1) {
+		keys.reserve(cookies.len());
+		for _ in 0..cookies.len() {
 			keys.push(String::from(SET_COOKIE.as_str()));
 		}
 		keys.sort();
