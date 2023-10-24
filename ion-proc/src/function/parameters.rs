@@ -5,7 +5,6 @@
  */
 
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
 use syn::{Error, Expr, FnArg, GenericArgument, Ident, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
@@ -212,21 +211,6 @@ impl ThisParameter {
 			ThisKind::Owned => Err(Error::new(pat.span(), "This cannot be owned")),
 		}
 	}
-
-	pub(crate) fn to_async_class_statement(&self, ion: &TokenStream) -> Result<Stmt> {
-		let ThisParameter { pat, ty, kind } = self;
-		let pat = if **pat == parse_quote!(self) { parse_quote!(self_) } else { pat.clone() };
-		let mut ty = ty.clone();
-		visit_type_mut(&mut LifetimeRemover, &mut ty);
-
-		match kind {
-			ThisKind::Ref(_, mutability) => parse2(quote!(
-				let #pat: &'static #mutability #ty = &mut *(<#ty as #ion::ClassDefinition>::get_mut_private(&mut __this) as *mut #ty);
-			)),
-			ThisKind::Object(_, mutability) => parse2(quote!(let #pat: &#mutability #ty = __this;)),
-			ThisKind::Owned => Err(Error::new(pat.span(), "This cannot be owned")),
-		}
-	}
 }
 
 impl Parameters {
@@ -300,16 +284,9 @@ impl Parameters {
 		self.this.as_ref().map(|x| x.1.clone())
 	}
 
-	pub(crate) fn to_this_statement(&self, ion: &TokenStream, is_class: bool, is_async: bool) -> Result<Option<TokenStream>> {
+	pub(crate) fn to_this_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Option<Stmt>> {
 		match &self.this {
-			Some((this, _, _)) => {
-				let statement = if is_class && is_async {
-					this.to_async_class_statement(ion)?
-				} else {
-					this.to_statement(ion, is_class)?
-				};
-				Ok(Some(statement.into_token_stream()))
-			}
+			Some((this, _, _)) => Ok(Some(this.to_statement(ion, is_class)?)),
 			None => Ok(None),
 		}
 	}

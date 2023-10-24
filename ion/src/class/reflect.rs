@@ -5,13 +5,12 @@
  */
 
 use std::any::TypeId;
-use std::ptr;
 
 use mozjs::gc::Traceable;
-use mozjs::jsapi::{Heap, JSClass, JSObject, JSTracer};
+use mozjs::jsapi::{Heap, JSObject, JSTracer};
 use mozjs::rust::{get_object_class, Handle};
 
-use crate::class::NativeClass;
+use crate::class::{NativeClass, PrototypeChain};
 
 pub trait NativeObject: Traceable + Sized + 'static {
 	fn reflector(&self) -> &Reflector;
@@ -71,25 +70,15 @@ impl Reflector {
 		unsafe { Handle::from_raw(self.0.handle()) }
 	}
 
-	pub fn set(&self, obj: *mut JSObject) {
+	fn set(&self, obj: *mut JSObject) {
 		assert!(self.0.get().is_null());
 		assert!(!obj.is_null());
 		self.0.set(obj);
 	}
 
 	#[doc(hidden)]
-	pub fn __ion_native_class() -> &'static NativeClass {
-		&NativeClass {
-			base: JSClass {
-				name: ptr::null(),
-				flags: 0,
-				cOps: ptr::null(),
-				spec: ptr::null(),
-				ext: ptr::null(),
-				oOps: ptr::null(),
-			},
-			prototype_chain: [None; 8],
-		}
+	pub const fn __ion_native_prototype_chain() -> PrototypeChain {
+		[None; 8]
 	}
 }
 

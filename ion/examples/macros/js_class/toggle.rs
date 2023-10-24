@@ -3,6 +3,7 @@ use ion::class::Reflector;
 use ion::conversions::FromValue;
 
 #[js_class]
+#[derive(Debug, Default)]
 pub struct Toggle {
 	reflector: Reflector,
 	toggle: bool,
@@ -15,7 +16,7 @@ impl Toggle {
 
 	#[ion(constructor)]
 	pub fn constructor() -> Toggle {
-		todo!()
+		Toggle::default()
 	}
 
 	#[ion(skip)]
@@ -48,9 +49,8 @@ impl Toggle {
 }
 
 pub fn ensure_callable() {
-	// let mut toggle = Toggle::default();
-	// toggle.get_toggle();
-	// toggle.set_toggle(true);
-	// toggle.reset();
-	todo!()
+	let mut toggle = Toggle::constructor();
+	toggle.get_toggle();
+	toggle.set_toggle(true);
+	toggle.reset();
 }

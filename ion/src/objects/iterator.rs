@@ -16,7 +16,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, NullValue};
 
 use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
-use crate::class::{NativeClass, TypeIdWrapper};
+use crate::class::{NativeClass, NativeObject, Reflector, TypeIdWrapper};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
 use crate::functions::NativeFunction;
@@ -56,6 +56,7 @@ impl<'cx> ToValue<'cx> for IteratorResult<'cx> {
 }
 
 pub struct Iterator {
+	reflector: Reflector,
 	iter: Box<dyn JSIterator>,
 	private: Box<Heap<JSVal>>,
 }
@@ -63,6 +64,7 @@ pub struct Iterator {
 impl Iterator {
 	pub fn new<I: JSIterator + 'static>(iter: I, private: &Value) -> Iterator {
 		Iterator {
+			reflector: Reflector::default(),
 			iter: Box::new(iter),
 			private: Heap::boxed(private.handle().get()),
 		}
@@ -134,7 +136,7 @@ impl Iterator {
 
 impl IntoValue<'_> for Iterator {
 	fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
-		let object = cx.root_object(Iterator::new_object(cx, *self));
+		let object = cx.root_object(Iterator::new_object(cx, self));
 		object.handle().get().to_value(cx, value);
 	}
 }
@@ -193,6 +195,12 @@ static ITERATOR_METHODS: &[JSFunctionSpec] = &[
 	),
 	JSFunctionSpec::ZERO,
 ];
+
+impl NativeObject for Iterator {
+	fn reflector(&self) -> &Reflector {
+		&self.reflector
+	}
+}
 
 impl ClassDefinition for Iterator {
 	const NAME: &'static str = "";

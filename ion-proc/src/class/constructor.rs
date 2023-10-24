@@ -5,27 +5,19 @@
  */
 
 use proc_macro2::TokenStream;
-use syn::{GenericArgument, ItemFn, PathArguments, Result, ReturnType, Type};
+use syn::{ItemFn, Result, Type};
 
 use crate::class::method::{Method, MethodReceiver};
 use crate::function::{check_abi, set_signature};
 use crate::function::wrapper::impl_wrapper_fn;
-use crate::utils::path_ends_with;
 
 pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &Type) -> Result<Method> {
-	let (wrapper, parameters) = impl_wrapper_fn(ion, constructor.clone(), Some(ty), false, true)?;
+	let (wrapper, parameters) = impl_wrapper_fn(ion, constructor.clone(), Some(ty), true)?;
 
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
 	constructor.attrs.clear();
 	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
-
-	let empty = Box::new(parse_quote!(()));
-	let return_type = match &wrapper.sig.output {
-		ReturnType::Default => &empty,
-		ReturnType::Type(_, ty) => ty,
-	};
-	let error_handler = error_handler(ion, return_type);
 
 	let body = parse_quote!({
 		let cx = &#ion::Context::new_unchecked(cx);
@@ -35,6 +27,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 				::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &<#ty as #ion::ClassDefinition>::class().base, &args.call_args())
 			)
 		);
+
 		#wrapper
 
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
@@ -44,10 +37,11 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 
 			wrapper(cx, args, &mut this)
 		}));
-		#error_handler
+
+		#ion::functions::__handle_native_constructor_result(cx, result, &this, args.rval())
 	});
 	constructor.block = body;
-	constructor.sig.ident = format_ident!("__ion_bindings_constructor");
+	constructor.sig.ident = format_ident!("__ion_bindings_constructor", span = constructor.sig.ident.span());
 
 	let method = Method {
 		receiver: MethodReceiver::Static,
@@ -56,25 +50,4 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 		names: vec![],
 	};
 	Ok(method)
-}
-
-fn error_handler(ion: &TokenStream, return_type: &Type) -> TokenStream {
-	let mut handler = quote!(
-		#ion::functions::__handle_native_constructor_private_result(cx, result, &this, args.rval())
-	);
-	if return_type == &parse_quote!(()) {
-		handler = quote!(#ion::functions::__handle_native_constructor_result(cx, result, &this, args.rval()));
-	}
-	if let Type::Path(ty) = &return_type {
-		if path_ends_with(&ty.path, "Result") || path_ends_with(&ty.path, "ResultExc") {
-			if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
-				if let Some(GenericArgument::Type(Type::Tuple(ty))) = args.args.first() {
-					if ty.elems.is_empty() {
-						handler = quote!(#ion::functions::__handle_native_constructor_result(cx, result, &this, args.rval()));
-					}
-				}
-			}
-		}
-	}
-	handler
 }

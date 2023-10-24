@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use mozjs::jsapi::{
-	CheckRegExpSyntax, GetRegExpFlags, GetRegExpSource, JSObject, NewUCRegExpObject, ExecuteRegExp, ExecuteRegExpNoStatics, ObjectIsRegExp,
+	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpFlags, GetRegExpSource, JSObject, NewUCRegExpObject, ObjectIsRegExp,
 };
 
 use crate::{Context, Local, Object, Value};

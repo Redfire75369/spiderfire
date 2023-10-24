@@ -99,9 +99,28 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 	let mut operations_native_class: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		#(#operations)*
 
+		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
+			const ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
+
+			let super_proto_chain = #super_type::__ion_native_prototype_chain();
+			let mut proto_chain = [None; #ion::class::MAX_PROTO_CHAIN_LENGTH];
+			let mut i = 0;
+			while i < #ion::class::MAX_PROTO_CHAIN_LENGTH {
+				match super_proto_chain[i] {
+					Some(proto) => proto_chain[i] = Some(proto),
+					None => {
+						proto_chain[i] = Some(&ION_TYPE_ID);
+						break;
+					}
+				}
+				i += 1;
+			}
+
+			proto_chain
+		}
+
 		pub const fn __ion_native_class() -> &'static #ion::class::NativeClass {
-			static ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
-			static ION_CLASS_OPERATIONS: ::mozjs::jsapi::JSClassOps = ::mozjs::jsapi::JSClassOps {
+			const ION_CLASS_OPERATIONS: ::mozjs::jsapi::JSClassOps = ::mozjs::jsapi::JSClassOps {
 				addProperty: #none,
 				delProperty: #none,
 				enumerate: #none,
@@ -114,7 +133,7 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 				trace: ::std::option::Option::Some(#r#type::__ion_trace_operation),
 			};
 
-			static ION_NATIVE_CLASS: #ion::class::NativeClass = #ion::class::NativeClass {
+			const ION_NATIVE_CLASS: #ion::class::NativeClass = #ion::class::NativeClass {
 				base: ::mozjs::jsapi::JSClass {
 					name: #name.as_ptr().cast(),
 					flags: #ion::objects::class_reserved_slots(1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
@@ -123,22 +142,7 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 					ext: ::std::ptr::null_mut(),
 					oOps: ::std::ptr::null_mut(),
 				},
-				prototype_chain: {
-					let super_proto_chain = &#super_type::__ion_native_class().prototype_chain;
-					let mut proto_chain = [None; #ion::class::MAX_PROTO_CHAIN_LENGTH];
-					let mut i = 0;
-					while i < #ion::class::MAX_PROTO_CHAIN_LENGTH {
-						match super_proto_chain[i] {
-							Some(proto) => proto_chain[i] = super_proto_chain[i],
-							None => {
-								proto_chain[i] = Some(&ION_TYPE_ID);
-								break;
-							}
-						}
-						i += 1;
-					}
-					proto_chain
-				},
+				prototype_chain: #r#type::__ion_native_prototype_chain(),
 			};
 
 			&ION_NATIVE_CLASS
@@ -153,10 +157,12 @@ fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {
 	let finalise = parse2(
 		quote_spanned!(span => unsafe extern "C" fn __ion_finalise_operation(_: *mut ::mozjs::jsapi::GCContext, this: *mut ::mozjs::jsapi::JSObject) {
 				let mut value = ::mozjs::jsval::NullValue();
-				::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
+				unsafe {
+					::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
+				}
 				if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
 					let private = value.to_private().cast_mut() as *mut Self;
-					let _ = ::std::boxed::Box::from_raw(private);
+					let _ = unsafe { ::std::boxed::Box::from_raw(private) };
 				}
 			}
 		),
@@ -165,10 +171,14 @@ fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {
 	let trace = parse2(
 		quote_spanned!(span => unsafe extern "C" fn __ion_trace_operation(trc: *mut ::mozjs::jsapi::JSTracer, this: *mut ::mozjs::jsapi::JSObject) {
 				let mut value = ::mozjs::jsval::NullValue();
-				::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
+				unsafe {
+					::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
+				}
 				if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-					let private = &*(value.to_private() as *const Self);
-					::mozjs::gc::Traceable::trace(private, trc);
+					unsafe {
+						let private = &*(value.to_private() as *const Self);
+						::mozjs::gc::Traceable::trace(private, trc);
+					}
 				}
 			}
 		),

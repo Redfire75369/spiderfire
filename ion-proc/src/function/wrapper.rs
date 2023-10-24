@@ -5,6 +5,7 @@
  */
 
 use proc_macro2::{Ident, TokenStream};
+use quote::ToTokens;
 use syn::{Error, FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -14,7 +15,7 @@ use crate::function::parameters::Parameters;
 use crate::utils::path_ends_with;
 
 pub(crate) fn impl_wrapper_fn(
-	ion: &TokenStream, mut function: ItemFn, class_ty: Option<&Type>, keep_inner: bool, is_constructor: bool,
+	ion: &TokenStream, mut function: ItemFn, class_ty: Option<&Type>, is_constructor: bool,
 ) -> Result<(ItemFn, Parameters)> {
 	if function.sig.asyncness.is_some() {
 		return Err(Error::new(
@@ -26,17 +27,18 @@ pub(crate) fn impl_wrapper_fn(
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
 	let idents = parameters.to_idents();
 	let statements = parameters.to_statements(ion)?;
-	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some(), false)?;
 
-	let inner = impl_inner_fn(function.clone(), &parameters, keep_inner)?;
-
-	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
+	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none())?;
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let mut wrapper_args: Vec<FnArg> = vec![
 		parse_quote!(__cx: &'cx #ion::Context),
 		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
 	];
+
+	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
+
+	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some())?.map(ToTokens::into_token_stream);
 	if is_constructor {
 		wrapper_args.push(parse_quote!(__this: &mut #ion::Object<'cx>));
 	} else {
@@ -48,7 +50,7 @@ pub(crate) fn impl_wrapper_fn(
 		});
 	}
 
-	let mut output = match &function.sig.output {
+	let output = match &function.sig.output {
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
@@ -73,29 +75,17 @@ pub(crate) fn impl_wrapper_fn(
 		wrapper_output = parse_quote!(#ion::ResultExc::<#output>);
 	}
 
-	if function.sig.asyncness.is_some() {
-		result = quote!(__result);
+	let wrapper_inner = class_ty.is_none().then_some(&inner);
 
-		output = parse_quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
-		wrapper_output = parse_quote!(#ion::ResultExc::<#ion::Promise<'cx>>);
-	}
-
-	let wrapper_inner = keep_inner.then_some(&inner);
-
-	let mut call = quote!(inner);
-	if !keep_inner {
-		if let Some(class) = class_ty {
-			let function = &function.sig.ident;
-			if parameters.get_this_ident() == Some(<Token![self]>::default().into()) {
-				call = quote!(#function);
-			} else {
-				call = quote!(<#class>::#function);
-			}
-		}
-	}
+	let ident = &function.sig.ident;
+	let call = if let Some(class) = class_ty {
+		quote!(#class::#ident)
+	} else {
+		quote!(inner)
+	};
 
 	let inner_call = if parameters.get_this_ident() == Some(<Token![self]>::default().into()) {
-		quote!(self_.#call(#(#idents),*))
+		quote!(#call(self_, #(#idents),*))
 	} else {
 		quote!(#call(#(#idents),*))
 	};
@@ -118,7 +108,6 @@ pub(crate) fn impl_wrapper_fn(
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
 	function.sig.output = parse_quote!(-> #wrapper_output);
-	function.sig.asyncness = None;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 
 	function.attrs.clear();
