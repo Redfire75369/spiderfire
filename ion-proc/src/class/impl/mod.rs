@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens;
-use syn::{Error, ImplItem, ImplItemFn, ItemFn, ItemImpl, parse2, Result, Type, Visibility};
+use syn::{Error, FnArg, ImplItem, ImplItemFn, ItemFn, ItemImpl, parse2, Result, Type, Visibility};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -146,6 +146,14 @@ fn parse_class_method(ion: &TokenStream, r#fn: &mut ImplItemFn, specs: &mut Prot
 	names.insert(0, name.clone());
 
 	let method: ItemFn = parse2(r#fn.to_token_stream())?;
+
+	for input in &mut r#fn.sig.inputs {
+		let attrs = match input {
+			FnArg::Receiver(arg) => &mut arg.attrs,
+			FnArg::Typed(arg) => &mut arg.attrs,
+		};
+		attrs.clear();
+	}
 
 	match kind {
 		Some(MethodKind::Constructor) => {

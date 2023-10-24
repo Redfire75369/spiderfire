@@ -28,7 +28,7 @@ pub(crate) fn impl_wrapper_fn(
 	let idents = parameters.to_idents();
 	let statements = parameters.to_statements(ion)?;
 
-	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none())?;
+	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none());
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
 	let mut wrapper_args: Vec<FnArg> = vec![

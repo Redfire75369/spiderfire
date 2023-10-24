@@ -8,6 +8,7 @@ use proc_macro2::{Ident, Span};
 use syn::{Arm, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, parse2, Result};
 use syn::spanned::Spanned;
 
+use crate::attribute::trace::NoTraceFieldAttribute;
 use crate::utils::add_trait_bounds;
 
 pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
@@ -31,10 +32,14 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 fn impl_body(span: Span, data: &Data) -> Result<Block> {
 	match data {
 		Data::Struct(r#struct) => {
-			let idents = field_idents(&r#struct.fields);
+			let (idents, skip) = field_idents(&r#struct.fields);
+			let traced = idents
+				.iter()
+				.enumerate()
+				.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
 			parse2(quote_spanned!(span => {
 				let Self { #(#idents),* } = self;
-				#(::mozjs::gc::Traceable::trace(#idents, __ion_tracer));*
+				#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 			}))
 		}
 		Data::Enum(r#enum) => {
@@ -43,10 +48,20 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 				.iter()
 				.map(|variant| {
 					let ident = &variant.ident;
-					let idents = field_idents(&variant.fields);
-					parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents),*) => {
-						#(::mozjs::gc::Traceable::trace(#idents, __ion_tracer));*
-					}))
+					let (idents, skip) = field_idents(&variant.fields);
+					let traced = idents
+						.iter()
+						.enumerate()
+						.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
+					match &variant.fields {
+						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents),* .. } => {
+							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
+						})),
+						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents),* ..) => {
+							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
+						})),
+						Fields::Unit => parse2(quote_spanned!(variant.span() => Self::#ident => {})),
+					}
 				})
 				.collect::<Result<_>>()?;
 			parse2(quote_spanned!(span => {
@@ -59,18 +74,27 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 	}
 }
 
-fn field_idents(fields: &Fields) -> Vec<Ident> {
+fn field_idents(fields: &Fields) -> (Vec<Ident>, Vec<usize>) {
 	let fields = match fields {
 		Fields::Named(fields) => &fields.named,
 		Fields::Unnamed(fields) => &fields.unnamed,
-		Fields::Unit => return Vec::new(),
+		Fields::Unit => return (Vec::new(), Vec::new()),
 	};
-	fields
+	let mut skip = Vec::new();
+	let idents = fields
 		.iter()
 		.enumerate()
-		.map(|(index, field)| match &field.ident {
-			Some(ident) => ident.clone(),
-			None => format_ident!("var{}", index),
+		.map(|(index, field)| {
+			for attr in &field.attrs {
+				if attr.path().is_ident("ion") && attr.parse_args::<NoTraceFieldAttribute>().is_ok() {
+					skip.push(index);
+				}
+			}
+			match &field.ident {
+				Some(ident) => ident.clone(),
+				None => format_ident!("var{}", index),
+			}
 		})
-		.collect()
+		.collect();
+	(idents, skip)
 }

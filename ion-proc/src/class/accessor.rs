@@ -63,7 +63,7 @@ impl Accessor {
 					Accessor(None, Some(setter)) => {
 						let setter = setter.method.sig.ident.clone();
 						function_ident = format_ident!("{}_getter", function_ident);
-						quote!(#ion::#function_ident!#class::(#setter, #key, #flags))
+						quote!(#ion::#function_ident!(#class::#setter, #key, #flags))
 					}
 					Accessor(None, None) => {
 						function_ident = format_ident!("create_{}_accessor", function_ident);
