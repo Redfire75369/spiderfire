@@ -49,19 +49,6 @@ impl ToValue<'_> for Header {
 	}
 }
 
-pub struct HeadersObject(HeaderMap);
-
-impl<'cx> FromValue<'cx> for HeadersObject {
-	type Config = ();
-
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeadersObject> {
-		let object = Object::from_value(cx, value, true, ())?;
-		let mut headers = HeaderMap::new();
-		append_to_headers(cx, &mut headers, object)?;
-		Ok(HeadersObject(headers))
-	}
-}
-
 pub struct HeaderEntry {
 	name: String,
 	value: String,
@@ -71,16 +58,11 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
 	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
 		let vec: Vec<String> = Vec::from_value(cx, value, false, ())?;
-		if vec.len() != 2 {
-			return Err(Error::new(
-				&format!("Received Header Entry with Length {}, Expected Length 2", vec.len()),
-				ErrorKind::Type,
-			));
-		}
-		Ok(HeaderEntry {
-			name: vec[0].clone(),
-			value: vec[1].clone(),
-		})
+		let boxed: Box<[String; 2]> = vec
+			.try_into()
+			.map_err(|_| Error::new("Expected Header Entry with Length 2", ErrorKind::Type))?;
+		let [name, value] = *boxed;
+		Ok(HeaderEntry { name, value })
 	}
 }
 
@@ -90,6 +72,18 @@ impl ToValue<'_> for HeaderEntry {
 		array.set_as(cx, 0, &self.name);
 		array.set_as(cx, 1, &self.value);
 		array.to_value(cx, value);
+	}
+}
+
+pub struct HeadersObject(HeaderMap);
+
+impl<'cx> FromValue<'cx> for HeadersObject {
+	type Config = ();
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeadersObject> {
+		let object = Object::from_value(cx, value, true, ())?;
+		let mut headers = HeaderMap::new();
+		append_to_headers(cx, &mut headers, object)?;
+		Ok(HeadersObject(headers))
 	}
 }
 

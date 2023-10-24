@@ -43,8 +43,9 @@ impl URL {
 		options.base_url(base.as_ref());
 		let url = options.parse(&input).map_err(|error| Error::new(&error.to_string(), None))?;
 
-		let search_params = URLSearchParams::new(cx, url.query_pairs().into_owned().collect(), this)?;
-		let search_params = Heap::boxed(URLSearchParams::new_object(cx, Box::new(search_params)));
+		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
+		search_params.url.as_ref().unwrap().set(this.handle().get());
+		let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
 
 		Ok(URL {
 			reflector: Reflector::default(),

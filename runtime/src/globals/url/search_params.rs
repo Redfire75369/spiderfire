@@ -3,41 +3,80 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
-use form_urlencoded::Serializer;
+use form_urlencoded::{parse, Serializer};
 use mozjs::jsapi::{Heap, JSObject};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, Result, Value};
+use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, OwnedKey, Result, Value};
 use ion::class::Reflector;
-use ion::conversions::ToValue;
+use ion::conversions::{FromValue, ToValue};
 use ion::symbol::WellKnownSymbolCode;
 
 use crate::globals::url::URL;
+
+pub struct URLSearchParamsInit(Vec<(String, String)>);
+
+impl<'cx> FromValue<'cx> for URLSearchParamsInit {
+	type Config = ();
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<URLSearchParamsInit> {
+		if let Ok(vec) = <Vec<Value>>::from_value(cx, value, strict, ()) {
+			let entries = vec
+				.iter()
+				.map(|value| {
+					let vec = <Vec<String>>::from_value(cx, value, strict, ())?;
+					let boxed: Box<[String; 2]> = vec
+						.try_into()
+						.map_err(|_| Error::new("Expected Search Parameter Entry with Length 2", ErrorKind::Type))?;
+					let [name, value] = *boxed;
+					Ok((name, value))
+				})
+				.collect::<Result<_>>()?;
+			Ok(URLSearchParamsInit(entries))
+		} else if let Ok(object) = Object::from_value(cx, value, strict, ()) {
+			let vec = object
+				.iter(cx, None)
+				.map(|(key, value)| {
+					let value = String::from_value(cx, &value, strict, ())?;
+					match key.to_owned_key(cx) {
+						OwnedKey::Int(i) => Ok((i.to_string(), value)),
+						OwnedKey::String(key) => Ok((key, value)),
+						_ => unreachable!(),
+					}
+				})
+				.collect::<Result<_>>()?;
+			Ok(URLSearchParamsInit(vec))
+		} else if let Ok(string) = String::from_value(cx, value, strict, ()) {
+			Ok(URLSearchParamsInit(parse(string.as_bytes()).into_owned().collect()))
+		} else {
+			Err(Error::new("Invalid Search Params Initialiser", ErrorKind::Type))
+		}
+	}
+}
 
 #[js_class]
 pub struct URLSearchParams {
 	reflector: Reflector,
 	pairs: Vec<(String, String)>,
-	url: Option<Box<Heap<*mut JSObject>>>,
+	pub(super) url: Option<Heap<*mut JSObject>>,
 }
 
 #[js_class]
 impl URLSearchParams {
 	#[ion(constructor)]
-	pub fn constructor() -> Result<URLSearchParams> {
-		Err(Error::new("URLSearchParams has no constructor", ErrorKind::Type))
-	}
-
-	pub(super) fn new(cx: &Context, pairs: Vec<(String, String)>, url_object: &Object) -> Result<URLSearchParams> {
-		if !URL::instance_of(cx, url_object, None) {
-			return Err(Error::new("Expected URL", ErrorKind::Type));
-		}
-
-		Ok(URLSearchParams {
+	pub fn constructor(init: Option<URLSearchParamsInit>) -> URLSearchParams {
+		let pairs = init.map(|init| init.0).unwrap_or_default();
+		URLSearchParams {
 			reflector: Reflector::default(),
 			pairs,
-			url: Some(Heap::boxed(url_object.handle().get())),
-		})
+			url: None,
+		}
+	}
+
+	pub(super) fn new(pairs: Vec<(String, String)>) -> URLSearchParams {
+		URLSearchParams {
+			reflector: Reflector::default(),
+			pairs,
+			url: Some(Heap::default()),
+		}
 	}
 
 	pub(super) fn set_pairs(&mut self, pairs: Vec<(String, String)>) {
