@@ -102,20 +102,17 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
 			const ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
 
-			let super_proto_chain = #super_type::__ion_native_prototype_chain();
-			let mut proto_chain = [None; #ion::class::MAX_PROTO_CHAIN_LENGTH];
+			let mut proto_chain = #super_type::__ion_native_prototype_chain();
 			let mut i = 0;
 			while i < #ion::class::MAX_PROTO_CHAIN_LENGTH {
-				match super_proto_chain[i] {
-					Some(proto) => proto_chain[i] = Some(proto),
+				match proto_chain[i] {
+					Some(_) => i += 1,
 					None => {
 						proto_chain[i] = Some(&ION_TYPE_ID);
 						break;
 					}
 				}
-				i += 1;
 			}
-
 			proto_chain
 		}
 

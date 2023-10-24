@@ -123,7 +123,7 @@ pub trait ClassDefinition: NativeObject {
 		object
 	}
 
-	fn get_private<'a>(object: &'a Object) -> &'a Self {
+	fn get_private<'a>(object: &Object<'a>) -> &'a Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
@@ -131,7 +131,7 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	fn get_mut_private<'a>(object: &'a mut Object) -> &'a mut Self {
+	fn get_mut_private<'a>(object: &mut Object<'a>) -> &'a mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
@@ -140,7 +140,7 @@ pub trait ClassDefinition: NativeObject {
 	}
 
 	unsafe fn set_private(object: *mut JSObject, native: Box<Self>) {
-		native.init_reflector(object);
+		native.reflector().set(object);
 		unsafe {
 			JS_SetReservedSlot(object, 0, &PrivateValue(Box::into_raw(native).cast_const().cast()));
 		}

@@ -78,13 +78,13 @@ impl<'cx> ToValue<'cx> for RequestDestination {
 	}
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Traceable)]
 pub enum Referrer {
 	#[allow(clippy::enum_variant_names)]
 	NoReferrer,
 	#[default]
 	Client,
-	Url(Url),
+	Url(#[ion(no_trace)] Url),
 }
 
 impl FromStr for Referrer {
@@ -124,7 +124,7 @@ impl<'cx> FromValue<'cx> for Referrer {
 	}
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Traceable)]
 pub enum ReferrerPolicy {
 	#[default]
 	None,
@@ -184,7 +184,7 @@ impl<'cx> FromValue<'cx> for ReferrerPolicy {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Traceable)]
 pub enum RequestMode {
 	SameOrigin,
 	Cors,
@@ -232,7 +232,7 @@ impl<'cx> FromValue<'cx> for RequestMode {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Traceable)]
 pub enum RequestCredentials {
 	Omit,
 	#[default]
@@ -274,7 +274,7 @@ impl<'cx> FromValue<'cx> for RequestCredentials {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Traceable)]
 pub enum RequestCache {
 	#[default]
 	Default,
@@ -325,7 +325,7 @@ impl<'cx> FromValue<'cx> for RequestCache {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Traceable)]
 pub enum RequestRedirect {
 	#[default]
 	Follow,
@@ -367,7 +367,7 @@ impl<'cx> FromValue<'cx> for RequestRedirect {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Traceable)]
 pub enum RequestDuplex {
 	#[default]
 	Half,
@@ -393,7 +393,7 @@ impl<'cx> FromValue<'cx> for RequestDuplex {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Traceable)]
 pub enum RequestPriority {
 	High,
 	Low,
@@ -426,8 +426,9 @@ impl<'cx> FromValue<'cx> for RequestPriority {
 
 #[derive(Derivative, FromValue)]
 #[derivative(Default)]
-pub struct RequestInit {
-	pub(crate) headers: Option<HeadersInit>,
+pub struct RequestInit<'cx> {
+	pub(crate) method: Option<String>,
+	pub(crate) headers: Option<HeadersInit<'cx>>,
 	pub(crate) body: Option<FetchBody>,
 
 	pub(crate) referrer: Option<Referrer>,
@@ -445,22 +446,8 @@ pub struct RequestInit {
 
 	#[allow(dead_code)]
 	pub(crate) duplex: Option<RequestDuplex>,
-	#[ion(default, name = "priority")]
-	_priority: Option<RequestPriority>,
+	#[allow(dead_code)]
+	#[ion(default)]
+	priority: Option<RequestPriority>,
 	pub(crate) window: Option<JSVal>,
-}
-
-#[derive(Default, FromValue)]
-pub struct RequestBuilderInit {
-	pub(crate) method: Option<String>,
-	#[ion(inherit)]
-	pub(crate) init: RequestInit,
-}
-
-impl RequestBuilderInit {
-	pub fn from_request_init<O: Into<Option<RequestInit>>, M: Into<Option<String>>>(init: O, method: M) -> RequestBuilderInit {
-		let init = init.into().unwrap_or_default();
-		let method = method.into();
-		RequestBuilderInit { method, init }
-	}
 }

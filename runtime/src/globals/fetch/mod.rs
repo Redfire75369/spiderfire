@@ -9,7 +9,7 @@ pub use header::Headers;
 use ion::{ClassDefinition, Context, Local, Object, Promise, ResultExc};
 use ion::flags::PropertyFlags;
 pub use network::request_internal;
-pub use request::{Request, RequestBuilderInit, RequestInfo, RequestInit};
+pub use request::{Request, RequestInfo, RequestInit};
 pub use response::Response;
 
 use crate::promise::future_to_promise;
@@ -23,9 +23,9 @@ mod response;
 
 // TODO: Specification-Compliant Fetch Implementation
 #[js_fn]
-fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestBuilderInit>) -> ResultExc<Promise<'cx>> {
-	let mut request = Object::from(cx.root_persistent_object(Request::new_raw_object(cx)));
-	Request::constructor(cx, &mut request, resource, init)?;
+fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> ResultExc<Promise<'cx>> {
+	let request = Request::constructor(cx, resource, init)?;
+	let request = cx.root_persistent_object(Request::new_object(cx, Box::new(request)));
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 	let request = request.handle().get();
 	Ok(future_to_promise(cx, async move {

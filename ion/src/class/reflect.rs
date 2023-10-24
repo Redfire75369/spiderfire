@@ -14,10 +14,6 @@ use crate::class::{NativeClass, PrototypeChain};
 
 pub trait NativeObject: Traceable + Sized + 'static {
 	fn reflector(&self) -> &Reflector;
-
-	fn init_reflector(&self, obj: *mut JSObject) {
-		self.reflector().set(obj);
-	}
 }
 
 pub unsafe trait DerivedFrom<T: Castable>: Castable {}
@@ -70,7 +66,7 @@ impl Reflector {
 		unsafe { Handle::from_raw(self.0.handle()) }
 	}
 
-	fn set(&self, obj: *mut JSObject) {
+	pub(super) fn set(&self, obj: *mut JSObject) {
 		assert!(self.0.get().is_null());
 		assert!(!obj.is_null());
 		self.0.set(obj);

@@ -23,6 +23,7 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 		#[automatically_derived]
 		unsafe impl #impl_generics ::mozjs::gc::Traceable for #name #ty_generics #where_clause {
 			unsafe fn trace(&self, __ion_tracer: *mut ::mozjs::jsapi::JSTracer) {
+				#[allow(unused_unsafe)]
 				unsafe #body
 			}
 		}
@@ -54,10 +55,10 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 						.enumerate()
 						.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
 					match &variant.fields {
-						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents),* .. } => {
+						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents),* } => {
 							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 						})),
-						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents),* ..) => {
+						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents),* ) => {
 							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 						})),
 						Fields::Unit => parse2(quote_spanned!(variant.span() => Self::#ident => {})),
