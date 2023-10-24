@@ -207,7 +207,7 @@ impl Request {
 			HeadersKind::Request
 		};
 
-		let headers = if let Some(headers) = headers {
+		let mut headers = if let Some(headers) = headers {
 			headers.into_headers(HeaderMap::new(), kind)?
 		} else {
 			Headers {
@@ -216,18 +216,17 @@ impl Request {
 				kind,
 			}
 		};
-		request.headers.set(Headers::new_object(cx, Box::new(headers)));
 
 		if let Some(body) = body {
 			if let Some(kind) = &body.kind {
-				let headers = request.request.headers_mut();
-				if headers.contains_key(CONTENT_TYPE) {
-					headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string())?);
+				if !headers.headers.contains_key(CONTENT_TYPE) {
+					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
 				}
 			}
 
 			request.body = body;
 		}
+		request.headers.set(Headers::new_object(cx, Box::new(headers)));
 
 		Ok(request)
 	}

@@ -5,9 +5,11 @@
  */
 
 use bytes::{Buf, BufMut};
-use http::HeaderMap;
+use http::header::CONTENT_TYPE;
+use http::{HeaderMap, HeaderValue};
 use hyper::{Body, StatusCode};
 use hyper::body::HttpBody;
+use hyper::ext::ReasonPhrase;
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::rust::IntoHandle;
 use url::Url;
@@ -62,26 +64,36 @@ impl Response {
 			redirected: false,
 
 			status: Some(init.status),
-			status_text: Some(init.status_text),
+			status_text: init.status_text,
 		};
 
-		let headers = init.headers.into_headers(HeaderMap::new(), HeadersKind::Response)?;
-		response.headers.set(Headers::new_object(cx, Box::new(headers)));
+		let mut headers = init.headers.into_headers(HeaderMap::new(), HeadersKind::Response)?;
 
 		if let Some(body) = body {
 			if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {
 				return Err(Error::new("Received non-null body with null body status.", ErrorKind::Type));
 			}
-			// TODO: Add Content-Type Header
+
+			if let Some(kind) = body.kind {
+				if !headers.headers.contains_key(CONTENT_TYPE) {
+					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
+				}
+			}
 			response.body = Some(body);
 		}
+
+		response.headers.set(Headers::new_object(cx, Box::new(headers)));
 
 		Ok(response)
 	}
 
 	pub(crate) fn new(response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
 		let status = response.status();
-		let status_text = String::from(status.canonical_reason().unwrap());
+		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
+			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
+		} else {
+			status.canonical_reason().map(String::from)
+		};
 
 		Response {
 			reflector: Reflector::default(),
@@ -95,7 +107,7 @@ impl Response {
 			redirected,
 
 			status: Some(status),
-			status_text: Some(status_text),
+			status_text,
 		}
 	}
 
@@ -115,11 +127,8 @@ impl Response {
 	}
 
 	#[ion(get)]
-	pub fn get_status_text(&self) -> Option<String> {
-		self.status_text
-			.as_deref()
-			.or_else(|| self.response.status().canonical_reason())
-			.map(String::from)
+	pub fn get_status_text(&self) -> String {
+		self.status_text.clone().unwrap_or_default()
 	}
 
 	#[ion(get)]

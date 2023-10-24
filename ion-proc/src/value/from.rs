@@ -352,12 +352,12 @@ fn map_fields(
 			} else if let Some(parser) = &parser {
 				requires_object = true;
 				let error = format!("Expected Value at Key {}", key);
-				quote_spanned!(field.span() => let #ident: #ty = __object.get(cx, #key).ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)).and_then(#parser))
+				quote_spanned!(field.span() => let #ident: #ty = __object.get(cx, #key).map(#parser).transpose()?.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
 			} else {
 				requires_object = true;
 				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
-				let ok_or_else = quote!(.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)));
-				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)#ok_or_else)
+				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)
+					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
 			};
 
 			let stmt = if optional {

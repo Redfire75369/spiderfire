@@ -20,12 +20,11 @@ pub struct ResponseInit<'cx> {
 	#[ion(default, parser = |s| parse_status(cx, s))]
 	pub(crate) status: StatusCode,
 	#[ion(default)]
-	pub(crate) status_text: String,
+	pub(crate) status_text: Option<String>,
 }
 
 fn parse_status(cx: &Context, status: Value) -> Result<StatusCode> {
 	let code = u16::from_value(cx, &status, true, ConversionBehavior::Clamp).map(StatusCode::from_u16);
-
 	match code {
 		Ok(Ok(code)) => Ok(code),
 		_ => Err(Error::new("Invalid response status code", ErrorKind::Range)),
