@@ -47,7 +47,7 @@ path = "../ion"
 features = ["macros", "sourcemap"]
 
 [dependencies.swc_core]
-version = "0.86.4"
+version = "0.86.16"
 features = [
 	"common",
 	"common_sourcemap",
