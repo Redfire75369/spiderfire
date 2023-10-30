@@ -22,7 +22,7 @@ fn on_rejected<'cx>(cx: &'cx Context, value: Value<'cx>) {
 
 static ON_REJECTED: JSFunctionSpec = function_spec!(on_rejected, "onRejected", 0);
 
-pub fn add_handler_reactions<'cx>(cx: &'cx Context, promise: &mut Promise<'cx>) -> bool {
+pub fn add_handler_reactions<'cx>(cx: &'cx Context, promise: &Promise<'cx>) -> bool {
 	let on_rejected = Function::from_spec(cx, &ON_REJECTED);
 	promise.add_reactions(cx, None, Some(on_rejected))
 }

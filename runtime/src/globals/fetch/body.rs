@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
@@ -15,17 +16,20 @@ use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
 #[derive(Debug, Clone, Traceable)]
+#[non_exhaustive]
 enum FetchBodyInner {
+	None,
 	Bytes(#[ion(no_trace)] Bytes),
 }
 
 #[derive(Copy, Clone, Debug, Traceable)]
+#[non_exhaustive]
 pub enum FetchBodyKind {
 	String,
 }
 
 impl Display for FetchBodyKind {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			FetchBodyKind::String => f.write_str("text/plain;charset=UTF-8"),
 		}
@@ -40,14 +44,31 @@ pub struct FetchBody {
 }
 
 impl FetchBody {
+	pub fn is_none(&self) -> bool {
+		matches!(&self.body, FetchBodyInner::None)
+	}
+
 	pub fn is_empty(&self) -> bool {
 		match &self.body {
+			FetchBodyInner::None => true,
 			FetchBodyInner::Bytes(bytes) => bytes.is_empty(),
 		}
 	}
 
+	pub fn len(&self) -> Option<usize> {
+		match &self.body {
+			FetchBodyInner::None => None,
+			FetchBodyInner::Bytes(bytes) => Some(bytes.len()),
+		}
+	}
+
+	pub fn is_not_stream(&self) -> bool {
+		matches!(&self.body, FetchBodyInner::None | FetchBodyInner::Bytes(_))
+	}
+
 	pub fn to_http_body(&self) -> Body {
 		match &self.body {
+			FetchBodyInner::None => Body::empty(),
 			FetchBodyInner::Bytes(bytes) => Body::from(bytes.clone()),
 		}
 	}
@@ -66,7 +87,7 @@ impl Clone for FetchBody {
 impl Default for FetchBody {
 	fn default() -> FetchBody {
 		FetchBody {
-			body: FetchBodyInner::Bytes(Bytes::new()),
+			body: FetchBodyInner::None,
 			source: None,
 			kind: None,
 		}

@@ -38,8 +38,7 @@ impl Microtask {
 			}
 			Microtask::User(callback) => {
 				let callback = Function::from(cx.root_function(*callback));
-				callback.call(cx, &Object::global(cx), &[])?;
-				Ok(())
+				callback.call(cx, &Object::global(cx), &[]).map(|_| ())
 			}
 			Microtask::None => Ok(()),
 		}

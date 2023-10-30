@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use bytes::{Buf, BufMut};
-use http::header::CONTENT_TYPE;
+use bytes::{Buf, BufMut, Bytes};
 use http::{HeaderMap, HeaderValue};
+use http::header::CONTENT_TYPE;
 use hyper::{Body, StatusCode};
 use hyper::body::HttpBody;
 use hyper::ext::ReasonPhrase;
@@ -17,7 +17,7 @@ use url::Url;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::typedarray::ArrayBuffer;
-pub use options::ResponseInit;
+pub use options::*;
 
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersKind;
@@ -31,11 +31,12 @@ pub struct Response {
 	reflector: Reflector,
 
 	#[ion(no_trace)]
-	pub(crate) response: hyper::Response<Body>,
+	pub(crate) response: Option<hyper::Response<Body>>,
 	pub(crate) headers: Box<Heap<*mut JSObject>>,
 	pub(crate) body: Option<FetchBody>,
 	pub(crate) body_used: bool,
 
+	pub(crate) kind: ResponseKind,
 	#[ion(no_trace)]
 	pub(crate) url: Option<Url>,
 	pub(crate) redirected: bool,
@@ -43,6 +44,8 @@ pub struct Response {
 	#[ion(no_trace)]
 	pub(crate) status: Option<StatusCode>,
 	pub(crate) status_text: Option<String>,
+
+	pub(crate) range_requested: bool,
 }
 
 #[js_class]
@@ -55,16 +58,19 @@ impl Response {
 		let mut response = Response {
 			reflector: Reflector::default(),
 
-			response,
+			response: Some(response),
 			headers: Box::default(),
 			body: None,
 			body_used: false,
 
+			kind: ResponseKind::default(),
 			url: None,
 			redirected: false,
 
 			status: Some(init.status),
 			status_text: init.status_text,
+
+			range_requested: false,
 		};
 
 		let mut headers = init.headers.into_headers(HeaderMap::new(), HeadersKind::Response)?;
@@ -87,7 +93,7 @@ impl Response {
 		Ok(response)
 	}
 
-	pub(crate) fn new(response: hyper::Response<Body>, url: Url, redirected: bool) -> Response {
+	pub(crate) fn new(response: hyper::Response<Body>, url: Url) -> Response {
 		let status = response.status();
 		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
 			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
@@ -98,37 +104,51 @@ impl Response {
 		Response {
 			reflector: Reflector::default(),
 
-			response,
+			response: Some(response),
 			headers: Box::default(),
 			body: None,
 			body_used: false,
 
+			kind: ResponseKind::default(),
 			url: Some(url),
-			redirected,
+			redirected: false,
 
 			status: Some(status),
 			status_text,
+
+			range_requested: false,
+		}
+	}
+
+	pub(crate) fn new_from_bytes(bytes: Bytes, url: Url) -> Response {
+		let response = hyper::Response::builder().body(Body::from(bytes)).unwrap();
+		Response {
+			reflector: Reflector::default(),
+
+			response: Some(response),
+			headers: Box::default(),
+			body: None,
+			body_used: false,
+
+			kind: ResponseKind::Basic,
+			url: Some(url),
+			redirected: false,
+
+			status: Some(StatusCode::OK),
+			status_text: Some(String::from("OK")),
+
+			range_requested: false,
 		}
 	}
 
 	#[ion(get)]
-	pub fn get_headers(&self) -> *mut JSObject {
-		self.headers.get()
+	pub fn get_type(&self) -> String {
+		self.kind.to_string()
 	}
 
 	#[ion(get)]
-	pub fn get_ok(&self) -> bool {
-		self.response.status().is_success()
-	}
-
-	#[ion(get)]
-	pub fn get_status(&self) -> u16 {
-		self.status.as_ref().map(StatusCode::as_u16).unwrap_or(0)
-	}
-
-	#[ion(get)]
-	pub fn get_status_text(&self) -> String {
-		self.status_text.clone().unwrap_or_default()
+	pub fn get_url(&self) -> String {
+		self.url.as_ref().map(Url::to_string).unwrap_or_default()
 	}
 
 	#[ion(get)]
@@ -137,8 +157,23 @@ impl Response {
 	}
 
 	#[ion(get)]
-	pub fn get_url(&self) -> String {
-		self.url.as_ref().map(Url::to_string).unwrap_or_default()
+	pub fn get_status(&self) -> u16 {
+		self.status.as_ref().map(StatusCode::as_u16).unwrap_or_default()
+	}
+
+	#[ion(get)]
+	pub fn get_ok(&self) -> bool {
+		self.status.as_ref().map(StatusCode::is_success).unwrap_or_default()
+	}
+
+	#[ion(get)]
+	pub fn get_status_text(&self) -> String {
+		self.status_text.clone().unwrap_or_default()
+	}
+
+	#[ion(get)]
+	pub fn get_headers(&self) -> *mut JSObject {
+		self.headers.get()
 	}
 
 	#[ion(get)]
@@ -152,30 +187,35 @@ impl Response {
 		}
 		self.body_used = true;
 
-		let body = self.response.body_mut();
+		match &mut self.response {
+			None => Err(Error::new("Response is a network error and cannot be read.", None)),
+			Some(response) => {
+				let body = response.body_mut();
 
-		let first = if let Some(buf) = body.data().await {
-			buf?
-		} else {
-			return Ok(Vec::new());
-		};
+				let first = if let Some(buf) = body.data().await {
+					buf?
+				} else {
+					return Ok(Vec::new());
+				};
 
-		let second = if let Some(buf) = body.data().await {
-			buf?
-		} else {
-			return Ok(first.to_vec());
-		};
+				let second = if let Some(buf) = body.data().await {
+					buf?
+				} else {
+					return Ok(first.to_vec());
+				};
 
-		let cap = first.remaining() + second.remaining() + body.size_hint().lower() as usize;
-		let mut vec = Vec::with_capacity(cap);
-		vec.put(first);
-		vec.put(second);
+				let cap = first.remaining() + second.remaining() + body.size_hint().lower() as usize;
+				let mut vec = Vec::with_capacity(cap);
+				vec.put(first);
+				vec.put(second);
 
-		while let Some(buf) = body.data().await {
-			vec.put(buf?);
+				while let Some(buf) = body.data().await {
+					vec.put(buf?);
+				}
+
+				Ok(vec)
+			}
 		}
-
-		Ok(vec)
 	}
 
 	#[ion(name = "arrayBuffer")]
@@ -203,5 +243,25 @@ impl Response {
 			cx2.unroot_persistent_object(this.get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
 		})
+	}
+}
+
+pub fn network_error() -> Response {
+	Response {
+		reflector: Reflector::default(),
+
+		response: None,
+		headers: Box::default(),
+		body: None,
+		body_used: false,
+
+		kind: ResponseKind::Error,
+		url: None,
+		redirected: false,
+
+		status: None,
+		status_text: None,
+
+		range_requested: false,
 	}
 }

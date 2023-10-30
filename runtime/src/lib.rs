@@ -22,3 +22,5 @@ pub mod modules;
 pub mod promise;
 pub mod runtime;
 pub mod typescript;
+
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");

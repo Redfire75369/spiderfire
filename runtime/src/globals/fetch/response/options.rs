@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use http::StatusCode;
 use mozjs::conversions::ConversionBehavior;
 
@@ -29,4 +31,36 @@ fn parse_status(cx: &Context, status: Value) -> Result<StatusCode> {
 		Ok(Ok(code)) => Ok(code),
 		_ => Err(Error::new("Invalid response status code", ErrorKind::Range)),
 	}
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Traceable)]
+pub enum ResponseKind {
+	Basic,
+	Cors,
+	#[default]
+	Default,
+	Error,
+	Opaque,
+	OpaqueRedirect,
+}
+
+impl Display for ResponseKind {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			ResponseKind::Basic => f.write_str("basic"),
+			ResponseKind::Cors => f.write_str("cors"),
+			ResponseKind::Default => f.write_str("default"),
+			ResponseKind::Error => f.write_str("error"),
+			ResponseKind::Opaque => f.write_str("opaque"),
+			ResponseKind::OpaqueRedirect => f.write_str("opaqueredirect"),
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ResponseTaint {
+	#[default]
+	Basic,
+	Cors,
+	Opaque,
 }

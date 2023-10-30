@@ -10,8 +10,9 @@ use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, metadata, read_dir, read_to_string, remove_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::str::{from_utf8, Utf8Error};
+use base64::Engine;
+use base64::prelude::BASE64_URL_SAFE;
 
-use base64_url::encode;
 use dirs::home_dir;
 use dunce::canonicalize;
 use sha3::{Digest, Sha3_512};
@@ -173,7 +174,7 @@ impl Display for Error {
 }
 
 fn hash<T: AsRef<[u8]>>(bytes: T, len: Option<usize>) -> String {
-	let hash = encode(&Sha3_512::new().chain_update(bytes).finalize());
+	let hash = BASE64_URL_SAFE.encode(&Sha3_512::new().chain_update(bytes).finalize());
 	len.map_or(hash.clone(), |len| String::from(&hash[0..len]))
 }
 

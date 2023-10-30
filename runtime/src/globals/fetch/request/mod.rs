@@ -24,7 +24,6 @@ use crate::globals::fetch::Headers;
 
 mod options;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(FromValue)]
 pub enum RequestInfo<'cx> {
 	#[ion(inherit)]
@@ -60,12 +59,7 @@ pub struct Request {
 
 	#[allow(dead_code)]
 	pub(crate) unsafe_request: bool,
-	#[ion(readonly)]
-	pub keepalive: bool,
-	#[ion(readonly, name = "isReloadNavigation")]
-	pub reload_navigation: bool,
-	#[ion(readonly, name = "isHistoryNavigation")]
-	pub history_navigation: bool,
+	pub(crate) keepalive: bool,
 
 	pub(crate) client_window: bool,
 	pub(crate) signal_object: Box<Heap<*mut JSObject>>,
@@ -78,7 +72,7 @@ impl Request {
 		let mut fallback_cors = false;
 
 		let mut request = match info {
-			RequestInfo::Request(request) => request.clone()?,
+			RequestInfo::Request(request) => request.clone(),
 			RequestInfo::String(url) => {
 				let uri = Uri::from_str(&url)?;
 				let url = Url::from_str(&url)?;
@@ -103,7 +97,7 @@ impl Request {
 					referrer: Referrer::default(),
 					referrer_policy: ReferrerPolicy::default(),
 
-					mode: RequestMode::Cors,
+					mode: RequestMode::default(),
 					credentials: RequestCredentials::default(),
 					cache: RequestCache::default(),
 					redirect: RequestRedirect::default(),
@@ -112,8 +106,6 @@ impl Request {
 
 					unsafe_request: false,
 					keepalive: false,
-					reload_navigation: false,
-					history_navigation: false,
 
 					client_window: true,
 					signal_object: Heap::boxed(AbortSignal::new_object(cx, Box::default())),
@@ -136,8 +128,6 @@ impl Request {
 			if request.mode == RequestMode::Navigate {
 				request.mode = RequestMode::SameOrigin;
 			}
-			request.reload_navigation = false;
-			request.history_navigation = false;
 
 			if let Some(referrer) = init.referrer {
 				request.referrer = referrer;
@@ -293,12 +283,12 @@ impl Request {
 
 	#[ion(get)]
 	pub fn get_is_reload_navigation(&self) -> bool {
-		self.reload_navigation
+		false
 	}
 
 	#[ion(get)]
 	pub fn get_is_history_navigation(&self) -> bool {
-		self.history_navigation
+		false
 	}
 
 	#[ion(get)]
@@ -313,11 +303,11 @@ impl Request {
 
 	#[allow(clippy::should_implement_trait)]
 	#[ion(skip)]
-	pub fn clone(&self) -> Result<Request> {
-		let request = clone_request(&self.request)?;
+	pub fn clone(&self) -> Request {
+		let request = clone_request(&self.request);
 		let url = self.locations.last().unwrap().clone();
 
-		Ok(Request {
+		Request {
 			reflector: Reflector::default(),
 
 			request,
@@ -340,12 +330,10 @@ impl Request {
 
 			unsafe_request: true,
 			keepalive: self.keepalive,
-			reload_navigation: false,
-			history_navigation: false,
 
 			client_window: self.client_window,
 			signal_object: Heap::boxed(self.signal_object.get()),
-		})
+		}
 	}
 }
 
@@ -361,7 +349,7 @@ impl<'cx> FromValue<'cx> for &'cx Request {
 	}
 }
 
-pub(crate) fn clone_request(request: &hyper::Request<Body>) -> Result<hyper::Request<Body>> {
+pub(crate) fn clone_request(request: &hyper::Request<Body>) -> hyper::Request<Body> {
 	let method = request.method().clone();
 	let uri = request.uri().clone();
 	let headers = request.headers().clone();
@@ -371,6 +359,5 @@ pub(crate) fn clone_request(request: &hyper::Request<Body>) -> Result<hyper::Req
 		*head = headers;
 	}
 
-	let request = request.body(Body::empty())?;
-	Ok(request)
+	request.body(Body::empty()).unwrap()
 }

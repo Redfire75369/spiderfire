@@ -232,7 +232,7 @@ impl<'cx> FromValue<'cx> for RequestMode {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default, Traceable)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Traceable)]
 pub enum RequestCredentials {
 	Omit,
 	#[default]
@@ -325,7 +325,7 @@ impl<'cx> FromValue<'cx> for RequestCache {
 	}
 }
 
-#[derive(Copy, Clone, Debug, Default, Traceable)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Traceable)]
 pub enum RequestRedirect {
 	#[default]
 	Follow,

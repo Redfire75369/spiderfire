@@ -5,6 +5,7 @@
  */
 
 use std::any::TypeId;
+use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
@@ -51,7 +52,7 @@ pub struct NativeClass {
 }
 
 impl Debug for NativeClass {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("NativeClass")
 			.field("base", &self.base)
 			.field(

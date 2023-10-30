@@ -146,7 +146,7 @@ pub enum HeadersKind {
 }
 
 #[js_class]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Headers {
 	pub(crate) reflector: Reflector,
 	#[ion(no_trace)]
@@ -157,6 +157,10 @@ pub struct Headers {
 
 #[js_class]
 impl Headers {
+	pub(crate) fn new(kind: HeadersKind) -> Headers {
+		Headers { kind, ..Headers::default() }
+	}
+
 	pub(crate) fn from_array(vec: Vec<HeaderEntry>, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
 		for entry in vec {
 			let mut name = entry.name;
@@ -200,12 +204,7 @@ impl Headers {
 			return Ok(());
 		}
 
-		match self.headers.entry(name) {
-			Entry::Occupied(o) => {
-				o.remove_entry_mult();
-			}
-			Entry::Vacant(_) => (),
-		}
+		remove_all_header_entries(&mut self.headers, &name);
 		remove_privileged_no_cors_headers(&mut self.headers, self.kind);
 		Ok(())
 	}
@@ -298,7 +297,7 @@ impl JSIterator for HeadersIterator {
 }
 
 const COOKIE2: HeaderName = HeaderName::from_static("cookie2");
-const SET_COOKIE2: HeaderName = HeaderName::from_static("set-cookie2");
+pub(crate) const SET_COOKIE2: HeaderName = HeaderName::from_static("set-cookie2");
 const KEEP_ALIVE: HeaderName = HeaderName::from_static("keep-alive");
 
 const X_HTTP_METHOD: HeaderName = HeaderName::from_static("x-http-method");
@@ -330,7 +329,7 @@ static FORBIDDEN_REQUEST_HEADERS: [HeaderName; 21] = [
 ];
 
 static FORBIDDEN_REQUEST_HEADER_METHODS: [HeaderName; 3] = [X_HTTP_METHOD, X_HTTP_METHOD_OVERRIDE, X_METHOD_OVERRIDE];
-static FORBIDDEN_RESPONSE_HEADERS: [HeaderName; 2] = [SET_COOKIE, SET_COOKIE2];
+pub(crate) static FORBIDDEN_RESPONSE_HEADERS: [HeaderName; 2] = [SET_COOKIE, SET_COOKIE2];
 
 static NO_CORS_SAFELISTED_REQUEST_HEADERS: [HeaderName; 4] = [ACCEPT, ACCEPT_LANGUAGE, CONTENT_LANGUAGE, CONTENT_TYPE];
 
@@ -456,12 +455,7 @@ fn append_header(headers: &mut HeaderMap, name: HeaderName, value: HeaderValue, 
 
 fn remove_privileged_no_cors_headers(headers: &mut HeaderMap, kind: HeadersKind) {
 	if kind == HeadersKind::RequestNoCors {
-		match headers.entry(RANGE) {
-			Entry::Occupied(o) => {
-				o.remove_entry_mult();
-			}
-			Entry::Vacant(_) => (),
-		}
+		remove_all_header_entries(headers, &RANGE);
 	}
 }
 
@@ -492,6 +486,15 @@ fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object) -> Resu
 		};
 	}
 	Ok(())
+}
+
+pub(crate) fn remove_all_header_entries(headers: &mut HeaderMap, name: &HeaderName) {
+	match headers.entry(name) {
+		Entry::Occupied(o) => {
+			o.remove_entry_mult();
+		}
+		Entry::Vacant(_) => {}
+	}
 }
 
 pub fn get_header(headers: &HeaderMap, name: &HeaderName) -> Option<Header> {

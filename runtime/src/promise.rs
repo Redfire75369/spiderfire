@@ -12,6 +12,8 @@ use ion::{Context, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
 
 use crate::event_loop::EVENT_LOOP;
+#[cfg(feature = "promise-logger")]
+use crate::modules::handler::add_handler_reactions;
 
 pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Promise<'cx>
 where
@@ -37,5 +39,7 @@ where
 		}
 	});
 
+	#[cfg(feature = "promise-logger")]
+	add_handler_reactions(cx, &promise);
 	promise
 }

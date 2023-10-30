@@ -10,9 +10,10 @@ use std::time::Duration;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
-pub static GLOBAL_CLIENT: OnceLock<hyper::Client<HttpsConnector<HttpConnector>>> = OnceLock::new();
+pub type Client = hyper::Client<HttpsConnector<HttpConnector>>;
+pub static GLOBAL_CLIENT: OnceLock<Client> = OnceLock::new();
 
-pub fn default_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
+pub fn default_client() -> Client {
 	let https = HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
 
 	let mut client = hyper::Client::builder();

@@ -8,6 +8,7 @@ use std::future::Future;
 use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::task;
 use std::task::Poll;
 
 use chrono::Duration;
@@ -44,7 +45,7 @@ pub struct SignalFuture {
 impl Future for SignalFuture {
 	type Output = JSVal;
 
-	fn poll(mut self: Pin<&mut SignalFuture>, cx: &mut std::task::Context<'_>) -> Poll<JSVal> {
+	fn poll(mut self: Pin<&mut SignalFuture>, cx: &mut task::Context<'_>) -> Poll<JSVal> {
 		match &mut self.inner {
 			Signal::None => Poll::Pending,
 			Signal::Abort(abort) => Poll::Ready(*abort),
