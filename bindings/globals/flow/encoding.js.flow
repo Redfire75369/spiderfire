@@ -1,25 +1,22 @@
 //@flow
 
-declare type TypedArray = Int8Array | Int16Array | Int32Array
-	| Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array
-	| Float32Array | Float64Array;
-
 declare interface DecoderOptions {
 	fatal: boolean;
 	ignoreBOM: boolean;
 }
+
 declare interface DecodeOptions {
 	stream: boolean;
 }
 
 declare class TextDecoder {
-	constructor(label?: string, options?: DecoderOptions);
+	constructor(label?: string, options?: DecoderOptions): TextDecoder;
 
 	get encoding(): string;
 	get fatal(): boolean;
 	get ignoreBOM(): boolean;
 
-	decode(buffer: ArrayBuffer | TypedArray | DataView, options?: DecodeOptions): string;
+	decode(buffer: BufferSource, options?: DecodeOptions): string;
 }
 
 declare interface EncodeResult {

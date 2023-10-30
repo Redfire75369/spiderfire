@@ -1,7 +1,7 @@
 // @flow
 
 declare class AbortController {
-	constructor();
+	constructor(): AbortController;
 
 	get signal(): AbortSignal;
 	abort(reason?: any): void;

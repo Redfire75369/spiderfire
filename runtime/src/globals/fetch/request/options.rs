@@ -18,66 +18,6 @@ use ion::conversions::{FromValue, ToValue};
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersInit;
 
-#[allow(dead_code)]
-#[derive(Copy, Clone, Debug, Default)]
-pub enum RequestDestination {
-	#[default]
-	None,
-	Audio,
-	AudioWorklet,
-	Document,
-	Embed,
-	Frame,
-	Font,
-	IFrame,
-	Image,
-	Manifest,
-	Object,
-	PaintWorklet,
-	Report,
-	Script,
-	SharedWorker,
-	Style,
-	Track,
-	Video,
-	Worker,
-	Xslt,
-}
-
-impl Display for RequestDestination {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		use RequestDestination as D;
-		f.write_str(match self {
-			D::None => "",
-			D::Audio => "audio",
-			D::AudioWorklet => "audioworklet",
-			D::Document => "document",
-			D::Embed => "embed",
-			D::Frame => "frame",
-			D::Font => "font",
-			D::IFrame => "iframe",
-			D::Image => "image",
-			D::Manifest => "manifest",
-			D::Object => "object",
-			D::PaintWorklet => "paintworklet",
-			D::Report => "report",
-			D::Script => "script",
-			D::SharedWorker => "sharedworker",
-			D::Style => "style",
-			D::Track => "track",
-			D::Video => "video",
-			D::Worker => "worker",
-			D::Xslt => "xslt",
-		})
-	}
-}
-
-impl<'cx> ToValue<'cx> for RequestDestination {
-	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		self.to_string().to_value(cx, value);
-	}
-}
-
 #[derive(Clone, Default, Debug, Traceable)]
 pub enum Referrer {
 	#[allow(clippy::enum_variant_names)]
@@ -440,7 +380,6 @@ pub struct RequestInit<'cx> {
 	pub(crate) redirect: Option<RequestRedirect>,
 
 	pub(crate) integrity: Option<String>,
-
 	pub(crate) keepalive: Option<bool>,
 	pub(crate) signal: Option<*mut JSObject>,
 
