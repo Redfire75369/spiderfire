@@ -179,12 +179,12 @@ impl URL {
 	}
 
 	#[ion(get)]
-	pub fn get_path(&self) -> String {
+	pub fn get_pathname(&self) -> String {
 		String::from(self.url.path())
 	}
 
 	#[ion(set)]
-	pub fn set_path(&mut self, path: String) -> Result<()> {
+	pub fn set_pathname(&mut self, path: String) -> Result<()> {
 		self.url.set_path(&path);
 		Ok(())
 	}

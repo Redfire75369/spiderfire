@@ -1,3 +1,5 @@
+// @flow
+
 declare type HeadersInit = Headers | [string, string][] | Record<string, string>;
 
 declare class Headers implements Iterable<[string, string]> {

@@ -1,76 +1,11 @@
 // @flow
 
 declare module "url" {
-	declare export type FormatOptions = {
-		auth?: boolean,
-		fragment?: boolean,
-		search?: boolean,
-	};
-
 	declare export function domainToASCII(domain: string, strict?: boolean): string;
 	declare export function domainToUnicode(domain: string): string;
 
-	declare export class URL {
-		constructor(url: string, base?: string): URL;
-
-		static canParse(url: string, base?: string): boolean;
-
-		get href(): string;
-		set href(href: string): void;
-
-		get protocol(): string;
-		set protocol(protocol: string): void;
-
-		get host(): string | null;
-		set host(host: string): void;
-
-		get hostname(): string | null;
-		set hostname(hostname: string): void;
-
-		get port(): number | null;
-		set port(port: number): void;
-
-		get path(): string;
-		set path(path: string): void;
-
-		get username(): string;
-		set username(username: string): void;
-
-		get password(): string | null;
-		set password(password: string): void;
-
-		get search(): string | null;
-		set search(string: string): void;
-
-		get hash(): string | null;
-		set hash(hash: string): void;
-
-		get origin(): string;
-
-		get searchParams(): URLSearchParams;
-
-		format(options?: FormatOptions): string;
-		toString(): string;
-		toJSON(): string;
-	}
-
-	declare export class URLSearchParams {
-		append(key: string, value: string);
-
-		get(key: string): string | null;
-		getAll(key: string): string[];
-		has(key: string, value?: string): boolean;
-
-		size(): number;
-	}
-
 	declare export default {
-		FormatOptions: FormatOptions,
-
-		domainToASCII: typeof domainToASCII,
+		domainToAscii: typeof domainToASCII,
 		domainToUnicode: typeof domainToUnicode,
-
-		URL: typeof URL,
-		URLSearchParams: typeof URLSearchParams,
 	}
 }

@@ -1,4 +1,4 @@
-//@flow
+// @flow
 
 declare interface DecoderOptions {
 	fatal: boolean;

@@ -1,0 +1,62 @@
+// @flow
+
+declare class URL {
+	constructor(url: string, base?: string): URL;
+
+	static canParse(url: string, base?: string): boolean;
+
+	get href(): string;
+	set href(href: string): void;
+
+	get origin(): string;
+
+	get protocol(): string;
+	set protocol(protocol: string): void;
+
+	get username(): string;
+	set username(username: string): void;
+
+	get password(): string | null;
+	set password(password: string): void;
+
+	get host(): string | null;
+	set host(host: string): void;
+
+	get hostname(): string | null;
+	set hostname(hostname: string): void;
+
+	get port(): number | null;
+	set port(port: number): void;
+
+	get pathname(): string;
+	set pathname(path: string): void;
+
+	get search(): string | null;
+	set search(string: string): void;
+
+	get searchParams(): URLSearchParams;
+
+	get hash(): string | null;
+	set hash(hash: string): void;
+
+	toString(): string;
+	toJSON(): string;
+}
+
+declare class URLSearchParams implements Iterable<[string, string]> {
+	constructor(init?: [string, string][] | Record<string, string> | string);
+
+	get size(): number;
+
+	append(name: string, value: string): void;
+	delete(name: string, value?: string): void;
+	get(name: string): string | null;
+	getAll(name: string): string[];
+	has(name: string, value?: string): boolean;
+	set(name: string, value: string): void;
+
+	sort(): void;
+
+	toString(): string;
+}
+
