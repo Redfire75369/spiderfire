@@ -44,7 +44,7 @@ declare class URL {
 }
 
 declare class URLSearchParams implements Iterable<[string, string]> {
-	constructor(init?: [string, string][] | Record<string, string> | string);
+	constructor(init?: [string, string][] | Record<string, string> | string): URLSearchParams;
 
 	get size(): number;
 
@@ -57,6 +57,7 @@ declare class URLSearchParams implements Iterable<[string, string]> {
 
 	sort(): void;
 
+	@@iterator(): Iterator<[string, string]>;
 	toString(): string;
 }
 

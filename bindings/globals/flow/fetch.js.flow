@@ -11,6 +11,8 @@ declare class Headers implements Iterable<[string, string]> {
 	getSetCookie(): string[];
 	has(name: string): boolean;
 	set(name: string, value: string): void;
+
+	@@iterator(): Iterator<[string, string]>;
 }
 
 declare type BodyInit = BufferSource | string;
@@ -116,7 +118,7 @@ declare interface ResponseInit {
 	headers?: HeadersInit;
 }
 
-declare type ResponseType = "basic" | "cors" | "error" | "opaque" | "opaqueredirect";
+declare type ResponseType = "basic" | "cors" | "default" | "error" | "opaque" | "opaqueredirect";
 
 declare class Response {
 	constructor(body?: BodyInit, init?: ResponseInit): Response;

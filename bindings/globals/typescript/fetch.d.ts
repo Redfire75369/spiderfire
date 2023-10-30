@@ -116,7 +116,7 @@ declare interface ResponseInit {
     headers?: HeadersInit;
 }
 
-declare type ResponseType = "basic" | "cors" | "error" | "opaque" | "opaqueredirect";
+declare type ResponseType = "basic" | "cors" | "default" | "error" | "opaque" | "opaqueredirect";
 
 declare class Response {
     constructor(body?: BodyInit, init?: ResponseInit);
