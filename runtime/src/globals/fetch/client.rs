@@ -11,6 +11,7 @@ use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 pub type Client = hyper::Client<HttpsConnector<HttpConnector>>;
+
 pub static GLOBAL_CLIENT: OnceLock<Client> = OnceLock::new();
 
 pub fn default_client() -> Client {

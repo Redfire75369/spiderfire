@@ -53,7 +53,7 @@ mod header;
 mod request;
 mod response;
 
-const DEFAULT_USER_AGENT: &'static str = concatcp!("Spiderfire/", VERSION);
+const DEFAULT_USER_AGENT: &str = concatcp!("Spiderfire/", VERSION);
 
 #[js_fn]
 fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> Promise<'cx> {
@@ -82,7 +82,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 
 	let mut locales = get_locales().enumerate();
 	let mut locale_string = locales.next().map(|(_, s)| s).unwrap_or_else(|| String::from("*"));
-	while let Some((index, locale)) = locales.next() {
+	for (index, locale) in locales {
 		locale_string.push(',');
 		locale_string.push_str(&locale);
 		locale_string.push_str(";q=0.");
@@ -209,7 +209,7 @@ static BAD_PORTS: &[u16] = &[
 
 static SCHEMES: [&str; 4] = ["about", "blob", "data", "file"];
 
-#[async_recursion(?Send)]
+#[async_recursion(? Send)]
 async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client, redirections: u8) -> Response {
 	let scheme = request.url.scheme();
 
@@ -217,20 +217,20 @@ async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 
 	let mut taint = ResponseTaint::default();
 	let mut opaque_redirect = false;
-	let mut response = loop {
-		break if request.mode == RequestMode::SameOrigin {
+	let mut response = {
+		if request.mode == RequestMode::SameOrigin {
 			network_error()
 		} else if SCHEMES.contains(&scheme) {
 			scheme_fetch(cx, scheme, request.url.clone()).await
 		} else if scheme == "https" || scheme == "http" {
 			if let Some(port) = request.url.port() {
 				if BAD_PORTS.contains(&port) {
-					break network_error();
+					return network_error();
 				}
 			}
 			if request.mode == RequestMode::NoCors {
 				if request.redirect != RequestRedirect::Follow {
-					break network_error();
+					return network_error();
 				}
 			} else {
 				taint = ResponseTaint::Cors;
@@ -240,7 +240,7 @@ async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 			response
 		} else {
 			network_error()
-		};
+		}
 	};
 
 	let redirected = redirections > 0;
@@ -254,22 +254,25 @@ async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 	let mut headers = Object::from(unsafe { Local::from_heap(&response.headers) });
 	let headers = Headers::get_mut_private(&mut headers);
 
-	if !opaque_redirect && taint == ResponseTaint::Opaque {
-		if response.status == Some(StatusCode::PARTIAL_CONTENT) && response.range_requested && !headers.headers.contains_key(RANGE) {
-			let url = response.url.take().unwrap();
-			response = network_error();
-			response.url = Some(url);
-		}
+	if !opaque_redirect
+		&& taint == ResponseTaint::Opaque
+		&& response.status == Some(StatusCode::PARTIAL_CONTENT)
+		&& response.range_requested
+		&& !headers.headers.contains_key(RANGE)
+	{
+		let url = response.url.take().unwrap();
+		response = network_error();
+		response.url = Some(url);
 	}
 
 	if !opaque_redirect
 		&& (request.request.method() == Method::HEAD
-			|| request.request.method() == Method::CONNECT
-			|| (response.status == Some(StatusCode::SWITCHING_PROTOCOLS)
-			|| response.status.as_ref().map(StatusCode::as_u16) == Some(103) // Early Hints
-			|| response.status == Some(StatusCode::NO_CONTENT)
-			|| response.status == Some(StatusCode::RESET_CONTENT)
-			|| response.status == Some(StatusCode::NOT_MODIFIED)))
+		|| request.request.method() == Method::CONNECT
+		|| response.status == Some(StatusCode::SWITCHING_PROTOCOLS)
+		|| response.status.as_ref().map(StatusCode::as_u16) == Some(103) // Early Hints
+		|| response.status == Some(StatusCode::NO_CONTENT)
+		|| response.status == Some(StatusCode::RESET_CONTENT)
+		|| response.status == Some(StatusCode::NOT_MODIFIED))
 	{
 		response.body = None;
 	}
@@ -315,10 +318,7 @@ async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 					}
 				} else {
 					for name in headers.headers.keys() {
-						let allowed = allowed
-							.iter()
-							.position(|allowed| allowed.as_bytes() == name.as_str().as_bytes())
-							.is_some();
+						let allowed = allowed.iter().any(|allowed| allowed.as_bytes() == name.as_str().as_bytes());
 						if allowed {
 							to_remove.push(name.clone());
 						}
@@ -367,7 +367,7 @@ async fn scheme_fetch<'c>(cx: &Context<'c>, scheme: &str, url: Url) -> Response 
 			let input = &input[end_mime..];
 			let decoded_body = percent_decode(input.as_bytes());
 			let body = if let Some(end_mime) = mime.rfind(';') {
-				if mime.ends_with("base64") && mime[end_mime..mime.len() - 6].trim_end().len() == 0 {
+				if mime.ends_with("base64") && mime[end_mime..mime.len() - 6].trim_end().is_empty() {
 					mime = &mime[0..end_mime];
 					let decoded_body: Vec<_> = decoded_body.filter(|b| !(*b as char).is_ascii_whitespace()).collect();
 					match BASE64_STANDARD.decode(decoded_body) {
@@ -386,7 +386,7 @@ async fn scheme_fetch<'c>(cx: &Context<'c>, scheme: &str, url: Url) -> Response 
 			let response = Response::new_from_bytes(Bytes::from(body), url);
 			let headers = Headers {
 				reflector: Reflector::default(),
-				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_str(&mime.to_string()).unwrap()))),
+				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap()))),
 				kind: HeadersKind::Immutable,
 			};
 			response.headers.set(Headers::new_object(cx, Box::new(headers)));
@@ -420,7 +420,7 @@ async fn http_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 	}
 }
 
-#[async_recursion(?Send)]
+#[async_recursion(? Send)]
 async fn http_network_fetch<'c>(cx: &Context<'c>, req: &Request, client: Client, is_new: bool) -> Response {
 	let mut request = req.clone();
 	let mut headers = Object::from(unsafe { Local::from_heap(&req.headers) });
@@ -430,7 +430,7 @@ async fn http_network_fetch<'c>(cx: &Context<'c>, req: &Request, client: Client,
 	let length = request
 		.body
 		.len()
-		.or_else(|| (request.body.is_none() && (request.request.method() == &Method::POST || request.request.method() == &Method::PUT)).then_some(0));
+		.or_else(|| (request.body.is_none() && (request.request.method() == Method::POST || request.request.method() == Method::PUT)).then_some(0));
 
 	let headers = request.request.headers_mut();
 	if let Some(length) = length {

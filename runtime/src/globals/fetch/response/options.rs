@@ -6,6 +6,7 @@
 
 use std::fmt;
 use std::fmt::{Display, Formatter};
+
 use http::StatusCode;
 use mozjs::conversions::ConversionBehavior;
 
