@@ -13,7 +13,7 @@ use mozjs::jsval::JSVal;
 use url::Url;
 
 use ion::{Context, Error, ErrorKind, Result, Value};
-use ion::conversions::{FromValue, ToValue};
+use ion::conversions::FromValue;
 
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersInit;

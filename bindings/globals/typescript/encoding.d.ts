@@ -11,7 +11,9 @@ declare class TextDecoder {
 	constructor(label?: string, options?: DecoderOptions);
 
 	get encoding(): string;
+
 	get fatal(): boolean;
+
 	get ignoreBOM(): boolean;
 
 	decode(buffer: BufferSource, options?: DecodeOptions): string;
@@ -26,5 +28,6 @@ declare class TextEncoder {
 	get encoding(): string;
 
 	encode(input?: string): Uint8Array;
+
 	encodeInto(source: string, destination: Uint8Array): EncodeResult;
 }

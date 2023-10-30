@@ -2,17 +2,29 @@
 
 declare module "fs" {
 	declare export function readBinary(path: string): Promise<Uint8Array>;
+
 	declare export function readString(path: string): Promise<string>;
+
 	declare export function readDir(path: string): Promise<string[]>;
+
 	declare export function write(path: string, contents: string): Promise<boolean>;
+
 	declare export function createDir(path: string): Promise<boolean>;
+
 	declare export function createDirRecursive(path: string): Promise<boolean>;
+
 	declare export function removeFile(path: string): Promise<boolean>;
+
 	declare export function removeDir(path: string): Promise<boolean>;
+
 	declare export function removeDirRecursive(path: string): Promise<boolean>;
+
 	declare export function copy(from: string, to: string): Promise<boolean>;
+
 	declare export function rename(from: string, to: string): Promise<boolean>;
+
 	declare export function softLink(original: string, link: string): Promise<boolean>;
+
 	declare export function hardLink(original: string, link: string): Promise<boolean>;
 
 	declare export var sync: {

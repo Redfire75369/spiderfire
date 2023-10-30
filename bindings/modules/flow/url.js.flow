@@ -2,6 +2,7 @@
 
 declare module "url" {
 	declare export function domainToASCII(domain: string, strict?: boolean): string;
+
 	declare export function domainToUnicode(domain: string): string;
 
 	declare export default {

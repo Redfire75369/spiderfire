@@ -2,17 +2,29 @@
 
 declare module "path" {
 	declare export function join(...segments: string[]): string;
+
 	declare export function stripPrefix(path: string, prefix: string): string;
+
 	declare export function fileStem(path: string): string | null;
+
 	declare export function parent(path: string): string | null;
+
 	declare export function fileName(path: string): string | null;
+
 	declare export function extension(path: string): string | null;
+
 	declare export function withFileName(path: string, fileName: string): string;
+
 	declare export function withExtension(path: string, extension: string): string;
+
 	declare export function isAbsolute(path: string): boolean;
+
 	declare export function isRelative(path: string): boolean;
+
 	declare export function hasRoot(path: string): boolean;
+
 	declare export function startsWith(path: string, prefix: string): boolean;
+
 	declare export function endsWith(path: string, suffix: string): boolean;
 
 	declare export var separator: string;

@@ -2,27 +2,39 @@
 
 interface Console {
 	log(...values: any[]): void;
+
 	info(...values: any[]): void;
+
 	dir(...values: any[]): void;
+
 	dirxml(...values: any[]): void,
 
 	warn(...values: any[]): void;
+
 	error(...values: any[]): void;
+
 	debug(...values: any[]): void;
 
 	assert(assertion: boolean, ...values: any[]): void;
+
 	clear(): void;
+
 	trace(...values: any[]): void;
 
 	group(...values: any[]): void;
+
 	groupCollapsed(...values: any[]): void;
+
 	groupEnd(): void;
 
 	count(label?: string): void;
+
 	countReset(label?: string): void;
 
 	time(label?: string): void;
+
 	timeLog(label?: string, ...values: any[]): void;
+
 	timeEnd(label?: string): void;
 
 	table(data: any, columns?: string[]): void;
