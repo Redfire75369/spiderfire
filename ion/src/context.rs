@@ -128,10 +128,10 @@ impl Context {
 		unsafe { (*inner.as_ptr()).private }
 	}
 
-	pub fn set_raw_private(&self, private: *mut c_void) {
+	pub fn set_private<T>(&self, private: Box<T>) {
 		let inner_private = self.get_inner_data();
 		unsafe {
-			(*inner_private.as_ptr()).private = private;
+			(*inner_private.as_ptr()).private = Box::into_raw(private).cast();
 		}
 	}
 }

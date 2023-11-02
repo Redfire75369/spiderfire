@@ -71,7 +71,7 @@ fn check_is_not_dir(path: &Path) -> Result<()> {
 }
 
 #[js_fn]
-fn readBinary(cx: &Context, path_str: String) -> Promise {
+fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -97,7 +97,7 @@ fn readBinarySync(path_str: String) -> Result<Uint8Array> {
 }
 
 #[js_fn]
-fn readString(cx: &Context, path_str: String) -> Promise {
+fn readString(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -123,7 +123,7 @@ fn readStringSync(path_str: String) -> Result<String> {
 }
 
 #[js_fn]
-fn readDir(cx: &Context, path_str: String) -> Promise {
+fn readDir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -157,7 +157,7 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 }
 
 #[js_fn]
-fn write(cx: &Context, path_str: String, contents: String) -> Promise {
+fn write(cx: &Context, path_str: String, contents: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -175,7 +175,7 @@ fn writeSync(path_str: String, contents: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn createDir(cx: &Context, path_str: String) -> Promise {
+fn createDir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -193,7 +193,7 @@ fn createDirSync(path_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn createDirRecursive(cx: &Context, path_str: String) -> Promise {
+fn createDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -211,7 +211,7 @@ fn createDirRecursiveSync(path_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn removeFile(cx: &Context, path_str: String) -> Promise {
+fn removeFile(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -229,7 +229,7 @@ fn removeFileSync(path_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn removeDir(cx: &Context, path_str: String) -> Promise {
+fn removeDir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -247,7 +247,7 @@ fn removeDirSync(path_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn removeDirRecursive(cx: &Context, path_str: String) -> Promise {
+fn removeDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -265,7 +265,7 @@ fn removeDirRecursiveSync(path_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn copy(cx: &Context, from_str: String, to_str: String) -> Promise {
+fn copy(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
@@ -287,7 +287,7 @@ fn copySync(from_str: String, to_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn rename(cx: &Context, from_str: String, to_str: String) -> Promise {
+fn rename(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
@@ -309,7 +309,7 @@ fn renameSync(from_str: String, to_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn softLink(cx: &Context, original_str: String, link_str: String) -> Promise {
+fn softLink(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);
@@ -355,7 +355,7 @@ fn softLinkSync(original_str: String, link_str: String) -> Result<bool> {
 }
 
 #[js_fn]
-fn hardLink(cx: &Context, original_str: String, link_str: String) -> Promise {
+fn hardLink(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);

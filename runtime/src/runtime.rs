@@ -4,42 +4,40 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::rc::Rc;
+use std::ptr::NonNull;
+use mozjs::glue::CreateJobQueue;
 
-use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm};
+use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue};
 
 use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
 use ion::objects::default_new_global;
 
-use crate::event_loop::{EVENT_LOOP, EventLoop};
+use crate::event_loop::{EventLoop};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
-use crate::event_loop::microtasks::init_microtask_queue;
+use crate::event_loop::microtasks::{JOB_QUEUE_TRAPS, MicrotaskQueue};
 use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::modules::StandardModules;
 
 #[derive(Default)]
-pub struct ContextPrivate {}
+pub struct ContextPrivate {
+	pub(crate) event_loop: EventLoop,
+}
 
 pub trait ContextExt {
-	#[allow(clippy::mut_from_ref)]
-	fn get_private(&self) -> &mut ContextPrivate;
+	fn get_private(&self) -> NonNull<ContextPrivate>;
 }
 
 impl ContextExt for Context {
-	fn get_private(&self) -> &mut ContextPrivate {
-		unsafe {
-			let private = self.get_raw_private() as *mut ContextPrivate;
-			&mut *private
-		}
+	fn get_private(&self) -> NonNull<ContextPrivate> {
+		unsafe { NonNull::new_unchecked(self.get_raw_private() as *mut ContextPrivate) }
 	}
 }
 
 pub struct Runtime<'cx> {
 	global: Object<'cx>,
 	cx: &'cx Context,
-	event_loop: EventLoop,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
 }
@@ -58,16 +56,15 @@ impl<'cx> Runtime<'cx> {
 	}
 
 	pub async fn run_event_loop(&self) -> Result<(), Option<ErrorReport>> {
-		self.event_loop.run_event_loop(self.cx).await
+		let event_loop = unsafe { &mut (*self.cx.get_private().as_ptr()).event_loop };
+		event_loop.run_event_loop(self.cx).await
 	}
 }
 
 impl Drop for Runtime<'_> {
 	fn drop(&mut self) {
-		let private = self.cx.get_raw_private() as *mut ContextPrivate;
-		if !private.is_null() {
-			let _ = unsafe { Box::from_raw(private) };
-		}
+		let private = self.cx.get_private();
+		let _ = unsafe { Box::from_raw(private.as_ptr()) };
 		let inner_private = self.cx.get_inner_data();
 		let _ = unsafe { Box::from_raw(inner_private.as_ptr()) };
 	}
@@ -114,32 +111,27 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 		global.set_as(cx, "global", &global_obj);
 		init_globals(cx, &mut global);
 
-		let private = Box::<ContextPrivate>::default();
-		cx.set_raw_private(Box::into_raw(private).cast());
-
-		let mut event_loop = EventLoop {
-			futures: None,
-			microtasks: None,
-			macrotasks: None,
-		};
+		let mut private = Box::<ContextPrivate>::default();
 
 		if self.microtask_queue {
-			event_loop.microtasks = Some(init_microtask_queue(cx));
+			private.event_loop.microtasks = Some(MicrotaskQueue::default());
+			unsafe {
+				SetJobQueue(
+					cx.as_ptr(),
+					CreateJobQueue(&JOB_QUEUE_TRAPS, private.event_loop.microtasks.as_ref().unwrap() as *const _ as *const _),
+				);
+			}
 			init_microtasks(cx, &mut global);
-			event_loop.futures = Some(Rc::new(FutureQueue::default()));
+			private.event_loop.futures = Some(FutureQueue::default());
 		}
 		if self.macrotask_queue {
-			event_loop.macrotasks = Some(Rc::new(MacrotaskQueue::default()));
+			private.event_loop.macrotasks = Some(MacrotaskQueue::default());
 			init_timers(cx, &mut global);
 		}
 
 		let _options = unsafe { &mut *ContextOptionsRef(cx.as_ptr()) };
 
-		EVENT_LOOP.with_borrow_mut(|eloop| {
-			eloop.microtasks = event_loop.microtasks.clone();
-			eloop.futures = event_loop.futures.clone();
-			eloop.macrotasks = event_loop.macrotasks.clone();
-		});
+		cx.set_private(private);
 
 		let has_loader = self.modules.is_some();
 		if let Some(loader) = self.modules {
@@ -154,7 +146,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 			}
 		}
 
-		Runtime { global, cx, event_loop, realm }
+		Runtime { global, cx, realm }
 	}
 }
 

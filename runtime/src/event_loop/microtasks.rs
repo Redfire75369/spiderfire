@@ -4,15 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::{Cell, RefCell};
 use std::collections::vec_deque::VecDeque;
 use std::ffi::c_void;
-use std::rc::Rc;
 
-use mozjs::glue::{CreateJobQueue, JobQueueTraps};
-use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject, SetJobQueue};
+use mozjs::glue::JobQueueTraps;
+use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject};
 
 use ion::{Context, ErrorReport, Function, Object};
+use crate::ContextExt;
 
 #[derive(Clone, Debug)]
 pub enum Microtask {
@@ -23,8 +22,8 @@ pub enum Microtask {
 
 #[derive(Clone, Debug, Default)]
 pub struct MicrotaskQueue {
-	queue: RefCell<VecDeque<Microtask>>,
-	draining: Cell<bool>,
+	queue: VecDeque<Microtask>,
+	draining: bool,
 }
 
 impl Microtask {
@@ -46,73 +45,63 @@ impl Microtask {
 }
 
 impl MicrotaskQueue {
-	pub fn enqueue(&self, cx: *mut JSContext, microtask: Microtask) {
-		{
-			self.queue.borrow_mut().push_back(microtask);
-		}
-		unsafe { JobQueueMayNotBeEmpty(cx) }
+	pub fn enqueue(&mut self, cx: &Context, microtask: Microtask) {
+		self.queue.push_back(microtask);
+		unsafe { JobQueueMayNotBeEmpty(cx.as_ptr()) }
 	}
 
-	pub fn run_jobs(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
-		if self.draining.get() {
+	pub fn run_jobs(&mut self, cx: &Context) -> Result<(), Option<ErrorReport>> {
+		if self.draining {
 			return Ok(());
 		}
 
-		self.draining.set(true);
+		self.draining = true;
 
 		while let Some(microtask) = self.front() {
 			microtask.run(cx)?;
 		}
 
-		self.draining.set(false);
+		self.draining = false;
 		unsafe { JobQueueIsEmpty(cx.as_ptr()) };
 
 		Ok(())
 	}
 
-	fn front(&self) -> Option<Microtask> {
-		self.queue.borrow_mut().pop_front()
+	fn front(&mut self) -> Option<Microtask> {
+		self.queue.pop_front()
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.queue.borrow().is_empty()
+		self.queue.is_empty()
 	}
 }
 
-unsafe extern "C" fn get_incumbent_global(_extra: *const c_void, cx: *mut JSContext) -> *mut JSObject {
+unsafe extern "C" fn get_incumbent_global(_: *const c_void, cx: *mut JSContext) -> *mut JSObject {
 	unsafe { CurrentGlobalOrNull(cx) }
 }
 
 unsafe extern "C" fn enqueue_promise_job(
-	extra: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
+	_: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
 	_: Handle<*mut JSObject>,
 ) -> bool {
-	let queue: &MicrotaskQueue = unsafe { &*extra.cast() };
+	let cx = unsafe { &Context::new_unchecked(cx) };
+	let event_loop = unsafe { &mut (*cx.get_private().as_ptr()).event_loop };
+	let microtasks = event_loop.microtasks.as_mut().unwrap();
 	if !job.is_null() {
-		queue.enqueue(cx, Microtask::Promise(job.get()))
+		microtasks.enqueue(cx, Microtask::Promise(job.get()))
 	} else {
-		queue.enqueue(cx, Microtask::None)
+		microtasks.enqueue(cx, Microtask::None)
 	};
 	true
 }
 
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
 	let queue: &MicrotaskQueue = unsafe { &*extra.cast() };
-	queue.queue.borrow().is_empty()
+	queue.queue.is_empty()
 }
 
-static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
+pub(crate) static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
 	getIncumbentGlobal: Some(get_incumbent_global),
 	enqueuePromiseJob: Some(enqueue_promise_job),
 	empty: Some(empty),
 };
-
-pub(crate) fn init_microtask_queue(cx: &Context) -> Rc<MicrotaskQueue> {
-	let microtask_queue = Rc::new(MicrotaskQueue::default());
-	unsafe {
-		let queue = Rc::into_raw(Rc::clone(&microtask_queue));
-		let queue = CreateJobQueue(&JOB_QUEUE_TRAPS, queue.cast());
-		SetJobQueue(cx.as_ptr(), queue);
-	}
-	microtask_queue
-}

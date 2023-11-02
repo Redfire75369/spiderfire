@@ -56,14 +56,14 @@ mod response;
 const DEFAULT_USER_AGENT: &str = concatcp!("Spiderfire/", VERSION);
 
 #[js_fn]
-fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> Promise<'cx> {
+fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> Option<Promise<'cx>> {
 	let promise = Promise::new(cx);
 
 	let request = match Request::constructor(cx, resource, init) {
 		Ok(request) => request,
 		Err(error) => {
 			promise.reject(cx, &error.as_value(cx));
-			return promise;
+			return Some(promise);
 		}
 	};
 
@@ -71,7 +71,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 	let signal = AbortSignal::get_private(&signal);
 	if let Some(reason) = signal.get_reason() {
 		promise.reject(cx, &cx.root_value(reason).into());
-		return promise;
+		return Some(promise);
 	}
 
 	let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });

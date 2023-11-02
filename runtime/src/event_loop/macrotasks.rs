@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -96,10 +95,10 @@ pub enum Macrotask {
 
 #[derive(Debug, Default)]
 pub struct MacrotaskQueue {
-	pub(crate) map: RefCell<HashMap<u32, Macrotask>>,
-	pub(crate) nesting: Cell<u8>,
-	next: Cell<Option<u32>>,
-	latest: Cell<Option<u32>>,
+	pub(crate) map: HashMap<u32, Macrotask>,
+	pub(crate) nesting: u8,
+	next: Option<u32>,
+	latest: Option<u32>,
 }
 
 impl Macrotask {
@@ -137,16 +136,16 @@ impl Macrotask {
 }
 
 impl MacrotaskQueue {
-	pub fn run_jobs(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run_jobs(&mut self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		self.find_next();
-		while let Some(next) = self.next.get() {
-			let macrotask = { self.map.borrow_mut().remove_entry(&next) };
+		while let Some(next) = self.next {
+			let macrotask = { self.map.remove_entry(&next) };
 			if let Some((id, macrotask)) = macrotask {
 				let macrotask = macrotask.run(cx)?;
 
 				if let Some(Macrotask::Timer(mut timer)) = macrotask {
 					if timer.reset() {
-						self.map.borrow_mut().insert(id, Macrotask::Timer(timer));
+						self.map.insert(id, Macrotask::Timer(timer));
 					}
 				}
 			}
@@ -156,11 +155,10 @@ impl MacrotaskQueue {
 		Ok(())
 	}
 
-	pub fn enqueue(&self, mut macrotask: Macrotask, id: Option<u32>) -> u32 {
-		let index = id.unwrap_or_else(|| self.latest.get().map(|l| l + 1).unwrap_or(0));
+	pub fn enqueue(&mut self, mut macrotask: Macrotask, id: Option<u32>) -> u32 {
+		let index = id.unwrap_or_else(|| self.latest.map(|l| l + 1).unwrap_or(0));
 
-		let mut queue = self.map.borrow_mut();
-		let next = self.next.get().and_then(|next| (*queue).get(&next));
+		let next = self.next.and_then(|next| self.map.get(&next));
 		if let Some(next) = next {
 			if macrotask.remaining() < next.remaining() {
 				self.set_next(index, &macrotask);
@@ -170,31 +168,30 @@ impl MacrotaskQueue {
 		}
 
 		if let Macrotask::Timer(timer) = &mut macrotask {
-			self.nesting.set(self.nesting.get() + 1);
-			timer.nesting = self.nesting.get();
+			self.nesting += 1;
+			timer.nesting = self.nesting;
 		}
 
-		self.latest.set(Some(index));
-		queue.insert(index, macrotask);
+		self.latest = Some(index);
+		self.map.insert(index, macrotask);
 
 		index
 	}
 
-	pub fn remove(&self, id: u32) {
-		if self.map.borrow_mut().remove(&id).is_some() {
-			if let Some(next) = self.next.get() {
+	pub fn remove(&mut self, id: u32) {
+		if self.map.remove(&id).is_some() {
+			if let Some(next) = self.next {
 				if next == id {
-					self.next.set(None);
+					self.next = None;
 				}
 			}
 		}
 	}
 
-	pub fn find_next(&self) {
+	pub fn find_next(&mut self) {
 		let mut next: Option<(u32, &Macrotask)> = None;
 		let mut to_remove = Vec::new();
-		let mut queue = self.map.borrow_mut();
-		for (id, macrotask) in &*queue {
+		for (id, macrotask) in &self.map {
 			if macrotask.terminate() {
 				to_remove.push(*id);
 				continue;
@@ -209,18 +206,18 @@ impl MacrotaskQueue {
 		}
 		let next = next.map(|(id, _)| id);
 		for id in to_remove.iter_mut() {
-			queue.remove(id);
+			self.map.remove(id);
 		}
-		self.next.set(next);
+		self.next = next;
 	}
 
-	pub fn set_next(&self, index: u32, macrotask: &Macrotask) {
+	pub fn set_next(&mut self, index: u32, macrotask: &Macrotask) {
 		if macrotask.remaining() < Duration::zero() {
-			self.next.set(Some(index));
+			self.next = Some(index);
 		}
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.map.borrow().is_empty()
+		self.map.is_empty()
 	}
 }

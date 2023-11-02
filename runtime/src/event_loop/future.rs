@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::RefCell;
 use std::task;
 use std::task::Poll;
 
@@ -20,15 +19,14 @@ type FutureOutput = (Result<BoxedIntoValue, BoxedIntoValue>, *mut JSObject);
 
 #[derive(Default)]
 pub struct FutureQueue {
-	queue: RefCell<FuturesUnordered<JoinHandle<FutureOutput>>>,
+	queue: FuturesUnordered<JoinHandle<FutureOutput>>,
 }
 
 impl FutureQueue {
-	pub fn run_futures(&self, cx: &Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run_futures(&mut self, cx: &Context, wcx: &mut task::Context) -> Result<(), Option<ErrorReport>> {
 		let mut results = Vec::new();
 
-		let mut queue = self.queue.borrow_mut();
-		while let Poll::Ready(Some(item)) = queue.poll_next_unpin(wcx) {
+		while let Poll::Ready(Some(item)) = self.queue.poll_next_unpin(wcx) {
 			match item {
 				Ok(item) => results.push(item),
 				Err(error) => {
@@ -62,10 +60,10 @@ impl FutureQueue {
 	}
 
 	pub fn enqueue(&self, handle: JoinHandle<FutureOutput>) {
-		self.queue.borrow().push(handle);
+		self.queue.push(handle);
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.queue.borrow().is_empty()
+		self.queue.is_empty()
 	}
 }

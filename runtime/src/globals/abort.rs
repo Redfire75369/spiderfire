@@ -8,7 +8,7 @@ use std::future::Future;
 use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::task;
+use std::{ptr, task};
 use std::task::Poll;
 
 use chrono::Duration;
@@ -20,7 +20,7 @@ use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result,
 use ion::class::Reflector;
 use ion::conversions::{ConversionBehavior, FromValue, ToValue};
 
-use crate::event_loop::EVENT_LOOP;
+use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 
 #[derive(Clone, Debug, Default)]
@@ -169,18 +169,19 @@ impl AbortSignal {
 		});
 
 		let duration = Duration::milliseconds(time as i64);
-		EVENT_LOOP.with_borrow(|event_loop| {
-			if let Some(queue) = &event_loop.macrotasks {
-				queue.enqueue(Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)), None);
-			}
-		});
-		AbortSignal::new_object(
-			cx,
-			Box::new(AbortSignal {
-				reflector: Reflector::default(),
-				signal: Signal::Timeout(receiver, terminate2),
-			}),
-		)
+		let event_loop = unsafe { &mut (*cx.get_private().as_ptr()).event_loop };
+		if let Some(queue) = &mut event_loop.macrotasks {
+			queue.enqueue(Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)), None);
+			AbortSignal::new_object(
+				cx,
+				Box::new(AbortSignal {
+					reflector: Reflector::default(),
+					signal: Signal::Timeout(receiver, terminate2),
+				}),
+			)
+		} else {
+			ptr::null_mut()
+		}
 	}
 }
 

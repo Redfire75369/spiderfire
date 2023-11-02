@@ -219,7 +219,7 @@ impl Response {
 	}
 
 	#[ion(name = "arrayBuffer")]
-	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Promise<'cx> {
+	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let this = cx.root_persistent_object(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();
@@ -232,7 +232,7 @@ impl Response {
 		})
 	}
 
-	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Promise<'cx> {
+	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let this = cx.root_persistent_object(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();

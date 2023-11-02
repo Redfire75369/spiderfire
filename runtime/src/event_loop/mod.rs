@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::task;
 use std::task::Poll;
 
@@ -21,35 +19,33 @@ pub(crate) mod future;
 pub(crate) mod macrotasks;
 pub(crate) mod microtasks;
 
-thread_local!(pub(crate) static EVENT_LOOP: RefCell<EventLoop> = RefCell::new(EventLoop::default()));
-
 #[derive(Default)]
 pub struct EventLoop {
-	pub(crate) futures: Option<Rc<FutureQueue>>,
-	pub(crate) microtasks: Option<Rc<MicrotaskQueue>>,
-	pub(crate) macrotasks: Option<Rc<MacrotaskQueue>>,
+	pub(crate) futures: Option<FutureQueue>,
+	pub(crate) microtasks: Option<MicrotaskQueue>,
+	pub(crate) macrotasks: Option<MacrotaskQueue>,
 }
 
 impl EventLoop {
-	pub async fn run_event_loop(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
+	pub async fn run_event_loop(&mut self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		let mut complete = false;
 		poll_fn(|wcx| self.poll_event_loop(cx, wcx, &mut complete)).await
 	}
 
-	fn poll_event_loop(&self, cx: &Context, wcx: &mut task::Context, complete: &mut bool) -> Poll<Result<(), Option<ErrorReport>>> {
-		if let Some(futures) = &self.futures {
+	fn poll_event_loop(&mut self, cx: &Context, wcx: &mut task::Context, complete: &mut bool) -> Poll<Result<(), Option<ErrorReport>>> {
+		if let Some(futures) = &mut self.futures {
 			if !futures.is_empty() {
 				futures.run_futures(cx, wcx)?;
 			}
 		}
 
-		if let Some(microtasks) = &self.microtasks {
+		if let Some(microtasks) = &mut self.microtasks {
 			if !microtasks.is_empty() {
 				microtasks.run_jobs(cx)?;
 			}
 		}
 
-		if let Some(macrotasks) = &self.macrotasks {
+		if let Some(macrotasks) = &mut self.macrotasks {
 			if !macrotasks.is_empty() {
 				macrotasks.run_jobs(cx)?;
 			}
