@@ -32,7 +32,7 @@ impl PromiseFuture {
 				cx,
 				"",
 				Box::new(move |args| {
-					let _ = rx1.try_send(Ok(args.value(0).unwrap().handle().get()));
+					let _ = rx1.try_send(Ok(args.value(0).unwrap().get()));
 					Ok(Value::undefined(args.cx()))
 				}),
 				1,
@@ -42,7 +42,7 @@ impl PromiseFuture {
 				cx,
 				"",
 				Box::new(move |args| {
-					let _ = rx2.try_send(Err(args.value(0).unwrap().handle().get()));
+					let _ = rx2.try_send(Err(args.value(0).unwrap().get()));
 					Ok(Value::undefined(args.cx()))
 				}),
 				1,

@@ -11,6 +11,7 @@ use mozjs::glue::JobQueueTraps;
 use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject};
 
 use ion::{Context, ErrorReport, Function, Object};
+
 use crate::ContextExt;
 
 #[derive(Clone, Debug)]
@@ -57,7 +58,7 @@ impl MicrotaskQueue {
 
 		self.draining = true;
 
-		while let Some(microtask) = self.front() {
+		while let Some(microtask) = self.queue.pop_front() {
 			microtask.run(cx)?;
 		}
 
@@ -65,10 +66,6 @@ impl MicrotaskQueue {
 		unsafe { JobQueueIsEmpty(cx.as_ptr()) };
 
 		Ok(())
-	}
-
-	fn front(&mut self) -> Option<Microtask> {
-		self.queue.pop_front()
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -81,8 +78,7 @@ unsafe extern "C" fn get_incumbent_global(_: *const c_void, cx: *mut JSContext) 
 }
 
 unsafe extern "C" fn enqueue_promise_job(
-	_: *const c_void, cx: *mut JSContext, _promise: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
-	_: Handle<*mut JSObject>,
+	_: *const c_void, cx: *mut JSContext, _: Handle<*mut JSObject>, job: Handle<*mut JSObject>, _: Handle<*mut JSObject>, _: Handle<*mut JSObject>,
 ) -> bool {
 	let cx = unsafe { &Context::new_unchecked(cx) };
 	let event_loop = unsafe { &mut (*cx.get_private().as_ptr()).event_loop };

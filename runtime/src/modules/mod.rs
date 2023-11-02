@@ -7,7 +7,5 @@
 pub use loader::*;
 pub use standard::*;
 
-#[cfg(feature = "promise-logger")]
-pub mod handler;
 pub mod loader;
 pub mod standard;

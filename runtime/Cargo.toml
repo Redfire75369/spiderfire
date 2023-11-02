@@ -86,7 +86,6 @@ features = ["sync"]
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
-promise-logger = []
 fetch = [
 	"dep:async-recursion",
 	"dep:bytes",

@@ -10,9 +10,8 @@ use tokio::task::spawn_local;
 
 use ion::{Context, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
+
 use crate::ContextExt;
-#[cfg(feature = "promise-logger")]
-use crate::modules::handler::add_handler_reactions;
 
 /// Returns None if no future queue has been initialised.
 pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
@@ -35,8 +34,6 @@ where
 	let event_loop = unsafe { &(*cx.get_private().as_ptr()).event_loop };
 	event_loop.futures.as_ref().map(|futures| {
 		futures.enqueue(handle);
-		#[cfg(feature = "promise-logger")]
-		add_handler_reactions(cx, &promise);
 		promise
 	})
 }

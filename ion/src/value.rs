@@ -48,12 +48,12 @@ impl<'v> Value<'v> {
 
 	/// Creates a [Value] from a [BigInt].
 	pub fn bigint<'cx>(cx: &'cx Context, bi: &BigInt) -> Value<'cx> {
-		Value::from(cx.root_value(BigIntValue(unsafe { &*bi.handle().get() })))
+		Value::from(cx.root_value(BigIntValue(unsafe { &*bi.get() })))
 	}
 
 	/// Creates a [Value] from a [Symbol].
 	pub fn symbol<'cx>(cx: &'cx Context, sym: &Symbol) -> Value<'cx> {
-		Value::from(cx.root_value(SymbolValue(unsafe { &*sym.handle().get() })))
+		Value::from(cx.root_value(SymbolValue(unsafe { &*sym.get() })))
 	}
 
 	/// Creates a [Value] from an [Object].

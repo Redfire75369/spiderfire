@@ -130,7 +130,7 @@ impl<'cx> FromValue<'cx> for FetchBody {
 		if value.handle().is_string() {
 			Ok(FetchBody {
 				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, true, ()).unwrap())),
-				source: Some(Heap::boxed(value.handle().get())),
+				source: Some(Heap::boxed(value.get())),
 				kind: Some(FetchBodyKind::String),
 			})
 		} else if value.handle().is_object() {
@@ -141,14 +141,14 @@ impl<'cx> FromValue<'cx> for FetchBody {
 				let string = object.unbox_primitive(cx).unwrap();
 				Ok(FetchBody {
 					body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, &string, true, ()).unwrap())),
-					source: Some(Heap::boxed(value.handle().get())),
+					source: Some(Heap::boxed(value.get())),
 					kind: Some(FetchBodyKind::String),
 				})
 			} else {
 				let bytes = typedarray_to_bytes!(object.handle().get(), [ArrayBuffer, true], [ArrayBufferView, true])?;
 				Ok(FetchBody {
 					body: FetchBodyInner::Bytes(bytes),
-					source: Some(Heap::boxed(value.handle().get())),
+					source: Some(Heap::boxed(value.get())),
 					kind: None,
 				})
 			}

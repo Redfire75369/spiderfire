@@ -66,7 +66,7 @@ impl Iterator {
 		Iterator {
 			reflector: Reflector::default(),
 			iter: Box::new(iter),
-			private: Heap::boxed(private.handle().get()),
+			private: Heap::boxed(private.get()),
 		}
 	}
 

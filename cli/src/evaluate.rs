@@ -23,7 +23,6 @@ use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
 use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
-use runtime::modules::handler::add_handler_reactions;
 use runtime::modules::Loader;
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_>, source: &str) {
@@ -84,15 +83,9 @@ pub(crate) async fn eval_module(path: &Path) {
 		}
 		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
 
-		match result {
-			Ok((_, Some(promise))) => {
-				add_handler_reactions(rt.cx(), &promise);
-			}
-			Err(mut error) => {
-				transform_error_report_with_sourcemaps(&mut error.report);
-				eprintln!("{}", error.format(rt.cx()));
-			}
-			_ => {}
+		if let Err(mut error) = result {
+			transform_error_report_with_sourcemaps(&mut error.report);
+			eprintln!("{}", error.format(rt.cx()));
 		}
 		run_event_loop(&rt).await;
 	}

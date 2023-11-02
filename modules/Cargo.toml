@@ -24,7 +24,6 @@ features = ["macros"]
 
 [dependencies.runtime]
 path = "../runtime"
-features = ["fetch"]
 
 [dependencies.tokio]
 workspace = true

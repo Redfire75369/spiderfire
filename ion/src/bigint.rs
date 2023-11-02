@@ -80,25 +80,25 @@ impl<'b> BigInt<'b> {
 	/// Converts a [BigInt] to a 64-bit signed integer if possible.
 	pub fn to_i64(&self) -> Option<i64> {
 		let mut result = 0;
-		unsafe { BigIntIsInt64(self.handle().get(), &mut result).then_some(result) }
+		unsafe { BigIntIsInt64(self.get(), &mut result).then_some(result) }
 	}
 
 	/// Converts a [BigInt] to a 64-bit unsigned integer if possible.
 	pub fn to_u64(&self) -> Option<u64> {
 		let mut result = 0;
-		unsafe { BigIntIsUint64(self.handle().get(), &mut result).then_some(result) }
+		unsafe { BigIntIsUint64(self.get(), &mut result).then_some(result) }
 	}
 
 	/// Converts a [BigInt] to a double.
 	/// Returns `Infinity` or `-Infinity` if it does not fit in a double.
 	pub fn to_f64(&self) -> f64 {
-		unsafe { BigIntToNumber(self.handle().get()) }
+		unsafe { BigIntToNumber(self.get()) }
 	}
 
 	/// Converts a [BigInt] to a double if it fits in a double.
 	pub fn fits_f64(&self) -> Option<f64> {
 		let mut result = 0.0;
-		unsafe { BigIntFitsNumber(self.handle().get(), &mut result).then_some(result) }
+		unsafe { BigIntFitsNumber(self.get(), &mut result).then_some(result) }
 	}
 
 	/// Converts a [BigInt] to a string.
@@ -114,7 +114,7 @@ impl<'b> BigInt<'b> {
 
 	/// Checks if the [BigInt] is negative.
 	pub fn is_negative(&self) -> bool {
-		unsafe { BigIntIsNegative(self.handle().get()) }
+		unsafe { BigIntIsNegative(self.get()) }
 	}
 }
 

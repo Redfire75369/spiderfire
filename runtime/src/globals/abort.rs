@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::{ptr, task};
 use std::future::Future;
 use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{ptr, task};
 use std::task::Poll;
 
 use chrono::Duration;

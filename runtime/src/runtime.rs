@@ -4,16 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ptr;
 use std::ptr::NonNull;
-use mozjs::glue::CreateJobQueue;
 
-use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue};
+use mozjs::glue::CreateJobQueue;
+use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue, SetPromiseRejectionTrackerCallback};
 
 use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
 use ion::objects::default_new_global;
 
-use crate::event_loop::{EventLoop};
+use crate::event_loop::{EventLoop, promise_rejection_tracker_callback};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::{JOB_QUEUE_TRAPS, MicrotaskQueue};
@@ -115,14 +116,16 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 
 		if self.microtask_queue {
 			private.event_loop.microtasks = Some(MicrotaskQueue::default());
+			init_microtasks(cx, &mut global);
+			private.event_loop.futures = Some(FutureQueue::default());
+
 			unsafe {
 				SetJobQueue(
 					cx.as_ptr(),
 					CreateJobQueue(&JOB_QUEUE_TRAPS, private.event_loop.microtasks.as_ref().unwrap() as *const _ as *const _),
 				);
+				SetPromiseRejectionTrackerCallback(cx.as_ptr(), Some(promise_rejection_tracker_callback), ptr::null_mut());
 			}
-			init_microtasks(cx, &mut global);
-			private.event_loop.futures = Some(FutureQueue::default());
 		}
 		if self.macrotask_queue {
 			private.event_loop.macrotasks = Some(MacrotaskQueue::default());

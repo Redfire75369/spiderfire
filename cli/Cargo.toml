@@ -22,7 +22,7 @@ features = ["derive"]
 
 [dependencies.runtime]
 path = "../runtime"
-features = ["fetch", "promise-logger"]
+features = ["fetch"]
 
 [dependencies.tokio]
 workspace = true
