@@ -33,7 +33,7 @@ pub struct String<'s> {
 
 impl<'s> String<'s> {
 	/// Creates an empty [String].
-	pub fn empty<'cx>(cx: &'cx Context) -> String<'cx> {
+	pub fn empty(cx: &Context) -> String {
 		String::from(cx.root_string(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
 	}
 
@@ -45,7 +45,7 @@ impl<'s> String<'s> {
 	}
 
 	/// Creates a new external string by moving ownership of the UTF-16 string to the JS Runtime.
-	pub fn new_external<'cx>(cx: &'cx Context, string: WString<NativeEndian>) -> Result<String<'cx>, WString<NativeEndian>> {
+	pub fn new_external(cx: &Context, string: WString<NativeEndian>) -> Result<String, WString<NativeEndian>> {
 		new_external_string(cx, string)
 	}
 

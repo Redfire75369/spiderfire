@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
 
 use chrono::{DateTime, offset::Utc};
@@ -35,27 +35,21 @@ thread_local! {
 	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
 	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
 
-	static INDENTS: RefCell<u16> = RefCell::new(0);
-}
-
-fn get_indents() -> u16 {
-	INDENTS.with(|indents| *indents.borrow())
+	static INDENTS: Cell<u16> = Cell::new(0);
 }
 
 fn print_indent(is_stderr: bool) {
-	INDENTS.with(|indents| {
-		if !is_stderr {
-			print!("{}", INDENT.repeat(*indents.borrow() as usize));
-		} else {
-			eprint!("{}", INDENT.repeat(*indents.borrow() as usize));
-		}
-	});
+	let indents = INDENTS.get();
+	if !is_stderr {
+		print!("{}", INDENT.repeat(indents as usize));
+	} else {
+		eprint!("{}", INDENT.repeat(indents as usize));
+	}
 }
 
 fn print_args(cx: &Context, args: &[Value], stderr: bool) {
-	let indents = get_indents();
 	for value in args.iter() {
-		let string = format_value(cx, FormatConfig::default().indentation(indents), value);
+		let string = format_value(cx, FormatConfig::default().indentation(INDENTS.get()), value);
 		if !stderr {
 			print!("{} ", string);
 		} else {
@@ -143,9 +137,7 @@ fn assert(cx: &Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Val
 
 #[js_fn]
 fn clear() {
-	INDENTS.with(|indents| {
-		*indents.borrow_mut() = 0;
-	});
+	INDENTS.set(0);
 
 	println!("{}", ANSI_CLEAR);
 	println!("{}", ANSI_CLEAR_SCREEN_DOWN);
@@ -160,7 +152,7 @@ fn trace(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 		println!();
 
 		let mut stack = Stack::from_capture(cx);
-		let indents = ((get_indents() + 1) * 2) as usize;
+		let indents = ((INDENTS.get() + 1) * 2) as usize;
 
 		if let Some(stack) = &mut stack {
 			for record in &mut stack.records {
@@ -178,10 +170,7 @@ fn trace(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 
 #[js_fn]
 fn group(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
-	INDENTS.with(|indents| {
-		let mut indents = indents.borrow_mut();
-		*indents = (*indents).min(u16::MAX - 1) + 1;
-	});
+	INDENTS.set(INDENTS.get().min(u16::MAX - 1) + 1);
 
 	if Config::global().log_level >= LogLevel::Info {
 		print_args(cx, values.as_slice(), false);
@@ -191,31 +180,25 @@ fn group(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 
 #[js_fn]
 fn groupEnd() {
-	INDENTS.with(|indents| {
-		let mut indents = indents.borrow_mut();
-		*indents = (*indents).max(1) - 1;
-	});
+	INDENTS.set(INDENTS.get().max(1) - 1);
 }
 
 #[js_fn]
 fn count(label: Option<String>) {
 	let label = get_label(label);
-	COUNT_MAP.with(|map| {
-		let mut map = map.borrow_mut();
-		match (*map).entry(label.clone()) {
-			Entry::Vacant(v) => {
-				let val = v.insert(1);
-				if Config::global().log_level >= LogLevel::Info {
-					print_indent(false);
-					println!("{}: {}", label, val);
-				}
+	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
+		Entry::Vacant(v) => {
+			let val = v.insert(1);
+			if Config::global().log_level >= LogLevel::Info {
+				print_indent(false);
+				println!("{}: {}", label, val);
 			}
-			Entry::Occupied(mut o) => {
-				let val = o.insert(o.get() + 1);
-				if Config::global().log_level >= LogLevel::Info {
-					print_indent(false);
-					println!("{}: {}", label, val);
-				}
+		}
+		Entry::Occupied(mut o) => {
+			let val = o.insert(o.get() + 1);
+			if Config::global().log_level >= LogLevel::Info {
+				print_indent(false);
+				println!("{}: {}", label, val);
 			}
 		}
 	});
@@ -224,18 +207,15 @@ fn count(label: Option<String>) {
 #[js_fn]
 fn countReset(label: Option<String>) {
 	let label = get_label(label);
-	COUNT_MAP.with(|map| {
-		let mut map = map.borrow_mut();
-		match (*map).entry(label.clone()) {
-			Entry::Vacant(_) => {
-				if Config::global().log_level >= LogLevel::Error {
-					print_indent(true);
-					eprintln!("Count for {} does not exist", label);
-				}
+	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
+		Entry::Vacant(_) => {
+			if Config::global().log_level >= LogLevel::Error {
+				print_indent(true);
+				eprintln!("Count for {} does not exist", label);
 			}
-			Entry::Occupied(mut o) => {
-				o.insert(0);
-			}
+		}
+		Entry::Occupied(mut o) => {
+			o.insert(0);
 		}
 	});
 }
@@ -243,17 +223,14 @@ fn countReset(label: Option<String>) {
 #[js_fn]
 fn time(label: Option<String>) {
 	let label = get_label(label);
-	TIMER_MAP.with(|map| {
-		let mut map = map.borrow_mut();
-		match (*map).entry(label.clone()) {
-			Entry::Vacant(v) => {
-				v.insert(Utc::now());
-			}
-			Entry::Occupied(_) => {
-				if Config::global().log_level >= LogLevel::Error {
-					print_indent(true);
-					eprintln!("Timer {} already exists", label);
-				}
+	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
+		Entry::Vacant(v) => {
+			v.insert(Utc::now());
+		}
+		Entry::Occupied(_) => {
+			if Config::global().log_level >= LogLevel::Error {
+				print_indent(true);
+				eprintln!("Timer {} already exists", label);
 			}
 		}
 	});
@@ -262,24 +239,20 @@ fn time(label: Option<String>) {
 #[js_fn]
 fn timeLog(cx: &Context, label: Option<String>, #[ion(varargs)] values: Vec<Value>) {
 	let label = get_label(label);
-	TIMER_MAP.with(|map| {
-		let mut map = map.borrow_mut();
-		match (*map).entry(label.clone()) {
-			Entry::Vacant(_) => {
-				if Config::global().log_level >= LogLevel::Error {
-					print_indent(true);
-					eprintln!("Timer {} does not exist", label);
-				}
+	TIMER_MAP.with_borrow(|timers| match timers.get(&label) {
+		Some(start) => {
+			if Config::global().log_level >= LogLevel::Info {
+				let duration = Utc::now().timestamp_millis() - start.timestamp_millis();
+				print_indent(false);
+				print!("{}: {}ms ", label, duration);
+				print_args(cx, values.as_slice(), false);
+				println!();
 			}
-			Entry::Occupied(o) => {
-				if Config::global().log_level >= LogLevel::Info {
-					let start_time = o.get();
-					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
-					print_indent(false);
-					print!("{}: {}ms ", label, duration);
-					print_args(cx, values.as_slice(), false);
-					println!();
-				}
+		}
+		None => {
+			if Config::global().log_level >= LogLevel::Error {
+				print_indent(true);
+				eprintln!("Timer {} does not exist", label);
 			}
 		}
 	});
@@ -288,23 +261,20 @@ fn timeLog(cx: &Context, label: Option<String>, #[ion(varargs)] values: Vec<Valu
 #[js_fn]
 fn timeEnd(label: Option<String>) {
 	let label = get_label(label);
-	TIMER_MAP.with(|map| {
-		let mut map = map.borrow_mut();
-		match (*map).entry(label.clone()) {
-			Entry::Vacant(_) => {
-				if Config::global().log_level >= LogLevel::Error {
-					print_indent(true);
-					eprintln!("Timer {} does not exist", label);
-				}
+	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
+		Entry::Vacant(_) => {
+			if Config::global().log_level >= LogLevel::Error {
+				print_indent(true);
+				eprintln!("Timer {} does not exist", label);
 			}
-			Entry::Occupied(o) => {
-				if Config::global().log_level >= LogLevel::Info {
-					let (_, start_time) = o.remove_entry();
-					let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
-					print_indent(false);
-					print!("{}: {}ms - Timer Ended", label, duration);
-					println!();
-				}
+		}
+		Entry::Occupied(o) => {
+			if Config::global().log_level >= LogLevel::Info {
+				let (_, start_time) = o.remove_entry();
+				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
+				print_indent(false);
+				print!("{}: {}ms - Timer Ended", label, duration);
+				println!();
 			}
 		}
 	});
@@ -327,7 +297,7 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		combine_keys(cx, indexes, headers)
 	}
 
-	fn combine_keys<'cx>(_: &'cx Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<OwnedKey<'cx>> {
+	fn combine_keys(_: &Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<OwnedKey> {
 		let mut indexes: Vec<i32> = indexes.into_iter().collect();
 		indexes.sort_unstable();
 
@@ -336,7 +306,7 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		keys
 	}
 
-	let indents = get_indents();
+	let indents = INDENTS.get();
 	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
 		let (rows, columns, has_values) = if let Some(columns) = columns {
 			let rows = object.keys(cx, None).map(|key| key.to_owned_key(cx));

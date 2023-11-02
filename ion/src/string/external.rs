@@ -15,7 +15,7 @@ use utf16string::WString;
 
 use crate::{Context, String};
 
-pub(crate) fn new_external_string<'cx>(cx: &'cx Context, str: WString<NativeEndian>) -> Result<String<'cx>, WString<NativeEndian>> {
+pub(crate) fn new_external_string(cx: &Context, str: WString<NativeEndian>) -> Result<String, WString<NativeEndian>> {
 	let vec = str.into_bytes();
 	let boxed = vec.into_boxed_slice();
 

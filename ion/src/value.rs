@@ -22,27 +22,27 @@ pub struct Value<'v> {
 
 impl<'v> Value<'v> {
 	/// Creates a [Value] from a boolean.
-	pub fn bool<'cx>(cx: &'cx Context, b: bool) -> Value<'cx> {
+	pub fn bool(cx: &Context, b: bool) -> Value {
 		Value::from(cx.root_value(BooleanValue(b)))
 	}
 
 	/// Creates a [Value] from a 32-bit signed integer.
-	pub fn i32<'cx>(cx: &'cx Context, i: i32) -> Value<'cx> {
+	pub fn i32(cx: &Context, i: i32) -> Value {
 		Value::from(cx.root_value(Int32Value(i)))
 	}
 
 	/// Creates a [Value] from a 32-bit unsigned integer.
-	pub fn u32<'cx>(cx: &'cx Context, u: u32) -> Value<'cx> {
+	pub fn u32(cx: &Context, u: u32) -> Value {
 		Value::from(cx.root_value(UInt32Value(u)))
 	}
 
 	/// Creates a [Value] from a 64-bit float.
-	pub fn f64<'cx>(cx: &'cx Context, f: f64) -> Value<'cx> {
+	pub fn f64(cx: &Context, f: f64) -> Value {
 		Value::from(cx.root_value(DoubleValue(f)))
 	}
 
 	/// Creates a [Value] from a string.
-	pub fn string<'cx>(cx: &'cx Context, str: &str) -> Value<'cx> {
+	pub fn string(cx: &'v Context, str: &str) -> Value<'v> {
 		str.as_value(cx)
 	}
 
@@ -67,12 +67,12 @@ impl<'v> Value<'v> {
 	}
 
 	/// Creates an `undefined` [Value].
-	pub fn undefined<'cx>(cx: &'cx Context) -> Value<'cx> {
+	pub fn undefined(cx: &Context) -> Value {
 		Value::from(cx.root_value(UndefinedValue()))
 	}
 
 	/// Creates a `null` [Value].
-	pub fn null<'cx>(cx: &'cx Context) -> Value<'cx> {
+	pub fn null(cx: &Context) -> Value {
 		Value::from(cx.root_value(NullValue()))
 	}
 

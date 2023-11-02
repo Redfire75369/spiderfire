@@ -45,7 +45,7 @@ pub struct SignalFuture {
 impl Future for SignalFuture {
 	type Output = JSVal;
 
-	fn poll(mut self: Pin<&mut SignalFuture>, cx: &mut task::Context<'_>) -> Poll<JSVal> {
+	fn poll(mut self: Pin<&mut SignalFuture>, cx: &mut task::Context) -> Poll<JSVal> {
 		match &mut self.inner {
 			Signal::None => Poll::Pending,
 			Signal::Abort(abort) => Poll::Ready(*abort),
@@ -169,8 +169,8 @@ impl AbortSignal {
 		});
 
 		let duration = Duration::milliseconds(time as i64);
-		EVENT_LOOP.with(|event_loop| {
-			if let Some(queue) = event_loop.borrow_mut().macrotasks.as_mut() {
+		EVENT_LOOP.with_borrow(|event_loop| {
+			if let Some(queue) = &event_loop.macrotasks {
 				queue.enqueue(Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)), None);
 			}
 		});

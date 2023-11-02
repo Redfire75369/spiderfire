@@ -27,7 +27,7 @@ pub trait ContextExt {
 	fn get_private(&self) -> &mut ContextPrivate;
 }
 
-impl ContextExt for Context<'_> {
+impl ContextExt for Context {
 	fn get_private(&self) -> &mut ContextPrivate {
 		unsafe {
 			let private = self.get_raw_private() as *mut ContextPrivate;
@@ -36,15 +36,15 @@ impl ContextExt for Context<'_> {
 	}
 }
 
-pub struct Runtime<'c, 'cx> {
+pub struct Runtime<'cx> {
 	global: Object<'cx>,
-	cx: &'cx Context<'c>,
+	cx: &'cx Context,
 	event_loop: EventLoop,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
 }
 
-impl<'cx> Runtime<'_, 'cx> {
+impl<'cx> Runtime<'cx> {
 	pub fn cx(&self) -> &Context {
 		self.cx
 	}
@@ -62,7 +62,7 @@ impl<'cx> Runtime<'_, 'cx> {
 	}
 }
 
-impl Drop for Runtime<'_, '_> {
+impl Drop for Runtime<'_> {
 	fn drop(&mut self) {
 		let private = self.cx.get_raw_private() as *mut ContextPrivate;
 		if !private.is_null() {
@@ -74,14 +74,14 @@ impl Drop for Runtime<'_, '_> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct RuntimeBuilder<ML: ModuleLoader + 'static = (), Std: StandardModules = ()> {
+pub struct RuntimeBuilder<ML: ModuleLoader + 'static = (), Std: StandardModules + 'static = ()> {
 	microtask_queue: bool,
 	macrotask_queue: bool,
 	modules: Option<ML>,
 	standard_modules: Option<Std>,
 }
 
-impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
+impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<ML, Std> {
 	pub fn new() -> RuntimeBuilder<ML, Std> {
 		RuntimeBuilder::default()
 	}
@@ -106,7 +106,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 		self
 	}
 
-	pub fn build<'c, 'cx>(self, cx: &'cx Context<'c>) -> Runtime<'c, 'cx> {
+	pub fn build(self, cx: &mut Context) -> Runtime {
 		let mut global = default_new_global(cx);
 		let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
@@ -135,8 +135,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 
 		let _options = unsafe { &mut *ContextOptionsRef(cx.as_ptr()) };
 
-		EVENT_LOOP.with(|eloop| {
-			let mut eloop = eloop.borrow_mut();
+		EVENT_LOOP.with_borrow_mut(|eloop| {
 			eloop.microtasks = event_loop.microtasks.clone();
 			eloop.futures = event_loop.futures.clone();
 			eloop.macrotasks = event_loop.macrotasks.clone();
@@ -159,7 +158,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules> RuntimeBuilder<ML, Std> {
 	}
 }
 
-impl<ML: ModuleLoader + 'static, Std: StandardModules> Default for RuntimeBuilder<ML, Std> {
+impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> Default for RuntimeBuilder<ML, Std> {
 	fn default() -> RuntimeBuilder<ML, Std> {
 		RuntimeBuilder {
 			microtask_queue: false,

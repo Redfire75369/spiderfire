@@ -103,7 +103,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 	})
 }
 
-async fn fetch_internal<'c, 'o>(cx: &Context<'c>, request: &mut Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
+async fn fetch_internal<'o>(cx: &Context, request: &mut Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
 	let request = Request::get_mut_private(request);
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
@@ -209,8 +209,8 @@ static BAD_PORTS: &[u16] = &[
 
 static SCHEMES: [&str; 4] = ["about", "blob", "data", "file"];
 
-#[async_recursion(? Send)]
-async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client, redirections: u8) -> Response {
+#[async_recursion(?Send)]
+async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirections: u8) -> Response {
 	let scheme = request.url.scheme();
 
 	// TODO: Upgrade HTTP Schemes if the host is a domain and matches the Known HSTS Domain List
@@ -346,7 +346,7 @@ async fn main_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 	response
 }
 
-async fn scheme_fetch<'c>(cx: &Context<'c>, scheme: &str, url: Url) -> Response {
+async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 	match scheme {
 		"about" if url.path() == "blank" => {
 			let response = Response::new_from_bytes(Bytes::default(), url);
@@ -408,7 +408,7 @@ async fn scheme_fetch<'c>(cx: &Context<'c>, scheme: &str, url: Url) -> Response 
 	}
 }
 
-async fn http_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client, taint: ResponseTaint, redirections: u8) -> (Response, bool) {
+async fn http_fetch(cx: &Context, request: &mut Request, client: Client, taint: ResponseTaint, redirections: u8) -> (Response, bool) {
 	let response = http_network_fetch(cx, request, client.clone(), false).await;
 	match response.status {
 		Some(status) if status.is_redirection() => match request.redirect {
@@ -420,8 +420,8 @@ async fn http_fetch<'c>(cx: &Context<'c>, request: &mut Request, client: Client,
 	}
 }
 
-#[async_recursion(? Send)]
-async fn http_network_fetch<'c>(cx: &Context<'c>, req: &Request, client: Client, is_new: bool) -> Response {
+#[async_recursion(?Send)]
+async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new: bool) -> Response {
 	let mut request = req.clone();
 	let mut headers = Object::from(unsafe { Local::from_heap(&req.headers) });
 	let headers = Headers::get_mut_private(&mut headers);
@@ -521,8 +521,8 @@ async fn http_network_fetch<'c>(cx: &Context<'c>, req: &Request, client: Client,
 	response
 }
 
-async fn http_redirect_fetch<'c>(
-	cx: &Context<'c>, request: &mut Request, response: Response, client: Client, taint: ResponseTaint, redirections: u8,
+async fn http_redirect_fetch(
+	cx: &Context, request: &mut Request, response: Response, client: Client, taint: ResponseTaint, redirections: u8,
 ) -> Response {
 	let headers = Object::from(unsafe { Local::from_heap(&response.headers) });
 	let headers = Headers::get_private(&headers);

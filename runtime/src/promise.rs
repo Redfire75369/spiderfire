@@ -32,8 +32,7 @@ where
 		(result, object)
 	});
 
-	EVENT_LOOP.with(move |event_loop| {
-		let event_loop = event_loop.borrow_mut();
+	EVENT_LOOP.with_borrow(move |event_loop| {
 		if let Some(futures) = &event_loop.futures {
 			futures.enqueue(handle);
 		}

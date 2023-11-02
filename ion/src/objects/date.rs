@@ -21,12 +21,12 @@ pub struct Date<'d> {
 
 impl<'d> Date<'d> {
 	/// Creates a new [Date] with the current time.
-	pub fn new<'cx>(cx: &'cx Context) -> Date<'cx> {
+	pub fn new(cx: &'d Context) -> Date<'d> {
 		Date::from_date(cx, Utc::now())
 	}
 
 	/// Creates a new [Date] with the given time.
-	pub fn from_date<'cx>(cx: &'cx Context, time: DateTime<Utc>) -> Date<'cx> {
+	pub fn from_date(cx: &'d Context, time: DateTime<Utc>) -> Date<'d> {
 		Date {
 			date: cx.root_object(unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) }),
 		}

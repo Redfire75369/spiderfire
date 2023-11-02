@@ -33,7 +33,7 @@ pub struct Promise<'p> {
 
 impl<'p> Promise<'p> {
 	/// Creates a new [Promise] which never resolves.
-	pub fn new<'cx>(cx: &'cx Context) -> Promise<'cx> {
+	pub fn new(cx: &'p Context) -> Promise<'p> {
 		Promise {
 			promise: cx.root_object(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
 		}
@@ -42,9 +42,9 @@ impl<'p> Promise<'p> {
 	/// Creates a new [Promise] with an executor.
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [Value] to resolve or reject the promise with the given value.
-	pub fn new_with_executor<'cx, F>(cx: &'cx Context, executor: F) -> Option<Promise<'cx>>
+	pub fn new_with_executor<F>(cx: &'p Context, executor: F) -> Option<Promise<'p>>
 	where
-		F: for<'cx2> FnOnce(&'cx2 Context, Function<'cx2>, Function<'cx2>) -> crate::Result<()> + 'static,
+		F: for<'cx> FnOnce(&'cx Context, Function<'cx>, Function<'cx>) -> crate::Result<()> + 'static,
 	{
 		unsafe {
 			let native = move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
@@ -83,11 +83,11 @@ impl<'p> Promise<'p> {
 	/// The future is run to completion on the current thread and cannot interact with an asynchronous runtime.
 	///
 	/// The [Result] of the future determines if the promise is resolved or rejected.
-	pub fn block_on_future<'cx, F, Output, Error>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
+	pub fn block_on_future<F, Output, Error>(cx: &'p Context, future: F) -> Option<Promise<'p>>
 	where
 		F: Future<Output = Result<Output, Error>> + 'static,
-		Output: for<'cx2> ToValue<'cx2> + 'static,
-		Error: for<'cx2> ToValue<'cx2> + 'static,
+		Output: for<'cx> ToValue<'cx> + 'static,
+		Error: for<'cx> ToValue<'cx> + 'static,
 	{
 		Promise::new_with_executor(cx, move |cx, resolve, reject| {
 			let null = Object::null(cx);

@@ -209,7 +209,7 @@ impl ClassDefinition for Iterator {
 		&ITERATOR_CLASS
 	}
 
-	fn parent_class_info<'cx>(cx: &'cx Context) -> Option<(&'static NativeClass, Local<'cx, *mut JSObject>)> {
+	fn parent_class_info(cx: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
 		Some((&ITERATOR_CLASS, cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) })))
 	}
 

@@ -8,7 +8,6 @@ use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::marker::PhantomData;
 use std::ptr;
 use std::ptr::NonNull;
 
@@ -79,16 +78,15 @@ impl Default for ContextInner {
 /// Represents the thread-local state of the runtime.
 ///
 /// Wrapper around [JSContext] that provides lifetime information and convenient APIs.
-pub struct Context<'c> {
+pub struct Context {
 	context: NonNull<JSContext>,
 	rooted: RootedArena,
 	order: RefCell<Vec<GCType>>,
 	private: NonNull<ContextInner>,
-	_lifetime: PhantomData<&'c ()>,
 }
 
-impl<'c> Context<'c> {
-	pub fn from_runtime(rt: &Runtime) -> Context<'c> {
+impl Context {
+	pub fn from_runtime(rt: &Runtime) -> Context {
 		let cx = rt.cx();
 
 		let private = NonNull::new(unsafe { JS_GetContextPrivate(cx).cast() }).unwrap_or_else(|| {
@@ -105,17 +103,15 @@ impl<'c> Context<'c> {
 			rooted: RootedArena::default(),
 			order: RefCell::new(Vec::new()),
 			private,
-			_lifetime: PhantomData,
 		}
 	}
 
-	pub unsafe fn new_unchecked(cx: *mut JSContext) -> Context<'c> {
+	pub unsafe fn new_unchecked(cx: *mut JSContext) -> Context {
 		Context {
 			context: unsafe { NonNull::new_unchecked(cx) },
 			rooted: RootedArena::default(),
 			order: RefCell::new(Vec::new()),
 			private: unsafe { NonNull::new_unchecked(JS_GetContextPrivate(cx).cast()) },
-			_lifetime: PhantomData,
 		}
 	}
 
@@ -180,7 +176,7 @@ macro_rules! impl_root_methods {
 	};
 }
 
-impl Context<'_> {
+impl Context {
 	impl_root_methods! {
 		(root_value, JSVal, values, Value),
 		(root_object, *mut JSObject, objects, Object),
@@ -220,7 +216,7 @@ macro_rules! impl_drop {
 	}
 }
 
-impl Drop for Context<'_> {
+impl Drop for Context {
 	/// Drops the rooted values in reverse-order to maintain LIFO destruction in the Linked List.
 	fn drop(&mut self) {
 		impl_drop! {

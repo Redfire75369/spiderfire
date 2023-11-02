@@ -23,4 +23,4 @@ test-release *args:
 
 lint:
   cargo fmt --check --all
-  cargo clippy --examples --tests --locked -- -D warnings
+  cargo clippy --all-targets --locked -- -D warnings

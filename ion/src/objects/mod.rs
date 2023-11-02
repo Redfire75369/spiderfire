@@ -51,6 +51,6 @@ pub fn new_global<'cx, P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmO
 	Object::from(cx.root_object(global))
 }
 
-pub fn default_new_global<'cx>(cx: &'cx Context) -> Object<'cx> {
+pub fn default_new_global(cx: &Context) -> Object {
 	new_global(cx, &SIMPLE_GLOBAL_CLASS, None, OnNewGlobalHookOption::FireOnNewGlobalHook, None)
 }

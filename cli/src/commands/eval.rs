@@ -16,11 +16,11 @@ pub(crate) async fn eval_source(source: &str) {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 
-	let cx = Context::from_runtime(&rt);
+	let cx = &mut Context::from_runtime(&rt);
 	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
 		.standard_modules(Modules)
-		.build(&cx);
+		.build(cx);
 	eval_inline(&rt, source).await;
 }

@@ -21,7 +21,7 @@ pub struct RegExp<'r> {
 
 impl<'r> RegExp<'r> {
 	/// Creates a new [RegExp] object with the given source and flags.
-	pub fn new<'cx>(cx: &'cx Context, source: &str, flags: RegExpFlags) -> Option<RegExp<'cx>> {
+	pub fn new(cx: &'r Context, source: &str, flags: RegExpFlags) -> Option<RegExp<'r>> {
 		let source: Vec<u16> = source.encode_utf16().collect();
 		let regexp = unsafe { NewUCRegExpObject(cx.as_ptr(), source.as_ptr(), source.len(), flags.into()) };
 		NonNull::new(regexp).map(|re| RegExp { re: cx.root_object(re.as_ptr()) })

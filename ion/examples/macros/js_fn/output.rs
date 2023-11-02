@@ -9,7 +9,7 @@ fn output_regular() -> i8 {
 }
 
 #[js_fn]
-fn output_object<'cx>(cx: &'cx Context) -> Object<'cx> {
+fn output_object(cx: &Context) -> Object {
 	Object::new(cx)
 }
 
@@ -24,7 +24,7 @@ fn output_result_regular() -> Result<f64> {
 }
 
 #[js_fn]
-fn output_result_array<'cx>(cx: &'cx Context) -> Result<Array<'cx>> {
+fn output_result_array(cx: &Context) -> Result<Array> {
 	Ok(Array::new_with_length(cx, 8))
 }
 

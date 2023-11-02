@@ -31,7 +31,7 @@ pub struct Function<'f> {
 
 impl<'f> Function<'f> {
 	/// Creates a new [Function] with the given name, native function, number of arguments and flags.
-	pub fn new<'cx>(cx: &'cx Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function<'cx> {
+	pub fn new(cx: &'f Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function<'f> {
 		let name = CString::new(name).unwrap();
 		Function {
 			function: cx.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
@@ -39,14 +39,14 @@ impl<'f> Function<'f> {
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
-	pub fn from_spec<'cx>(cx: &'cx Context, spec: &JSFunctionSpec) -> Function<'cx> {
+	pub fn from_spec(cx: &'f Context, spec: &JSFunctionSpec) -> Function<'f> {
 		Function {
 			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
 	}
 
 	/// Creates a new [Function] with a [Closure].
-	pub fn from_closure<'cx>(cx: &'cx Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function<'cx> {
+	pub fn from_closure(cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function<'f> {
 		unsafe {
 			let function = Function {
 				function: cx.root_function(NewFunctionWithReserved(
@@ -65,7 +65,7 @@ impl<'f> Function<'f> {
 
 	/// Creates a new [Function] from an object.
 	/// Returns [None] if the object is not a function.
-	pub fn from_object<'cx>(cx: &'cx Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'cx>> {
+	pub fn from_object(cx: &'f Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'f>> {
 		if unsafe { Function::is_function_raw(obj.get()) } {
 			Some(Function {
 				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
@@ -76,7 +76,7 @@ impl<'f> Function<'f> {
 	}
 
 	/// Converts the [Function] into an [Object].
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
+	pub fn to_object(&self, cx: &'f Context) -> Object<'f> {
 		cx.root_object(unsafe { JS_GetFunctionObject(self.get()) }).into()
 	}
 

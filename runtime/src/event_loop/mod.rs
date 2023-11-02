@@ -31,7 +31,7 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
-	pub async fn run_event_loop(&self, cx: &Context<'_>) -> Result<(), Option<ErrorReport>> {
+	pub async fn run_event_loop(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		let mut complete = false;
 		poll_fn(|wcx| self.poll_event_loop(cx, wcx, &mut complete)).await
 	}

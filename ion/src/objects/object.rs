@@ -34,19 +34,19 @@ pub struct Object<'o> {
 
 impl<'o> Object<'o> {
 	/// Creates a plain empty [Object].
-	pub fn new<'cx>(cx: &'cx Context) -> Object<'cx> {
+	pub fn new(cx: &'o Context) -> Object<'o> {
 		Object::from(cx.root_object(unsafe { JS_NewPlainObject(cx.as_ptr()) }))
 	}
 
 	/// Creates a `null` "Object".
 	///
 	/// Most operations on this will result in an error, so be wary of where it is used.
-	pub fn null<'cx>(cx: &'cx Context) -> Object<'cx> {
+	pub fn null(cx: &'o Context) -> Object<'o> {
 		Object::from(cx.root_object(NullValue().to_object_or_null()))
 	}
 
 	/// Returns the current global object or `null` if one has not been initialised yet.
-	pub fn global<'cx>(cx: &'cx Context) -> Object<'cx> {
+	pub fn global(cx: &'o Context) -> Object<'o> {
 		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(cx.as_ptr()) }))
 	}
 
@@ -222,18 +222,24 @@ impl<'o> Object<'o> {
 
 	/// Returns an iterator of the keys of the [Object].
 	/// Each key can be a [String], [Symbol](crate::symbol) or integer.
-	pub fn keys<'c, 'cx>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectKeysIter<'c, 'cx> {
+	pub fn keys<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ObjectKeysIter<'cx> {
 		let flags = flags.unwrap_or(IteratorFlags::OWN_ONLY);
 		let mut ids = unsafe { IdVector::new(cx.as_ptr()) };
 		unsafe { GetPropertyKeys(cx.as_ptr(), self.handle().into(), flags.bits(), ids.handle_mut()) };
 		ObjectKeysIter::new(cx, ids)
 	}
 
-	pub fn iter<'c, 'cx, 's>(&'s self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ObjectIter<'c, 'cx, 'o, 's> {
+	pub fn iter<'cx, 's>(&'s self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ObjectIter<'cx, 's>
+	where
+		'o: 'cx,
+	{
 		ObjectIter::new(cx, self, self.keys(cx, flags))
 	}
 
-	pub fn to_hashmap<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>> {
+	pub fn to_hashmap<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>>
+	where
+		'o: 'cx,
+	{
 		self.iter(cx, flags).map(|(k, v)| (k.to_owned_key(cx), v)).collect()
 	}
 
@@ -262,16 +268,16 @@ impl<'o> DerefMut for Object<'o> {
 	}
 }
 
-pub struct ObjectKeysIter<'c, 'cx> {
-	cx: &'cx Context<'c>,
+pub struct ObjectKeysIter<'cx> {
+	cx: &'cx Context,
 	keys: IdVector,
 	slice: &'static [JSPropertyKey],
 	index: usize,
 	count: usize,
 }
 
-impl<'c, 'cx> ObjectKeysIter<'c, 'cx> {
-	fn new(cx: &'cx Context<'c>, keys: IdVector) -> ObjectKeysIter<'c, 'cx> {
+impl<'cx> ObjectKeysIter<'cx> {
+	fn new(cx: &'cx Context, keys: IdVector) -> ObjectKeysIter<'cx> {
 		let keys_slice = &*keys;
 		let count = keys_slice.len();
 		let keys_slice = unsafe { slice::from_raw_parts(keys_slice.as_ptr(), count) };
@@ -285,13 +291,13 @@ impl<'c, 'cx> ObjectKeysIter<'c, 'cx> {
 	}
 }
 
-impl<'c, 'cx> Drop for ObjectKeysIter<'c, 'cx> {
+impl Drop for ObjectKeysIter<'_> {
 	fn drop(&mut self) {
 		self.slice = &[];
 	}
 }
 
-impl<'cx> Iterator for ObjectKeysIter<'_, 'cx> {
+impl<'cx> Iterator for ObjectKeysIter<'cx> {
 	type Item = PropertyKey<'cx>;
 
 	fn next(&mut self) -> Option<PropertyKey<'cx>> {
@@ -305,11 +311,11 @@ impl<'cx> Iterator for ObjectKeysIter<'_, 'cx> {
 	}
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		(self.count, Some(self.count))
+		(self.count - self.index, Some(self.count - self.index))
 	}
 }
 
-impl<'cx> DoubleEndedIterator for ObjectKeysIter<'_, 'cx> {
+impl<'cx> DoubleEndedIterator for ObjectKeysIter<'cx> {
 	fn next_back(&mut self) -> Option<PropertyKey<'cx>> {
 		if self.index < self.count {
 			self.count -= 1;
@@ -321,27 +327,27 @@ impl<'cx> DoubleEndedIterator for ObjectKeysIter<'_, 'cx> {
 	}
 }
 
-impl ExactSizeIterator for ObjectKeysIter<'_, '_> {
+impl ExactSizeIterator for ObjectKeysIter<'_> {
 	fn len(&self) -> usize {
 		self.count - self.index
 	}
 }
 
-impl FusedIterator for ObjectKeysIter<'_, '_> {}
+impl FusedIterator for ObjectKeysIter<'_> {}
 
-pub struct ObjectIter<'c, 'cx, 'oo, 'o> {
-	cx: &'cx Context<'c>,
-	object: &'o Object<'oo>,
-	keys: ObjectKeysIter<'c, 'cx>,
+pub struct ObjectIter<'cx, 'o> {
+	cx: &'cx Context,
+	object: &'o Object<'cx>,
+	keys: ObjectKeysIter<'cx>,
 }
 
-impl<'c, 'cx, 'oo, 'o> ObjectIter<'c, 'cx, 'oo, 'o> {
-	fn new(cx: &'cx Context<'c>, object: &'o Object<'oo>, keys: ObjectKeysIter<'c, 'cx>) -> ObjectIter<'c, 'cx, 'oo, 'o> {
+impl<'cx, 'o> ObjectIter<'cx, 'o> {
+	fn new(cx: &'cx Context, object: &'o Object<'cx>, keys: ObjectKeysIter<'cx>) -> ObjectIter<'cx, 'o> {
 		ObjectIter { cx, object, keys }
 	}
 }
 
-impl<'cx> Iterator for ObjectIter<'_, 'cx, '_, '_> {
+impl<'cx> Iterator for ObjectIter<'cx, '_> {
 	type Item = (PropertyKey<'cx>, Value<'cx>);
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -356,7 +362,7 @@ impl<'cx> Iterator for ObjectIter<'_, 'cx, '_, '_> {
 	}
 }
 
-impl DoubleEndedIterator for ObjectIter<'_, '_, '_, '_> {
+impl DoubleEndedIterator for ObjectIter<'_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.keys.next_back().map(|key| {
 			let value = self.object.get(self.cx, &key).unwrap();
@@ -365,10 +371,10 @@ impl DoubleEndedIterator for ObjectIter<'_, '_, '_, '_> {
 	}
 }
 
-impl ExactSizeIterator for ObjectIter<'_, '_, '_, '_> {
+impl ExactSizeIterator for ObjectIter<'_, '_> {
 	fn len(&self) -> usize {
 		self.keys.len()
 	}
 }
 
-impl FusedIterator for ObjectIter<'_, '_, '_, '_> {}
+impl FusedIterator for ObjectIter<'_, '_> {}

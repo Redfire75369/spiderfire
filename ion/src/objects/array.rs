@@ -24,24 +24,24 @@ pub struct Array<'a> {
 
 impl<'a> Array<'a> {
 	/// Creates an empty [Array].
-	pub fn new<'cx>(cx: &'cx Context) -> Array<'cx> {
+	pub fn new(cx: &'a Context) -> Array<'a> {
 		Array::new_with_length(cx, 0)
 	}
 
 	/// Creates an empty [Array] with the given length.
-	pub fn new_with_length<'cx>(cx: &'cx Context, length: usize) -> Array<'cx> {
+	pub fn new_with_length(cx: &'a Context, length: usize) -> Array<'a> {
 		Array {
 			arr: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
 		}
 	}
 
 	/// Creates an [Array] from a slice of values.
-	pub fn from_slice<'cx>(cx: &'cx Context, slice: &[JSVal]) -> Array<'cx> {
+	pub fn from_slice(cx: &'a Context, slice: &[JSVal]) -> Array<'a> {
 		Array::from_handle(cx, unsafe { HandleValueArray::from_rooted_slice(slice) })
 	}
 
 	/// Creates an [Array] from a [HandleValueArray].
-	pub fn from_handle<'cx>(cx: &'cx Context, handle: HandleValueArray) -> Array<'cx> {
+	pub fn from_handle(cx: &'a Context, handle: HandleValueArray) -> Array<'a> {
 		Array {
 			arr: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
 		}
@@ -78,7 +78,7 @@ impl<'a> Array<'a> {
 	}
 
 	/// Converts an [Array] to an [Object].
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
+	pub fn to_object(&self, cx: &'a Context) -> Object<'a> {
 		Object::from(cx.root_object(self.arr.handle().get()))
 	}
 
@@ -139,11 +139,14 @@ impl<'a> Array<'a> {
 		self.arr.delete(cx, index)
 	}
 
-	pub fn indices<'c, 'cx>(&self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIndicesIter<'c, 'cx> {
+	pub fn indices<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ArrayIndicesIter<'cx> {
 		ArrayIndicesIter(self.arr.keys(cx, flags))
 	}
 
-	pub fn iter<'c, 'cx, 's>(&'s self, cx: &'cx Context<'c>, flags: Option<IteratorFlags>) -> ArrayIter<'c, 'cx, 'a, 's> {
+	pub fn iter<'cx, 's>(&'s self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ArrayIter<'cx, 's>
+	where
+		'a: 'cx,
+	{
 		ArrayIter::new(cx, self, self.indices(cx, flags))
 	}
 
@@ -179,9 +182,9 @@ impl<'a> DerefMut for Array<'a> {
 	}
 }
 
-pub struct ArrayIndicesIter<'c, 'cx>(ObjectKeysIter<'c, 'cx>);
+pub struct ArrayIndicesIter<'cx>(ObjectKeysIter<'cx>);
 
-impl Iterator for ArrayIndicesIter<'_, '_> {
+impl Iterator for ArrayIndicesIter<'_> {
 	type Item = u32;
 
 	fn next(&mut self) -> Option<u32> {
@@ -199,7 +202,7 @@ impl Iterator for ArrayIndicesIter<'_, '_> {
 	}
 }
 
-impl DoubleEndedIterator for ArrayIndicesIter<'_, '_> {
+impl DoubleEndedIterator for ArrayIndicesIter<'_> {
 	fn next_back(&mut self) -> Option<u32> {
 		while let Some(key) = self.0.next_back() {
 			let key = key.get();
@@ -211,21 +214,21 @@ impl DoubleEndedIterator for ArrayIndicesIter<'_, '_> {
 	}
 }
 
-impl FusedIterator for ArrayIndicesIter<'_, '_> {}
+impl FusedIterator for ArrayIndicesIter<'_> {}
 
-pub struct ArrayIter<'c, 'cx, 'aa, 'a> {
-	cx: &'cx Context<'c>,
-	array: &'a Array<'aa>,
-	indices: ArrayIndicesIter<'c, 'cx>,
+pub struct ArrayIter<'cx, 'a> {
+	cx: &'cx Context,
+	array: &'a Array<'cx>,
+	indices: ArrayIndicesIter<'cx>,
 }
 
-impl<'c, 'cx, 'aa, 'a> ArrayIter<'c, 'cx, 'aa, 'a> {
-	fn new(cx: &'cx Context<'c>, array: &'a Array<'aa>, indices: ArrayIndicesIter<'c, 'cx>) -> ArrayIter<'c, 'cx, 'aa, 'a> {
+impl<'cx, 'a> ArrayIter<'cx, 'a> {
+	fn new(cx: &'cx Context, array: &'a Array<'cx>, indices: ArrayIndicesIter<'cx>) -> ArrayIter<'cx, 'a> {
 		ArrayIter { cx, array, indices }
 	}
 }
 
-impl<'cx> Iterator for ArrayIter<'_, 'cx, '_, '_> {
+impl<'cx> Iterator for ArrayIter<'cx, '_> {
 	type Item = (u32, Value<'cx>);
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -240,7 +243,7 @@ impl<'cx> Iterator for ArrayIter<'_, 'cx, '_, '_> {
 	}
 }
 
-impl DoubleEndedIterator for ArrayIter<'_, '_, '_, '_> {
+impl DoubleEndedIterator for ArrayIter<'_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.indices.next_back().map(|index| {
 			let value = self.array.get(self.cx, index).unwrap();
@@ -249,4 +252,4 @@ impl DoubleEndedIterator for ArrayIter<'_, '_, '_, '_> {
 	}
 }
 
-impl FusedIterator for ArrayIter<'_, '_, '_, '_> {}
+impl FusedIterator for ArrayIter<'_, '_> {}

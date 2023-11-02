@@ -64,7 +64,7 @@ impl NativeModule for Assert {
 	const NAME: &'static str = "assert";
 	const SOURCE: &'static str = include_str!("assert.js");
 
-	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
+	fn module(cx: &Context) -> Option<Object> {
 		let mut assert = Object::new(cx);
 		unsafe { assert.define_methods(cx, FUNCTIONS).then_some(assert) }
 	}

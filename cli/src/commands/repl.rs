@@ -19,12 +19,12 @@ pub(crate) async fn start_repl() {
 	let engine = JSEngine::init().unwrap();
 	let rt = Runtime::new(engine.handle());
 
-	let cx = Context::from_runtime(&rt);
+	let cx = &mut Context::from_runtime(&rt);
 	let rt = RuntimeBuilder::<(), _>::new()
 		.microtask_queue()
 		.macrotask_queue()
 		.standard_modules(Modules)
-		.build(&cx);
+		.build(cx);
 
 	let mut repl = match Editor::with_config(rustyline_config()) {
 		Ok(repl) => repl,

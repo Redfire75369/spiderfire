@@ -14,8 +14,8 @@ use crate::conversions::FromValue;
 
 /// Represents Arguments to a [JavaScript Function](crate::Function)
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
-pub struct Arguments<'c: 'cx, 'cx> {
-	cx: &'cx Context<'c>,
+pub struct Arguments<'cx> {
+	cx: &'cx Context,
 	values: Box<[Value<'cx>]>,
 	callee: Object<'cx>,
 	this: Value<'cx>,
@@ -23,9 +23,9 @@ pub struct Arguments<'c: 'cx, 'cx> {
 	call_args: CallArgs,
 }
 
-impl<'c, 'cx> Arguments<'c, 'cx> {
+impl<'cx> Arguments<'cx> {
 	/// Creates new [Arguments] from raw arguments,
-	pub unsafe fn new(cx: &'cx Context<'c>, argc: u32, vp: *mut JSVal) -> Arguments<'c, 'cx> {
+	pub unsafe fn new(cx: &'cx Context, argc: u32, vp: *mut JSVal) -> Arguments<'cx> {
 		unsafe {
 			let call_args = CallArgs::from_vp(vp, argc);
 			let values = (0..argc).map(|i| Local::from_raw_handle(call_args.get(i)).into()).collect();
@@ -53,7 +53,7 @@ impl<'c, 'cx> Arguments<'c, 'cx> {
 		self.values.len() == 0
 	}
 
-	pub fn access(&mut self) -> Accessor<'_, 'c, 'cx> {
+	pub fn access(&mut self) -> Accessor<'_, 'cx> {
 		Accessor { args: self, index: 0 }
 	}
 
@@ -71,7 +71,7 @@ impl<'c, 'cx> Arguments<'c, 'cx> {
 		range.filter_map(|index| self.value(index)).collect()
 	}
 
-	pub fn cx(&self) -> &'cx Context<'c> {
+	pub fn cx(&self) -> &'cx Context {
 		self.cx
 	}
 
@@ -114,12 +114,12 @@ impl<'c, 'cx> Arguments<'c, 'cx> {
 	}
 }
 
-pub struct Accessor<'a, 'c, 'cx> {
-	args: &'a mut Arguments<'c, 'cx>,
+pub struct Accessor<'a, 'cx> {
+	args: &'a mut Arguments<'cx>,
 	index: usize,
 }
 
-impl<'a, 'c, 'cx> Accessor<'a, 'c, 'cx> {
+impl<'a, 'cx> Accessor<'a, 'cx> {
 	/// Returns the number of remaining arguments.
 	pub fn len(&self) -> usize {
 		self.args.len() - self.index
@@ -151,15 +151,15 @@ impl<'a, 'c, 'cx> Accessor<'a, 'c, 'cx> {
 	}
 }
 
-impl<'c, 'cx> Deref for Accessor<'_, 'c, 'cx> {
-	type Target = Arguments<'c, 'cx>;
+impl<'cx> Deref for Accessor<'_, 'cx> {
+	type Target = Arguments<'cx>;
 
 	fn deref(&self) -> &Self::Target {
 		self.args
 	}
 }
 
-impl<'c, 'cx> DerefMut for Accessor<'_, 'c, 'cx> {
+impl<'cx> DerefMut for Accessor<'_, 'cx> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		self.args
 	}

@@ -21,27 +21,27 @@ pub struct PropertyKey<'k> {
 
 impl<'k> PropertyKey<'k> {
 	/// Creates a [PropertyKey] from an integer.
-	pub fn with_int<'cx>(cx: &'cx Context, int: i32) -> PropertyKey<'cx> {
+	pub fn with_int(cx: &'k Context, int: i32) -> PropertyKey<'k> {
 		PropertyKey::from(cx.root_property_key(IntId(int)))
 	}
 
 	/// Creates a [PropertyKey] from a string.
-	pub fn with_string<'cx>(cx: &'cx Context, string: &str) -> Option<PropertyKey<'cx>> {
+	pub fn with_string(cx: &'k Context, string: &str) -> Option<PropertyKey<'k>> {
 		let string = String::new(cx, string)?;
 		string.to_key(cx)
 	}
 
-	pub fn with_symbol<'cx>(cx: &'cx Context, symbol: &Symbol) -> PropertyKey<'cx> {
+	pub fn with_symbol(cx: &'k Context, symbol: &Symbol) -> PropertyKey<'k> {
 		symbol.to_key(cx).unwrap()
 	}
 
-	pub fn from_proto_key<'cx>(cx: &'cx Context, proto_key: JSProtoKey) -> PropertyKey<'cx> {
+	pub fn from_proto_key(cx: &'k Context, proto_key: JSProtoKey) -> PropertyKey<'k> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
 		unsafe { ProtoKeyToId(cx.as_ptr(), proto_key, key.handle_mut().into()) }
 		key
 	}
 
-	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Option<PropertyKey<'cx>> {
+	pub fn from_value(cx: &'k Context, value: &Value) -> Option<PropertyKey<'k>> {
 		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
 		(unsafe { JS_ValueToId(cx.as_ptr(), value.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}

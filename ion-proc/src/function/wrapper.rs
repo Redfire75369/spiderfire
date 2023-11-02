@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Error, FnArg, GenericParam, ItemFn, parse2, PathArguments, Result, ReturnType, Type};
+use syn::{Error, FnArg, GenericParam, ItemFn, parse2, Result, ReturnType, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -31,10 +31,7 @@ pub(crate) fn impl_wrapper_fn(
 	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none());
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
-	let mut wrapper_args: Vec<FnArg> = vec![
-		parse_quote!(__cx: &'cx #ion::Context),
-		parse_quote!(__args: &'a mut #ion::Arguments<'_, 'cx>),
-	];
+	let mut wrapper_args: Vec<FnArg> = vec![parse_quote!(__cx: &'cx #ion::Context), parse_quote!(__args: &'a mut #ion::Arguments<'cx>)];
 
 	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
@@ -54,26 +51,22 @@ pub(crate) fn impl_wrapper_fn(
 		ReturnType::Default => parse_quote!(()),
 		ReturnType::Type(_, ty) => *ty.clone(),
 	};
-	let mut wrapper_output = output.clone();
 
-	let mut result = quote!(__result.map_err(::std::convert::Into::into));
-
-	if let Type::Path(ty) = &output {
-		if !path_ends_with(&ty.path, "ResultExc") {
-			if path_ends_with(&ty.path, "Result") {
-				if let PathArguments::AngleBracketed(args) = &ty.path.segments.last().unwrap().arguments {
-					let arg = args.args.first().unwrap();
-					wrapper_output = parse_quote!(#ion::ResultExc<#arg>);
-				}
-			} else {
-				result = quote!(#ion::ResultExc::<#ty>::Ok(__result));
-				wrapper_output = parse_quote!(#ion::ResultExc::<#ty>);
-			}
+	let result = if let Type::Path(ty) = &output {
+		if path_ends_with(&ty.path, "Result") || path_ends_with(&ty.path, "ResultExc") {
+			quote!(__result.map_err(::std::convert::Into::into))
+		} else {
+			quote!(#ion::ResultExc::<#ty>::Ok(__result))
 		}
 	} else {
-		result = quote!(#ion::ResultExc::<#output>::Ok(__result));
-		wrapper_output = parse_quote!(#ion::ResultExc::<#output>);
-	}
+		quote!(#ion::ResultExc::<#output>::Ok(__result))
+	};
+	let result = quote!(#result.map(Box::new));
+	let result = if !is_constructor {
+		quote!(#result.map(|__result| #ion::conversions::IntoValue::into_value(__result, __cx, __args.rval())))
+	} else {
+		quote!(#result.map(|__result| #ion::ClassDefinition::set_private(__this.handle().get(), __result)))
+	};
 
 	let wrapper_inner = class_ty.is_none().then_some(&inner);
 
@@ -107,7 +100,7 @@ pub(crate) fn impl_wrapper_fn(
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
-	function.sig.output = parse_quote!(-> #wrapper_output);
+	function.sig.output = parse_quote!(-> #ion::ResultExc<()>);
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 
 	function.attrs.clear();

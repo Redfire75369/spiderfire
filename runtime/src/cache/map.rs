@@ -17,10 +17,9 @@ use ion::utils::normalise_path;
 thread_local!(static SOURCEMAP_CACHE: RefCell<HashMap<PathBuf, SourceMap>> = RefCell::new(HashMap::new()));
 
 pub fn find_sourcemap<P: AsRef<Path>>(path: P) -> Option<SourceMap> {
-	SOURCEMAP_CACHE.with(|sm| {
+	SOURCEMAP_CACHE.with_borrow_mut(|cache| {
 		let path = path.as_ref().to_path_buf();
-		let mut sm = sm.borrow_mut();
-		match (*sm).entry(path) {
+		match cache.entry(path) {
 			Entry::Occupied(o) => Some(o.get().clone()),
 			Entry::Vacant(_) => None,
 		}
@@ -28,10 +27,9 @@ pub fn find_sourcemap<P: AsRef<Path>>(path: P) -> Option<SourceMap> {
 }
 
 pub fn save_sourcemap<P: AsRef<Path>>(path: P, sourcemap: SourceMap) -> bool {
-	SOURCEMAP_CACHE.with(|sm| {
+	SOURCEMAP_CACHE.with_borrow_mut(|cache| {
 		let path = normalise_path(path);
-		let mut sm = sm.borrow_mut();
-		match (*sm).entry(path) {
+		match cache.entry(path) {
 			Entry::Vacant(v) => {
 				v.insert(sourcemap);
 				true

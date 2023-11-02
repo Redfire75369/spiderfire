@@ -36,7 +36,7 @@ impl NativeModule for UrlM {
 	const NAME: &'static str = "url";
 	const SOURCE: &'static str = include_str!("url.js");
 
-	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>> {
+	fn module(cx: &Context) -> Option<Object> {
 		let mut url = Object::new(cx);
 		let global = Object::global(cx);
 

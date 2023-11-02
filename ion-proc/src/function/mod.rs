@@ -48,7 +48,7 @@ pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 		parse_quote!(vp: *mut ::mozjs::jsval::JSVal),
 	];
 	function.sig.generics = Generics::default();
-	function.sig.inputs = Punctuated::<_, _>::from_iter(params);
+	function.sig.inputs = Punctuated::from_iter(params);
 	function.sig.output = parse_quote!(-> ::core::primitive::bool);
 	Ok(())
 }
@@ -60,6 +60,6 @@ pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Block>
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
-		#ion::functions::__handle_native_function_result(cx, result, args.rval())
+		#ion::functions::__handle_native_function_result(cx, result)
 	}))
 }

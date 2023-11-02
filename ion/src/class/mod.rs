@@ -38,7 +38,7 @@ pub trait ClassDefinition: NativeObject {
 
 	fn class() -> &'static NativeClass;
 
-	fn parent_class_info<'cx>(_: &'cx Context) -> Option<(&'static NativeClass, Local<'cx, *mut JSObject>)> {
+	fn parent_class_info(_: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
 		None
 	}
 

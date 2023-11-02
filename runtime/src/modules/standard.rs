@@ -28,7 +28,7 @@ pub trait NativeModule {
 	const NAME: &'static str;
 	const SOURCE: &'static str;
 
-	fn module<'cx>(cx: &'cx Context) -> Option<Object<'cx>>;
+	fn module(cx: &Context) -> Option<Object>;
 }
 
 impl<M: NativeModule> StandardModules for M {

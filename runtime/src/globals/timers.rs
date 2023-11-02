@@ -18,8 +18,8 @@ const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;
 
 fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool) -> Result<u32> {
-	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = event_loop.borrow_mut().macrotasks.as_mut() {
+	EVENT_LOOP.with_borrow(|event_loop| {
+		if let Some(queue) = &event_loop.macrotasks {
 			let minimum = if queue.nesting.get() > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
 
 			let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
@@ -33,8 +33,8 @@ fn set_timer(callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, r
 
 fn clear_timer(id: Option<u32>) -> Result<()> {
 	if let Some(id) = id {
-		EVENT_LOOP.with(|event_loop| {
-			if let Some(queue) = event_loop.borrow_mut().macrotasks.as_mut() {
+		EVENT_LOOP.with_borrow(|event_loop| {
+			if let Some(queue) = &event_loop.macrotasks {
 				queue.remove(id);
 				Ok(())
 			} else {
@@ -68,8 +68,8 @@ fn clearInterval(#[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
 
 #[js_fn]
 fn queueMacrotask(callback: Function) -> Result<()> {
-	EVENT_LOOP.with(|event_loop| {
-		if let Some(queue) = event_loop.borrow_mut().macrotasks.as_mut() {
+	EVENT_LOOP.with_borrow(|event_loop| {
+		if let Some(queue) = &event_loop.macrotasks {
 			queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
 			Ok(())
 		} else {

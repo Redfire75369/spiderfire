@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, thread};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
@@ -14,14 +14,15 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Object, ResultExc, Value};
+use crate::conversions::IntoValue;
 use crate::functions::__handle_native_function_result;
 use crate::objects::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 
-pub type Closure = dyn for<'c, 'cx> FnMut(&mut Arguments<'c, 'cx>) -> ResultExc<Value<'cx>> + 'static;
+pub type Closure = dyn for<'cx> FnMut(&mut Arguments<'cx>) -> ResultExc<Value<'cx>> + 'static;
 
-pub(crate) fn create_closure_object<'cx>(cx: &'cx Context, closure: Box<Closure>) -> Object<'cx> {
+pub(crate) fn create_closure_object(cx: &Context, closure: Box<Closure>) -> Object {
 	unsafe {
 		let object = Object::from(cx.root_object(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
 		JS_SetReservedSlot(
@@ -44,9 +45,10 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };
 	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
-	let result: thread::Result<ResultExc<Value>> = catch_unwind(AssertUnwindSafe(|| closure(args)));
-	let mut accessor = args.access();
-	__handle_native_function_result(cx, result, accessor.rval())
+	let result = catch_unwind(AssertUnwindSafe(|| {
+		closure(args).map(|result| Box::new(result).into_value(cx, args.rval()))
+	}));
+	__handle_native_function_result(cx, result)
 }
 
 unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {

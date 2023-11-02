@@ -12,20 +12,17 @@ pub use arguments::Arguments;
 pub use closure::Closure;
 pub use function::{Function, NativeFunction};
 
-use crate::{ClassDefinition, Context, Error, Object, ResultExc, ThrowException, Value};
-use crate::conversions::{IntoValue, ToValue};
+use crate::{Context, Error, Object, ResultExc, ThrowException, Value};
+use crate::conversions::ToValue;
 
 mod arguments;
 mod closure;
 mod function;
 
 #[doc(hidden)]
-pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context, result: Result<ResultExc<T>>, rval: &mut Value) -> bool {
+pub fn __handle_native_function_result(cx: &Context, result: Result<ResultExc<()>>) -> bool {
 	match result {
-		Ok(Ok(result)) => {
-			Box::new(result).into_value(cx, rval);
-			true
-		}
+		Ok(Ok(_)) => true,
 		Ok(Err(error)) => {
 			error.throw(cx);
 			false
@@ -35,12 +32,9 @@ pub fn __handle_native_function_result<'cx, T: IntoValue<'cx>>(cx: &'cx Context,
 }
 
 #[doc(hidden)]
-pub fn __handle_native_constructor_result<T: ClassDefinition>(cx: &Context, result: Result<ResultExc<T>>, this: &Object, rval: &mut Value) -> bool {
+pub fn __handle_native_constructor_result(cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: &mut Value) -> bool {
 	match result {
-		Ok(Ok(result)) => {
-			unsafe {
-				T::set_private(this.handle().get(), Box::new(result));
-			}
+		Ok(Ok(_)) => {
 			this.to_value(cx, rval);
 			true
 		}
