@@ -63,6 +63,7 @@ pub struct ColourConfig {
 	pub object: Color,
 	pub date: Color,
 	pub promise: Color,
+	pub regexp: Color,
 }
 
 impl Default for ColourConfig {
@@ -79,6 +80,7 @@ impl Default for ColourConfig {
 			object: Color::White,
 			date: Color::White,
 			promise: Color::Yellow,
+			regexp: Color::Green,
 		}
 	}
 }
@@ -98,6 +100,7 @@ impl ColourConfig {
 			object: Color::White,
 			date: Color::White,
 			promise: Color::White,
+			regexp: Color::White,
 		}
 	}
 }

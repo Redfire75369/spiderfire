@@ -6,6 +6,7 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
+arrayvec = "0.7.4"
 bitflags = "2.4.1"
 byteorder = "1.5.0"
 bytemuck = "1.14.0"

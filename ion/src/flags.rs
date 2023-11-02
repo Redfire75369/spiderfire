@@ -8,6 +8,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str;
 
+use arrayvec::ArrayVec;
 use bitflags::Flags;
 use mozjs::jsapi::{
 	JSITER_FORAWAITOF, JSITER_HIDDEN, JSITER_OWNONLY, JSITER_PRIVATE, JSITER_SYMBOLS, JSITER_SYMBOLSONLY, JSPROP_ENUMERATE, JSPROP_PERMANENT,
@@ -84,7 +85,7 @@ bitflags! {
 
 impl Display for RegExpFlags {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let mut flags = Vec::new();
+		let mut flags = ArrayVec::<_, 8>::new();
 		for flag in RegExpFlags::FLAGS {
 			if self.contains(*flag.value()) {
 				match *flag.value() {

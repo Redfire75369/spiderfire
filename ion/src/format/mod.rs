@@ -20,6 +20,7 @@ pub mod key;
 pub mod object;
 pub mod primitive;
 pub mod promise;
+pub mod regexp;
 pub mod symbol;
 
 pub const INDENT: &str = "  ";

@@ -10,7 +10,6 @@ resolver = "2"
 
 [workspace.dependencies]
 colored = "2.0.4"
-chrono = "0.4.31"
 derivative = "2.2.0"
 dunce = "1.0.4"
 futures = "0.3.29"
@@ -19,6 +18,11 @@ mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
 url = "2.4.1"
+
+[workspace.dependencies.chrono]
+version = "0.4.31"
+default-features = false
+features = ["clock", "std"]
 
 [workspace.dependencies.http]
 version = "0.2.9"
