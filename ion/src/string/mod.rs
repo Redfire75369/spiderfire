@@ -22,6 +22,35 @@ use crate::string::external::new_external_string;
 
 mod external;
 
+#[derive(Copy, Clone, Debug)]
+pub enum StringRef<'s> {
+	Latin1(&'s [u8]),
+	Utf16(&'s WStr<NativeEndian>),
+}
+
+impl StringRef<'_> {
+	pub fn is_empty(&self) -> bool {
+		match self {
+			StringRef::Latin1(b) => b.is_empty(),
+			StringRef::Utf16(wstr) => wstr.is_empty(),
+		}
+	}
+
+	pub fn len(&self) -> usize {
+		match self {
+			StringRef::Latin1(b) => b.len(),
+			StringRef::Utf16(wstr) => wstr.len(),
+		}
+	}
+
+	pub fn as_bytes(&self) -> &[u8] {
+		match self {
+			StringRef::Latin1(b) => b,
+			StringRef::Utf16(wstr) => wstr.as_bytes(),
+		}
+	}
+}
+
 /// Represents a primitive string in the JS Runtime.
 /// Strings in JS are immutable and are copied on modification, other than concatenating and slicing.
 ///
@@ -113,7 +142,20 @@ impl<'s> String<'s> {
 				let slice = slice::from_raw_parts(chars, length);
 				cast_slice(slice)
 			})
-			.and_then(|bytes| WStr::from_utf16(bytes).ok())
+			.map(|bytes| WStr::from_utf16(bytes).unwrap())
+	}
+
+	pub fn as_ref(&self, cx: &Context) -> StringRef<'s> {
+		let mut length = 0;
+		if self.is_latin1() {
+			let chars = unsafe { JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length) };
+			StringRef::Latin1(unsafe { slice::from_raw_parts(chars, length) })
+		} else {
+			let mut length = 0;
+			let chars = unsafe { JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length) };
+			let slice = unsafe { slice::from_raw_parts(chars, length) };
+			StringRef::Utf16(WStr::from_utf16(cast_slice(slice)).unwrap())
+		}
 	}
 
 	/// Converts a [String] to an owned [String](RustString).

@@ -7,6 +7,7 @@
 use ion::{ClassDefinition, Context, Iterator, Object};
 
 pub mod abort;
+pub mod base64;
 pub mod console;
 pub mod encoding;
 #[cfg(feature = "fetch")]
@@ -16,7 +17,11 @@ pub mod timers;
 pub mod url;
 
 pub fn init_globals(cx: &Context, global: &mut Object) -> bool {
-	let result = console::define(cx, global) && encoding::define(cx, global) && url::define(cx, global) && Iterator::init_class(cx, global).0;
+	let result = base64::define(cx, global)
+		&& console::define(cx, global)
+		&& encoding::define(cx, global)
+		&& url::define(cx, global)
+		&& Iterator::init_class(cx, global).0;
 	#[cfg(feature = "fetch")]
 	{
 		result && fetch::define(cx, global)

@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::string::String as RustString;
-
 use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 pub use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
@@ -17,7 +15,7 @@ use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
-use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, String, Symbol, Value};
+use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value};
 use crate::objects::RegExp;
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
@@ -112,19 +110,27 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 	}
 }
 
-impl<'cx> FromValue<'cx> for String<'cx> {
+impl<'cx> FromValue<'cx> for crate::String<'cx> {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<String<'cx>> {
-		<*mut JSString>::from_value(cx, value, strict, config).map(|str| String::from(cx.root_string(str)))
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<crate::String<'cx>> {
+		<*mut JSString>::from_value(cx, value, strict, config).map(|str| crate::String::from(cx.root_string(str)))
 	}
 }
 
-impl<'cx> FromValue<'cx> for RustString {
+impl<'cx> FromValue<'cx> for StringRef<'cx> {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<RustString> {
-		String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx))
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<StringRef<'cx>> {
+		crate::String::from_value(cx, value, strict, config).map(|str| str.as_ref(cx))
+	}
+}
+
+impl<'cx> FromValue<'cx> for String {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<String> {
+		crate::String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx))
 	}
 }
 

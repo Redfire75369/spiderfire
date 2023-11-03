@@ -10,10 +10,9 @@ use std::str;
 use std::str::FromStr;
 
 use async_recursion::async_recursion;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
 use bytes::Bytes;
 use const_format::concatcp;
+use data_url::DataUrl;
 use futures::future::{Either, select};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
 use http::header::{
@@ -21,10 +20,8 @@ use http::header::{
 	CONTENT_LOCATION, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE, IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE,
 	REFERER, REFERRER_POLICY, USER_AGENT,
 };
-use mime::Mime;
 use mozjs::jsapi::JSObject;
 use mozjs::rust::IntoHandle;
-use percent_encoding::percent_decode;
 use sys_locale::get_locales;
 use tokio::fs::read;
 use url::Url;
@@ -360,33 +357,22 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 		}
 		// TODO: blob: URLs
 		"data" => {
-			let input = &url.as_str()[5..];
-			let end_mime = input.find(',').unwrap_or(input.len());
-			let mut mime = input[0..end_mime].trim();
-
-			let input = &input[end_mime..];
-			let decoded_body = percent_decode(input.as_bytes());
-			let body = if let Some(end_mime) = mime.rfind(';') {
-				if mime.ends_with("base64") && mime[end_mime..mime.len() - 6].trim_end().is_empty() {
-					mime = &mime[0..end_mime];
-					let decoded_body: Vec<_> = decoded_body.filter(|b| !(*b as char).is_ascii_whitespace()).collect();
-					match BASE64_STANDARD.decode(decoded_body) {
-						Ok(body) => body,
-						Err(_) => return network_error(),
-					}
-				} else {
-					decoded_body.collect()
-				}
-			} else {
-				decoded_body.collect()
+			let data_url = match DataUrl::process(url.as_str()) {
+				Ok(data_url) => data_url,
+				Err(_) => return network_error(),
 			};
 
-			let mime = Mime::from_str(mime).unwrap_or(Mime::from_str("text/plain;charset=US-ASCII").unwrap());
+			let (body, _) = match data_url.decode_to_vec() {
+				Ok(decoded) => decoded,
+				Err(_) => return network_error(),
+			};
+			let mime = data_url.mime_type();
+			let mime = format!("{}/{}", mime.type_, mime.subtype);
 
 			let response = Response::new_from_bytes(Bytes::from(body), url);
 			let headers = Headers {
 				reflector: Reflector::default(),
-				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_str(mime.as_ref()).unwrap()))),
+				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_str(&mime).unwrap()))),
 				kind: HeadersKind::Immutable,
 			};
 			response.headers.set(Headers::new_object(cx, Box::new(headers)));

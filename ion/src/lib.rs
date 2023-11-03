@@ -28,7 +28,7 @@ pub use local::Local;
 pub use objects::{Array, Date, Iterator, JSIterator, Object, OwnedKey, Promise, PropertyKey, RegExp};
 pub use objects::typedarray;
 pub use stack::{Stack, StackRecord};
-pub use string::String;
+pub use string::{String, StringRef};
 pub use symbol::Symbol;
 pub use value::Value;
 
