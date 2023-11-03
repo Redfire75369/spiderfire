@@ -106,7 +106,7 @@ impl URLSearchParams {
 		self.pairs.iter().find(|(k, _)| k == &key).map(|(_, v)| v.clone())
 	}
 
-	#[ion(name = "get_all")]
+	#[ion(name = "getAll")]
 	pub fn get_all(&self, key: String) -> Vec<String> {
 		self.pairs.iter().filter(|(k, _)| k == &key).map(|(_, v)| v.clone()).collect()
 	}

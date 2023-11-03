@@ -48,6 +48,56 @@ pub struct Response {
 	pub(crate) range_requested: bool,
 }
 
+impl Response {
+	pub fn new(response: hyper::Response<Body>, url: Url) -> Response {
+		let status = response.status();
+		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
+			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
+		} else {
+			status.canonical_reason().map(String::from)
+		};
+
+		Response {
+			reflector: Reflector::default(),
+
+			response: Some(response),
+			headers: Box::default(),
+			body: None,
+			body_used: false,
+
+			kind: ResponseKind::default(),
+			url: Some(url),
+			redirected: false,
+
+			status: Some(status),
+			status_text,
+
+			range_requested: false,
+		}
+	}
+
+	pub fn new_from_bytes(bytes: Bytes, url: Url) -> Response {
+		let response = hyper::Response::builder().body(Body::from(bytes)).unwrap();
+		Response {
+			reflector: Reflector::default(),
+
+			response: Some(response),
+			headers: Box::default(),
+			body: None,
+			body_used: false,
+
+			kind: ResponseKind::Basic,
+			url: Some(url),
+			redirected: false,
+
+			status: Some(StatusCode::OK),
+			status_text: Some(String::from("OK")),
+
+			range_requested: false,
+		}
+	}
+}
+
 #[js_class]
 impl Response {
 	#[ion(constructor)]
@@ -91,54 +141,6 @@ impl Response {
 		response.headers.set(Headers::new_object(cx, Box::new(headers)));
 
 		Ok(response)
-	}
-
-	pub(crate) fn new(response: hyper::Response<Body>, url: Url) -> Response {
-		let status = response.status();
-		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
-			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
-		} else {
-			status.canonical_reason().map(String::from)
-		};
-
-		Response {
-			reflector: Reflector::default(),
-
-			response: Some(response),
-			headers: Box::default(),
-			body: None,
-			body_used: false,
-
-			kind: ResponseKind::default(),
-			url: Some(url),
-			redirected: false,
-
-			status: Some(status),
-			status_text,
-
-			range_requested: false,
-		}
-	}
-
-	pub(crate) fn new_from_bytes(bytes: Bytes, url: Url) -> Response {
-		let response = hyper::Response::builder().body(Body::from(bytes)).unwrap();
-		Response {
-			reflector: Reflector::default(),
-
-			response: Some(response),
-			headers: Box::default(),
-			body: None,
-			body_used: false,
-
-			kind: ResponseKind::Basic,
-			url: Some(url),
-			redirected: false,
-
-			status: Some(StatusCode::OK),
-			status_text: Some(String::from("OK")),
-
-			range_requested: false,
-		}
 	}
 
 	#[ion(get)]

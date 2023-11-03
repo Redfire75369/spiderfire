@@ -300,11 +300,15 @@ impl Request {
 	pub fn get_duplex(&self) -> String {
 		String::from("half")
 	}
+}
 
-	#[allow(clippy::should_implement_trait)]
-	#[ion(skip)]
-	pub fn clone(&self) -> Request {
-		let request = clone_request(&self.request);
+impl Clone for Request {
+	fn clone(&self) -> Request {
+		let method = self.method().clone();
+		let uri = self.uri().clone();
+
+		let request = hyper::Request::builder().method(method).uri(uri);
+		let request = request.body(Body::empty()).unwrap();
 		let url = self.locations.last().unwrap().clone();
 
 		Request {
@@ -347,17 +351,4 @@ impl<'cx> FromValue<'cx> for &'cx Request {
 			Err(Error::new("Expected Request", ErrorKind::Type))
 		}
 	}
-}
-
-pub(crate) fn clone_request(request: &hyper::Request<Body>) -> hyper::Request<Body> {
-	let method = request.method().clone();
-	let uri = request.uri().clone();
-	let headers = request.headers().clone();
-
-	let mut request = hyper::Request::builder().method(method).uri(uri);
-	if let Some(head) = request.headers_mut() {
-		*head = headers;
-	}
-
-	request.body(Body::empty()).unwrap()
 }

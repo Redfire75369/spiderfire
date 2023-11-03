@@ -155,13 +155,12 @@ pub struct Headers {
 	pub(crate) kind: HeadersKind,
 }
 
-#[js_class]
 impl Headers {
-	pub(crate) fn new(kind: HeadersKind) -> Headers {
+	pub fn new(kind: HeadersKind) -> Headers {
 		Headers { kind, ..Headers::default() }
 	}
 
-	pub(crate) fn from_array(vec: Vec<HeaderEntry>, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
+	pub fn from_array(vec: Vec<HeaderEntry>, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
 		for entry in vec {
 			let mut name = entry.name;
 			let value = entry.value;
@@ -177,7 +176,10 @@ impl Headers {
 			kind,
 		})
 	}
+}
 
+#[js_class]
+impl Headers {
 	#[ion(constructor)]
 	pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
 		init.unwrap_or_default().into_headers(HeaderMap::default(), HeadersKind::None)
@@ -497,7 +499,7 @@ pub(crate) fn remove_all_header_entries(headers: &mut HeaderMap, name: &HeaderNa
 	}
 }
 
-pub fn get_header(headers: &HeaderMap, name: &HeaderName) -> Option<Header> {
+fn get_header(headers: &HeaderMap, name: &HeaderName) -> Option<Header> {
 	let split = headers.get_all(name).into_iter().map(split_value);
 	let mut values = Vec::with_capacity(split.size_hint().0);
 	for value in split {
