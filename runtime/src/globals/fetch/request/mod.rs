@@ -304,8 +304,8 @@ impl Request {
 
 impl Clone for Request {
 	fn clone(&self) -> Request {
-		let method = self.method().clone();
-		let uri = self.uri().clone();
+		let method = self.request.method().clone();
+		let uri = self.request.uri().clone();
 
 		let request = hyper::Request::builder().method(method).uri(uri);
 		let request = request.body(Body::empty()).unwrap();
