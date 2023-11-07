@@ -48,7 +48,7 @@ pub mod objects;
 pub mod script;
 pub mod spec;
 pub mod stack;
-mod string;
+pub mod string;
 pub mod symbol;
 pub mod utils;
 mod value;

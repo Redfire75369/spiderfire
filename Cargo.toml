@@ -9,6 +9,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+bytes = "1.5.0"
 colored = "2.0.4"
 derivative = "2.2.0"
 dunce = "1.0.4"

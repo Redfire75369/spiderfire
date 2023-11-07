@@ -17,6 +17,7 @@ use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
 use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value};
 use crate::objects::RegExp;
+use crate::string::byte::{BytePredicate, ByteString};
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {
@@ -123,6 +124,29 @@ impl<'cx> FromValue<'cx> for StringRef<'cx> {
 
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<StringRef<'cx>> {
 		crate::String::from_value(cx, value, strict, config).map(|str| str.as_ref(cx))
+	}
+}
+
+impl<'cx, T: BytePredicate> FromValue<'cx> for ByteString<T> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<ByteString<T>> {
+		const INVALID_CHARACTERS: &str = "ByteString contains invalid characters";
+		let string = StringRef::from_value(cx, value, strict, config)?;
+		match string {
+			StringRef::Latin1(bstr) => ByteString::from(bstr.to_vec()).ok_or_else(|| Error::new(INVALID_CHARACTERS, ErrorKind::Type)),
+			StringRef::Utf16(wstr) => {
+				let bytes = wstr
+					.as_bytes()
+					.chunks_exact(2)
+					.map(|chunk| {
+						let codepoint = u16::from_ne_bytes([chunk[0], chunk[1]]);
+						u8::try_from(codepoint).map_err(|_| Error::new(INVALID_CHARACTERS, ErrorKind::Type))
+					})
+					.collect::<Result<Vec<_>>>()?;
+				ByteString::from(bytes).ok_or_else(|| Error::new(INVALID_CHARACTERS, ErrorKind::Type))
+			}
+		}
 	}
 }
 

@@ -18,13 +18,15 @@ use mozjs::jsapi::{
 use utf16string::{WStr, WString};
 
 use crate::{Context, Local};
+use crate::string::byte::{ByteStr, Latin1};
 use crate::string::external::new_external_string;
 
+pub mod byte;
 mod external;
 
 #[derive(Copy, Clone, Debug)]
 pub enum StringRef<'s> {
-	Latin1(&'s [u8]),
+	Latin1(&'s ByteStr<Latin1>),
 	Utf16(&'s WStr<NativeEndian>),
 }
 
@@ -149,7 +151,7 @@ impl<'s> String<'s> {
 		let mut length = 0;
 		if self.is_latin1() {
 			let chars = unsafe { JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length) };
-			StringRef::Latin1(unsafe { slice::from_raw_parts(chars, length) })
+			StringRef::Latin1(unsafe { ByteStr::from_unchecked(slice::from_raw_parts(chars, length)) })
 		} else {
 			let mut length = 0;
 			let chars = unsafe { JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length) };
