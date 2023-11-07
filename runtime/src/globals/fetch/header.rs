@@ -24,6 +24,7 @@ use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
 use ion::{ClassDefinition, JSIterator};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
+use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
 
 #[derive(FromValue)]
@@ -50,15 +51,15 @@ impl ToValue<'_> for Header {
 }
 
 pub struct HeaderEntry {
-	name: String,
-	value: String,
+	name: ByteString<VisibleAscii>,
+	value: ByteString<VisibleAscii>,
 }
 
 impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
 	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
-		let vec: Vec<String> = Vec::from_value(cx, value, false, ())?;
-		let boxed: Box<[String; 2]> = vec
+		let vec: Vec<ByteString<VisibleAscii>> = Vec::from_value(cx, value, false, ())?;
+		let boxed: Box<[ByteString<VisibleAscii>; 2]> = vec
 			.try_into()
 			.map_err(|_| Error::new("Expected Header Entry with Length 2", ErrorKind::Type))?;
 		let [name, value] = *boxed;
@@ -162,12 +163,8 @@ impl Headers {
 
 	pub fn from_array(vec: Vec<HeaderEntry>, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
 		for entry in vec {
-			let mut name = entry.name;
-			let value = entry.value;
-			name.make_ascii_lowercase();
-
-			let name = HeaderName::from_str(&name)?;
-			let value = HeaderValue::try_from(&value)?;
+			let name = HeaderName::from_bytes(&entry.name)?;
+			let value = HeaderValue::from_bytes(&entry.value)?;
 			append_header(&mut headers, name, value, kind)?;
 		}
 		Ok(Headers {
@@ -185,10 +182,10 @@ impl Headers {
 		init.unwrap_or_default().into_headers(HeaderMap::default(), HeadersKind::None)
 	}
 
-	pub fn append(&mut self, name: String, value: String) -> Result<()> {
+	pub fn append(&mut self, name: ByteString<VisibleAscii>, value: ByteString<VisibleAscii>) -> Result<()> {
 		if self.kind != HeadersKind::Immutable {
-			let name = HeaderName::from_str(&name.to_lowercase())?;
-			let value = HeaderValue::from_str(&value)?;
+			let name = HeaderName::from_bytes(&name)?;
+			let value = HeaderValue::from_bytes(&value)?;
 			self.headers.append(name, value);
 			Ok(())
 		} else {
@@ -196,8 +193,8 @@ impl Headers {
 		}
 	}
 
-	pub fn delete(&mut self, name: String) -> Result<()> {
-		let name = HeaderName::from_str(&name.to_lowercase())?;
+	pub fn delete(&mut self, name: ByteString<VisibleAscii>) -> Result<()> {
+		let name = HeaderName::from_bytes(&name)?;
 		if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
 			return Ok(());
 		}
@@ -211,8 +208,8 @@ impl Headers {
 		Ok(())
 	}
 
-	pub fn get(&self, name: String) -> Result<Option<Header>> {
-		let name = HeaderName::from_str(&name.to_lowercase())?;
+	pub fn get(&self, name: ByteString<VisibleAscii>) -> Result<Option<Header>> {
+		let name = HeaderName::from_bytes(&name)?;
 		Ok(get_header(&self.headers, &name))
 	}
 
@@ -224,14 +221,14 @@ impl Headers {
 		})
 	}
 
-	pub fn has(&self, name: String) -> Result<bool> {
-		let name = HeaderName::from_str(&name.to_lowercase())?;
+	pub fn has(&self, name: ByteString<VisibleAscii>) -> Result<bool> {
+		let name = HeaderName::from_bytes(&name)?;
 		Ok(self.headers.contains_key(name))
 	}
 
-	pub fn set(&mut self, name: String, value: String) -> Result<()> {
-		let name = HeaderName::from_str(&name.to_lowercase())?;
-		let value = HeaderValue::from_str(&value)?;
+	pub fn set(&mut self, name: ByteString<VisibleAscii>, value: ByteString<VisibleAscii>) -> Result<()> {
+		let name = HeaderName::from_bytes(&name)?;
+		let value = HeaderValue::from_bytes(&value)?;
 		if !validate_header(&name, &HeaderValue::from_static(""), self.kind)? {
 			return Ok(());
 		}
