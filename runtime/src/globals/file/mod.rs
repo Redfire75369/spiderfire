@@ -11,8 +11,10 @@ pub use blob::{Blob, buffer_source_to_bytes};
 use ion::{ClassDefinition, Context, Object};
 
 use crate::globals::file::blob::{BlobOptions, BlobPart};
+use crate::globals::file::reader::{FileReader, FileReaderSync};
 
 mod blob;
+mod reader;
 
 #[derive(Debug, Default, FromValue)]
 pub struct FileOptions {
@@ -56,5 +58,8 @@ impl File {
 }
 
 pub fn define(cx: &Context, object: &mut Object) -> bool {
-	Blob::init_class(cx, object).0 && File::init_class(cx, object).0
+	Blob::init_class(cx, object).0
+		&& File::init_class(cx, object).0
+		&& FileReader::init_class(cx, object).0
+		&& FileReaderSync::init_class(cx, object).0
 }

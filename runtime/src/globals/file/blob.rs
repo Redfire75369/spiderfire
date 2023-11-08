@@ -93,6 +93,16 @@ pub struct Blob {
 	kind: Option<String>,
 }
 
+impl Blob {
+	pub fn as_bytes(&self) -> &Bytes {
+		&self.bytes
+	}
+
+	pub fn kind(&self) -> Option<String> {
+		self.kind.clone()
+	}
+}
+
 #[js_class]
 impl Blob {
 	#[ion(constructor)]
@@ -206,7 +216,7 @@ impl<'cx> FromValue<'cx> for &'cx Blob {
 		if Blob::instance_of(cx, &object, None) {
 			Ok(Blob::get_private(&object))
 		} else {
-			Err(Error::new("Expected Request", ErrorKind::Type))
+			Err(Error::new("Expected Blob", ErrorKind::Type))
 		}
 	}
 }

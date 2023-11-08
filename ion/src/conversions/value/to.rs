@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::borrow::Cow;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
@@ -113,6 +114,12 @@ impl ToValue<'_> for str {
 impl<'cx> ToValue<'cx> for String {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
+	}
+}
+
+impl<'cx, T: ToOwned + ToValue<'cx>> ToValue<'cx> for Cow<'_, T> {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		self.as_ref().to_value(cx, value)
 	}
 }
 
