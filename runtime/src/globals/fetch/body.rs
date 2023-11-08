@@ -8,6 +8,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
+use form_urlencoded::Serializer;
 use hyper::Body;
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;
@@ -15,7 +16,8 @@ use mozjs::jsval::JSVal;
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
-use crate::globals::file::buffer_source_to_bytes;
+use crate::globals::file::{Blob, buffer_source_to_bytes};
+use crate::globals::url::URLSearchParams;
 
 #[derive(Debug, Clone, Traceable)]
 #[non_exhaustive]
@@ -24,16 +26,20 @@ enum FetchBodyInner {
 	Bytes(#[ion(no_trace)] Bytes),
 }
 
-#[derive(Copy, Clone, Debug, Traceable)]
+#[derive(Clone, Debug, Traceable)]
 #[non_exhaustive]
 pub enum FetchBodyKind {
 	String,
+	Blob(String),
+	URLSearchParams,
 }
 
 impl Display for FetchBodyKind {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			FetchBodyKind::String => f.write_str("text/plain;charset=UTF-8"),
+			FetchBodyKind::Blob(mime) => f.write_str(mime),
+			FetchBodyKind::URLSearchParams => f.write_str("application/x-www-form-urlencoded;charset=UTF-8"),
 		}
 	}
 }
@@ -81,7 +87,7 @@ impl Clone for FetchBody {
 		FetchBody {
 			body: self.body.clone(),
 			source: self.source.as_ref().map(|s| Heap::boxed(s.get())),
-			kind: self.kind,
+			kind: self.kind.clone(),
 		}
 	}
 }
@@ -98,22 +104,34 @@ impl Default for FetchBody {
 
 impl<'cx> FromValue<'cx> for FetchBody {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: Self::Config) -> Result<FetchBody> {
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<FetchBody> {
 		if value.handle().is_string() {
-			Ok(FetchBody {
-				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, true, ()).unwrap())),
+			return Ok(FetchBody {
+				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, strict, ()).unwrap())),
 				source: Some(Heap::boxed(value.get())),
 				kind: Some(FetchBodyKind::String),
-			})
+			});
 		} else if value.handle().is_object() {
-			let bytes = buffer_source_to_bytes(&value.to_object(cx))?;
-			Ok(FetchBody {
-				body: FetchBodyInner::Bytes(bytes),
-				source: Some(Heap::boxed(value.get())),
-				kind: None,
-			})
-		} else {
-			Err(Error::new("Expected Body to be String or Object", ErrorKind::Type))
+			if let Ok(bytes) = buffer_source_to_bytes(&value.to_object(cx)) {
+				return Ok(FetchBody {
+					body: FetchBodyInner::Bytes(bytes),
+					source: Some(Heap::boxed(value.get())),
+					kind: None,
+				});
+			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
+				return Ok(FetchBody {
+					body: FetchBodyInner::Bytes(blob.as_bytes().clone()),
+					source: Some(Heap::boxed(value.get())),
+					kind: blob.kind().map(FetchBodyKind::Blob),
+				});
+			} else if let Ok(search_params) = <&URLSearchParams>::from_value(cx, value, strict, ()) {
+				return Ok(FetchBody {
+					body: FetchBodyInner::Bytes(Bytes::from(Serializer::new(String::new()).extend_pairs(search_params.pairs()).finish())),
+					source: Some(Heap::boxed(value.get())),
+					kind: Some(FetchBodyKind::URLSearchParams),
+				});
+			}
 		}
+		Err(Error::new("Expected Valid Body", ErrorKind::Type))
 	}
 }

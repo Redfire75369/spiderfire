@@ -59,6 +59,12 @@ pub struct URLSearchParams {
 	pub(super) url: Option<Heap<*mut JSObject>>,
 }
 
+impl URLSearchParams {
+	pub fn pairs(&self) -> &[(String, String)] {
+		&self.pairs
+	}
+}
+
 #[js_class]
 impl URLSearchParams {
 	#[ion(constructor)]
@@ -171,6 +177,19 @@ impl URLSearchParams {
 	pub fn iterator(cx: &Context, #[ion(this)] this: &Object) -> ion::Iterator {
 		let thisv = this.as_value(cx);
 		ion::Iterator::new(SearchParamsIterator::default(), &thisv)
+	}
+}
+
+impl<'cx> FromValue<'cx> for &'cx URLSearchParams {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<&'cx URLSearchParams> {
+		let object = Object::from_value(cx, value, strict, ())?;
+		if URLSearchParams::instance_of(cx, &object, None) {
+			Ok(URLSearchParams::get_private(&object))
+		} else {
+			Err(Error::new("Expected URLSearchParams", ErrorKind::Type))
+		}
 	}
 }
 

@@ -18,7 +18,7 @@ declare class Headers implements Iterable<[string, string]> {
 	[Symbol.iterator](): Iterator<[string, string]>;
 }
 
-declare type BodyInit = BufferSource | string;
+declare type BodyInit = BufferSource | Blob | URLSearchParams | string;
 
 declare type RequestInfo = Request | string;
 

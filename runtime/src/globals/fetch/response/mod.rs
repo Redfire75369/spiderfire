@@ -130,7 +130,7 @@ impl Response {
 				return Err(Error::new("Received non-null body with null body status.", ErrorKind::Type));
 			}
 
-			if let Some(kind) = body.kind {
+			if let Some(kind) = &body.kind {
 				if !headers.headers.contains_key(CONTENT_TYPE) {
 					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
 				}
