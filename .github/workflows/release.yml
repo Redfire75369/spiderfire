@@ -79,7 +79,7 @@ jobs:
           strip ./target/release/spiderfire
 
       - name: Upload Executables as Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: matrix.rust == 'stable'
         with:
           name: spiderfire-${{ github.sha }}-${{ matrix.id }}

@@ -45,7 +45,7 @@ runs:
       uses: mozilla-actions/sccache-action@v0.0.3
 
     - name: Cache Cargo Cache and Git Database
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry/cache/
