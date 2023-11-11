@@ -19,11 +19,15 @@ jobs:
         include:
           - os: windows-latest
             id: windows
+            target: x86_64-pc-windows-msvc
           - os: macos-13
             id: macos
+            target: x86_64-apple-darwin
           - os: ubuntu-latest
             id: linux
+            target: x86_64-unknown-linux-gnu
     env:
+      TARGET: ${{ matrix.target }}
       SCCACHE_CACHE_SIZE: 3G
 
     steps:
@@ -38,18 +42,18 @@ jobs:
       - name: Build Windows
         if: matrix.id == 'windows'
         env:
-          MOZTOOLS_PATH: "${{ github.workspace }}\\target\\dependencies\\moztools-4.0"
+          MOZTOOLS_PATH: ${{ github.workspace }}\\target\\dependencies\\moztools-4.0
           CC: clang-cl
           CXX: clang-cl
           AR: llvm-lib
           LINKER: lld-link
           MOZ_LTO: full
-          CFLAGS: "/clang:-flto /clang:-fuse-ld=lld-link"
-          CXXFLAGS: "/clang:-flto /clang:-fuse-ld=lld-link"
-          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=lld-link"
+          CFLAGS: /clang:-flto /clang:-fuse-ld=lld-link
+          CXXFLAGS: /clang:-flto /clang:-fuse-ld=lld-link
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
         run: |
-          just build-release -v
-          Rename-Item -Path .\target\release\cli.exe -NewName spiderfire.exe
+          just build-release -v --target $env:TARGET
+          Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
 
       - name: Build MacOS
         if: matrix.id == 'macos'
@@ -57,11 +61,10 @@ jobs:
           CC: clang
           CXX: clang++
           RUSTC_WRAPPER: sccache
-          RUSTFLAGS: "-Clto=fat"
+          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true
         run: |
-          just build-release -v
-          mv ./target/release/cli ./target/release/spiderfire
-          strip ./target/release/spiderfire
+          just build-release -v --target $TARGET
+          mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Build Linux
         if: matrix.id == 'linux'
@@ -70,18 +73,17 @@ jobs:
           CXX: clang++
           RUSTC_WRAPPER: sccache
           MOZ_LTO: full
-          CFLAGS: "-flto -fuse-ld=lld --target=x86_64-unknown-linux-gnu"
-          CXXFLAGS: "-flto -fuse-ld=lld --target=x86_64-unknown-linux-gnu"
-          RUSTFLAGS: "-Clto=fat -Cstrip=symbols -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=--target=x86_64-unknown-linux-gnu"
+          CFLAGS: -flto -fuse-ld=lld --target=${{ matrix.target }}
+          CXXFLAGS: -flto -fuse-ld=lld --target=${{ matrix.target }}
+          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true -Cstrip=symbols -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=--target=${{ matrix.target }}
         run: |
-          just build-release -v
-          mv ./target/release/cli ./target/release/spiderfire
-          strip ./target/release/spiderfire
+          just build-release -v --target $TARGET
+          mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Upload Executables as Artifacts
         uses: actions/upload-artifact@v3
         if: matrix.rust == 'stable'
         with:
           name: spiderfire-${{ github.sha }}-${{ matrix.id }}
-          path: target/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
+          path: target/${{ matrix.target }}/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
           if-no-files-found: error

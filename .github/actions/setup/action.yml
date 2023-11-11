@@ -31,7 +31,7 @@ runs:
     - name: Install Dependencies on Linux
       if: inputs.os == 'linux'
       shell: bash
-      run: sudo apt install -y clang llvm
+      run: sudo apt install -y clang llvm lld
 
     - name: Install Rust Toolchain
       uses: dtolnay/rust-toolchain@stable

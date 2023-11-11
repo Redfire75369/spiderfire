@@ -38,7 +38,7 @@ jobs:
       - name: Build Windows
         if: matrix.id == 'windows'
         env:
-          MOZTOOLS_PATH: "${{ github.workspace }}\\target\\dependencies\\moztools-4.0"
+          MOZTOOLS_PATH: ${{ github.workspace }}\\target\\dependencies\\moztools-4.0
           CC: clang-cl
           CXX: clang-cl
           AR: llvm-lib
