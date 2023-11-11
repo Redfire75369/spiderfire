@@ -370,12 +370,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "closure"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6173fd61b610d15a7566dd7b7620775627441c4ab9dac8906e17cb93a24b782"
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -983,7 +977,6 @@ dependencies = [
  "bitflags 2.4.1",
  "bytemuck",
  "byteorder",
- "bytes",
  "chrono",
  "colored",
  "derivative",
@@ -1003,7 +996,6 @@ name = "ion-proc"
 version = "0.1.0"
 dependencies = [
  "convert_case",
- "either",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -1343,12 +1335,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
-
-[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1638,7 +1624,6 @@ dependencies = [
  "base64 0.21.5",
  "bytes",
  "chrono",
- "closure",
  "const_format",
  "data-url",
  "derivative",
@@ -1655,7 +1640,6 @@ dependencies = [
  "ion",
  "mime",
  "mozjs",
- "paste",
  "sha3",
  "sourcemap",
  "swc_core",
