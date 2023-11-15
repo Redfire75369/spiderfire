@@ -207,16 +207,3 @@ impl Blob {
 		future_to_promise(cx, async move { Ok::<_, ()>(ion::typedarray::ArrayBuffer::from(bytes.to_vec())) })
 	}
 }
-
-impl<'cx> FromValue<'cx> for &'cx Blob {
-	type Config = ();
-
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<&'cx Blob> {
-		let object = Object::from_value(cx, value, true, ())?;
-		if Blob::instance_of(cx, &object, None) {
-			Ok(Blob::get_private(&object))
-		} else {
-			Err(Error::new("Expected Blob", ErrorKind::Type))
-		}
-	}
-}

@@ -12,9 +12,8 @@ use hyper::{Body, Method, Uri};
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Value};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
-use ion::conversions::FromValue;
 pub use options::*;
 
 use crate::globals::abort::AbortSignal;
@@ -337,18 +336,6 @@ impl Clone for Request {
 
 			client_window: self.client_window,
 			signal_object: Heap::boxed(self.signal_object.get()),
-		}
-	}
-}
-
-impl<'cx> FromValue<'cx> for &'cx Request {
-	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<&'cx Request> {
-		let object = Object::from_value(cx, value, true, ())?;
-		if Request::instance_of(cx, &object, None) {
-			Ok(Request::get_private(&object))
-		} else {
-			Err(Error::new("Expected Request", ErrorKind::Type))
 		}
 	}
 }

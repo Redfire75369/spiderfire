@@ -180,19 +180,6 @@ impl URLSearchParams {
 	}
 }
 
-impl<'cx> FromValue<'cx> for &'cx URLSearchParams {
-	type Config = ();
-
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<&'cx URLSearchParams> {
-		let object = Object::from_value(cx, value, strict, ())?;
-		if URLSearchParams::instance_of(cx, &object, None) {
-			Ok(URLSearchParams::get_private(&object))
-		} else {
-			Err(Error::new("Expected URLSearchParams", ErrorKind::Type))
-		}
-	}
-}
-
 #[derive(Default)]
 pub struct SearchParamsIterator(usize);
 

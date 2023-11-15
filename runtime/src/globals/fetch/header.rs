@@ -262,18 +262,6 @@ impl Headers {
 	}
 }
 
-impl<'cx> FromValue<'cx> for &'cx Headers {
-	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<&'cx Headers> {
-		let object = Object::from_value(cx, value, strict, ())?;
-		if Headers::instance_of(cx, &object, None) {
-			Ok(Headers::get_private(&object))
-		} else {
-			Err(Error::new("Expected Headers", ErrorKind::Type))
-		}
-	}
-}
-
 pub struct HeadersIterator {
 	keys: vec::IntoIter<String>,
 	cookies: vec::IntoIter<HeaderValue>,

@@ -120,4 +120,4 @@ jobs:
       - name: Check for Unused Dependencies
         env:
           RUSTC_WRAPPER: sccache
-        run: cargo udeps
+        run: cargo udeps --all-targets --locked
