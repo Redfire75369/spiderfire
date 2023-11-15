@@ -6,10 +6,13 @@ env:
   SHELL: /bin/bash
   CARGO_TERM_COLOR: never
   SCCACHE_GHA_ENABLED: "true"
+
+  CC: clang
+  CXX: clang++
   CCACHE: sccache
 
 jobs:
-  Build:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -24,10 +27,15 @@ jobs:
           - os: ubuntu-latest
             id: linux
     env:
-      SCCACHE_CACHE_SIZE: 3G
+      SCCACHE_CACHE_SIZE: 2G
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
 
       - name: Setup Dependencies
         uses: ./.github/actions/setup
@@ -51,8 +59,6 @@ jobs:
       - name: Build POSIX
         if: matrix.id == 'macos' || matrix.id == 'linux'
         env:
-          CC: clang
-          CXX: clang++
           RUSTC_WRAPPER: sccache
         run: |
           just build-release -v
@@ -68,7 +74,7 @@ jobs:
           path: target/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
           if-no-files-found: error
 
-  Lint:
+  lint:
     runs-on: ubuntu-latest
     env:
       SCCACHE_CACHE_SIZE: 1G
@@ -76,15 +82,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
       - name: Setup Dependencies
         uses: ./.github/actions/setup
         with:
-          os: ${{ matrix.id }}
           cache-id: lint
 
       - name: Lint
         env:
-          CC: clang
-          CXX: clang++
           RUSTC_WRAPPER: sccache
         run: just lint
+
+
+  unused-dependencies:
+    runs-on: ubuntu-latest
+    env:
+      SCCACHE_CACHE_SIZE: 1G
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Setup Dependencies
+        uses: ./.github/actions/setup
+        with:
+          cache-id: udeps
+
+      - name: Install cargo-udeps
+        uses: taiki-e/install-action@cargo-udeps
+
+      - name: Check for Unused Dependencies
+        env:
+          RUSTC_WRAPPER: sccache
+        run: cargo udeps
