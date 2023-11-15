@@ -44,7 +44,23 @@ just build
 
 ## MacOS
 
--- TODO --
+1. Install xcode command lines tools, if you haven't already
+
+```shell
+xcode-select --install
+```
+
+2. Install build dependencies
+
+```shell
+brew install python3 llvm pkg-config make just
+```
+
+3. Build with Cargo
+
+```shell
+CC=clang CXX=clang++ just build
+```
 
 ## Linux
 
@@ -85,4 +101,3 @@ CC=clang CXX=clang++ just build
 ## FreeBSD
 
 -- TODO --
-
