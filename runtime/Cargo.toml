@@ -46,7 +46,7 @@ workspace = true
 optional = true
 
 [dependencies.ion]
-path = "../ion"
+workspace = true
 features = ["macros", "sourcemap"]
 
 [dependencies.mime]

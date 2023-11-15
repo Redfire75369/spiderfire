@@ -11,19 +11,12 @@ idna = "0.4.0"
 futures.workspace = true
 mozjs.workspace = true
 url.workspace = true
-
-[dependencies.hyper]
-workspace = true
-
-[dependencies.hyper-rustls]
-workspace = true
+runtime.workspace = true
 
 [dependencies.ion]
-path = "../ion"
+workspace = true
 features = ["macros"]
 
-[dependencies.runtime]
-path = "../runtime"
 
 [dependencies.tokio]
 workspace = true

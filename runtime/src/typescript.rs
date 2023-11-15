@@ -15,7 +15,7 @@ use swc_core::common::comments::{Comments, SingleThreadedComments};
 use swc_core::common::errors::{ColorConfig, Handler};
 use swc_core::common::input::StringInput;
 use swc_core::common::sync::Lrc;
-use swc_core::ecma::ast::EsVersion;
+use swc_core::ecma::ast::{EsVersion, Program};
 use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};
 use swc_core::ecma::codegen::text_writer::JsWriter;
 use swc_core::ecma::parser::{Capturing, Parser, Syntax};
@@ -24,7 +24,7 @@ use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
 use swc_core::ecma::transforms::base::resolver;
 use swc_core::ecma::transforms::typescript::strip;
-use swc_core::ecma::visit::FoldWith;
+use swc_core::ecma::visit::VisitMut;
 
 use crate::config::Config;
 
@@ -42,60 +42,36 @@ pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, Sourc
 	let mut mappings = Vec::new();
 	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
 
-	if Config::global().script {
-		handle_script(&handler, &mut parser, &mut emitter)?;
+	let mut program = if Config::global().script {
+		Program::Script(parser.parse_script().map_err(|e| {
+			e.into_diagnostic(&handler).emit();
+			Error::Parse
+		})?)
 	} else {
-		handle_module(&handler, &mut parser, &mut emitter)?;
-	}
+		Program::Module(parser.parse_module().map_err(|e| {
+			e.into_diagnostic(&handler).emit();
+			Error::Parse
+		})?)
+	};
+	handle_program(&mut program, &mut emitter)?;
 
 	let source_map = source_map.build_source_map(&mappings);
 	Ok((String::from_utf8(buffer)?, source_map))
 }
 
-pub fn handle_script(
-	handler: &Handler, parser: &mut Parser<Capturing<Lexer>>, emitter: &mut Emitter<JsWriter<&mut Vec<u8>>, SwcSourceMap>,
-) -> Result<(), Error> {
-	let script = parser.parse_script().map_err(|e| {
-		e.into_diagnostic(handler).emit();
-		Error::Parse
-	})?;
-
-	let comments = emitter.comments;
+pub fn handle_program(program: &mut Program, emitter: &mut Emitter<JsWriter<&mut Vec<u8>>, SwcSourceMap>) -> Result<(), Error> {
 	let globals = Globals::default();
-	let script = GLOBALS.set(&globals, || {
+	GLOBALS.set(&globals, || {
 		let unresolved_mark = Mark::new();
 		let top_level_mark = Mark::new();
 
-		let script = script.fold_with(&mut resolver(unresolved_mark, top_level_mark, true));
-		let script = script.fold_with(&mut strip(top_level_mark));
-		let script = script.fold_with(&mut hygiene());
-		script.fold_with(&mut fixer(comments))
+		resolver(unresolved_mark, top_level_mark, true).visit_mut_program(program);
+		strip(top_level_mark).visit_mut_program(program);
+		hygiene().visit_mut_program(program);
+		fixer(emitter.comments).visit_mut_program(program);
 	});
 
-	emitter.emit_script(&script).map_err(|_| Error::Emission)
-}
-
-pub fn handle_module(
-	handler: &Handler, parser: &mut Parser<Capturing<Lexer>>, emitter: &mut Emitter<JsWriter<&mut Vec<u8>>, SwcSourceMap>,
-) -> Result<(), Error> {
-	let module = parser.parse_module().map_err(|e| {
-		e.into_diagnostic(handler).emit();
-		Error::Parse
-	})?;
-
-	let comments = emitter.comments;
-	let globals = Globals::default();
-	let module = GLOBALS.set(&globals, || {
-		let unresolved_mark = Mark::new();
-		let top_level_mark = Mark::new();
-
-		let module = module.fold_with(&mut resolver(unresolved_mark, top_level_mark, true));
-		let module = module.fold_with(&mut strip(top_level_mark));
-		let module = module.fold_with(&mut hygiene());
-		module.fold_with(&mut fixer(comments))
-	});
-
-	emitter.emit_module(&module).map_err(|_| Error::Emission)
+	emitter.emit_program(program).map_err(|_| Error::Emission)
 }
 
 fn initialise_parser<'a>(

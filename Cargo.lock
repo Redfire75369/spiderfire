@@ -1174,8 +1174,6 @@ name = "modules"
 version = "0.1.0"
 dependencies = [
  "futures",
- "hyper",
- "hyper-rustls",
  "idna",
  "ion",
  "mozjs",

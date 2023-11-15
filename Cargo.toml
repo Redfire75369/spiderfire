@@ -9,6 +9,12 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+ion-proc = { path = "./ion-proc"}
+ion = { path = "./ion"}
+runtime = { path = "./runtime"}
+modules = { path = "./modules"}
+cli = { path = "./cli"}
+
 bytes = "1.5.0"
 colored = "2.0.4"
 derivative = "2.2.0"
