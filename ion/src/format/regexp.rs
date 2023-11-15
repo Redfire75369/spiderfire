@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
 use colored::Colorize;
 
 use crate::Context;
@@ -11,6 +14,18 @@ use crate::format::Config;
 use crate::objects::RegExp;
 
 /// Formats a [RegExp object](RegExp) as a string using the given [configuration](Config).
-pub fn format_regexp(cx: &Context, cfg: Config, regexp: &RegExp) -> String {
-	regexp.to_string(cx).color(cfg.colours.regexp).to_string()
+pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp<'cx>) -> RegExpDisplay<'cx> {
+	RegExpDisplay { cx, regexp, cfg }
+}
+
+pub struct RegExpDisplay<'cx> {
+	cx: &'cx Context,
+	regexp: &'cx RegExp<'cx>,
+	cfg: Config,
+}
+
+impl Display for RegExpDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.regexp.to_string(self.cx).color(self.cfg.colours.regexp))
+	}
 }

@@ -5,6 +5,8 @@
  */
 
 use std::ffi::CStr;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
 use mozjs::rust::get_object_class;
@@ -14,10 +16,22 @@ use crate::format::Config;
 use crate::format::object::format_plain_object;
 
 /// Formats a [JavaScript Object](Object), along with the name of its constructor, as a string with the given [configuration](Config).
-pub fn format_class_object(cx: &Context, cfg: Config, object: &Object) -> String {
-	let class = unsafe { get_object_class(object.handle().get()) };
-	let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
+pub fn format_class_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> ClassObjectDisplay<'cx> {
+	ClassObjectDisplay { cx, object, cfg }
+}
 
-	let string = format_plain_object(cx, cfg, object);
-	format!("{} {}", name.color(cfg.colours.object), string)
+pub struct ClassObjectDisplay<'cx> {
+	cx: &'cx Context,
+	object: &'cx Object<'cx>,
+	cfg: Config,
+}
+
+impl Display for ClassObjectDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let class = unsafe { get_object_class(self.object.handle().get()) };
+		let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
+
+		let string = format_plain_object(self.cx, self.cfg, self.object);
+		write!(f, "{} {}", name.color(self.cfg.colours.object), string)
+	}
 }

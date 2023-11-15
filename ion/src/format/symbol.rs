@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
 use colored::Colorize;
 
 use crate::{Context, Symbol};
@@ -17,19 +20,51 @@ use crate::symbol::SymbolCode;
 /// Unique Symbols are formatted as `Symbol(<#symbol>)`.
 /// Registry Symbols are formatted as `Symbol.for(<#symbol>)`.
 /// Private Name Symbols are formatted as `#private`.
-pub fn format_symbol(cx: &Context, cfg: Config, symbol: &Symbol) -> String {
-	let code = symbol.code();
-	match code {
-		SymbolCode::WellKnown(code) => format!("Symbol.{}", code.identifier()).color(cfg.colours.symbol).to_string(),
-		SymbolCode::PrivateNameSymbol => symbol.description(cx).expect("Expected Description on Private Name Symbol"),
-		code => {
-			let description = symbol.description(cx).expect("Expected Description on Non-Well-Known Symbol");
-			let description = format!("{}{}", description.color(cfg.colours.string), ")".color(cfg.colours.symbol));
+pub fn format_symbol<'cx>(cx: &'cx Context, cfg: Config, symbol: &'cx Symbol<'cx>) -> SymbolDisplay<'cx> {
+	SymbolDisplay { cx, symbol, cfg }
+}
 
-			match code {
-				SymbolCode::InSymbolRegistry => format!("{}{}", "Symbol.for(".color(cfg.colours.symbol), description),
-				SymbolCode::UniqueSymbol => format!("{}{}", "Symbol(".color(cfg.colours.symbol), description),
-				_ => unreachable!(),
+pub struct SymbolDisplay<'cx> {
+	cx: &'cx Context,
+	symbol: &'cx Symbol<'cx>,
+	cfg: Config,
+}
+
+impl Display for SymbolDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let colour = self.cfg.colours.symbol;
+		let code = self.symbol.code();
+
+		match code {
+			SymbolCode::WellKnown(code) => write!(f, "{}{}", "Symbol.".color(colour), code.identifier().color(colour)),
+			SymbolCode::PrivateNameSymbol => write!(
+				f,
+				"{}",
+				self.symbol
+					.description(self.cx)
+					.expect("Expected Description on Private Name Symbol")
+					.color(colour)
+			),
+			code => {
+				let description = self.symbol.description(self.cx).expect("Expected Description on Non-Well-Known Symbol");
+
+				match code {
+					SymbolCode::InSymbolRegistry => write!(
+						f,
+						"{}{}{}",
+						"Symbol.for(".color(colour),
+						description.color(self.cfg.colours.string),
+						")".color(colour),
+					),
+					SymbolCode::UniqueSymbol => write!(
+						f,
+						"{}{}{}",
+						"Symbol(".color(colour),
+						description.color(self.cfg.colours.string),
+						")".color(colour),
+					),
+					_ => unreachable!(),
+				}
 			}
 		}
 	}

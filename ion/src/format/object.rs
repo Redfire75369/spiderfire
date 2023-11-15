@@ -5,11 +5,11 @@
  */
 
 use std::cmp::Ordering;
-use std::fmt::Write;
+use std::fmt;
+use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
-use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{ESClass, JS_ValueToSource};
+use mozjs::jsapi::ESClass;
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise, RegExp};
 use crate::conversions::ToValue;
@@ -26,31 +26,42 @@ use crate::format::regexp::format_regexp;
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
-pub fn format_object(cx: &Context, cfg: Config, object: Object) -> String {
-	unsafe {
-		use ESClass as ESC;
-		let class = object.get_builtin_class(cx);
+pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> ObjectDisplay<'cx> {
+	ObjectDisplay { cx, object, cfg }
+}
 
-		// TODO: Add Formatting for Errors
+pub struct ObjectDisplay<'cx> {
+	cx: &'cx Context,
+	object: Object<'cx>,
+	cfg: Config,
+}
+
+impl Display for ObjectDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		use ESClass as ESC;
+
+		let cx = self.cx;
+		let cfg = self.cfg;
+		let object = Object::from(cx.root_object(self.object.handle().get()));
+
+		let class = self.object.get_builtin_class(cx);
+
 		match class {
-			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &object),
-			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()),
-			ESC::Object => format_plain_object(cx, cfg, &Object::from(object.into_local())),
-			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()),
-			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()),
-			ESC::RegExp => format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap()),
-			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &object).unwrap()),
-			ESC::Other => format_class_object(cx, cfg, &object),
-			ESC::Error => {
-				let exception = Exception::from_object(cx, &object);
-				match exception {
-					Exception::Error(error) => error.format(),
-					_ => panic!("Expected Error"),
-				}
-			}
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => write!(f, "{}", format_boxed(cx, cfg, &self.object)),
+			ESC::Array => write!(f, "{}", format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())),
+			ESC::Object => write!(f, "{}", format_plain_object(cx, cfg, &Object::from(object.into_local()))),
+			ESC::Date => write!(f, "{}", format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap())),
+			ESC::Promise => write!(f, "{}", format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap())),
+			ESC::RegExp => write!(f, "{}", format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap())),
+			ESC::Function => write!(f, "{}", format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap())),
+			ESC::Other => write!(f, "{}", format_class_object(cx, cfg, &self.object)),
+			ESC::Error => match Exception::from_object(cx, &self.object) {
+				Exception::Error(error) => f.write_str(&error.format()),
+				_ => unreachable!("Expected Error"),
+			},
 			_ => {
-				let value = object.as_value(cx);
-				jsstr_to_string(cx.as_ptr(), JS_ValueToSource(cx.as_ptr(), value.handle().into()))
+				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
+				f.write_str(&source)
 			}
 		}
 	}

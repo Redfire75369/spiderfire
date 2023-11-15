@@ -4,16 +4,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
 use colored::Colorize;
 
 use crate::{Context, Date};
 use crate::format::Config;
 
 /// Formats a [JavaScript Date](Date) as a string using the given [configuration](Config).
-pub fn format_date(cx: &Context, cfg: Config, date: &Date) -> String {
-	if let Some(date) = date.to_date(cx) {
-		date.to_string().color(cfg.colours.date).to_string()
-	} else {
-		panic!("Failed to unbox Date");
+pub fn format_date<'cx>(cx: &'cx Context, cfg: Config, date: &'cx Date<'cx>) -> DateDisplay<'cx> {
+	DateDisplay { cx, date, cfg }
+}
+
+pub struct DateDisplay<'cx> {
+	cx: &'cx Context,
+	date: &'cx Date<'cx>,
+	cfg: Config,
+}
+
+impl Display for DateDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		if let Some(date) = self.date.to_date(self.cx) {
+			write!(f, "{}", date.to_string().color(self.cfg.colours.date))
+		} else {
+			panic!("Failed to unbox Date");
+		}
 	}
 }

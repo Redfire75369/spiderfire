@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+use std::fmt::{Display, Formatter, Write};
+
 use colored::Colorize;
 use mozjs::jsapi::PromiseState;
 
@@ -15,37 +18,47 @@ use crate::format::{Config, format_value, INDENT};
 /// ```js
 /// Promise { <#state> <#result> }
 /// ```
-#[allow(clippy::unnecessary_to_owned)]
-pub fn format_promise(cx: &Context, cfg: Config, promise: &Promise) -> String {
-	let state = promise.state();
-	let state_string = match state {
-		PromiseState::Pending => return "Promise { <pending> }".color(cfg.colours.promise).to_string(),
-		PromiseState::Fulfilled => "<fulfilled>",
-		PromiseState::Rejected => "<rejected>",
-	};
-	let state_string = state_string.color(cfg.colours.promise);
+pub fn format_promise<'cx>(cx: &'cx Context, cfg: Config, promise: &'cx Promise) -> PromiseDisplay<'cx> {
+	PromiseDisplay { cx, promise, cfg }
+}
 
-	let mut base = "Promise {".color(cfg.colours.promise).to_string();
-	let result = promise.result(cx);
+pub struct PromiseDisplay<'cx> {
+	cx: &'cx Context,
+	promise: &'cx Promise<'cx>,
+	cfg: Config,
+}
 
-	if cfg.multiline {
-		let result_string = format_value(cx, cfg.depth(cfg.depth + 1), &result);
+impl Display for PromiseDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let colour = self.cfg.colours.promise;
+		let state = self.promise.state();
 
-		base.push('\n');
-		base.push_str(&INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize));
-		base.push_str(&state_string.to_string());
-		base.push(' ');
-		base.push_str(&result_string);
-		base.push_str(&"\n}".color(cfg.colours.promise).to_string());
-	} else {
-		let result_string = format_value(cx, cfg, &result);
+		let state = match state {
+			PromiseState::Pending => return f.write_fmt(format_args!("{}", "Promise { <pending> }".color(colour))),
+			PromiseState::Fulfilled => "<fulfilled>".color(colour),
+			PromiseState::Rejected => "<rejected>".color(colour),
+		};
 
-		base.push(' ');
-		base.push_str(&state_string.to_string());
-		base.push(' ');
-		base.push_str(&result_string);
-		base.push_str(&" }".color(cfg.colours.promise).to_string());
+		write!(f, "{}", "Promise {".color(colour))?;
+		let result = self.promise.result(self.cx);
+
+		if self.cfg.multiline {
+			let result = format_value(self.cx, self.cfg.depth(self.cfg.depth + 1), &result);
+
+			f.write_char('\n')?;
+			f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize))?;
+			write!(f, "{}", state)?;
+			f.write_char(' ')?;
+			write!(f, "{}", result)?;
+			write!(f, "{}", "\n}".color(colour))
+		} else {
+			let result = format_value(self.cx, self.cfg, &result);
+
+			f.write_char(' ')?;
+			write!(f, "{}", state)?;
+			f.write_char(' ')?;
+			write!(f, "{}", result)?;
+			write!(f, "{}", " }".color(colour))
+		}
 	}
-
-	base
 }
