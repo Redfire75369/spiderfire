@@ -4,78 +4,79 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
 
 use crate::{Array, Context};
 use crate::format::{format_value, INDENT, NEWLINE};
 use crate::format::Config;
+use crate::format::object::write_remaining;
 
 /// Formats an [JavaScript Array](Array) as a string using the given [configuration](Config).
-#[allow(clippy::unnecessary_to_owned)]
-pub fn format_array(cx: &Context, cfg: Config, array: &Array) -> String {
-	let color = cfg.colours.array;
-	if cfg.depth < 5 {
-		let vec = array.to_vec(cx);
-		let length = vec.len();
+pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array<'cx>) -> ArrayDisplay<'cx> {
+	ArrayDisplay { cx, array, cfg }
+}
 
-		if length == 0 {
-			"[]".color(color).to_string()
-		} else if cfg.multiline {
-			let mut string = format!("[{}", NEWLINE).color(color).to_string();
-			let len = length.clamp(0, 100);
-			let remaining = length - len;
+pub struct ArrayDisplay<'cx> {
+	cx: &'cx Context,
+	array: &'cx Array<'cx>,
+	cfg: Config,
+}
 
-			let inner_indent = INDENT.repeat((cfg.indentation + cfg.depth + 1) as usize);
-			let outer_indent = INDENT.repeat((cfg.indentation + cfg.depth) as usize);
-			for (i, value) in vec.into_iter().enumerate().take(len) {
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value).to_string();
-				string.push_str(&inner_indent);
-				string.push_str(&value_string);
+impl Display for ArrayDisplay<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let colour = self.cfg.colours.array;
+		if self.cfg.depth < 5 {
+			let vec = self.array.to_vec(self.cx);
+			let length = vec.len();
 
-				if i != length - 1 {
-					string.push_str(&",".color(color).to_string());
+			if length == 0 {
+				write!(f, "{}", "[]".color(colour))
+			} else {
+				write!(f, "{}", "[".color(colour))?;
+
+				let (remaining, inner) = if self.cfg.multiline {
+					f.write_str(NEWLINE)?;
+					let len = length.clamp(0, 100);
+
+					let inner = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+
+					for value in vec.into_iter().take(len) {
+						f.write_str(&inner)?;
+						write!(f, "{}", format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value))?;
+						write!(f, "{}", ",".color(colour))?;
+						f.write_str(NEWLINE)?;
+					}
+
+					(length - len, Some(inner))
+				} else {
+					f.write_char(' ')?;
+					let len = length.clamp(0, 3);
+
+					for (i, value) in vec.into_iter().enumerate().take(len) {
+						write!(f, "{}", format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value))?;
+
+						if i != len - 1 {
+							write!(f, "{}", ",".color(colour))?;
+							f.write_char(' ')?;
+						}
+					}
+
+					(length - len, None)
+				};
+
+				write_remaining(f, remaining, inner.as_deref(), colour)?;
+
+				if self.cfg.multiline {
+					f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth) as usize))?;
 				}
-				string.push_str(NEWLINE);
-			}
 
-			if remaining > 0 {
-				string.push_str(&inner_indent);
-				match remaining.cmp(&1) {
-					Ordering::Equal => string.push_str(&"... 1 more item".color(color)),
-					Ordering::Greater => string.push_str(&format!("... {} more items", remaining).color(color)),
-					_ => (),
-				}
+				write!(f, "{}", "]".color(colour))
 			}
-
-			string.push_str(&outer_indent);
-			string.push_str(&"]".color(color).to_string());
-			string
 		} else {
-			let mut string = "[ ".color(color).to_string();
-			let len = length.clamp(0, 3);
-
-			for (i, value) in vec.into_iter().enumerate().take(len) {
-				let value_string = format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), &value).to_string();
-				string.push_str(&value_string);
-
-				if i != len - 1 {
-					string.push_str(&", ".color(color).to_string());
-				}
-			}
-
-			let remaining = length - len;
-			match remaining.cmp(&1) {
-				Ordering::Equal => string.push_str(&"... 1 more item ".color(color)),
-				Ordering::Greater => string.push_str(&format!("... {} more items ", remaining).color(color)),
-				_ => (),
-			}
-			string.push_str(&"]".color(color).to_string());
-
-			string
+			write!(f, "{}", "[Array]".color(colour))
 		}
-	} else {
-		"[Array]".color(color).to_string()
 	}
 }
