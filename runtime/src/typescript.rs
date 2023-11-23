@@ -18,7 +18,7 @@ use swc_core::common::sync::Lrc;
 use swc_core::ecma::ast::{EsVersion, Program};
 use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};
 use swc_core::ecma::codegen::text_writer::JsWriter;
-use swc_core::ecma::parser::{Capturing, Parser, Syntax};
+use swc_core::ecma::parser::{Capturing, Parser, Syntax, TsConfig};
 use swc_core::ecma::parser::lexer::Lexer;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
@@ -31,7 +31,7 @@ use crate::config::Config;
 pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
 	let name = FileName::Real(PathBuf::from(filename));
 
-	let source_map: Lrc<SwcSourceMap> = Default::default();
+	let source_map: Lrc<SwcSourceMap> = Lrc::default();
 	let file = source_map.new_source_file(name, String::from(source));
 	let input = StringInput::from(&*file);
 
@@ -78,7 +78,7 @@ fn initialise_parser<'a>(
 	source_map: Lrc<SwcSourceMap>, comments: &'a dyn Comments, input: StringInput<'a>,
 ) -> (Handler, Parser<Capturing<Lexer<'a>>>) {
 	let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(source_map));
-	let lexer = Lexer::new(Syntax::Typescript(Default::default()), EsVersion::Es2022, input, Some(comments));
+	let lexer = Lexer::new(Syntax::Typescript(TsConfig::default()), EsVersion::Es2022, input, Some(comments));
 	let capturing = Capturing::new(lexer);
 	let mut parser = Parser::new_from(capturing);
 

@@ -345,7 +345,7 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		let mut header_row = vec![TableCell::new_with_alignment("Indices", 1, Alignment::Center)];
 		let mut headers = columns
 			.iter()
-			.map(|column| TableCell::new_with_alignment(format_key(cx, Default::default(), column), 1, Alignment::Center))
+			.map(|column| TableCell::new_with_alignment(format_key(cx, FormatConfig::default(), column), 1, Alignment::Center))
 			.collect();
 		header_row.append(&mut headers);
 		if has_values {
@@ -356,7 +356,7 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		for row in rows.iter() {
 			let value = object.get(cx, row).unwrap();
 			let mut table_row = vec![TableCell::new_with_alignment(
-				format_key(cx, Default::default(), row),
+				format_key(cx, FormatConfig::default(), row),
 				1,
 				Alignment::Center,
 			)];

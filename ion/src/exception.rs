@@ -15,7 +15,7 @@ use sourcemap::SourceMap;
 
 use crate::{Context, Error, ErrorKind, Object, Stack, Value};
 use crate::conversions::{FromValue, ToValue};
-use crate::format::{format_value, NEWLINE};
+use crate::format::{Config, format_value, NEWLINE};
 use crate::stack::Location;
 
 pub trait ThrowException {
@@ -123,7 +123,7 @@ impl Exception {
 			Exception::Other(value) => {
 				format!(
 					"Uncaught Exception - {}",
-					format_value(cx, Default::default(), &cx.root_value(*value).into())
+					format_value(cx, Config::default(), &cx.root_value(*value).into())
 				)
 			}
 		}

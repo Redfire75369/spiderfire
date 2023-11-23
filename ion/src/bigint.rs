@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
@@ -57,7 +58,7 @@ impl<'b> BigInt<'b> {
 				mRangeStart: range.start,
 				#[cfg(feature = "debugmozjs")]
 				mRangeEnd: range.end,
-				_phantom_0: Default::default(),
+				_phantom_0: PhantomData,
 			},
 			mEnd: RangedPtr {
 				mPtr: range.end,
@@ -65,9 +66,9 @@ impl<'b> BigInt<'b> {
 				mRangeStart: range.start,
 				#[cfg(feature = "debugmozjs")]
 				mRangeEnd: range.end,
-				_phantom_0: Default::default(),
+				_phantom_0: PhantomData,
 			},
-			_phantom_0: Default::default(),
+			_phantom_0: PhantomData,
 		};
 		let bi = unsafe { StringToBigInt1(cx.as_ptr(), chars) };
 		if !bi.is_null() {

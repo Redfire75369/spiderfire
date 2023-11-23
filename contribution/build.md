@@ -22,21 +22,21 @@ All instructions here assume you have installed `rustup`, `rustc` and `cargo`. R
 
 ### MSVC
 
-1. Download and Unzip [MozTools 4.0](https://github.com/servo/servo-build-deps/releases/download/msvc-deps/moztools-4.0.zip) to `C:\moztools-4.0`.
+1. Download and unzip [MozTools 4.0](https://github.com/servo/servo-build-deps/releases/download/msvc-deps/moztools-4.0.zip) to `C:\moztools-4.0`.
 2. Download and install LLVM for Windows (64 bit) from [LLVM Releases](https://github.com/llvm/llvm-project/releases/latest).
    - Note: When installing LLVM, choose to add LLVM to the system path.
 
 3. Follow the instructions at [Just Installation](https://github.com/casey/just#installation).
 
 4. Set Environment Variables
-```batch
-build.bat
-```
+	```batch
+	build.bat
+	```
 
 5. Build with Cargo
-```batch
-just build
-```
+	```batch
+	just build
+	```
 
 ### GNU
 
@@ -44,39 +44,36 @@ just build
 
 ## MacOS
 
-1. Install xcode command lines tools, if you haven't already
+1. Install Xcode command line tools, if you haven't.
+	```shell
+	xcode-select --install
+	```
 
-```shell
-xcode-select --install
-```
-
-2. Install build dependencies
-
-```shell
-brew install python3 llvm pkg-config make just
-```
+2. Install Build Dependencies.
+	```shell
+	brew install python3 llvm pkg-config make just
+	```
 
 3. Build with Cargo
-
-```shell
-CC=clang CXX=clang++ just build
-```
+	```shell
+	CC=clang CXX=clang++ just build
+	```
 
 ## Linux
 
 ### Debian, Ubuntu and Derivatives
 
-1. Install Build Dependencies
-```shell
-sudo apt install -y python3 python3-distutils autoconf2.13 clang llvm make pkg-config zlib1g-dev
-```
+1. Install Build Dependencies.
+	```shell
+	sudo apt install -y python3 python3-distutils autoconf2.13 clang llvm make pkg-config zlib1g-dev
+	```
 
 2. Follow the instructions at [Just Installation](https://github.com/casey/just#installation).
 
 3. Build with Cargo
-```shell
-CC=clang CXX=clang++ just build
-```
+	```shell
+	CC=clang CXX=clang++ just build
+	```
 
 ### Fedora, RHEL and Derivatives
 
