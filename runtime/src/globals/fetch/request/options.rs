@@ -93,7 +93,10 @@ impl FromStr for ReferrerPolicy {
 			"strict-origin" => Ok(RP::StrictOrigin),
 			"strict-origin-when-cross-origin" => Ok(RP::StrictOriginWhenCrossOrigin),
 			"unsafe-url" => Ok(RP::UnsafeUrl),
-			_ => Err(Error::new("Invalid value for Enumeration ReferrerPolicy", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration ReferrerPolicy",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }
@@ -189,7 +192,10 @@ impl FromStr for RequestCredentials {
 			"omit" => Ok(RC::Omit),
 			"same-origin" => Ok(RC::SameOrigin),
 			"include" => Ok(RC::Include),
-			_ => Err(Error::new("Invalid value for Enumeration RequestCredentials", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration RequestCredentials",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }
@@ -237,7 +243,10 @@ impl FromStr for RequestCache {
 			"no-cache" => Ok(RC::NoCache),
 			"force-cache" => Ok(RC::ForceCache),
 			"only-if-cached" => Ok(RC::OnlyIfCached),
-			_ => Err(Error::new("Invalid value for Enumeration RequestCache", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration RequestCache",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }
@@ -282,7 +291,10 @@ impl FromStr for RequestRedirect {
 			"follow" => Ok(RR::Follow),
 			"error" => Ok(RR::Error),
 			"manual" => Ok(RR::Manual),
-			_ => Err(Error::new("Invalid value for Enumeration RequestRedirect", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration RequestRedirect",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }
@@ -319,7 +331,10 @@ impl FromStr for RequestDuplex {
 	fn from_str(redirect: &str) -> Result<RequestDuplex> {
 		match redirect {
 			"half" => Ok(RequestDuplex::Half),
-			_ => Err(Error::new("Invalid value for Enumeration RequestDuplex", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration RequestDuplex",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }
@@ -350,7 +365,10 @@ impl FromStr for RequestPriority {
 			"high" => Ok(RP::High),
 			"low" => Ok(RP::Low),
 			"auto" => Ok(RP::Auto),
-			_ => Err(Error::new("Invalid value for Enumeration RequestPriority", ErrorKind::Type)),
+			_ => Err(Error::new(
+				"Invalid value for Enumeration RequestPriority",
+				ErrorKind::Type,
+			)),
 		}
 	}
 }

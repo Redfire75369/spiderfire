@@ -27,6 +27,12 @@ fn date() {
 	assert!(pre_epoch.is_valid(cx));
 
 	assert_eq!(Some(Utc.timestamp_millis_opt(EPOCH).unwrap()), epoch.to_date(cx));
-	assert_eq!(Some(Utc.timestamp_millis_opt(POST_EPOCH).unwrap()), post_epoch.to_date(cx));
-	assert_eq!(Some(Utc.timestamp_millis_opt(PRE_EPOCH).unwrap()), pre_epoch.to_date(cx));
+	assert_eq!(
+		Some(Utc.timestamp_millis_opt(POST_EPOCH).unwrap()),
+		post_epoch.to_date(cx)
+	);
+	assert_eq!(
+		Some(Utc.timestamp_millis_opt(PRE_EPOCH).unwrap()),
+		pre_epoch.to_date(cx)
+	);
 }

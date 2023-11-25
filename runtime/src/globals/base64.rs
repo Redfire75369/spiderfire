@@ -21,7 +21,8 @@ fn btoa(data: ByteString) -> String {
 
 #[js_fn]
 fn atob(data: ByteString) -> Result<ByteString> {
-	let bytes = decode_to_vec(data.as_bytes()).map_err(|_| Error::new(INVALID_CHARACTER_EXCEPTION, ErrorKind::Range))?;
+	let bytes = decode_to_vec(data.as_bytes());
+	let bytes = bytes.map_err(|_| Error::new(INVALID_CHARACTER_EXCEPTION, ErrorKind::Range))?;
 	Ok(unsafe { ByteString::from_unchecked(bytes) })
 }
 

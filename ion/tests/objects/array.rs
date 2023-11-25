@@ -21,8 +21,14 @@ fn array() {
 
 	let value1 = array.get(cx, 0).unwrap();
 	let value2 = array.get(cx, 2).unwrap();
-	assert_eq!(String::from("null"), String::from_value(cx, &value1, false, ()).unwrap());
-	assert_eq!(String::from("undefined"), String::from_value(cx, &value2, false, ()).unwrap());
+	assert_eq!(
+		String::from("null"),
+		String::from_value(cx, &value1, false, ()).unwrap()
+	);
+	assert_eq!(
+		String::from("undefined"),
+		String::from_value(cx, &value2, false, ()).unwrap()
+	);
 
 	assert!(array.delete(cx, 0));
 	assert!(array.delete(cx, 2));

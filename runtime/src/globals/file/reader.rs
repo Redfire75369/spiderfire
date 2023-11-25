@@ -27,9 +27,11 @@ use crate::promise::future_to_promise;
 fn encoding_from_string_mime(encoding: Option<&str>, mime: Option<&str>) -> &'static Encoding {
 	encoding
 		.and_then(|e| match Encoding::for_label_no_replacement(e.as_bytes()) {
-			None if mime.is_some() => Mime::from_str(mime.unwrap())
-				.ok()
-				.and_then(|mime| Encoding::for_label_no_replacement(mime.get_param("charset").map(|p| p.as_str().as_bytes()).unwrap_or(b""))),
+			None if mime.is_some() => Mime::from_str(mime.unwrap()).ok().and_then(|mime| {
+				Encoding::for_label_no_replacement(
+					mime.get_param("charset").map(|p| p.as_str().as_bytes()).unwrap_or(b""),
+				)
+			}),
 			e => e,
 		})
 		.unwrap_or(UTF_8)

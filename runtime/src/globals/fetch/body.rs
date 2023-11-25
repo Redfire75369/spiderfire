@@ -126,7 +126,9 @@ impl<'cx> FromValue<'cx> for FetchBody {
 				});
 			} else if let Ok(search_params) = <&URLSearchParams>::from_value(cx, value, strict, ()) {
 				return Ok(FetchBody {
-					body: FetchBodyInner::Bytes(Bytes::from(Serializer::new(String::new()).extend_pairs(search_params.pairs()).finish())),
+					body: FetchBodyInner::Bytes(Bytes::from(
+						Serializer::new(String::new()).extend_pairs(search_params.pairs()).finish(),
+					)),
 					source: Some(Heap::boxed(value.get())),
 					kind: Some(FetchBodyKind::URLSearchParams),
 				});

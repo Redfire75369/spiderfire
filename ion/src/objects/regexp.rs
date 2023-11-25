@@ -8,7 +8,10 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use mozjs::glue::JS_GetRegExpFlags;
-use mozjs::jsapi::{CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, JSObject, NewUCRegExpObject, ObjectIsRegExp};
+use mozjs::jsapi::{
+	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, JSObject, NewUCRegExpObject,
+	ObjectIsRegExp,
+};
 use mozjs::jsapi::RegExpFlags as REFlags;
 
 use crate::{Context, Local, Object, Value};
@@ -76,12 +79,16 @@ impl<'r> RegExp<'r> {
 		self.execute(cx, string, index, false, &mut rval, true).then_some(rval)
 	}
 
-	pub fn execute_match_no_static<'cx>(&self, cx: &'cx Context, string: &str, index: &mut usize) -> Option<Value<'cx>> {
+	pub fn execute_match_no_static<'cx>(
+		&self, cx: &'cx Context, string: &str, index: &mut usize,
+	) -> Option<Value<'cx>> {
 		let mut rval = Value::null(cx);
 		self.execute(cx, string, index, false, &mut rval, false).then_some(rval)
 	}
 
-	fn execute<'cx>(&self, cx: &'cx Context, string: &str, index: &mut usize, test: bool, rval: &mut Value<'cx>, with_static: bool) -> bool {
+	fn execute<'cx>(
+		&self, cx: &'cx Context, string: &str, index: &mut usize, test: bool, rval: &mut Value<'cx>, with_static: bool,
+	) -> bool {
 		let string: Vec<u16> = string.encode_utf16().collect();
 		if with_static {
 			let global = Object::global(cx);
@@ -115,7 +122,15 @@ impl<'r> RegExp<'r> {
 	pub fn check_syntax<'cx>(cx: &'cx Context, source: &str, flags: RegExpFlags) -> Result<(), Value<'cx>> {
 		let source: Vec<u16> = source.encode_utf16().collect();
 		let mut error = Value::undefined(cx);
-		let check = unsafe { CheckRegExpSyntax(cx.as_ptr(), source.as_ptr(), source.len(), flags.into(), error.handle_mut().into()) };
+		let check = unsafe {
+			CheckRegExpSyntax(
+				cx.as_ptr(),
+				source.as_ptr(),
+				source.len(),
+				flags.into(),
+				error.handle_mut().into(),
+			)
+		};
 		if check {
 			if error.handle().is_undefined() {
 				Ok(())

@@ -10,8 +10,8 @@ use std::ptr;
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper,
-	JSObject, JSTracer,
+	GCContext, GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext,
+	JSFunctionSpec, JSNativeWrapper, JSObject, JSTracer,
 };
 use mozjs::jsval::{JSVal, NullValue};
 
@@ -171,7 +171,16 @@ static ITERATOR_CLASS: NativeClass = NativeClass {
 		ext: ptr::null_mut(),
 		oOps: ptr::null_mut(),
 	},
-	prototype_chain: [Some(&TypeIdWrapper::<Iterator>::new()), None, None, None, None, None, None, None],
+	prototype_chain: [
+		Some(&TypeIdWrapper::<Iterator>::new()),
+		None,
+		None,
+		None,
+		None,
+		None,
+		None,
+		None,
+	],
 };
 
 static ITERATOR_METHODS: &[JSFunctionSpec] = &[
@@ -210,7 +219,10 @@ impl ClassDefinition for Iterator {
 	}
 
 	fn parent_class_info(cx: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
-		Some((&ITERATOR_CLASS, cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) })))
+		Some((
+			&ITERATOR_CLASS,
+			cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }),
+		))
 	}
 
 	fn constructor() -> (NativeFunction, u32) {

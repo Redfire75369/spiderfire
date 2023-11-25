@@ -11,9 +11,10 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use mozjs::jsapi::{
-	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp,
-	JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById, JS_HasOwnPropertyById, JS_HasPropertyById,
-	JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
+	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
+	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
+	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
+	JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
@@ -83,7 +84,14 @@ impl<'o> Object<'o> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
 			let mut rval = Value::undefined(cx);
-			unsafe { JS_GetPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), rval.handle_mut().into()) };
+			unsafe {
+				JS_GetPropertyById(
+					cx.as_ptr(),
+					self.handle().into(),
+					key.handle().into(),
+					rval.handle_mut().into(),
+				)
+			};
 			Some(rval)
 		} else {
 			None
@@ -92,7 +100,9 @@ impl<'o> Object<'o> {
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(&self, cx: &'cx Context, key: K, strict: bool, config: T::Config) -> Option<T> {
+	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(
+		&self, cx: &'cx Context, key: K, strict: bool, config: T::Config,
+	) -> Option<T> {
 		self.get(cx, key).and_then(|val| T::from_value(cx, &val, strict, config).ok())
 	}
 
@@ -101,20 +111,31 @@ impl<'o> Object<'o> {
 	/// Returns `false` if the property cannot be set.
 	pub fn set<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
 		let key = key.to_key(cx).unwrap();
-		unsafe { JS_SetPropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), value.handle().into()) }
+		unsafe {
+			JS_SetPropertyById(
+				cx.as_ptr(),
+				self.handle().into(),
+				key.handle().into(),
+				value.handle().into(),
+			)
+		}
 	}
 
 	/// Sets the Rust type at the given key of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, key: K, value: &T) -> bool {
+	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
+		&mut self, cx: &'cx Context, key: K, value: &T,
+	) -> bool {
 		self.set(cx, key, &value.as_value(cx))
 	}
 
 	/// Defines the [Value] at the given key of the [Object] with the given attributes.
 	///
 	/// Returns `false` if the property cannot be defined.
-	pub fn define<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags) -> bool {
+	pub fn define<'cx, K: ToPropertyKey<'cx>>(
+		&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags,
+	) -> bool {
 		let key = key.to_key(cx).unwrap();
 		unsafe {
 			JS_DefinePropertyById2(
@@ -159,7 +180,10 @@ impl<'o> Object<'o> {
 	/// Defines methods on the objects using the given [specs](JSFunctionSpec).
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpec::ZERO`.
-	#[cfg_attr(feature = "macros", doc = "\nThey can be created through [function_spec](crate::function_spec).")]
+	#[cfg_attr(
+		feature = "macros",
+		doc = "\nThey can be created through [function_spec](crate::function_spec)."
+	)]
 	pub unsafe fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
 		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
@@ -184,7 +208,14 @@ impl<'o> Object<'o> {
 	pub fn delete<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> bool {
 		let key = key.to_key(cx).unwrap();
 		let mut result = MaybeUninit::uninit();
-		unsafe { JS_DeletePropertyById(cx.as_ptr(), self.handle().into(), key.handle().into(), result.as_mut_ptr()) }
+		unsafe {
+			JS_DeletePropertyById(
+				cx.as_ptr(),
+				self.handle().into(),
+				key.handle().into(),
+				result.as_mut_ptr(),
+			)
+		}
 	}
 
 	/// Gets the builtin class of the object as described in the ECMAScript specification.

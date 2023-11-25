@@ -37,7 +37,9 @@ impl PrototypeSpecs {
 	}
 
 	pub(super) fn into_functions(self) -> Vec<Method> {
-		let mut functions = Vec::with_capacity(self.methods.0.len() + self.methods.1.len() + self.accessors.0.len() + self.accessors.1.len());
+		let mut functions = Vec::with_capacity(
+			self.methods.0.len() + self.methods.1.len() + self.accessors.0.len() + self.accessors.1.len(),
+		);
 
 		functions.extend(self.methods.0);
 		functions.extend(self.methods.1);
@@ -60,7 +62,9 @@ impl SpecFunctions {
 	}
 }
 
-fn methods_to_spec_function(ion: &TokenStream, span: Span, class: &Ident, methods: &[Method], r#static: bool) -> Result<ImplItemFn> {
+fn methods_to_spec_function(
+	ion: &TokenStream, span: Span, class: &Ident, methods: &[Method], r#static: bool,
+) -> Result<ImplItemFn> {
 	let ident = if r#static {
 		parse_quote!(ION_STATIC_FUNCTIONS)
 	} else {
@@ -96,11 +100,18 @@ fn methods_to_spec_function(ion: &TokenStream, span: Span, class: &Ident, method
 		.collect();
 	specs.push(parse_quote!(::mozjs::jsapi::JSFunctionSpec::ZERO));
 
-	spec_function(span, &ident, &function_ident, &specs, parse_quote!(::mozjs::jsapi::JSFunctionSpec))
+	spec_function(
+		span,
+		&ident,
+		&function_ident,
+		&specs,
+		parse_quote!(::mozjs::jsapi::JSFunctionSpec),
+	)
 }
 
 fn properties_to_spec_function(
-	ion: &TokenStream, span: Span, class: &Ident, properties: &[Property], accessors: &HashMap<String, Accessor>, r#static: bool,
+	ion: &TokenStream, span: Span, class: &Ident, properties: &[Property], accessors: &HashMap<String, Accessor>,
+	r#static: bool,
 ) -> Result<ImplItemFn> {
 	let ident: Ident = if r#static {
 		parse_quote!(ION_STATIC_PROPERTIES)
@@ -117,10 +128,18 @@ fn properties_to_spec_function(
 	accessors.values().for_each(|accessor| specs.extend(accessor.to_specs(ion, class)));
 	specs.push(parse_quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
 
-	spec_function(span, &ident, &function_ident, &specs, parse_quote!(::mozjs::jsapi::JSPropertySpec))
+	spec_function(
+		span,
+		&ident,
+		&function_ident,
+		&specs,
+		parse_quote!(::mozjs::jsapi::JSPropertySpec),
+	)
 }
 
-fn spec_function(span: Span, ident: &Ident, function_ident: &Ident, specs: &[TokenStream], ty: Type) -> Result<ImplItemFn> {
+fn spec_function(
+	span: Span, ident: &Ident, function_ident: &Ident, specs: &[TokenStream], ty: Type,
+) -> Result<ImplItemFn> {
 	parse2(quote_spanned!(span => fn #function_ident() -> &'static [#ty] {
 		static #ident: &[#ty] = &[
 			#(#specs),*

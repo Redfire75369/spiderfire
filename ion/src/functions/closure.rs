@@ -9,7 +9,8 @@ use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, GetFunctionNativeReserved, JS_NewObject, JS_SetReservedSlot, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSObject,
+	GCContext, GetFunctionNativeReserved, JS_NewObject, JS_SetReservedSlot, JSClass, JSCLASS_BACKGROUND_FINALIZE,
+	JSClassOps, JSContext, JSObject,
 };
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 

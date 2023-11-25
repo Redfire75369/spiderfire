@@ -122,9 +122,16 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 			unsafe {
 				SetJobQueue(
 					cx.as_ptr(),
-					CreateJobQueue(&JOB_QUEUE_TRAPS, private.event_loop.microtasks.as_ref().unwrap() as *const _ as *const _),
+					CreateJobQueue(
+						&JOB_QUEUE_TRAPS,
+						private.event_loop.microtasks.as_ref().unwrap() as *const _ as *const _,
+					),
 				);
-				SetPromiseRejectionTrackerCallback(cx.as_ptr(), Some(promise_rejection_tracker_callback), ptr::null_mut());
+				SetPromiseRejectionTrackerCallback(
+					cx.as_ptr(),
+					Some(promise_rejection_tracker_callback),
+					ptr::null_mut(),
+				);
 			}
 		}
 		if self.macrotask_queue {

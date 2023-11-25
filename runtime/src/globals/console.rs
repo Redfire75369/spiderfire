@@ -119,7 +119,10 @@ fn assert(cx: &Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Val
 
 			if values[0].handle().is_string() {
 				print_indent(true);
-				eprint!("Assertion Failed: {} ", format_primitive(cx, FormatConfig::default(), &values[0]));
+				eprint!(
+					"Assertion Failed: {} ",
+					format_primitive(cx, FormatConfig::default(), &values[0])
+				);
 				print_args(cx, &values[2..], true);
 				eprintln!();
 				return;
@@ -345,7 +348,9 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		let mut header_row = vec![TableCell::new_with_alignment("Indices", 1, Alignment::Center)];
 		let mut headers = columns
 			.iter()
-			.map(|column| TableCell::new_with_alignment(format_key(cx, FormatConfig::default(), column), 1, Alignment::Center))
+			.map(|column| {
+				TableCell::new_with_alignment(format_key(cx, FormatConfig::default(), column), 1, Alignment::Center)
+			})
 			.collect();
 		header_row.append(&mut headers);
 		if has_values {
@@ -389,7 +394,10 @@ fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
 		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
 	} else if Config::global().log_level >= LogLevel::Info {
 		print_indent(true);
-		println!("{}", format_value(cx, FormatConfig::default().indentation(indents), &data));
+		println!(
+			"{}",
+			format_value(cx, FormatConfig::default().indentation(indents), &data)
+		);
 	}
 }
 
@@ -418,5 +426,6 @@ const METHODS: &[JSFunctionSpec] = &[
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
 	let mut console = Object::new(cx);
-	(unsafe { console.define_methods(cx, METHODS) }) && global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
+	(unsafe { console.define_methods(cx, METHODS) })
+		&& global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
 }

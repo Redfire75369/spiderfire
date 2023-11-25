@@ -1,9 +1,10 @@
+chain_width = 90
 edition = "2021"
 force_explicit_abi = true
 fn_params_layout = "Compressed"
 hard_tabs = true
 match_arm_leading_pipes = "Never"
-max_width = 150
+max_width = 120
 merge_derives = true
 newline_style = "Unix"
 remove_nested_parens = true

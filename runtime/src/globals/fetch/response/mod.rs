@@ -126,8 +126,14 @@ impl Response {
 		let mut headers = init.headers.into_headers(HeaderMap::new(), HeadersKind::Response)?;
 
 		if let Some(body) = body {
-			if init.status == StatusCode::NO_CONTENT || init.status == StatusCode::RESET_CONTENT || init.status == StatusCode::NOT_MODIFIED {
-				return Err(Error::new("Received non-null body with null body status.", ErrorKind::Type));
+			if init.status == StatusCode::NO_CONTENT
+				|| init.status == StatusCode::RESET_CONTENT
+				|| init.status == StatusCode::NOT_MODIFIED
+			{
+				return Err(Error::new(
+					"Received non-null body with null body status.",
+					ErrorKind::Type,
+				));
 			}
 
 			if let Some(kind) = &body.kind {

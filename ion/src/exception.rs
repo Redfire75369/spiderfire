@@ -6,8 +6,9 @@
 
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
-	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetPendingExceptionStack, IdentifyStandardInstance,
-	JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending, JS_SetPendingException, Rooted,
+	ESClass, ExceptionStack, ExceptionStackBehavior, ExceptionStackOrNull, GetPendingExceptionStack,
+	IdentifyStandardInstance, JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending,
+	JS_SetPendingException, Rooted,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
@@ -136,7 +137,13 @@ impl ThrowException for Exception {
 			Exception::Error(error) => {
 				if let Error { object: Some(object), .. } = error {
 					let exception = Value::from(cx.root_value(ObjectValue(*object)));
-					unsafe { JS_SetPendingException(cx.as_ptr(), exception.handle().into(), ExceptionStackBehavior::DoNotCapture) }
+					unsafe {
+						JS_SetPendingException(
+							cx.as_ptr(),
+							exception.handle().into(),
+							ExceptionStackBehavior::DoNotCapture,
+						)
+					}
 				} else {
 					error.throw(cx);
 				}

@@ -31,7 +31,10 @@ pub(crate) fn impl_wrapper_fn(
 	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none());
 
 	let wrapper_generics: [GenericParam; 2] = [parse_quote!('cx), parse_quote!('a)];
-	let mut wrapper_args: Vec<FnArg> = vec![parse_quote!(__cx: &'cx #ion::Context), parse_quote!(__args: &'a mut #ion::Arguments<'cx>)];
+	let mut wrapper_args: Vec<FnArg> = vec![
+		parse_quote!(__cx: &'cx #ion::Context),
+		parse_quote!(__args: &'a mut #ion::Arguments<'cx>),
+	];
 
 	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 

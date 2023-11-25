@@ -12,8 +12,8 @@ use futures::executor::block_on;
 use libffi::high::ClosureOnce3;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
-	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject, PromiseState, RejectPromise,
-	ResolvePromise,
+	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject,
+	PromiseState, RejectPromise, ResolvePromise,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::HandleObject;
@@ -155,7 +155,9 @@ impl<'p> Promise<'p> {
 	/// `on_resolved` is similar to calling `.then()` on a promise.
 	///
 	/// `on_rejected` is similar to calling `.catch()` on a promise.
-	pub fn add_reactions(&self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>) -> bool {
+	pub fn add_reactions(
+		&self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>,
+	) -> bool {
 		let mut resolved = Object::null(cx);
 		let mut rejected = Object::null(cx);
 		if let Some(on_resolved) = on_resolved {
@@ -164,7 +166,14 @@ impl<'p> Promise<'p> {
 		if let Some(on_rejected) = on_rejected {
 			rejected.handle_mut().set(on_rejected.to_object(cx).handle().get());
 		}
-		unsafe { AddPromiseReactions(cx.as_ptr(), self.handle().into(), resolved.handle().into(), rejected.handle().into()) }
+		unsafe {
+			AddPromiseReactions(
+				cx.as_ptr(),
+				self.handle().into(),
+				resolved.handle().into(),
+				rejected.handle().into(),
+			)
+		}
 	}
 
 	/// Resolves the [Promise] with the given [Value].

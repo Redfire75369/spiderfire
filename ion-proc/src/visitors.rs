@@ -14,10 +14,11 @@ impl VisitMut for LifetimeRemover {
 	fn visit_type_path_mut(&mut self, ty: &mut TypePath) {
 		if let Some(segment) = ty.path.segments.last_mut() {
 			if let PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
-				arguments.args = Punctuated::from_iter(arguments.args.clone().into_iter().filter(|argument| match argument {
+				let args = arguments.args.clone().into_iter().filter(|argument| match argument {
 					GenericArgument::Lifetime(lt) => *lt == parse_quote!('static),
 					_ => true,
-				}));
+				});
+				arguments.args = Punctuated::from_iter(args);
 			}
 		}
 		visit_type_path_mut(self, ty);

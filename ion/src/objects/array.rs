@@ -105,7 +105,9 @@ impl<'a> Array<'a> {
 
 	/// Gets the value at the given index of the [Array] as a Rust type.
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
-	pub fn get_as<'cx, T: FromValue<'cx>>(&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config) -> Option<T> {
+	pub fn get_as<'cx, T: FromValue<'cx>>(
+		&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config,
+	) -> Option<T> {
 		self.arr.get_as(cx, index, strict, config)
 	}
 
@@ -129,7 +131,9 @@ impl<'a> Array<'a> {
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags) -> bool {
+	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(
+		&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
+	) -> bool {
 		self.arr.define_as(cx, index, value, attrs)
 	}
 

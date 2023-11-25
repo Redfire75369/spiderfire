@@ -11,8 +11,8 @@ use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction, JSFunctionSpec, JSObject,
-	JSPropertySpec,
+	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction,
+	JSFunctionSpec, JSObject, JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
@@ -95,7 +95,8 @@ pub trait ClassDefinition: NativeObject {
 				};
 				let prototype = cx.root_object(class);
 
-				let constructor = Object::from(cx.root_object(unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) }));
+				let constructor = unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) };
+				let constructor = Object::from(cx.root_object(constructor));
 				let constructor = Function::from_object(cx, &constructor).unwrap();
 
 				let class_info = ClassInfo {
@@ -112,7 +113,13 @@ pub trait ClassDefinition: NativeObject {
 	fn new_raw_object(cx: &Context) -> *mut JSObject {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let info = infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class");
-		unsafe { JS_NewObjectWithGivenProto(cx.as_ptr(), &Self::class().base, Handle::from_marked_location(&info.prototype)) }
+		unsafe {
+			JS_NewObjectWithGivenProto(
+				cx.as_ptr(),
+				&Self::class().base,
+				Handle::from_marked_location(&info.prototype),
+			)
+		}
 	}
 
 	fn new_object(cx: &Context, native: Box<Self>) -> *mut JSObject {

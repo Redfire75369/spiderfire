@@ -20,7 +20,10 @@ use runtime::promise::future_to_promise;
 
 fn check_exists(path: &Path) -> Result<()> {
 	if path.exists() {
-		Err(Error::new(&format!("Path {} does not exist", path.to_str().unwrap()), None))
+		Err(Error::new(
+			&format!("Path {} does not exist", path.to_str().unwrap()),
+			None,
+		))
 	} else {
 		Ok(())
 	}
@@ -37,7 +40,10 @@ fn check_not_exists(path: &Path) -> Result<()> {
 fn check_is_file(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_file() {
-		Err(Error::new(&format!("Path {} is not a file", path.to_str().unwrap()), None))
+		Err(Error::new(
+			&format!("Path {} is not a file", path.to_str().unwrap()),
+			None,
+		))
 	} else {
 		Ok(())
 	}
@@ -55,7 +61,10 @@ fn check_is_not_file(path: &Path) -> Result<()> {
 fn check_is_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_dir() {
-		Err(Error::new(&format!("Path {} is not a directory", path.to_str().unwrap()), None))
+		Err(Error::new(
+			&format!("Path {} is not a directory", path.to_str().unwrap()),
+			None,
+		))
 	} else {
 		Ok(())
 	}
@@ -64,7 +73,10 @@ fn check_is_dir(path: &Path) -> Result<()> {
 fn check_is_not_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if !path.is_dir() {
-		Err(Error::new(&format!("Path {} is a directory", path.to_str().unwrap()), None))
+		Err(Error::new(
+			&format!("Path {} is a directory", path.to_str().unwrap()),
+			None,
+		))
 	} else {
 		Ok(())
 	}
@@ -129,11 +141,14 @@ fn readDir(cx: &Context, path_str: String) -> Option<Promise> {
 
 		check_is_dir(path)?;
 		if let Ok(dir) = tokio::fs::read_dir(path).await {
-			let entries: Vec<_> = ReadDirStream::new(dir).filter_map(|entry| async move { entry.ok() }).collect().await;
-			let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
-			str_entries.sort();
+			let mut entries: Vec<_> = ReadDirStream::new(dir)
+				.filter_map(|entry| async move { entry.ok() })
+				.map(|entry| entry.file_name().into_string().unwrap())
+				.collect()
+				.await;
+			entries.sort();
 
-			Ok(str_entries)
+			Ok(entries)
 		} else {
 			Ok(Vec::new())
 		}
@@ -146,11 +161,13 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 
 	check_is_dir(path)?;
 	if let Ok(dir) = fs::read_dir(path) {
-		let entries: Vec<_> = dir.filter_map(|entry| entry.ok()).collect();
-		let mut str_entries: Vec<String> = entries.iter().map(|entry| entry.file_name().into_string().unwrap()).collect();
-		str_entries.sort();
+		let mut entries: Vec<_> = dir
+			.filter_map(|entry| entry.ok())
+			.map(|entry| entry.file_name().into_string().unwrap())
+			.collect();
+		entries.sort();
 
-		Ok(str_entries)
+		Ok(entries)
 	} else {
 		Ok(Vec::new())
 	}

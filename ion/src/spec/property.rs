@@ -5,9 +5,9 @@
  */
 
 use mozjs::jsapi::{
-	JSNativeWrapper, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue, JSPropertySpec_AccessorsOrValue_Accessors,
-	JSPropertySpec_Kind, JSPropertySpec_Name, JSPropertySpec_ValueWrapper, JSPropertySpec_ValueWrapper__bindgen_ty_1,
-	JSPropertySpec_ValueWrapper_Type,
+	JSNativeWrapper, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue,
+	JSPropertySpec_AccessorsOrValue_Accessors, JSPropertySpec_Kind, JSPropertySpec_Name, JSPropertySpec_ValueWrapper,
+	JSPropertySpec_ValueWrapper__bindgen_ty_1, JSPropertySpec_ValueWrapper_Type,
 };
 
 use crate::flags::PropertyFlags;
@@ -31,7 +31,9 @@ pub const fn create_property_spec_accessor(
 }
 
 /// Creates a [property spec](JSPropertySpec) with a name, static string and attributes.
-pub const fn create_property_spec_string(name: &'static str, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
+pub const fn create_property_spec_string(
+	name: &'static str, string: &'static str, attrs: PropertyFlags,
+) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		attributes_: attrs.bits() as u8,
@@ -93,7 +95,9 @@ pub const fn create_property_spec_symbol_accessor(
 }
 
 /// Creates a [property spec](JSPropertySpec) with a symbol, static string and attributes.
-pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, string: &'static str, attrs: PropertyFlags) -> JSPropertySpec {
+pub const fn create_property_spec_symbol_string(
+	symbol: WellKnownSymbolCode, string: &'static str, attrs: PropertyFlags,
+) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		attributes_: attrs.bits() as u8,
@@ -108,7 +112,9 @@ pub const fn create_property_spec_symbol_string(symbol: WellKnownSymbolCode, str
 }
 
 /// Creates a [property spec](JSPropertySpec) with a symbol, integer and attributes.
-pub const fn create_property_spec_symbol_int(symbol: WellKnownSymbolCode, int: i32, attrs: PropertyFlags) -> JSPropertySpec {
+pub const fn create_property_spec_symbol_int(
+	symbol: WellKnownSymbolCode, int: i32, attrs: PropertyFlags,
+) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		attributes_: attrs.bits() as u8,
@@ -123,7 +129,9 @@ pub const fn create_property_spec_symbol_int(symbol: WellKnownSymbolCode, int: i
 }
 
 /// Creates a [property spec](JSPropertySpec) with a symbol, double and attributes.
-pub const fn create_property_spec_symbol_double(symbol: WellKnownSymbolCode, double: f64, attrs: PropertyFlags) -> JSPropertySpec {
+pub const fn create_property_spec_symbol_double(
+	symbol: WellKnownSymbolCode, double: f64, attrs: PropertyFlags,
+) -> JSPropertySpec {
 	JSPropertySpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		attributes_: attrs.bits() as u8,

@@ -39,10 +39,20 @@ pub(crate) enum Command {
 
 	#[command(about = "Runs a JavaScript file")]
 	Run {
-		#[arg(help = "The JavaScript file to run, Default: 'main.js'", required(false), default_value = "main.js")]
+		#[arg(
+			help = "The JavaScript file to run, Default: 'main.js'",
+			required(false),
+			default_value = "main.js"
+		)]
 		path: String,
 
-		#[arg(help = "Sets logging level, Default: ERROR", short, long, required(false), default_value = "ERROR")]
+		#[arg(
+			help = "Sets logging level, Default: ERROR",
+			short,
+			long,
+			required(false),
+			default_value = "ERROR"
+		)]
 		log_level: String,
 
 		#[arg(help = "Sets logging level to DEBUG", short, long)]

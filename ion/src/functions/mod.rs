@@ -32,7 +32,9 @@ pub fn __handle_native_function_result(cx: &Context, result: Result<ResultExc<()
 }
 
 #[doc(hidden)]
-pub fn __handle_native_constructor_result(cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: &mut Value) -> bool {
+pub fn __handle_native_constructor_result(
+	cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: &mut Value,
+) -> bool {
 	match result {
 		Ok(Ok(_)) => {
 			this.to_value(cx, rval);

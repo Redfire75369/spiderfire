@@ -24,7 +24,9 @@ impl<'pd> PropertyDescriptor<'pd> {
 		desc
 	}
 
-	pub fn new_accessor(cx: &'pd Context, getter: &Function, setter: &Function, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
+	pub fn new_accessor(
+		cx: &'pd Context, getter: &Function, setter: &Function, attrs: PropertyFlags,
+	) -> PropertyDescriptor<'pd> {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
@@ -43,14 +45,20 @@ impl<'pd> PropertyDescriptor<'pd> {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
 		unsafe {
-			ObjectToCompletePropertyDescriptor(cx.as_ptr(), object.handle().into(), desc_value.handle().into(), desc.handle_mut().into())
-				.then_some(desc)
+			ObjectToCompletePropertyDescriptor(
+				cx.as_ptr(),
+				object.handle().into(),
+				desc_value.handle().into(),
+				desc.handle_mut().into(),
+			)
+			.then_some(desc)
 		}
 	}
 
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		let mut value = Value::undefined(cx);
-		unsafe { FromPropertyDescriptor(cx.as_ptr(), self.handle().into(), value.handle_mut().into()) }.then(|| value.to_object(cx))
+		unsafe { FromPropertyDescriptor(cx.as_ptr(), self.handle().into(), value.handle_mut().into()) }
+			.then(|| value.to_object(cx))
 	}
 
 	pub fn is_configurable(&self) -> bool {

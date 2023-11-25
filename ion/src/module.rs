@@ -8,8 +8,8 @@ use std::path::Path;
 use std::ptr;
 
 use mozjs::jsapi::{
-	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject, ModuleEvaluate, ModuleLink,
-	SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject,
+	ModuleEvaluate, ModuleLink, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -106,7 +106,9 @@ impl<'cx> Module<'cx> {
 	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
 	/// The promise is a byproduct of enabling top-level await.
 	#[allow(clippy::result_large_err)]
-	pub fn compile(cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
+	pub fn compile(
+		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
+	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
@@ -139,7 +141,10 @@ impl<'cx> Module<'cx> {
 				Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
 			}
 		} else {
-			Err(ModuleError::new(ErrorReport::new(cx).unwrap(), ModuleErrorKind::Compilation))
+			Err(ModuleError::new(
+				ErrorReport::new(cx).unwrap(),
+				ModuleErrorKind::Compilation,
+			))
 		}
 	}
 
@@ -192,7 +197,9 @@ impl ModuleLoader for () {
 
 /// Initialises a module loader in the current runtime.
 pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) {
-	unsafe extern "C" fn resolve(cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>) -> *mut JSObject {
+	unsafe extern "C" fn resolve(
+		cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>,
+	) -> *mut JSObject {
 		let cx = unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
@@ -206,7 +213,9 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 			.unwrap_or_else(ptr::null_mut)
 	}
 
-	unsafe extern "C" fn metadata(cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>) -> bool {
+	unsafe extern "C" fn metadata(
+		cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>,
+	) -> bool {
 		let cx = unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };

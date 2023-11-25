@@ -45,7 +45,11 @@ impl Display for ArrayDisplay<'_> {
 
 					for value in vec.into_iter().take(len) {
 						f.write_str(&inner)?;
-						write!(f, "{}", format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value))?;
+						write!(
+							f,
+							"{}",
+							format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value)
+						)?;
 						write!(f, "{}", ",".color(colour))?;
 						f.write_str(NEWLINE)?;
 					}
@@ -56,7 +60,11 @@ impl Display for ArrayDisplay<'_> {
 					let len = length.clamp(0, 3);
 
 					for (i, value) in vec.into_iter().enumerate().take(len) {
-						write!(f, "{}", format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value))?;
+						write!(
+							f,
+							"{}",
+							format_value(self.cx, self.cfg.depth(self.cfg.depth + 1).quoted(true), &value)
+						)?;
 
 						if i != len - 1 {
 							write!(f, "{}", ",".color(colour))?;

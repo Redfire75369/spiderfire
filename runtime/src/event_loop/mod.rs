@@ -38,7 +38,9 @@ impl EventLoop {
 		poll_fn(|wcx| self.poll_event_loop(cx, wcx, &mut complete)).await
 	}
 
-	fn poll_event_loop(&mut self, cx: &Context, wcx: &mut task::Context, complete: &mut bool) -> Poll<Result<(), Option<ErrorReport>>> {
+	fn poll_event_loop(
+		&mut self, cx: &Context, wcx: &mut task::Context, complete: &mut bool,
+	) -> Poll<Result<(), Option<ErrorReport>>> {
 		if let Some(futures) = &mut self.futures {
 			if !futures.is_empty() {
 				futures.run_futures(cx, wcx)?;
@@ -60,7 +62,10 @@ impl EventLoop {
 		while let Some(promise) = self.unhandled_rejections.pop_front() {
 			let promise = Promise::from(unsafe { Local::from_heap(&promise) }).unwrap();
 			let result = promise.result(cx);
-			eprintln!("Unhandled Promise Rejection: {}", format_value(cx, Config::default(), &result));
+			eprintln!(
+				"Unhandled Promise Rejection: {}",
+				format_value(cx, Config::default(), &result)
+			);
 		}
 
 		let empty = self.is_empty();

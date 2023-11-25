@@ -13,8 +13,8 @@ use std::ptr::NonNull;
 
 use mozjs::gc::{GCMethods, RootedTraceableSet};
 use mozjs::jsapi::{
-	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey,
-	Rooted, Symbol,
+	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString,
+	PropertyDescriptor, PropertyKey, Rooted, Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::Runtime;

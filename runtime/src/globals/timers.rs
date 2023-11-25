@@ -17,10 +17,16 @@ use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
 const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;
 
-fn set_timer(cx: &Context, callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool) -> Result<u32> {
+fn set_timer(
+	cx: &Context, callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool,
+) -> Result<u32> {
 	let event_loop = unsafe { &mut (*cx.get_private().as_ptr()).event_loop };
 	if let Some(queue) = &mut event_loop.macrotasks {
-		let minimum = if queue.nesting > 5 { MINIMUM_DELAY_NESTED } else { MINIMUM_DELAY };
+		let minimum = if queue.nesting > 5 {
+			MINIMUM_DELAY_NESTED
+		} else {
+			MINIMUM_DELAY
+		};
 
 		let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
 		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
@@ -45,13 +51,17 @@ fn clear_timer(cx: &Context, id: Option<u32>) -> Result<()> {
 }
 
 #[js_fn]
-fn setTimeout(cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, #[ion(varargs)] arguments: Vec<JSVal>) -> Result<u32> {
+fn setTimeout(
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
+	#[ion(varargs)] arguments: Vec<JSVal>,
+) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, false)
 }
 
 #[js_fn]
 fn setInterval(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, #[ion(varargs)] arguments: Vec<JSVal>,
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
+	#[ion(varargs)] arguments: Vec<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, true)
 }

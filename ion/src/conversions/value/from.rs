@@ -7,15 +7,17 @@
 use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 pub use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{
-	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction, JSObject, JSString, RootedObject,
-	RootedValue,
+	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction,
+	JSObject, JSString, RootedObject, RootedValue,
 };
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
 
-use crate::{Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value};
+use crate::{
+	Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value,
+};
 use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
 
@@ -54,7 +56,10 @@ macro_rules! impl_from_value_for_integer {
 			fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ConversionBehavior) -> Result<$ty> {
 				let value = value.handle();
 				if strict && !value.is_number() {
-					return Err(Error::new("Expected Number in Strict Conversion", ErrorKind::Type));
+					return Err(Error::new(
+						"Expected Number in Strict Conversion",
+						ErrorKind::Type,
+					));
 				}
 
 				match unsafe { <$ty>::from_jsval(cx.as_ptr(), value, config) } {
@@ -134,7 +139,9 @@ impl<'cx, T: BytePredicate> FromValue<'cx> for ByteString<T> {
 		const INVALID_CHARACTERS: &str = "ByteString contains invalid characters";
 		let string = StringRef::from_value(cx, value, strict, config)?;
 		match string {
-			StringRef::Latin1(bstr) => ByteString::from(bstr.to_vec()).ok_or_else(|| Error::new(INVALID_CHARACTERS, ErrorKind::Type)),
+			StringRef::Latin1(bstr) => {
+				ByteString::from(bstr.to_vec()).ok_or_else(|| Error::new(INVALID_CHARACTERS, ErrorKind::Type))
+			}
 			StringRef::Utf16(wstr) => {
 				let bytes = wstr
 					.as_bytes()
@@ -393,7 +400,13 @@ where
 		let iterator = ForOfIteratorGuard::new(cx, &mut iterator);
 		let iterator = &mut *iterator.root;
 
-		if unsafe { !iterator.init(value.handle().into(), ForOfIterator_NonIterableBehavior::AllowNonIterable) } {
+		let init = unsafe {
+			iterator.init(
+				value.handle().into(),
+				ForOfIterator_NonIterableBehavior::AllowNonIterable,
+			)
+		};
+		if !init {
 			return Err(Error::new("Failed to Initialise Iterator", ErrorKind::Type));
 		}
 

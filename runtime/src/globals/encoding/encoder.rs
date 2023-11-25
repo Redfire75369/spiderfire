@@ -44,7 +44,8 @@ impl TextEncoder {
 
 	pub fn encode(&mut self, input: Option<String>) -> Uint8Array {
 		let input = input.unwrap_or_default();
-		let mut buf = Vec::with_capacity(self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap());
+		let buf_len = self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap();
+		let mut buf = Vec::with_capacity(buf_len);
 		let (_, _, _) = self.encoder.encode_from_utf8_to_vec(&input, &mut buf, true);
 		Uint8Array::from(buf)
 	}

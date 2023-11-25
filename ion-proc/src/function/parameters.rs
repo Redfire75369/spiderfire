@@ -79,7 +79,8 @@ impl Parameter {
 
 				for attr in &pat_ty.attrs {
 					if attr.path().is_ident("ion") {
-						let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+						let args: Punctuated<ParameterAttribute, Token![,]> =
+							attr.parse_args_with(Punctuated::parse_terminated)?;
 
 						use ParameterAttribute as PA;
 						for arg in args {
@@ -134,7 +135,9 @@ impl Parameter {
 		use Parameter as P;
 		let ty = self.get_type_without_lifetimes();
 		match self {
-			P::Regular { pat, conversion, strict, option, .. } => regular_param_statement(ion, pat, &ty, option.as_deref(), conversion, *strict),
+			P::Regular { pat, conversion, strict, option, .. } => {
+				regular_param_statement(ion, pat, &ty, option.as_deref(), conversion, *strict)
+			}
 			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
 			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
 			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
@@ -156,7 +159,8 @@ impl ThisParameter {
 					_ => {
 						for attr in &pat_ty.attrs {
 							if attr.path().is_ident("ion") {
-								let args: Punctuated<ParameterAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
+								let args: Punctuated<ParameterAttribute, Token![,]> =
+									attr.parse_args_with(Punctuated::parse_terminated)?;
 								for arg in args {
 									if let ParameterAttribute::This(_) = arg {
 										return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
@@ -191,7 +195,11 @@ impl ThisParameter {
 	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
 		let self_ = parse_quote!(self_);
-		let pat = if is_class && **pat == parse_quote!(self) { &self_ } else { pat };
+		let pat = if is_class && **pat == parse_quote!(self) {
+			&self_
+		} else {
+			pat
+		};
 		let mut ty = ty.clone();
 		visit_type_mut(&mut LifetimeRemover, &mut ty);
 
@@ -228,7 +236,10 @@ impl Parameters {
 					Ok(Some(this_param)) => {
 						if let Pat::Ident(ident) = (*this_param.pat).clone() {
 							if let Some(this) = &this {
-								return Some(Err(Error::new(this.1.span(), "Unable to have multiple this/self parameters")));
+								return Some(Err(Error::new(
+									this.1.span(),
+									"Unable to have multiple this/self parameters",
+								)));
 							}
 							this = Some((this_param, ident.ident.clone(), i));
 						}
@@ -301,7 +312,9 @@ impl Parameters {
 					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
 						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
 					}
-					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
+					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => {
+						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
+					}
 				})
 				.collect::<Vec<_>>(),
 		);
@@ -310,8 +323,12 @@ impl Parameters {
 			args.insert(
 				*index,
 				match kind {
-					ThisKind::Ref(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
-					ThisKind::Object(lt, mutability) => parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap(),
+					ThisKind::Ref(lt, mutability) => {
+						parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap()
+					}
+					ThisKind::Object(lt, mutability) => {
+						parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap()
+					}
 					ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
 				},
 			);
@@ -331,7 +348,9 @@ impl Parameters {
 	}
 }
 
-fn regular_param_statement(ion: &TokenStream, pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool) -> Result<Stmt> {
+fn regular_param_statement(
+	ion: &TokenStream, pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool,
+) -> Result<Stmt> {
 	let pat_str = format_pat(pat);
 	let not_found_error = if let Some(pat) = pat_str {
 		format!("Argument {} at index {{}} was not found.", pat)

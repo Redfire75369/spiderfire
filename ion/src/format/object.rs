@@ -48,13 +48,39 @@ impl Display for ObjectDisplay<'_> {
 		let class = self.object.get_builtin_class(cx);
 
 		match class {
-			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => write!(f, "{}", format_boxed(cx, cfg, &self.object)),
-			ESC::Array => write!(f, "{}", format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())),
-			ESC::Object => write!(f, "{}", format_plain_object(cx, cfg, &Object::from(object.into_local()))),
-			ESC::Date => write!(f, "{}", format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap())),
-			ESC::Promise => write!(f, "{}", format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap())),
-			ESC::RegExp => write!(f, "{}", format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap())),
-			ESC::Function => write!(f, "{}", format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap())),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => {
+				write!(f, "{}", format_boxed(cx, cfg, &self.object))
+			}
+			ESC::Array => write!(
+				f,
+				"{}",
+				format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())
+			),
+			ESC::Object => write!(
+				f,
+				"{}",
+				format_plain_object(cx, cfg, &Object::from(object.into_local()))
+			),
+			ESC::Date => write!(
+				f,
+				"{}",
+				format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap())
+			),
+			ESC::Promise => write!(
+				f,
+				"{}",
+				format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap())
+			),
+			ESC::RegExp => write!(
+				f,
+				"{}",
+				format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap())
+			),
+			ESC::Function => write!(
+				f,
+				"{}",
+				format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap())
+			),
 			ESC::Error => match Exception::from_object(cx, &self.object) {
 				Exception::Error(error) => f.write_str(&error.format()),
 				_ => unreachable!("Expected Error"),

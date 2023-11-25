@@ -57,7 +57,9 @@ impl Cache {
 		Ok(folder)
 	}
 
-	pub fn check_cache<P: AsRef<Path>>(&self, path: P, folder: &Path, source: &str) -> Result<(String, SourceMap), Error> {
+	pub fn check_cache<P: AsRef<Path>>(
+		&self, path: P, folder: &Path, source: &str,
+	) -> Result<(String, SourceMap), Error> {
 		let path = path.as_ref();
 		let source_file = path.file_stem().and_then(OsStr::to_str).ok_or(Error::Other)?;
 		let extension = path.extension().and_then(OsStr::to_str).ok_or(Error::Other)?;

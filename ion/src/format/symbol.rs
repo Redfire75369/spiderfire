@@ -37,24 +37,21 @@ impl Display for SymbolDisplay<'_> {
 
 		match code {
 			SymbolCode::WellKnown(code) => write!(f, "{}{}", "Symbol.".color(colour), code.identifier().color(colour)),
-			SymbolCode::PrivateNameSymbol => write!(
-				f,
-				"{}",
-				self.symbol
-					.description(self.cx)
-					.expect("Expected Description on Private Name Symbol")
-					.color(colour)
-			),
 			code => {
-				let description = self.symbol.description(self.cx).expect("Expected Description on Non-Well-Known Symbol");
+				let description = self
+					.symbol
+					.description(self.cx)
+					.expect("Expected Description on Non-Well-Known Symbol")
+					.color(colour);
 
 				match code {
+					SymbolCode::PrivateNameSymbol => return write!(f, "{}", description),
 					SymbolCode::InSymbolRegistry => write!(f, "{}", "Symbol.for(".color(colour),)?,
 					SymbolCode::UniqueSymbol => write!(f, "{}", "Symbol(".color(colour),)?,
 					_ => unreachable!(),
 				}
 
-				write!(f, "{}", description.color(self.cfg.colours.string))?;
+				write!(f, "{}", description)?;
 				write!(f, "{}", ")".color(colour))
 			}
 		}

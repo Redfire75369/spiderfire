@@ -24,11 +24,17 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 	let ion = &crate_from_attributes(&r#impl.attrs);
 
 	if !r#impl.generics.params.is_empty() {
-		return Err(Error::new(r#impl.generics.span(), "Native Class Impls cannot have generics."));
+		return Err(Error::new(
+			r#impl.generics.span(),
+			"Native Class Impls cannot have generics.",
+		));
 	}
 
 	if let Some(r#trait) = &r#impl.trait_ {
-		return Err(Error::new(r#trait.1.span(), "Native Class Impls cannot be for a trait."));
+		return Err(Error::new(
+			r#trait.1.span(),
+			"Native Class Impls cannot be for a trait.",
+		));
 	}
 
 	let r#type = *r#impl.self_ty.clone();
@@ -67,14 +73,21 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 
 	let constructor = match constructor {
 		Some(constructor) => constructor,
-		None => return Err(Error::new(r#impl.span(), "Native Class Impls must contain a constructor.")),
+		None => {
+			return Err(Error::new(
+				r#impl.span(),
+				"Native Class Impls must contain a constructor.",
+			))
+		}
 	};
 
 	let ident: Ident = parse2(quote_spanned!(r#type.span() => #r#type))?;
 	class_definition(ion, r#impl.span(), &r#type, &ident, constructor, specs)
 }
 
-fn parse_class_method(ion: &TokenStream, r#fn: &mut ImplItemFn, specs: &mut PrototypeSpecs, r#type: &Type) -> Result<Option<Method>> {
+fn parse_class_method(
+	ion: &TokenStream, r#fn: &mut ImplItemFn, specs: &mut PrototypeSpecs, r#type: &Type,
+) -> Result<Option<Method>> {
 	match &r#fn.vis {
 		Visibility::Public(_) => (),
 		_ => return Ok(None),

@@ -57,7 +57,10 @@ impl Debug for NativeClass {
 			.field("base", &self.base)
 			.field(
 				"prototype_chain",
-				&format!("[TypeIdWrapper; {}]", self.prototype_chain.iter().filter(|proto| proto.is_some()).count()),
+				&format!(
+					"[TypeIdWrapper; {}]",
+					self.prototype_chain.iter().filter(|proto| proto.is_some()).count()
+				),
 			)
 			.finish()
 	}

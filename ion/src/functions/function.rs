@@ -9,9 +9,10 @@ use std::ops::Deref;
 
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength,
-	JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction,
-	JS_ObjectIsFunction, JSContext, JSFunction, JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
+	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId,
+	JS_GetFunctionId, JS_GetFunctionLength, JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction,
+	JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction,
+	JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
 
@@ -31,10 +32,13 @@ pub struct Function<'f> {
 
 impl<'f> Function<'f> {
 	/// Creates a new [Function] with the given name, native function, number of arguments and flags.
-	pub fn new(cx: &'f Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function<'f> {
+	pub fn new(
+		cx: &'f Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags,
+	) -> Function<'f> {
 		let name = CString::new(name).unwrap();
 		Function {
-			function: cx.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
+			function: cx
+				.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
 		}
 	}
 
@@ -46,7 +50,9 @@ impl<'f> Function<'f> {
 	}
 
 	/// Creates a new [Function] with a [Closure].
-	pub fn from_closure(cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function<'f> {
+	pub fn from_closure(
+		cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags,
+	) -> Function<'f> {
 		unsafe {
 			let function = Function {
 				function: cx.root_function(NewFunctionWithReserved(
@@ -58,7 +64,11 @@ impl<'f> Function<'f> {
 				)),
 			};
 			let closure_object = create_closure_object(cx, closure);
-			SetFunctionNativeReserved(JS_GetFunctionObject(function.get()), 0, &ObjectValue(closure_object.handle().get()));
+			SetFunctionNativeReserved(
+				JS_GetFunctionObject(function.get()),
+				0,
+				&ObjectValue(closure_object.handle().get()),
+			);
 			function
 		}
 	}
@@ -116,17 +126,31 @@ impl<'f> Function<'f> {
 	/// Calls the [Function] with the given `this` [Object] and arguments.
 	/// Returns the result of the [Function] as a [Value].
 	/// Returns [Err] if the function call fails or an exception occurs.
-	pub fn call<'cx>(&self, cx: &'cx Context, this: &Object, args: &[Value]) -> Result<Value<'cx>, Option<ErrorReport>> {
+	pub fn call<'cx>(
+		&self, cx: &'cx Context, this: &Object, args: &[Value],
+	) -> Result<Value<'cx>, Option<ErrorReport>> {
 		let args: Vec<_> = args.iter().map(|a| a.get()).collect();
-		self.call_with_handle(cx, this, unsafe { HandleValueArray::from_rooted_slice(args.as_slice()) })
+		self.call_with_handle(cx, this, unsafe {
+			HandleValueArray::from_rooted_slice(args.as_slice())
+		})
 	}
 
 	/// Calls the [Function] with the given `this` [Object] and arguments as a [HandleValueArray].
 	/// Returns the result of the [Function] as a [Value].
 	/// Returns [Err] if the function call fails or an exception occurs.
-	pub fn call_with_handle<'cx>(&self, cx: &'cx Context, this: &Object, args: HandleValueArray) -> Result<Value<'cx>, Option<ErrorReport>> {
+	pub fn call_with_handle<'cx>(
+		&self, cx: &'cx Context, this: &Object, args: HandleValueArray,
+	) -> Result<Value<'cx>, Option<ErrorReport>> {
 		let mut rval = Value::undefined(cx);
-		if unsafe { JS_CallFunction(cx.as_ptr(), this.handle().into(), self.handle().into(), &args, rval.handle_mut().into()) } {
+		if unsafe {
+			JS_CallFunction(
+				cx.as_ptr(),
+				this.handle().into(),
+				self.handle().into(),
+				&args,
+				rval.handle_mut().into(),
+			)
+		} {
 			Ok(rval)
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx))

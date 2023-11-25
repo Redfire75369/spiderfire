@@ -12,7 +12,9 @@ use crate::flags::PropertyFlags;
 use crate::symbol::WellKnownSymbolCode;
 
 /// Creates a [function spec](JSFunctionSpec) with the given name, native function, number of arguments and flags.
-pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
+pub const fn create_function_spec(
+	name: &'static str, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags,
+) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { string_: name.as_ptr().cast() },
 		call: func,
@@ -23,7 +25,9 @@ pub const fn create_function_spec(name: &'static str, func: JSNativeWrapper, nar
 }
 
 /// Creates a [function spec](JSFunctionSpec) with the given symbol, native function, number of arguments and flags.
-pub const fn create_function_spec_symbol(symbol: WellKnownSymbolCode, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags) -> JSFunctionSpec {
+pub const fn create_function_spec_symbol(
+	symbol: WellKnownSymbolCode, func: JSNativeWrapper, nargs: u16, flags: PropertyFlags,
+) -> JSFunctionSpec {
 	JSFunctionSpec {
 		name: JSPropertySpec_Name { symbol_: symbol as u32 as usize + 1 },
 		call: func,
@@ -48,7 +52,12 @@ macro_rules! function_spec {
 		)
 	};
 	($function:expr, $name:expr, $nargs:expr) => {
-		function_spec!($function, $name, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
+		function_spec!(
+			$function,
+			$name,
+			$nargs,
+			$crate::flags::PropertyFlags::CONSTANT_ENUMERATED
+		)
 	};
 	($function:expr, $nargs:expr) => {
 		function_spec!($function, ::std::stringify!($function), $nargs)
@@ -70,6 +79,11 @@ macro_rules! function_spec_symbol {
 		)
 	};
 	($function:expr, $symbol:expr, $nargs:expr) => {
-		create_function_spec_symbol!($function, $symbol, $nargs, $crate::flags::PropertyFlags::CONSTANT_ENUMERATED)
+		create_function_spec_symbol!(
+			$function,
+			$symbol,
+			$nargs,
+			$crate::flags::PropertyFlags::CONSTANT_ENUMERATED
+		)
 	};
 }

@@ -53,7 +53,10 @@ impl Parse for Name {
 			if !string.starts_with('[') && !string.ends_with(']') {
 				Ok(Name::String(literal))
 			} else {
-				Err(Error::new(literal.span(), "Function name must not start with '[' or end with ']'"))
+				Err(Error::new(
+					literal.span(),
+					"Function name must not start with '[' or end with ']'",
+				))
 			}
 		} else if let Ok(other) = input.parse() {
 			Ok(Name::Symbol(other))

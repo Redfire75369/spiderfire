@@ -81,7 +81,8 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	let (body, requires_object) = impl_body(ion, input.span(), &input.data, name, tag, inherit, repr)?;
 
-	let object = requires_object.then(|| quote_spanned!(input.span() => let __object = #ion::Object::from_value(cx, value, true, ())?;));
+	let object = requires_object
+		.then(|| quote_spanned!(input.span() => let __object = #ion::Object::from_value(cx, value, true, ())?;));
 
 	parse2(quote_spanned!(input.span() =>
 		#[automatically_derived]
@@ -96,11 +97,14 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	))
 }
 
-fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag, inherit: bool, repr: Option<Ident>) -> Result<(Block, bool)> {
+fn impl_body(
+	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag, inherit: bool, repr: Option<Ident>,
+) -> Result<(Block, bool)> {
 	match data {
 		Data::Struct(data) => match &data.fields {
 			Fields::Named(fields) => {
-				let (requirement, idents, declarations, requires_object) = map_fields(ion, &fields.named, None, tag, inherit)?;
+				let mapped = map_fields(ion, &fields.named, None, tag, inherit)?;
+				let (requirement, idents, declarations, requires_object) = mapped;
 				parse2(quote_spanned!(span => {
 					#requirement
 					#(#declarations)*
@@ -109,7 +113,8 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 				.map(|b| (b, requires_object))
 			}
 			Fields::Unnamed(fields) => {
-				let (requirement, idents, declarations, requires_object) = map_fields(ion, &fields.unnamed, None, tag, inherit)?;
+				let mapped = map_fields(ion, &fields.unnamed, None, tag, inherit)?;
+				let (requirement, idents, declarations, requires_object) = mapped;
 				parse2(quote_spanned!(span => {
 					#requirement
 					#(#declarations)*
@@ -117,7 +122,9 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 				}))
 				.map(|block| (block, requires_object))
 			}
-			Fields::Unit => parse2(quote_spanned!(span => { ::std::result::Result::Ok(Self) })).map(|block| (block, false)),
+			Fields::Unit => {
+				parse2(quote_spanned!(span => { ::std::result::Result::Ok(Self) })).map(|block| (block, false))
+			}
 		},
 		Data::Enum(data) => {
 			let unit = data.variants.iter().all(|variant| matches!(variant.fields, Fields::Unit));
@@ -134,10 +141,11 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 
 					for attr in &variant.attrs {
 						if attr.path().is_ident("ion") {
-							let args: Punctuated<VariantAttribute, Token![,]> = match attr.parse_args_with(Punctuated::parse_terminated) {
-								Ok(args) => args,
-								Err(e) => return Some(Err(e)),
-							};
+							let args: Punctuated<VariantAttribute, Token![,]> =
+								match attr.parse_args_with(Punctuated::parse_terminated) {
+									Ok(args) => args,
+									Err(e) => return Some(Err(e)),
+								};
 
 							for arg in args {
 								match arg {
@@ -160,11 +168,12 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 					});
 					match &variant.fields {
 						Fields::Named(fields) => {
-							let (requirement, idents, declarations, requires_object) =
-								match map_fields(ion, &fields.named, Some(variant_string), tag, inherit) {
-									Ok(mapped) => mapped,
-									Err(e) => return Some(Err(e)),
-								};
+							let mapped = match map_fields(ion, &fields.named, Some(variant_string), tag, inherit) {
+								Ok(mapped) => mapped,
+								Err(e) => return Some(Err(e)),
+							};
+							let (requirement, idents, declarations, requires_object) = mapped;
+
 							Some(
 								parse2(quote_spanned!(variant.span() => {
 									let variant: #ion::Result<Self> = (|| {
@@ -178,11 +187,12 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 							)
 						}
 						Fields::Unnamed(fields) => {
-							let (requirement, idents, declarations, requires_object) =
-								match map_fields(ion, &fields.unnamed, Some(variant_string), tag, inherit) {
-									Ok(mapped) => mapped,
-									Err(e) => return Some(Err(e)),
-								};
+							let mapped = match map_fields(ion, &fields.unnamed, Some(variant_string), tag, inherit) {
+								Ok(mapped) => mapped,
+								Err(e) => return Some(Err(e)),
+							};
+							let (requirement, idents, declarations, requires_object) = mapped;
+
 							Some(
 								parse2(quote_spanned!(variant.span() => {
 									let variant: #ion::Result<Self> = (|| {
@@ -210,7 +220,10 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 									);
 								}
 							}
-							Some(parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);})).map(|block| (block, false)))
+							Some(
+								parse2(quote!({return ::std::result::Result::Ok(Self::#variant_ident);}))
+									.map(|block| (block, false)),
+							)
 						}
 					}
 				})
@@ -238,7 +251,10 @@ fn impl_body(ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag
 			}))
 			.map(|b| (b, requires_object))
 		}
-		Data::Union(_) => Err(Error::new(span, "#[derive(FromValue)] is not implemented for union types")),
+		Data::Union(_) => Err(Error::new(
+			span,
+			"#[derive(FromValue)] is not implemented for union types",
+		)),
 	}
 }
 

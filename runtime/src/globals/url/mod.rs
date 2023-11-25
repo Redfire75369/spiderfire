@@ -39,7 +39,10 @@ impl URL {
 	#[ion(constructor)]
 	pub fn constructor(#[ion(this)] this: &Object, cx: &Context, input: String, base: Option<String>) -> Result<URL> {
 		let base = base.as_ref().and_then(|base| Url::parse(base).ok());
-		let url = Url::options().base_url(base.as_ref()).parse(&input).map_err(|error| Error::new(&error.to_string(), None))?;
+		let url = Url::options()
+			.base_url(base.as_ref())
+			.parse(&input)
+			.map_err(|error| Error::new(&error.to_string(), None))?;
 
 		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
 		search_params.url.as_ref().unwrap().set(this.handle().get());

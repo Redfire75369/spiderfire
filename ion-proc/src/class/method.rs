@@ -33,7 +33,9 @@ pub(super) struct Method {
 	pub(super) names: Vec<Name>,
 }
 
-pub(super) fn impl_method<F>(ion: &TokenStream, mut method: ItemFn, ty: &Type, predicate: F) -> Result<(Method, Parameters)>
+pub(super) fn impl_method<F>(
+	ion: &TokenStream, mut method: ItemFn, ty: &Type, predicate: F,
+) -> Result<(Method, Parameters)>
 where
 	F: FnOnce(&Signature) -> Result<()>,
 {

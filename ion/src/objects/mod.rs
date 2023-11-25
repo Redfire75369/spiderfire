@@ -6,7 +6,10 @@
 
 use std::ptr;
 
-use mozjs::jsapi::{JS_NewGlobalObject, JSClass, JSCLASS_RESERVED_SLOTS_MASK, JSCLASS_RESERVED_SLOTS_SHIFT, JSPrincipals, OnNewGlobalHookOption};
+use mozjs::jsapi::{
+	JS_NewGlobalObject, JSClass, JSCLASS_RESERVED_SLOTS_MASK, JSCLASS_RESERVED_SLOTS_SHIFT, JSPrincipals,
+	OnNewGlobalHookOption,
+};
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 pub use array::Array;
@@ -52,5 +55,11 @@ pub fn new_global<'cx, P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmO
 }
 
 pub fn default_new_global(cx: &Context) -> Object {
-	new_global(cx, &SIMPLE_GLOBAL_CLASS, None, OnNewGlobalHookOption::FireOnNewGlobalHook, None)
+	new_global(
+		cx,
+		&SIMPLE_GLOBAL_CLASS,
+		None,
+		OnNewGlobalHookOption::FireOnNewGlobalHook,
+		None,
+	)
 }

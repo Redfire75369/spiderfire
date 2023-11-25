@@ -43,7 +43,12 @@ impl TextDecoder {
 		if let Some(label) = label {
 			let enc = Encoding::for_label_no_replacement(label.as_bytes());
 			match enc {
-				None => return Err(Error::new(&format!("The given encoding '{}' is not supported.", label), ErrorKind::Range)),
+				None => {
+					return Err(Error::new(
+						&format!("The given encoding '{}' is not supported.", label),
+						ErrorKind::Range,
+					))
+				}
 				Some(enc) => encoding = enc,
 			}
 		} else {
@@ -69,9 +74,8 @@ impl TextDecoder {
 		let mut string = String::with_capacity(self.decoder.max_utf8_buffer_length(buffer.len()).unwrap());
 		let stream = options.unwrap_or_default().stream;
 		if self.fatal {
-			let (result, _) = self
-				.decoder
-				.decode_to_string_without_replacement(unsafe { buffer.as_slice() }, &mut string, !stream);
+			let buffer = unsafe { buffer.as_slice() };
+			let (result, _) = self.decoder.decode_to_string_without_replacement(buffer, &mut string, !stream);
 			if let DecoderResult::Malformed(_, _) = result {
 				return Err(Error::new("TextDecoder.decode: Decoding Failed", ErrorKind::Type));
 			}

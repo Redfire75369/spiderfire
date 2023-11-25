@@ -12,8 +12,9 @@ use std::string::String as RustString;
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
 use mozjs::jsapi::{
-	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString, JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt,
-	JS_GetTwoByteStringCharsAndLength, JS_NewDependentString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
+	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
+	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
+	JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
 use utf16string::{WStr, WString};
 
@@ -89,7 +90,9 @@ impl<'s> String<'s> {
 	/// Concatenates two [String]s into a new [String].
 	/// The resultant [String] is not linear.
 	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> String<'cx> {
-		String::from(cx.root_string(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }))
+		String::from(
+			cx.root_string(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }),
+		)
 	}
 
 	/// Compares two [String]s.

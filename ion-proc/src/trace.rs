@@ -71,7 +71,10 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 				}
 			}))
 		}
-		Data::Union(_) => Err(Error::new(span, "#[derive(Traceable) is not implemented for union types.")),
+		Data::Union(_) => Err(Error::new(
+			span,
+			"#[derive(Traceable) is not implemented for union types.",
+		)),
 	}
 }
 

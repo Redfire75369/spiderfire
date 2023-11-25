@@ -171,7 +171,10 @@ impl AbortSignal {
 		let duration = Duration::milliseconds(time as i64);
 		let event_loop = unsafe { &mut (*cx.get_private().as_ptr()).event_loop };
 		if let Some(queue) = &mut event_loop.macrotasks {
-			queue.enqueue(Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)), None);
+			queue.enqueue(
+				Macrotask::Signal(SignalMacrotask::new(callback, terminate, duration)),
+				None,
+			);
 			AbortSignal::new_object(
 				cx,
 				Box::new(AbortSignal {

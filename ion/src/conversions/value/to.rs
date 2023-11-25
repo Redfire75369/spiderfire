@@ -12,7 +12,8 @@ use mozjs::jsapi::{JS_GetFunctionObject, JS_IdToValue, JS_NewStringCopyN, JS_Wra
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::{
-	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue, UInt32Value, UndefinedValue,
+	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue,
+	UInt32Value, UndefinedValue,
 };
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
 

@@ -27,9 +27,8 @@ impl<'d> Date<'d> {
 
 	/// Creates a new [Date] with the given time.
 	pub fn from_date(cx: &'d Context, time: DateTime<Utc>) -> Date<'d> {
-		Date {
-			date: cx.root_object(unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) }),
-		}
+		let date = unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) };
+		Date { date: cx.root_object(date) }
 	}
 
 	/// Creates a [Date] from an object.
@@ -59,7 +58,9 @@ impl<'d> Date<'d> {
 	/// Converts the [Date] to a [DateTime].
 	pub fn to_date(&self, cx: &Context) -> Option<DateTime<Utc>> {
 		let mut milliseconds: f64 = f64::MAX;
-		if !unsafe { DateGetMsecSinceEpoch(cx.as_ptr(), self.date.handle().into(), &mut milliseconds) } || milliseconds == f64::MAX {
+		if !unsafe { DateGetMsecSinceEpoch(cx.as_ptr(), self.date.handle().into(), &mut milliseconds) }
+			|| milliseconds == f64::MAX
+		{
 			None
 		} else {
 			Utc.timestamp_millis_opt(milliseconds as i64).single()

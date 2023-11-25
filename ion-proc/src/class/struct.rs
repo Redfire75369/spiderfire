@@ -43,7 +43,10 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 	}
 
 	if !r#struct.generics.params.is_empty() {
-		return Err(Error::new(r#struct.generics.span(), "Native Class Structs cannot have generics."));
+		return Err(Error::new(
+			r#struct.generics.span(),
+			"Native Class Structs cannot have generics.",
+		));
 	}
 
 	let ident = &r#struct.ident;
@@ -51,7 +54,10 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 	let super_field;
 	let super_type;
 
-	let err = Err(Error::new(r#struct.span(), "Native Class Structs must have at least a reflector field."));
+	let err = Err(Error::new(
+		r#struct.span(),
+		"Native Class Structs must have at least a reflector field.",
+	));
 	match &r#struct.fields {
 		Fields::Named(fields) => match fields.named.first() {
 			Some(field) => {
@@ -78,14 +84,24 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 		return Err(Error::new(super_type.span(), "Superclass Type must be a path."));
 	}
 
-	class_impls(ion, r#struct.span(), &ident.to_string(), &r#type, &super_field, &super_type)
+	class_impls(
+		ion,
+		r#struct.span(),
+		&ident.to_string(),
+		&r#type,
+		&super_field,
+		&super_type,
+	)
 }
 
-fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type) -> Result<[ItemImpl; 6]> {
+fn class_impls(
+	ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type,
+) -> Result<[ItemImpl; 6]> {
 	let from_value = impl_from_value(ion, span, name, r#type, false)?;
 	let from_value_mut = impl_from_value(ion, span, name, r#type, true)?;
 
-	let derived_from = parse2(quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {}))?;
+	let derived_from = quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {});
+	let derived_from = parse2(derived_from)?;
 	let castable = parse2(quote_spanned!(span => impl #ion::class::Castable for #r#type {}))?;
 
 	let native_object = parse2(quote_spanned!(span => impl #ion::class::NativeObject for #r#type {
@@ -150,12 +166,23 @@ fn class_impls(ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_f
 	}))?;
 	operations_native_class.attrs.push(parse_quote!(#[doc(hidden)]));
 
-	Ok([from_value, from_value_mut, derived_from, castable, native_object, operations_native_class])
+	Ok([
+		from_value,
+		from_value_mut,
+		derived_from,
+		castable,
+		native_object,
+		operations_native_class,
+	])
 }
 
 fn impl_from_value(ion: &TokenStream, span: Span, name: &str, r#type: &Type, mutable: bool) -> Result<ItemImpl> {
 	let from_value_error = LitStr::new(&format!("Expected {}", name), span);
-	let function = if mutable { quote!(get_mut_private) } else { quote!(get_private) };
+	let function = if mutable {
+		quote!(get_mut_private)
+	} else {
+		quote!(get_private)
+	};
 	let mutable = mutable.then(<Token![mut]>::default);
 
 	parse2(

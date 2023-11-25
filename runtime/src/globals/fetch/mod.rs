@@ -16,9 +16,9 @@ use data_url::DataUrl;
 use futures::future::{Either, select};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
 use http::header::{
-	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LANGUAGE, CONTENT_LENGTH,
-	CONTENT_LOCATION, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE, IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE,
-	REFERER, REFERRER_POLICY, USER_AGENT,
+	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING,
+	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE, IF_NONE_MATCH,
+	IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use mozjs::jsapi::JSObject;
 use mozjs::rust::IntoHandle;
@@ -39,7 +39,9 @@ use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::client::Client;
 use crate::globals::fetch::header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
-use crate::globals::fetch::request::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect};
+use crate::globals::fetch::request::{
+	Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect,
+};
 use crate::globals::fetch::response::{network_error, ResponseKind, ResponseTaint};
 use crate::promise::future_to_promise;
 use crate::VERSION;
@@ -349,7 +351,10 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 			let response = Response::new_from_bytes(Bytes::default(), url);
 			let headers = Headers {
 				reflector: Reflector::default(),
-				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_static("text/html;charset=UTF-8")))),
+				headers: HeaderMap::from_iter(once((
+					CONTENT_TYPE,
+					HeaderValue::from_static("text/html;charset=UTF-8"),
+				))),
 				kind: HeadersKind::Immutable,
 			};
 			response.headers.set(Headers::new_object(cx, Box::new(headers)));
@@ -394,11 +399,16 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 	}
 }
 
-async fn http_fetch(cx: &Context, request: &mut Request, client: Client, taint: ResponseTaint, redirections: u8) -> (Response, bool) {
+async fn http_fetch(
+	cx: &Context, request: &mut Request, client: Client, taint: ResponseTaint, redirections: u8,
+) -> (Response, bool) {
 	let response = http_network_fetch(cx, request, client.clone(), false).await;
 	match response.status {
 		Some(status) if status.is_redirection() => match request.redirect {
-			RequestRedirect::Follow => (http_redirect_fetch(cx, request, response, client, taint, redirections).await, false),
+			RequestRedirect::Follow => (
+				http_redirect_fetch(cx, request, response, client, taint, redirections).await,
+				false,
+			),
 			RequestRedirect::Error => (network_error(), false),
 			RequestRedirect::Manual => (response, true),
 		},
@@ -413,10 +423,11 @@ async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new:
 	let headers = Headers::get_mut_private(&mut headers);
 	*request.request.headers_mut() = headers.headers.clone();
 
-	let length = request
-		.body
-		.len()
-		.or_else(|| (request.body.is_none() && (request.request.method() == Method::POST || request.request.method() == Method::PUT)).then_some(0));
+	let length = request.body.len().or_else(|| {
+		(request.body.is_none()
+			&& (request.request.method() == Method::POST || request.request.method() == Method::PUT))
+			.then_some(0)
+	});
 
 	let headers = request.request.headers_mut();
 	if let Some(length) = length {
@@ -551,7 +562,8 @@ async fn http_redirect_fetch(
 
 	if ((response.status == Some(StatusCode::MOVED_PERMANENTLY) || response.status == Some(StatusCode::FOUND))
 		&& request.request.method() == Method::POST)
-		|| (response.status == Some(StatusCode::SEE_OTHER) && (request.request.method() != Method::GET || request.request.method() != Method::HEAD))
+		|| (response.status == Some(StatusCode::SEE_OTHER)
+			&& (request.request.method() != Method::GET || request.request.method() != Method::HEAD))
 	{
 		*request.request.method_mut() = Method::GET;
 		request.body = FetchBody::default();

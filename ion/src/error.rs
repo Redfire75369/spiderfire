@@ -37,8 +37,9 @@ impl ErrorKind {
 	/// Returns [ErrorKind::None] for unrecognised prototype keys.
 	pub fn from_proto_key(key: JSProtoKey) -> ErrorKind {
 		use JSProtoKey::{
-			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError, JSProto_LinkError,
-			JSProto_RangeError, JSProto_ReferenceError, JSProto_RuntimeError, JSProto_SyntaxError, JSProto_TypeError,
+			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError,
+			JSProto_LinkError, JSProto_RangeError, JSProto_ReferenceError, JSProto_RuntimeError, JSProto_SyntaxError,
+			JSProto_TypeError,
 		};
 		use ErrorKind as EK;
 		match key {

@@ -9,7 +9,10 @@ use std::fmt::{Display, Formatter};
 use std::mem::MaybeUninit;
 
 use mozjs::conversions::jsstr_to_string;
-use mozjs::jsapi::{BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSObject, JSString, StackFormat};
+use mozjs::jsapi::{
+	BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSObject, JSString,
+	StackFormat,
+};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
@@ -84,7 +87,11 @@ impl Stack {
 			let (line, column) = line.rsplit_once(':').unwrap();
 			let (file, lineno) = line.rsplit_once(':').unwrap();
 
-			let function = if function.is_empty() { None } else { Some(String::from(function)) };
+			let function = if function.is_empty() {
+				None
+			} else {
+				Some(String::from(function))
+			};
 			let file = String::from(normalise_path(file).to_str().unwrap());
 			let lineno = lineno.parse().unwrap();
 			let column = column.parse().unwrap();

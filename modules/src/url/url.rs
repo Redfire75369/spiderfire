@@ -27,7 +27,11 @@ fn domainToUnicode(domain: String) -> String {
 	domain_to_unicode(&domain).0
 }
 
-const FUNCTIONS: &[JSFunctionSpec] = &[function_spec!(domainToASCII, 0), function_spec!(domainToUnicode, 0), JSFunctionSpec::ZERO];
+const FUNCTIONS: &[JSFunctionSpec] = &[
+	function_spec!(domainToASCII, 0),
+	function_spec!(domainToUnicode, 0),
+	JSFunctionSpec::ZERO,
+];
 
 #[derive(Default)]
 pub struct UrlM;
