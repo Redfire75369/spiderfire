@@ -26,10 +26,7 @@ const DELIMITER: &str = ":\0";
 #[js_fn]
 fn join(#[ion(varargs)] segments: Vec<String>) -> String {
 	let mut path = PathBuf::new();
-	for segment in segments {
-		path.push(segment);
-	}
-
+	path.extend(segments);
 	String::from(path.to_str().unwrap())
 }
 

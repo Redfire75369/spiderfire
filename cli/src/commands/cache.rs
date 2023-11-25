@@ -8,13 +8,14 @@ use std::fs::{metadata, read_dir};
 use std::io;
 use std::path::Path;
 
+use humansize::{BINARY, SizeFormatter};
 use runtime::cache::Cache;
 
 pub(crate) fn cache_statistics() {
 	if let Some(cache) = Cache::new() {
 		println!("Location: {}", cache.dir().display());
 		match cache_size(cache.dir()) {
-			Ok(size) => println!("Size: {}", format_size(size)),
+			Ok(size) => println!("Size: {}", SizeFormatter::new(size, BINARY)),
 			Err(err) => eprintln!("Error while Calculating Size: {}", err),
 		}
 	} else {
@@ -33,22 +34,4 @@ fn cache_size(folder: &Path) -> io::Result<u64> {
 		size += metadata.len();
 	}
 	Ok(size)
-}
-
-const PREFIXES: [&str; 6] = ["", "Ki", "Mi", "Gi", "Ti", "Pi"];
-
-fn format_size(size: u64) -> String {
-	if size >= 1024 {
-		let index: u32 = f64::log(size as f64, 1024.0).floor() as u32;
-		let s1 = size / 1024_u64.pow(index);
-		let s2 = (size - s1 * 1024_u64.pow(index)) / 1024_u64.pow(index - 1);
-
-		if s2 != 0 {
-			format!("{} {}B, {} {}B", s1, PREFIXES[index as usize], s2, PREFIXES[index as usize - 1])
-		} else {
-			format!("{} {}B", s1, PREFIXES[index as usize])
-		}
-	} else {
-		format!("{} B", size)
-	}
 }

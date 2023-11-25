@@ -28,10 +28,10 @@ pub struct Cache {
 
 impl Cache {
 	pub fn new() -> Option<Cache> {
-		home_dir().map(|path| {
-			let dir = path.join(".spiderfire/cache");
-			let _ = create_dir_all(&dir);
-			Cache { dir }
+		home_dir().map(|mut path| {
+			path.extend([".spiderfire", "cache"]);
+			let _ = create_dir_all(&path);
+			Cache { dir: path }
 		})
 	}
 
