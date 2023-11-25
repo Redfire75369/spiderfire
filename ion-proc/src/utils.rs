@@ -19,6 +19,17 @@ where
 	}
 }
 
+pub(crate) fn pat_is_ident<I: ?Sized>(pat: &Pat, ident: &I) -> bool
+where
+	Ident: PartialEq<I>,
+{
+	if let Pat::Ident(pat) = pat {
+		&pat.ident == ident
+	} else {
+		false
+	}
+}
+
 pub(crate) fn add_trait_bounds(generics: &mut Generics, bound: &TypeParamBound) {
 	for param in &mut generics.params {
 		if let GenericParam::Type(type_param) = param {

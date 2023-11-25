@@ -15,7 +15,7 @@ use crate::class::accessor::{Accessor, flatten_accessors};
 use crate::class::method::Method;
 use crate::class::property::Property;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(super) struct PrototypeSpecs {
 	pub(super) methods: (Vec<Method>, Vec<Method>),
 	pub(super) properties: (Vec<Property>, Vec<Property>),
@@ -50,7 +50,6 @@ impl PrototypeSpecs {
 	}
 }
 
-#[derive(Debug)]
 pub(super) struct SpecFunctions {
 	methods: (ImplItemFn, ImplItemFn),
 	properties: (ImplItemFn, ImplItemFn),

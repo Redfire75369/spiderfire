@@ -25,7 +25,7 @@ pub(super) enum MethodReceiver {
 	Static,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(super) struct Method {
 	pub(super) receiver: MethodReceiver,
 	pub(super) method: ItemFn,

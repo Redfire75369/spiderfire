@@ -12,10 +12,9 @@ use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
 use crate::attribute::function::ParameterAttribute;
-use crate::utils::{format_pat, path_ends_with};
+use crate::utils::{format_pat, path_ends_with, pat_is_ident};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
-#[derive(Debug)]
 pub(crate) enum Parameter {
 	Regular {
 		pat: Box<Pat>,
@@ -34,14 +33,13 @@ pub(crate) enum Parameter {
 	Arguments(Box<Pat>, Box<Type>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub(crate) enum ThisKind {
 	Ref(Option<Lifetime>, Option<Token![mut]>),
 	Object(Option<Lifetime>, Option<Token![mut]>),
 	Owned,
 }
 
-#[derive(Debug)]
 pub(crate) struct ThisParameter {
 	pat: Box<Pat>,
 	ty: Box<Type>,
@@ -152,7 +150,7 @@ impl ThisParameter {
 				let span = pat_ty.span();
 				let PatType { pat, mut ty, .. } = pat_ty.clone();
 				match class_ty {
-					Some(class_ty) if pat == parse_quote!(self) => {
+					Some(class_ty) if pat_is_ident(&pat, "self") => {
 						visit_type_mut(&mut SelfRenamer { ty: class_ty }, &mut ty);
 						parse_this(pat, ty, true, span).map(Some)
 					}
@@ -195,7 +193,7 @@ impl ThisParameter {
 	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
 		let ThisParameter { pat, ty, kind } = self;
 		let self_ = parse_quote!(self_);
-		let pat = if is_class && **pat == parse_quote!(self) {
+		let pat = if is_class && pat_is_ident(pat, "self") {
 			&self_
 		} else {
 			pat

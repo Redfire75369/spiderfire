@@ -17,7 +17,6 @@ use crate::attribute::class::Name;
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
-#[derive(Debug)]
 pub(super) struct Accessor(pub(super) Option<Method>, Option<Method>);
 
 impl Accessor {

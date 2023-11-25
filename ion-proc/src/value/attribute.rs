@@ -21,7 +21,7 @@ mod keywords {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) enum Tag {
 	Untagged(keywords::untagged),
 	External(keywords::tag),
@@ -57,7 +57,6 @@ impl Parse for Tag {
 	}
 }
 
-#[derive(Debug)]
 pub(crate) enum DefaultValue {
 	Literal(Lit),
 	Closure(ExprClosure),
@@ -75,7 +74,6 @@ impl Parse for DefaultValue {
 	}
 }
 
-#[derive(Debug)]
 pub(crate) enum DataAttribute {
 	Tag(Tag),
 	Inherit(keywords::inherit),
@@ -97,7 +95,6 @@ impl Parse for DataAttribute {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
 pub(crate) enum VariantAttribute {
 	Tag(Tag),
 	Inherit(keywords::inherit),
@@ -122,7 +119,6 @@ impl Parse for VariantAttribute {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
 pub(crate) enum FieldAttribute {
 	Name {
 		kw: keywords::name,

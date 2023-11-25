@@ -15,7 +15,6 @@ mod keywords {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
 pub(crate) struct ConvertAttribute {
 	kw: keywords::convert,
 	eq: Token![=],
@@ -37,7 +36,6 @@ impl Parse for ConvertAttribute {
 	}
 }
 
-#[derive(Debug)]
 pub(crate) enum ParameterAttribute {
 	This(keywords::this),
 	VarArgs(keywords::varargs),

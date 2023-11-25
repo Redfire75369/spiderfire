@@ -21,7 +21,7 @@ pub(super) enum PropertyType {
 	String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(super) struct Property {
 	pub(super) ty: PropertyType,
 	pub(super) ident: Ident,
