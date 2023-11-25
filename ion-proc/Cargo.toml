@@ -1,9 +1,10 @@
 [package]
 name = "ion-proc"
 version = "0.1.0"
-edition = "2021"
+
+edition.workspace = true
+license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
-license = "MPL-2.0"
 
 [dependencies]
 convert_case = "0.6.0"
@@ -12,8 +13,11 @@ prettyplease = "0.2.15"
 proc-macro2 = "1.0.69"
 
 [dependencies.syn]
-version = "2.0.38"
+version = "2.0.39"
 features = ["extra-traits", "full", "visit-mut"]
+
+[lints]
+workspace = true
 
 [lib]
 proc-macro = true

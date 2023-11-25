@@ -1,12 +1,13 @@
 [package]
 name = "modules"
 version = "0.1.0"
-edition = "2021"
+
+edition.workspace = true
+license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
-license = "MPL-2.0"
 
 [dependencies]
-idna = "0.4.0"
+idna = "0.5.0"
 
 futures.workspace = true
 mozjs.workspace = true
@@ -27,7 +28,7 @@ version = "0.1.14"
 features = ["fs"]
 
 [dev-dependencies.tokio]
-version = "1.33.0"
+workspace = true
 features = ["macros", "rt"]
 
 [features]

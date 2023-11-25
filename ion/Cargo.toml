@@ -1,9 +1,10 @@
 [package]
 name = "ion"
 version = "0.1.0"
-edition = "2021"
+
+edition.workspace = true
+license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
-license = "MPL-2.0"
 
 [dependencies]
 arrayvec = "0.7.4"
@@ -17,7 +18,6 @@ utf16string = "0.2.0"
 
 colored.workspace = true
 chrono.workspace = true
-derivative.workspace = true
 indent.workspace = true
 mozjs.workspace = true
 mozjs_sys.workspace = true

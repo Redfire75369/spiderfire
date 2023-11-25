@@ -364,8 +364,7 @@ impl<'cx> FromValue<'cx> for RequestPriority {
 	}
 }
 
-#[derive(Derivative, FromValue)]
-#[derivative(Default)]
+#[derive(Default, FromValue)]
 pub struct RequestInit<'cx> {
 	pub(crate) method: Option<String>,
 	pub(crate) headers: Option<HeadersInit<'cx>>,

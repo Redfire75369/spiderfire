@@ -5,7 +5,6 @@
  */
 
 #![allow(clippy::module_inception)]
-#![deny(unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 extern crate ion;

@@ -8,47 +8,6 @@ use colored::Color;
 
 use crate::flags::IteratorFlags;
 
-/// Represents configuration for formatting
-#[derive(Clone, Copy, Debug, Derivative)]
-#[derivative(Default)]
-pub struct Config {
-	pub colours: ColourConfig,
-	#[derivative(Default(value = "IteratorFlags::empty()"))]
-	pub iteration: IteratorFlags,
-	pub depth: u16,
-	pub indentation: u16,
-	#[derivative(Default(value = "true"))]
-	pub multiline: bool,
-	pub quoted: bool,
-}
-
-impl Config {
-	/// Replaces the colors in the [configuration](Config).
-	pub fn colours(self, colours: ColourConfig) -> Config {
-		Config { colours, ..self }
-	}
-
-	pub fn iteration(self, iteration: IteratorFlags) -> Config {
-		Config { iteration, ..self }
-	}
-
-	pub fn depth(self, depth: u16) -> Config {
-		Config { depth, ..self }
-	}
-
-	pub fn indentation(self, indentation: u16) -> Config {
-		Config { indentation, ..self }
-	}
-
-	pub fn multiline(self, multiline: bool) -> Config {
-		Config { multiline, ..self }
-	}
-
-	pub fn quoted(self, quoted: bool) -> Config {
-		Config { quoted, ..self }
-	}
-}
-
 /// Configuration for the colours used when formatting values as specific types.
 #[derive(Clone, Copy, Debug)]
 pub struct ColourConfig {
@@ -104,6 +63,57 @@ impl ColourConfig {
 			date: Color::White,
 			promise: Color::White,
 			regexp: Color::White,
+		}
+	}
+}
+
+/// Represents configuration for formatting
+#[derive(Clone, Copy, Debug)]
+pub struct Config {
+	pub colours: ColourConfig,
+	pub iteration: IteratorFlags,
+	pub depth: u16,
+	pub indentation: u16,
+	pub multiline: bool,
+	pub quoted: bool,
+}
+
+impl Config {
+	/// Replaces the colors in the [configuration](Config).
+	pub fn colours(self, colours: ColourConfig) -> Config {
+		Config { colours, ..self }
+	}
+
+	pub fn iteration(self, iteration: IteratorFlags) -> Config {
+		Config { iteration, ..self }
+	}
+
+	pub fn depth(self, depth: u16) -> Config {
+		Config { depth, ..self }
+	}
+
+	pub fn indentation(self, indentation: u16) -> Config {
+		Config { indentation, ..self }
+	}
+
+	pub fn multiline(self, multiline: bool) -> Config {
+		Config { multiline, ..self }
+	}
+
+	pub fn quoted(self, quoted: bool) -> Config {
+		Config { quoted, ..self }
+	}
+}
+
+impl Default for Config {
+	fn default() -> Config {
+		Config {
+			colours: ColourConfig::default(),
+			iteration: IteratorFlags::default(),
+			depth: 0,
+			indentation: 0,
+			multiline: true,
+			quoted: false,
 		}
 	}
 }

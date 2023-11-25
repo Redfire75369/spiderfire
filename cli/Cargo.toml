@@ -1,9 +1,10 @@
 [package]
 name = "cli"
 version = "0.1.0"
-edition = "2021"
+
+edition.workspace = true
+license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
-license = "MPL-2.0"
 
 [dependencies]
 rustyline = "12.0.0"
@@ -17,7 +18,7 @@ mozjs.workspace = true
 sourcemap.workspace = true
 
 [dependencies.clap]
-version = "4.4.7"
+version = "4.4.8"
 features = ["derive"]
 
 [dependencies.runtime]

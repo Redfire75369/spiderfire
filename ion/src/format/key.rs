@@ -31,7 +31,7 @@ impl Display for KeyDisplay<'_> {
 		match self.key {
 			OwnedKey::Int(i) => {
 				let mut buffer = Buffer::new();
-				write!(f, "{}", buffer.format(i).color(colours.number))
+				write!(f, "{}", buffer.format(*i).color(colours.number))
 			}
 			OwnedKey::String(str) => write!(f, "{1}{}{1}", r#"""#.color(colours.string), str.color(colours.string)),
 			OwnedKey::Symbol(sym) => {

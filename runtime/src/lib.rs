@@ -5,10 +5,7 @@
  */
 
 #![allow(clippy::missing_safety_doc)]
-#![deny(unsafe_op_in_unsafe_fn)]
 
-#[macro_use]
-extern crate derivative;
 #[macro_use]
 extern crate ion;
 
@@ -20,7 +17,7 @@ pub mod event_loop;
 pub mod globals;
 pub mod modules;
 pub mod promise;
-pub mod runtime;
+mod runtime;
 pub mod typescript;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

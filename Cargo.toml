@@ -8,6 +8,10 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+edition = "2021"
+license = "MPL-2.0"
+
 [workspace.dependencies]
 ion-proc = { path = "./ion-proc"}
 ion = { path = "./ion"}
@@ -17,32 +21,22 @@ cli = { path = "./cli"}
 
 bytes = "1.5.0"
 colored = "2.0.4"
-derivative = "2.2.0"
 dunce = "1.0.4"
 futures = "0.3.29"
 indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
-url = "2.4.1"
+url = "2.5.0"
 
 [workspace.dependencies.chrono]
 version = "0.4.31"
 default-features = false
 features = ["clock", "std"]
 
-[workspace.dependencies.http]
-version = "0.2.9"
-
-[workspace.dependencies.hyper]
-version = "0.14.27"
-features = ["client", "http1", "tcp"]
-
-[workspace.dependencies.hyper-rustls]
-version = "0.24.2"
-default-features = false
-features = ["http1", "logging", "tls12", "webpki-tokio"]
-
 [workspace.dependencies.tokio]
-version = "1.33.0"
+version = "1.34.0"
 default-features = false
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "forbid"
