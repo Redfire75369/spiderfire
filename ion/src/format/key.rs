@@ -8,6 +8,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
+use itoa::Buffer;
 
 use crate::{Context, OwnedKey};
 use crate::format::Config;
@@ -28,15 +29,16 @@ impl Display for KeyDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let colours = self.cfg.colours;
 		match self.key {
-			OwnedKey::Int(i) => write!(f, "{}", i.to_string().color(colours.number)),
+			OwnedKey::Int(i) => {
+				let mut buffer = Buffer::new();
+				write!(f, "{}", buffer.format(i).color(colours.number))
+			}
 			OwnedKey::String(str) => write!(f, "{1}{}{1}", r#"""#.color(colours.string), str.color(colours.string)),
-			OwnedKey::Symbol(sym) => write!(
-				f,
-				"{}{}{}",
-				"[".color(colours.symbol),
-				format_symbol(self.cx, self.cfg, sym),
-				"]".color(colours.symbol)
-			),
+			OwnedKey::Symbol(sym) => {
+				write!(f, "{}", "[".color(colours.symbol))?;
+				write!(f, "{}", format_symbol(self.cx, self.cfg, sym))?;
+				write!(f, "{}", "]".color(colours.symbol))
+			}
 			OwnedKey::Void => unreachable!("Property key <void> cannot be formatted."),
 		}
 	}

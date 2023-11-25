@@ -8,6 +8,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
+use itoa::Buffer;
 
 use crate::{Context, Symbol, Value};
 use crate::bigint::BigInt;
@@ -34,8 +35,12 @@ impl Display for PrimitiveDisplay<'_> {
 		let value = self.value.handle();
 		if value.is_boolean() {
 			write!(f, "{}", value.to_boolean().to_string().color(colours.boolean))
-		} else if value.is_number() {
-			let number = value.to_number();
+		} else if value.is_int32() {
+			let int = value.to_int32();
+			let mut buffer = Buffer::new();
+			write!(f, "{}", buffer.format(int).color(colours.number))
+		} else if value.is_double() {
+			let number = value.to_double();
 
 			if number == f64::INFINITY {
 				write!(f, "{}", "Infinity".color(colours.number))

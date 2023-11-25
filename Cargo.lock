@@ -996,6 +996,7 @@ dependencies = [
  "futures",
  "indent",
  "ion-proc",
+ "itoa",
  "libffi",
  "mozjs",
  "mozjs_sys",

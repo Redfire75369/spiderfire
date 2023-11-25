@@ -9,6 +9,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
 use colored::{Color, Colorize};
+use itoa::Buffer;
 use mozjs::jsapi::ESClass;
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyKey, RegExp, Value};
@@ -149,13 +150,16 @@ pub(crate) fn write_remaining(f: &mut Formatter, remaining: usize, inner: Option
 
 		match remaining.cmp(&1) {
 			Ordering::Equal => write!(f, "{}", "... 1 more item".color(colour))?,
-			Ordering::Greater => write!(
-				f,
-				"{} {} {}",
-				"...".color(colour),
-				remaining.to_string().color(colour),
-				"more items".color(colour)
-			)?,
+			Ordering::Greater => {
+				let mut buffer = Buffer::new();
+				write!(
+					f,
+					"{} {} {}",
+					"...".color(colour),
+					buffer.format(remaining).color(colour),
+					"more items".color(colour)
+				)?
+			}
 			_ => (),
 		}
 		if inner.is_some() {

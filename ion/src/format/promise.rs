@@ -34,7 +34,7 @@ impl Display for PromiseDisplay<'_> {
 		let state = self.promise.state();
 
 		let state = match state {
-			PromiseState::Pending => return f.write_fmt(format_args!("{}", "Promise { <pending> }".color(colour))),
+			PromiseState::Pending => return write!(f, "{}", "Promise { <pending> }".color(colour)),
 			PromiseState::Fulfilled => "<fulfilled>".color(colour),
 			PromiseState::Rejected => "<rejected>".color(colour),
 		};

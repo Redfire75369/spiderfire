@@ -49,22 +49,13 @@ impl Display for SymbolDisplay<'_> {
 				let description = self.symbol.description(self.cx).expect("Expected Description on Non-Well-Known Symbol");
 
 				match code {
-					SymbolCode::InSymbolRegistry => write!(
-						f,
-						"{}{}{}",
-						"Symbol.for(".color(colour),
-						description.color(self.cfg.colours.string),
-						")".color(colour),
-					),
-					SymbolCode::UniqueSymbol => write!(
-						f,
-						"{}{}{}",
-						"Symbol(".color(colour),
-						description.color(self.cfg.colours.string),
-						")".color(colour),
-					),
+					SymbolCode::InSymbolRegistry => write!(f, "{}", "Symbol.for(".color(colour),)?,
+					SymbolCode::UniqueSymbol => write!(f, "{}", "Symbol(".color(colour),)?,
 					_ => unreachable!(),
 				}
+
+				write!(f, "{}", description.color(self.cfg.colours.string))?;
+				write!(f, "{}", ")".color(colour))
 			}
 		}
 	}
