@@ -18,13 +18,13 @@ runtime.workspace = true
 workspace = true
 features = ["macros"]
 
-
 [dependencies.tokio]
 workspace = true
 features = ["fs"]
 
 [dependencies.tokio-stream]
 version = "0.1.14"
+default-features = false
 features = ["fs"]
 
 [dev-dependencies.tokio]

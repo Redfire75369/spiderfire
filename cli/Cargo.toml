@@ -8,7 +8,6 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
 humansize = "2.1.3"
-rustyline = "12.0.0"
 rustyline-derive = "0.9.0"
 
 colored.workspace = true
@@ -25,6 +24,10 @@ features = ["derive"]
 [dependencies.runtime]
 workspace = true
 features = ["fetch"]
+
+[dependencies.rustyline]
+version = "12.0.0"
+default-features = false
 
 [dependencies.tokio]
 workspace = true

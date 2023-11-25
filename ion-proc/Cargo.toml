@@ -14,7 +14,7 @@ proc-macro2 = "1.0.69"
 
 [dependencies.syn]
 version = "2.0.39"
-features = ["full", "visit-mut"]
+features = ["visit-mut"]
 
 [lints]
 workspace = true

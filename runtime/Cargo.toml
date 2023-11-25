@@ -45,7 +45,7 @@ optional = true
 [dependencies.hyper-rustls]
 version = "0.24.2"
 default-features = false
-features = ["http1", "logging", "tls12", "webpki-tokio"]
+features = ["http1", "tls12", "webpki-tokio"]
 optional = true
 
 [dependencies.ion]
