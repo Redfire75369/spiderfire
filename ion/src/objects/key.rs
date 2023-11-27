@@ -27,7 +27,7 @@ impl<'k> PropertyKey<'k> {
 
 	/// Creates a [PropertyKey] from a string.
 	pub fn with_string(cx: &'k Context, string: &str) -> Option<PropertyKey<'k>> {
-		let string = String::new(cx, string)?;
+		let string = String::copy_from_str(cx, string)?;
 		string.to_key(cx)
 	}
 

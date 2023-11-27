@@ -48,7 +48,7 @@ pub struct ModuleRequest<'r>(Object<'r>);
 impl<'r> ModuleRequest<'r> {
 	/// Creates a new [ModuleRequest] with a given specifier.
 	pub fn new<S: AsRef<str>>(cx: &'r Context, specifier: S) -> ModuleRequest<'r> {
-		let specifier = crate::String::new(cx, specifier.as_ref()).unwrap();
+		let specifier = crate::String::copy_from_str(cx, specifier.as_ref()).unwrap();
 		ModuleRequest(
 			cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) })
 				.into(),

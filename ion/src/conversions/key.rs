@@ -56,13 +56,13 @@ impl<'cx> ToPropertyKey<'cx> for String<'cx> {
 
 impl<'cx> ToPropertyKey<'cx> for RustString {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		String::new(cx, self)?.to_key(cx)
+		String::copy_from_str(cx, self)?.to_key(cx)
 	}
 }
 
 impl<'cx> ToPropertyKey<'cx> for &str {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		String::new(cx, self)?.to_key(cx)
+		String::copy_from_str(cx, self)?.to_key(cx)
 	}
 }
 

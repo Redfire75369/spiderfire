@@ -5,25 +5,26 @@
  */
 
 use std::{ptr, slice};
+use std::ffi::c_void;
 use std::ops::{Deref, DerefMut, Range};
-use std::ptr::NonNull;
 use std::string::String as RustString;
 
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
+use mozjs::glue::{CreateJSExternalStringCallbacks, JSExternalStringCallbacksTraps};
 use mozjs::jsapi::{
 	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
 	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
-	JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
+	JS_NewExternalString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
+use mozjs::jsapi::mozilla::MallocSizeOf;
 use utf16string::{WStr, WString};
 
 use crate::{Context, Local};
 use crate::string::byte::{ByteStr, Latin1};
-use crate::string::external::new_external_string;
+use crate::utils::BoxExt;
 
 pub mod byte;
-mod external;
 
 #[derive(Copy, Clone, Debug)]
 pub enum StringRef<'s> {
@@ -65,26 +66,61 @@ pub struct String<'s> {
 
 impl<'s> String<'s> {
 	/// Creates an empty [String].
-	pub fn empty(cx: &Context) -> String {
+	pub fn new(cx: &Context) -> String {
 		String::from(cx.root_string(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
 	}
 
 	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
-	pub fn new<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
+	pub fn copy_from_str<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
 		let utf16: Vec<u16> = string.encode_utf16().collect();
 		let jsstr = unsafe { JS_NewUCStringCopyN(cx.as_ptr(), utf16.as_ptr(), utf16.len()) };
-		NonNull::new(jsstr).map(|str| String::from(cx.root_string(str.as_ptr())))
+		if jsstr.is_null() {
+			None
+		} else {
+			Some(String::from(cx.root_string(jsstr)))
+		}
 	}
 
-	/// Creates a new external string by moving ownership of the UTF-16 string to the JS Runtime.
-	pub fn new_external(cx: &Context, string: WString<NativeEndian>) -> Result<String, WString<NativeEndian>> {
-		new_external_string(cx, string)
+	/// Creates a new string by moving ownership of the UTF-16 string to the JS Runtime temporarily.
+	/// Returns the string if the creation of the string in the runtime fails.
+	pub fn from_wstring(cx: &Context, string: WString<NativeEndian>) -> Result<String, WString<NativeEndian>> {
+		unsafe extern "C" fn finalise_external_string(data: *const c_void, chars: *mut u16) {
+			let _ = unsafe { Box::from_raw_parts(chars.cast::<u8>(), data as usize * 2) };
+		}
+
+		extern "C" fn size_of_external_string(data: *const c_void, _: *const u16, _: MallocSizeOf) -> usize {
+			data as usize
+		}
+
+		static EXTERNAL_STRING_CALLBACKS_TRAPS: JSExternalStringCallbacksTraps = JSExternalStringCallbacksTraps {
+			finalize: Some(finalise_external_string),
+			sizeOfBuffer: Some(size_of_external_string),
+		};
+
+		let vec = string.into_bytes();
+		let boxed = vec.into_boxed_slice();
+
+		let (chars, len) = unsafe { Box::into_raw_parts(boxed) };
+
+		unsafe {
+			let callbacks = CreateJSExternalStringCallbacks(&EXTERNAL_STRING_CALLBACKS_TRAPS, len as *mut c_void);
+			let jsstr = JS_NewExternalString(cx.as_ptr(), chars.cast::<u16>(), len / 2, callbacks);
+
+			if jsstr.is_null() {
+				let slice = slice::from_raw_parts_mut(chars, len);
+				let boxed = Box::from_raw(slice);
+				let vec = Vec::from(boxed);
+				Err(WString::from_utf16_unchecked(vec))
+			} else {
+				Ok(String::from(cx.root_string(jsstr)))
+			}
+		}
 	}
 
 	/// Returns a slice of a [String] as a new [String].
-	pub fn slice<'cx>(&self, cx: &'cx Context, range: &Range<usize>) -> String<'cx> {
+	pub fn slice<'cx>(&self, cx: &'cx Context, range: Range<usize>) -> String<'cx> {
 		let Range { start, end } = range;
-		String::from(cx.root_string(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), *start, *end) }))
+		String::from(cx.root_string(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), start, end) }))
 	}
 
 	/// Concatenates two [String]s into a new [String].
