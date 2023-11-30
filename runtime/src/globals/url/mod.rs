@@ -10,7 +10,7 @@ use mozjs::conversions::ConversionBehavior::EnforceRange;
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, Local, Object, Result};
+use ion::{ClassDefinition, Context, Error, Object, Result, Root};
 use ion::class::Reflector;
 pub use search_params::URLSearchParams;
 
@@ -93,7 +93,7 @@ impl URL {
 	pub fn set_href(&mut self, input: String) -> Result<()> {
 		match Url::parse(&input) {
 			Ok(url) => {
-				let mut search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
+				let mut search_params = Object::from(unsafe { Root::from_heap(&self.search_params) });
 				let search_params = URLSearchParams::get_mut_private(&mut search_params);
 				search_params.set_pairs(url.query_pairs().into_owned().collect());
 				self.url = url;
@@ -157,9 +157,7 @@ impl URL {
 
 	#[ion(set)]
 	pub fn set_hostname(&mut self, hostname: Option<String>) -> Result<()> {
-		self.url
-			.set_host(hostname.as_deref())
-			.map_err(|error| Error::new(&error.to_string(), None))
+		self.url.set_host(hostname.as_deref()).map_err(|error| Error::new(&error.to_string(), None))
 	}
 
 	#[ion(get)]

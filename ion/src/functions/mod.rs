@@ -8,21 +8,43 @@ use std::any::Any;
 use std::mem::forget;
 use std::thread::Result;
 
+use mozjs::jsval::JSVal;
+use mozjs::rust::MutableHandle;
+
 pub use arguments::Arguments;
 pub use closure::Closure;
 pub use function::{Function, NativeFunction};
 
-use crate::{Context, Error, Object, ResultExc, ThrowException, Value};
-use crate::conversions::ToValue;
+use crate::{Context, Error, Object, ResultExc, ThrowException};
+use crate::conversions::IntoValue;
 
 mod arguments;
 mod closure;
 mod function;
 
-#[doc(hidden)]
-pub fn __handle_native_function_result(cx: &Context, result: Result<ResultExc<()>>) -> bool {
+pub fn handle_result<T: IntoValue>(cx: &Context, result: ResultExc<T>, mut rval: MutableHandle<JSVal>) -> bool {
 	match result {
-		Ok(Ok(_)) => true,
+		Ok(value) => match Box::new(value).into_value(cx) {
+			Ok(value) => {
+				rval.set(value.get());
+				true
+			}
+			Err(error) => {
+				error.throw(cx);
+				false
+			}
+		},
+		Err(exception) => {
+			exception.throw(cx);
+			false
+		}
+	}
+}
+
+#[doc(hidden)]
+pub fn handle_native_function_result(cx: &Context, result: Result<ResultExc<bool>>) -> bool {
+	match result {
+		Ok(Ok(b)) => b,
 		Ok(Err(error)) => {
 			error.throw(cx);
 			false
@@ -33,17 +55,10 @@ pub fn __handle_native_function_result(cx: &Context, result: Result<ResultExc<()
 
 #[doc(hidden)]
 pub fn __handle_native_constructor_result(
-	cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: &mut Value,
+	cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: MutableHandle<JSVal>,
 ) -> bool {
 	match result {
-		Ok(Ok(_)) => {
-			this.to_value(cx, rval);
-			true
-		}
-		Ok(Err(error)) => {
-			error.throw(cx);
-			false
-		}
+		Ok(result) => handle_result(cx, result.map(|_| this), rval),
 		Err(unwind_error) => handle_unwind_error(cx, unwind_error),
 	}
 }

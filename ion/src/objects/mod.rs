@@ -14,7 +14,7 @@ use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 pub use array::Array;
 pub use date::Date;
-pub use descriptor::PropertyDescriptor;
+// pub use descriptor::PropertyDescriptor;
 pub use iterator::{Iterator, JSIterator};
 pub use key::{OwnedKey, PropertyKey};
 pub use object::Object;
@@ -25,7 +25,7 @@ use crate::Context;
 
 mod array;
 mod date;
-mod descriptor;
+// mod descriptor;
 mod iterator;
 mod key;
 mod object;
@@ -38,9 +38,9 @@ pub const fn class_reserved_slots(slots: u32) -> u32 {
 	(slots & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
 }
 
-pub fn new_global<'cx, P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmOptions>>>(
-	cx: &'cx Context, class: &JSClass, principals: P, hook_option: OnNewGlobalHookOption, realm_options: R,
-) -> Object<'cx> {
+pub fn new_global<P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmOptions>>>(
+	cx: &Context, class: &JSClass, principals: P, hook_option: OnNewGlobalHookOption, realm_options: R,
+) -> Object {
 	let realm_options = realm_options.into().unwrap_or_default();
 	let global = unsafe {
 		JS_NewGlobalObject(

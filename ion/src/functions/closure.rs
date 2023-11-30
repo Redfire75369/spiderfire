@@ -15,13 +15,12 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Object, ResultExc, Value};
-use crate::conversions::IntoValue;
-use crate::functions::__handle_native_function_result;
+use crate::functions::{handle_native_function_result, handle_result};
 use crate::objects::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 
-pub type Closure = dyn for<'cx> FnMut(&mut Arguments<'cx>) -> ResultExc<Value<'cx>> + 'static;
+pub type Closure = dyn FnMut(&mut Arguments) -> ResultExc<Value> + 'static;
 
 pub(crate) fn create_closure_object(cx: &Context, closure: Box<Closure>) -> Object {
 	unsafe {
@@ -46,10 +45,8 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };
 	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
-	let result = catch_unwind(AssertUnwindSafe(|| {
-		closure(args).map(|result| Box::new(result).into_value(cx, args.rval()))
-	}));
-	__handle_native_function_result(cx, result)
+	let result = catch_unwind(AssertUnwindSafe(|| Ok(handle_result(cx, closure(args), args.rval()))));
+	handle_native_function_result(cx, result)
 }
 
 unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) {

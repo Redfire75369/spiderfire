@@ -8,18 +8,19 @@ use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::CallArgs;
 use mozjs::jsval::JSVal;
+use mozjs::rust::MutableHandle;
 
-use crate::{Context, Local, Object, Result, Value};
+use crate::{Context, Object, Result, Value};
 use crate::conversions::FromValue;
 
 /// Represents Arguments to a [JavaScript Function](crate::Function)
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
 pub struct Arguments<'cx> {
 	cx: &'cx Context,
-	values: Box<[Value<'cx>]>,
-	callee: Object<'cx>,
-	this: Value<'cx>,
-	rval: Value<'cx>,
+	values: Box<[Value]>,
+	callee: Object,
+	this: Value,
+	rval: MutableHandle<'cx, JSVal>,
 	call_args: CallArgs,
 }
 
@@ -28,10 +29,10 @@ impl<'cx> Arguments<'cx> {
 	pub unsafe fn new(cx: &'cx Context, argc: u32, vp: *mut JSVal) -> Arguments<'cx> {
 		unsafe {
 			let call_args = CallArgs::from_vp(vp, argc);
-			let values = (0..argc).map(|i| Local::from_raw_handle(call_args.get(i)).into()).collect();
-			let callee = cx.root_object(call_args.callee()).into();
-			let this = cx.root_value(call_args.thisv().get()).into();
-			let rval = Local::from_raw_handle_mut(call_args.rval()).into();
+			let values = (0..argc).map(|i| cx.root(call_args.get(i).get()).into()).collect();
+			let callee = cx.root(call_args.callee()).into();
+			let this = cx.root(call_args.thisv().get()).into();
+			let rval = MutableHandle::from_raw(call_args.rval());
 
 			Arguments {
 				cx,
@@ -59,7 +60,7 @@ impl<'cx> Arguments<'cx> {
 
 	/// Gets the [Value] at the given index.
 	/// Returns [None] if the given index is larger than the number of arguments.
-	pub fn value(&self, index: usize) -> Option<&Value<'cx>> {
+	pub fn value(&self, index: usize) -> Option<&Value> {
 		if index < self.len() {
 			return Some(&self.values[index]);
 		}
@@ -67,7 +68,7 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns a vector of arguments as [Values](Value) based on the indices of the iterator.
-	pub fn range<R: Iterator<Item = usize>>(&self, range: R) -> Vec<&Value<'cx>> {
+	pub fn range<R: Iterator<Item = usize>>(&self, range: R) -> Vec<&Value> {
 		range.filter_map(|index| self.value(index)).collect()
 	}
 
@@ -76,31 +77,31 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns the value of the function being called.
-	pub fn callee(&self) -> &Object<'cx> {
+	pub fn callee(&self) -> &Object {
 		&self.callee
 	}
 
 	/// Returns a mutable reference to the function being called.
-	pub fn callee_mut(&mut self) -> &mut Object<'cx> {
+	pub fn callee_mut(&mut self) -> &mut Object {
 		&mut self.callee
 	}
 
 	/// Returns the `this` value of the function.
 	/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this) for more details.
-	pub fn this(&self) -> &Value<'cx> {
+	pub fn this(&self) -> &Value {
 		&self.this
 	}
 
 	/// Returns a mutable reference to the `this` value of the function.
 	/// See [Arguments::this] for more details.
-	pub fn this_mut(&mut self) -> &mut Value<'cx> {
+	pub fn this_mut(&mut self) -> &mut Value {
 		&mut self.this
 	}
 
 	/// Returns the return value of the function.
 	/// This value can be modified to change the return value.
-	pub fn rval(&mut self) -> &mut Value<'cx> {
-		&mut self.rval
+	pub fn rval(&mut self) -> MutableHandle<JSVal> {
+		self.rval
 	}
 
 	/// Returns true if the function was called with `new`.

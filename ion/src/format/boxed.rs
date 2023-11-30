@@ -13,13 +13,13 @@ use crate::format::primitive::format_primitive;
 
 /// Formats a boxed primitive ([Object]) as a string using the given [configuration](Config).
 /// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt`.
-pub fn format_boxed<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> BoxedDisplay<'cx> {
+pub fn format_boxed<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object) -> BoxedDisplay<'cx> {
 	BoxedDisplay { cx, object, cfg }
 }
 
 pub struct BoxedDisplay<'cx> {
 	cx: &'cx Context,
-	object: &'cx Object<'cx>,
+	object: &'cx Object,
 	cfg: Config,
 }
 

@@ -60,6 +60,6 @@ pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Block>
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
-		#ion::functions::__handle_native_function_result(cx, result)
+		#ion::functions::handle_native_function_result(cx, result)
 	}))
 }

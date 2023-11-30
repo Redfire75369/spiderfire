@@ -7,10 +7,10 @@
 use std::iter::FusedIterator;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
+use mozjs::jsapi::{GetArrayLength, HandleValueArray, Heap, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
 
-use crate::{Context, Local, Object, Value};
+use crate::{Context, Object, Result, Root, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::objects::object::ObjectKeysIter;
@@ -18,30 +18,30 @@ use crate::objects::object::ObjectKeysIter;
 /// Represents an [Array] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.
 #[derive(Debug)]
-pub struct Array<'a> {
-	arr: Object<'a>,
+pub struct Array {
+	arr: Object,
 }
 
-impl<'a> Array<'a> {
+impl Array {
 	/// Creates an empty [Array].
-	pub fn new(cx: &'a Context) -> Array<'a> {
+	pub fn new(cx: &Context) -> Array {
 		Array::new_with_length(cx, 0)
 	}
 
 	/// Creates an empty [Array] with the given length.
-	pub fn new_with_length(cx: &'a Context, length: usize) -> Array<'a> {
+	pub fn new_with_length(cx: &Context, length: usize) -> Array {
 		Array {
 			arr: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
 		}
 	}
 
 	/// Creates an [Array] from a slice of values.
-	pub fn from_slice(cx: &'a Context, slice: &[JSVal]) -> Array<'a> {
+	pub fn from_slice(cx: &Context, slice: &[JSVal]) -> Array {
 		Array::from_handle(cx, unsafe { HandleValueArray::from_rooted_slice(slice) })
 	}
 
 	/// Creates an [Array] from a [HandleValueArray].
-	pub fn from_handle(cx: &'a Context, handle: HandleValueArray) -> Array<'a> {
+	pub fn from_handle(cx: &Context, handle: HandleValueArray) -> Array {
 		Array {
 			arr: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
 		}
@@ -50,7 +50,7 @@ impl<'a> Array<'a> {
 	/// Creates an [Array] from an object.
 	///
 	/// Returns [None] if the object is not an array.
-	pub fn from(cx: &Context, object: Local<'a, *mut JSObject>) -> Option<Array<'a>> {
+	pub fn from(cx: &Context, object: Root<Box<Heap<*mut JSObject>>>) -> Option<Array> {
 		if Array::is_array(cx, &object) {
 			Some(Array { arr: object.into() })
 		} else {
@@ -62,13 +62,13 @@ impl<'a> Array<'a> {
 	///
 	/// ### Safety
 	/// Object must be an array.
-	pub unsafe fn from_unchecked(object: Local<'a, *mut JSObject>) -> Array<'a> {
+	pub unsafe fn from_unchecked(object: Root<Box<Heap<*mut JSObject>>>) -> Array {
 		Array { arr: object.into() }
 	}
 
 	/// Converts an [Array] to a [Vec].
 	/// Returns an empty [Vec] if the conversion fails.
-	pub fn to_vec<'cx>(&self, cx: &'cx Context) -> Vec<Value<'cx>> {
+	pub fn to_vec(&self, cx: &Context) -> Vec<Value> {
 		let value = cx.root_value(ObjectValue(self.arr.handle().get())).into();
 		if let Ok(vec) = Vec::from_value(cx, &value, true, ()) {
 			vec
@@ -78,7 +78,7 @@ impl<'a> Array<'a> {
 	}
 
 	/// Converts an [Array] to an [Object].
-	pub fn to_object(&self, cx: &'a Context) -> Object<'a> {
+	pub fn to_object(&self, cx: &Context) -> Object {
 		Object::from(cx.root_object(self.arr.handle().get()))
 	}
 
@@ -99,7 +99,7 @@ impl<'a> Array<'a> {
 
 	/// Gets the [Value] at the given index of the [Array].
 	/// Returns [None] if there is no value at the given index.
-	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
+	pub fn get(&self, cx: &Context, index: u32) -> Option<Value> {
 		self.arr.get(cx, index)
 	}
 
@@ -107,7 +107,7 @@ impl<'a> Array<'a> {
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
 	pub fn get_as<'cx, T: FromValue<'cx>>(
 		&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config,
-	) -> Option<T> {
+	) -> Option<Result<T>> {
 		self.arr.get_as(cx, index, strict, config)
 	}
 
@@ -119,7 +119,7 @@ impl<'a> Array<'a> {
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
+	pub fn set_as<T: ToValue + ?Sized>(&mut self, cx: &Context, index: u32, value: &T) -> Result<()> {
 		self.arr.set_as(cx, index, value)
 	}
 
@@ -131,9 +131,9 @@ impl<'a> Array<'a> {
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
-	) -> bool {
+	pub fn define_as<T: ToValue + ?Sized>(
+		&mut self, cx: &Context, index: u32, value: &T, attrs: PropertyFlags,
+	) -> Result<()> {
 		self.arr.define_as(cx, index, value, attrs)
 	}
 
@@ -147,10 +147,7 @@ impl<'a> Array<'a> {
 		ArrayIndicesIter(self.arr.keys(cx, flags))
 	}
 
-	pub fn iter<'cx, 's>(&'s self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ArrayIter<'cx, 's>
-	where
-		'a: 'cx,
-	{
+	pub fn iter<'cx, 's>(&'s self, cx: &'cx Context, flags: Option<IteratorFlags>) -> ArrayIter<'cx, 's> {
 		ArrayIter::new(cx, self, self.indices(cx, flags))
 	}
 
@@ -162,25 +159,25 @@ impl<'a> Array<'a> {
 	}
 
 	/// Checks if a [*mut JSObject] is an array.
-	pub fn is_array(cx: &Context, object: &Local<*mut JSObject>) -> bool {
+	pub fn is_array(cx: &Context, object: &Root<Box<Heap<*mut JSObject>>>) -> bool {
 		let mut is_array = false;
 		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
 	}
 
-	pub fn into_local(self) -> Local<'a, *mut JSObject> {
-		self.arr.into_local()
+	pub fn into_root(self) -> Root<Box<Heap<*mut JSObject>>> {
+		self.arr.into_root()
 	}
 }
 
-impl<'a> Deref for Array<'a> {
-	type Target = Local<'a, *mut JSObject>;
+impl Deref for Array {
+	type Target = Root<Box<Heap<*mut JSObject>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.arr
 	}
 }
 
-impl<'a> DerefMut for Array<'a> {
+impl DerefMut for Array {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.arr
 	}
@@ -222,18 +219,18 @@ impl FusedIterator for ArrayIndicesIter<'_> {}
 
 pub struct ArrayIter<'cx, 'a> {
 	cx: &'cx Context,
-	array: &'a Array<'cx>,
+	array: &'a Array,
 	indices: ArrayIndicesIter<'cx>,
 }
 
 impl<'cx, 'a> ArrayIter<'cx, 'a> {
-	fn new(cx: &'cx Context, array: &'a Array<'cx>, indices: ArrayIndicesIter<'cx>) -> ArrayIter<'cx, 'a> {
+	fn new(cx: &'cx Context, array: &'a Array, indices: ArrayIndicesIter<'cx>) -> ArrayIter<'cx, 'a> {
 		ArrayIter { cx, array, indices }
 	}
 }
 
-impl<'cx> Iterator for ArrayIter<'cx, '_> {
-	type Item = (u32, Value<'cx>);
+impl Iterator for ArrayIter<'_, '_> {
+	type Item = (u32, Value);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.indices.next().map(|index| {

@@ -9,18 +9,18 @@ use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
 	BigIntFitsNumber, BigIntFromBool, BigIntFromInt64, BigIntFromUint64, BigIntIsInt64, BigIntIsNegative,
-	BigIntIsUint64, BigIntToNumber, BigIntToString, NumberToBigInt, StringToBigInt1,
+	BigIntIsUint64, BigIntToNumber, BigIntToString, Heap, NumberToBigInt, StringToBigInt1,
 };
 use mozjs::jsapi::BigInt as JSBigInt;
 use mozjs::jsapi::mozilla::{Range, RangedPtr};
 
-use crate::{Context, Exception, Local, String};
+use crate::{Context, Exception, Root, String};
 
-pub struct BigInt<'b> {
-	bi: Local<'b, *mut JSBigInt>,
+pub struct BigInt {
+	bi: Root<Box<Heap<*mut JSBigInt>>>,
 }
 
-impl<'b> BigInt<'b> {
+impl BigInt {
 	/// Creates a [BigInt] from a boolean.
 	pub fn from_bool(cx: &Context, boolean: bool) -> BigInt {
 		BigInt::from(cx.root_bigint(unsafe { BigIntFromBool(cx.as_ptr(), boolean) }))
@@ -48,7 +48,7 @@ impl<'b> BigInt<'b> {
 	}
 
 	/// Creates a [BigInt] from a string.
-	pub fn from_string(cx: &'b Context, string: &str) -> Result<BigInt<'b>, Option<Exception>> {
+	pub fn from_string(cx: &Context, string: &str) -> Result<BigInt, Option<Exception>> {
 		let mut string: Vec<u16> = string.encode_utf16().collect();
 		let range = string.as_mut_ptr_range();
 		let chars = Range {
@@ -104,7 +104,7 @@ impl<'b> BigInt<'b> {
 
 	/// Converts a [BigInt] to a string.
 	/// Returns `None` if the radix is not within the range (2..=36).
-	pub fn to_string<'cx>(&self, cx: &'cx Context, radix: u8) -> Option<String<'cx>> {
+	pub fn to_string(&self, cx: &Context, radix: u8) -> Option<String> {
 		if !(2..=36).contains(&radix) {
 			None
 		} else {
@@ -119,21 +119,21 @@ impl<'b> BigInt<'b> {
 	}
 }
 
-impl<'b> From<Local<'b, *mut JSBigInt>> for BigInt<'b> {
-	fn from(bi: Local<'b, *mut JSBigInt>) -> BigInt<'b> {
+impl From<Root<Box<Heap<*mut JSBigInt>>>> for BigInt {
+	fn from(bi: Root<Box<Heap<*mut JSBigInt>>>) -> BigInt {
 		BigInt { bi }
 	}
 }
 
-impl<'o> Deref for BigInt<'o> {
-	type Target = Local<'o, *mut JSBigInt>;
+impl Deref for BigInt {
+	type Target = Root<Box<Heap<*mut JSBigInt>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.bi
 	}
 }
 
-impl<'o> DerefMut for BigInt<'o> {
+impl DerefMut for BigInt {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.bi
 	}

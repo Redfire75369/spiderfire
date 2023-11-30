@@ -20,13 +20,13 @@ use crate::symbol::SymbolCode;
 /// Unique Symbols are formatted as `Symbol(<#symbol>)`.
 /// Registry Symbols are formatted as `Symbol.for(<#symbol>)`.
 /// Private Name Symbols are formatted as `#private`.
-pub fn format_symbol<'cx>(cx: &'cx Context, cfg: Config, symbol: &'cx Symbol<'cx>) -> SymbolDisplay<'cx> {
+pub fn format_symbol<'cx>(cx: &'cx Context, cfg: Config, symbol: &'cx Symbol) -> SymbolDisplay<'cx> {
 	SymbolDisplay { cx, symbol, cfg }
 }
 
 pub struct SymbolDisplay<'cx> {
 	cx: &'cx Context,
-	symbol: &'cx Symbol<'cx>,
+	symbol: &'cx Symbol,
 	cfg: Config,
 }
 
@@ -38,11 +38,7 @@ impl Display for SymbolDisplay<'_> {
 		match code {
 			SymbolCode::WellKnown(code) => write!(f, "{}{}", "Symbol.".color(colour), code.identifier().color(colour)),
 			code => {
-				let description = self
-					.symbol
-					.description(self.cx)
-					.expect("Expected Description on Non-Well-Known Symbol")
-					.color(colour);
+				let description = self.symbol.description(self.cx).color(colour);
 
 				match code {
 					SymbolCode::PrivateNameSymbol => return write!(f, "{}", description),

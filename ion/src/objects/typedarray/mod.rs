@@ -5,12 +5,13 @@
  */
 
 use std::ops::Deref;
+use std::ptr;
 
+use mozjs::jsapi::JSObject;
 use mozjs::typedarray::CreateWith;
 
 use crate::{Context, Error, Object, Result, Value};
 use crate::conversions::ToValue;
-use crate::exception::ThrowException;
 
 pub mod buffer;
 
@@ -21,8 +22,8 @@ macro_rules! impl_typedarray_wrapper {
 		}
 
 		impl $typedarray {
-			pub fn to_object<'cx>(&self, cx: &'cx Context) -> Result<Object<'cx>> {
-				let mut typed_array = Object::new(cx);
+			pub fn to_object(&self, cx: &Context) -> Result<Object> {
+				rooted!(in(cx.as_ptr()) let mut typed_array: *mut JSObject = ptr::null_mut());
 				if unsafe {
 					mozjs::typedarray::$typedarray::create(
 						cx.as_ptr(),
@@ -31,7 +32,7 @@ macro_rules! impl_typedarray_wrapper {
 					)
 					.is_ok()
 				} {
-					Ok(typed_array)
+					Ok(Object::from(cx.root(typed_array.get())))
 				} else {
 					Err(Error::new(
 						concat!("Failed to create", stringify!($typedarray)),
@@ -55,12 +56,9 @@ macro_rules! impl_typedarray_wrapper {
 			}
 		}
 
-		impl<'cx> ToValue<'cx> for $typedarray {
-			fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-				match self.to_object(cx) {
-					Ok(typed_array) => typed_array.to_value(cx, value),
-					Err(error) => error.throw(cx),
-				}
+		impl ToValue for $typedarray {
+			fn to_value(&self, cx: &Context) -> Result<Value> {
+				self.to_object(cx).and_then(|obj| obj.to_value(cx))
 			}
 		}
 	};

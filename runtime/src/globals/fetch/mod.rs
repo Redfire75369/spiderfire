@@ -28,7 +28,7 @@ use url::Url;
 
 pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
-use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Promise, ResultExc, Root};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
@@ -66,14 +66,14 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 		}
 	};
 
-	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
+	let signal = Object::from(unsafe { Root::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(&signal);
 	if let Some(reason) = signal.get_reason() {
 		promise.reject(cx, &cx.root_value(reason).into());
 		return Some(promise);
 	}
 
-	let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+	let mut headers = Object::from(unsafe { Root::from_heap(&request.headers) });
 	let headers = Headers::get_mut_private(&mut headers);
 	if !headers.headers.contains_key(ACCEPT) {
 		headers.headers.append(ACCEPT, HeaderValue::from_static("*/*"));
@@ -95,7 +95,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 	let request = request.handle().into_handle();
 	future_to_promise(cx, async move {
-		let mut request = Object::from(unsafe { Local::from_raw_handle(request) });
+		let mut request = Object::from(unsafe { Root::from_raw_handle(request) });
 		let res = fetch_internal(&cx2, &mut request, GLOBAL_CLIENT.get().unwrap().clone()).await;
 		cx2.unroot_persistent_object(request.handle().get());
 		res
@@ -104,7 +104,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 
 async fn fetch_internal<'o>(cx: &Context, request: &mut Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
 	let request = Request::get_mut_private(request);
-	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
+	let signal = Object::from(unsafe { Root::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
 	let send = Box::pin(main_fetch(cx, request, client, 0));
 	let response = match select(send, signal).await {
@@ -208,7 +208,7 @@ static BAD_PORTS: &[u16] = &[
 
 static SCHEMES: [&str; 4] = ["about", "blob", "data", "file"];
 
-#[async_recursion(?Send)]
+#[async_recursion(? Send)]
 async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirections: u8) -> Response {
 	let scheme = request.url.scheme();
 
@@ -250,7 +250,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 
 	response.url.get_or_insert(request.url.clone());
 
-	let mut headers = Object::from(unsafe { Local::from_heap(&response.headers) });
+	let mut headers = Object::from(unsafe { Root::from_heap(&response.headers) });
 	let headers = Headers::get_mut_private(&mut headers);
 
 	if !opaque_redirect
@@ -416,10 +416,10 @@ async fn http_fetch(
 	}
 }
 
-#[async_recursion(?Send)]
+#[async_recursion(? Send)]
 async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new: bool) -> Response {
 	let mut request = req.clone();
-	let mut headers = Object::from(unsafe { Local::from_heap(&req.headers) });
+	let mut headers = Object::from(unsafe { Root::from_heap(&req.headers) });
 	let headers = Headers::get_mut_private(&mut headers);
 	*request.request.headers_mut() = headers.headers.clone();
 
@@ -521,7 +521,7 @@ async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new:
 async fn http_redirect_fetch(
 	cx: &Context, request: &mut Request, response: Response, client: Client, taint: ResponseTaint, redirections: u8,
 ) -> Response {
-	let headers = Object::from(unsafe { Local::from_heap(&response.headers) });
+	let headers = Object::from(unsafe { Root::from_heap(&response.headers) });
 	let headers = Headers::get_private(&headers);
 	let mut location = headers.headers.get_all(LOCATION).into_iter();
 	let location = match location.size_hint().1 {
@@ -529,10 +529,7 @@ async fn http_redirect_fetch(
 		None => return network_error(),
 		_ => {
 			let location = location.next().unwrap();
-			match Url::options()
-				.base_url(response.url.as_ref())
-				.parse(str::from_utf8(location.as_bytes()).unwrap())
-			{
+			match Url::options().base_url(response.url.as_ref()).parse(str::from_utf8(location.as_bytes()).unwrap()) {
 				Ok(mut url) => {
 					if url.fragment().is_none() {
 						url.set_fragment(response.url.as_ref().and_then(Url::fragment));
@@ -567,7 +564,7 @@ async fn http_redirect_fetch(
 	{
 		*request.request.method_mut() = Method::GET;
 		request.body = FetchBody::default();
-		let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+		let mut headers = Object::from(unsafe { Root::from_heap(&request.headers) });
 		let headers = Headers::get_mut_private(&mut headers);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_ENCODING);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LANGUAGE);

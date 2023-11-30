@@ -16,7 +16,7 @@ use mozjs::jsapi::{
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Object};
+use crate::Context;
 use crate::format::{INDENT, NEWLINE};
 use crate::utils::normalise_path;
 
@@ -158,9 +158,9 @@ fn capture_stack(cx: &Context, max_frames: Option<u32>) -> Option<*mut JSObject>
 		};
 		let mut capture = capture.assume_init();
 
-		let mut stack = Object::null(cx);
+		rooted!(in(cx.as_ptr()) let mut stack: *mut JSObject = ptr::null_mut());
 		if CaptureCurrentStack(cx.as_ptr(), stack.handle_mut().into(), &mut capture) {
-			Some(stack.handle().get())
+			Some(stack.get())
 		} else {
 			None
 		}

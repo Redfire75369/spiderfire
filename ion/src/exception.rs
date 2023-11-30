@@ -10,11 +10,11 @@ use mozjs::jsapi::{
 	IdentifyStandardInstance, JS_ClearPendingException, JS_GetPendingException, JS_IsExceptionPending,
 	JS_SetPendingException, Rooted,
 };
-use mozjs::jsval::{JSVal, ObjectValue};
+use mozjs::jsval::{JSVal, ObjectValue, UndefinedValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Object, Stack, Value};
+use crate::{Context, Error, ErrorKind, Object, Result, Stack, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::format::{Config, format_value, NEWLINE};
 use crate::stack::Location;
@@ -37,9 +37,9 @@ impl Exception {
 	pub fn new(cx: &Context) -> Option<Exception> {
 		unsafe {
 			if JS_IsExceptionPending(cx.as_ptr()) {
-				let mut exception = Value::undefined(cx);
+				rooted!(in(cx.as_ptr()) let mut exception = UndefinedValue());
 				if JS_GetPendingException(cx.as_ptr(), exception.handle_mut().into()) {
-					let exception = Exception::from_value(cx, &exception);
+					let exception = Exception::from_value(cx, &Value::from(cx.root(exception.get())));
 					Exception::clear(cx);
 					Some(exception)
 				} else {
@@ -52,7 +52,7 @@ impl Exception {
 	}
 
 	/// Converts a [Value] into an [Exception].
-	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Exception {
+	pub fn from_value(cx: &Context, value: &Value) -> Exception {
 		if value.handle().is_object() {
 			let object = value.to_object(cx);
 			Exception::from_object(cx, &object)
@@ -63,14 +63,15 @@ impl Exception {
 
 	/// Converts an [Object] into an [Exception].
 	/// If the object is an error object, it is parsed as an [Error].
-	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
+	pub fn from_object(cx: &Context, exception: &Object) -> Exception {
 		unsafe {
 			let handle = exception.handle();
 			if exception.get_builtin_class(cx) == ESClass::Error {
 				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
-				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
-				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
-				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
+				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap().unwrap();
+				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap().unwrap();
+				let column: u32 =
+					exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap().unwrap();
 
 				let location = Location { file, lineno, column };
 				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(handle.get()));
@@ -156,11 +157,11 @@ impl ThrowException for Exception {
 	}
 }
 
-impl<'cx> ToValue<'cx> for Exception {
-	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+impl ToValue for Exception {
+	fn to_value(&self, cx: &Context) -> Result<Value> {
 		match self {
-			Exception::Error(error) => error.to_value(cx, value),
-			Exception::Other(other) => value.handle_mut().set(*other),
+			Exception::Error(error) => error.to_value(cx),
+			Exception::Other(other) => other.to_value(cx),
 		}
 	}
 }

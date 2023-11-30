@@ -18,13 +18,13 @@ use crate::format::symbol::format_symbol;
 
 /// Formats a primitive value as a string using the given [configuration](Config).
 /// The supported types are `boolean`, `number`, `string`, `symbol`, `null` and `undefined`.
-pub fn format_primitive<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value<'cx>) -> PrimitiveDisplay<'cx> {
+pub fn format_primitive<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value) -> PrimitiveDisplay<'cx> {
 	PrimitiveDisplay { cx, value, cfg }
 }
 
 pub struct PrimitiveDisplay<'cx> {
 	cx: &'cx Context,
-	value: &'cx Value<'cx>,
+	value: &'cx Value,
 	cfg: Config,
 }
 

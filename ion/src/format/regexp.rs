@@ -14,13 +14,13 @@ use crate::format::Config;
 use crate::objects::RegExp;
 
 /// Formats a [RegExp object](RegExp) as a string using the given [configuration](Config).
-pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp<'cx>) -> RegExpDisplay<'cx> {
+pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp) -> RegExpDisplay<'cx> {
 	RegExpDisplay { cx, regexp, cfg }
 }
 
 pub struct RegExpDisplay<'cx> {
 	cx: &'cx Context,
-	regexp: &'cx RegExp<'cx>,
+	regexp: &'cx RegExp,
 	cfg: Config,
 }
 

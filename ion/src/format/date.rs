@@ -13,13 +13,13 @@ use crate::{Context, Date};
 use crate::format::Config;
 
 /// Formats a [JavaScript Date](Date) as a string using the given [configuration](Config).
-pub fn format_date<'cx>(cx: &'cx Context, cfg: Config, date: &'cx Date<'cx>) -> DateDisplay<'cx> {
+pub fn format_date<'cx>(cx: &'cx Context, cfg: Config, date: &'cx Date) -> DateDisplay<'cx> {
 	DateDisplay { cx, date, cfg }
 }
 
 pub struct DateDisplay<'cx> {
 	cx: &'cx Context,
-	date: &'cx Date<'cx>,
+	date: &'cx Date,
 	cfg: Config,
 }
 

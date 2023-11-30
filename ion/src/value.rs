@@ -6,25 +6,24 @@
 
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::SameValue;
+use mozjs::jsapi::{Heap, JS_ValueToSource, SameValue};
 use mozjs::jsval::{
 	BigIntValue, BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, SymbolValue, UInt32Value,
 	UndefinedValue,
 };
-use mozjs_sys::jsapi::JS_ValueToSource;
 
-use crate::{Array, Context, Local, Object, Symbol};
+use crate::{Array, Context, Object, Root, Symbol};
 use crate::bigint::BigInt;
 use crate::conversions::ToValue;
 
 /// Represents a JavaScript Value in the runtime.
 /// It can represent either a primitive or an object.
 #[derive(Debug)]
-pub struct Value<'v> {
-	val: Local<'v, JSVal>,
+pub struct Value {
+	val: Root<Box<Heap<JSVal>>>,
 }
 
-impl<'v> Value<'v> {
+impl Value {
 	/// Creates a [Value] from a boolean.
 	pub fn bool(cx: &Context, b: bool) -> Value {
 		Value::from(cx.root_value(BooleanValue(b)))
@@ -46,27 +45,27 @@ impl<'v> Value<'v> {
 	}
 
 	/// Creates a [Value] from a string.
-	pub fn string(cx: &'v Context, str: &str) -> Value<'v> {
-		str.as_value(cx)
+	pub fn string(cx: &Context, str: &str) -> Value {
+		str.to_value(cx).unwrap()
 	}
 
 	/// Creates a [Value] from a [BigInt].
-	pub fn bigint<'cx>(cx: &'cx Context, bi: &BigInt) -> Value<'cx> {
+	pub fn bigint(cx: &Context, bi: &BigInt) -> Value {
 		Value::from(cx.root_value(BigIntValue(unsafe { &*bi.get() })))
 	}
 
 	/// Creates a [Value] from a [Symbol].
-	pub fn symbol<'cx>(cx: &'cx Context, sym: &Symbol) -> Value<'cx> {
+	pub fn symbol(cx: &Context, sym: &Symbol) -> Value {
 		Value::from(cx.root_value(SymbolValue(unsafe { &*sym.get() })))
 	}
 
 	/// Creates a [Value] from an [Object].
-	pub fn object<'cx>(cx: &'cx Context, object: &Object) -> Value<'cx> {
+	pub fn object(cx: &Context, object: &Object) -> Value {
 		Value::from(cx.root_value(ObjectValue(object.handle().get())))
 	}
 
 	/// Creates a [Value] from an [Array].
-	pub fn array<'cx>(cx: &'cx Context, array: &Array) -> Value<'cx> {
+	pub fn array(cx: &Context, array: &Array) -> Value {
 		Value::from(cx.root_value(ObjectValue(array.handle().get())))
 	}
 
@@ -84,7 +83,7 @@ impl<'v> Value<'v> {
 	///
 	/// ### Panics
 	/// This panics if the [Value] is not an object.
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
+	pub fn to_object(&self, cx: &Context) -> Object {
 		cx.root_object(self.handle().to_object()).into()
 	}
 
@@ -95,26 +94,26 @@ impl<'v> Value<'v> {
 		unsafe { SameValue(cx.as_ptr(), self.handle().into(), other.handle().into(), &mut same) && same }
 	}
 
-	pub fn to_source<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
+	pub fn to_source(&self, cx: &Context) -> crate::String {
 		crate::String::from(cx.root_string(unsafe { JS_ValueToSource(cx.as_ptr(), self.handle().into()) }))
 	}
 }
 
-impl<'v> From<Local<'v, JSVal>> for Value<'v> {
-	fn from(val: Local<'v, JSVal>) -> Value<'v> {
+impl From<Root<Box<Heap<JSVal>>>> for Value {
+	fn from(val: Root<Box<Heap<JSVal>>>) -> Value {
 		Value { val }
 	}
 }
 
-impl<'v> Deref for Value<'v> {
-	type Target = Local<'v, JSVal>;
+impl Deref for Value {
+	type Target = Root<Box<Heap<JSVal>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.val
 	}
 }
 
-impl<'v> DerefMut for Value<'v> {
+impl DerefMut for Value {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.val
 	}

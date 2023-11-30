@@ -14,7 +14,7 @@ use mozjs::jsapi::{Heap, JSObject};
 use mozjs::rust::IntoHandle;
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Root, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::typedarray::ArrayBuffer;
 pub use options::*;
@@ -232,7 +232,7 @@ impl Response {
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let mut response = Object::from(unsafe { Root::from_raw_handle(this) });
 			let response = Response::get_mut_private(&mut response);
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
@@ -245,7 +245,7 @@ impl Response {
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into_handle();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let mut response = Object::from(unsafe { Root::from_raw_handle(this) });
 			let response = Response::get_mut_private(&mut response);
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());

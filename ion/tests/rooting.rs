@@ -7,7 +7,8 @@ use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
 use ion::objects::default_new_global;
 
-fn main() {
+#[test]
+fn test() {
 	let engine = JSEngine::init().unwrap();
 	let runtime = Runtime::new(engine.handle());
 
@@ -16,7 +17,7 @@ fn main() {
 	let _realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 	let _native = global.define_method(cx, "native", native, 1, PropertyFlags::all());
-	let native: Function = global.get_as(cx, "native", true, ()).unwrap();
+	let native: Function = global.get_as(cx, "native", true, ()).unwrap().unwrap();
 
 	let args = vec![Value::null(cx), Value::bool(cx, true), Value::string(cx, "Old String")];
 	let result = native.call(cx, &Object::null(cx), args.as_slice());
@@ -48,6 +49,6 @@ unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bo
 	}
 
 	let rval = Value::i32(cx, correct_args);
-	args.rval().handle_mut().set(rval.get());
+	args.rval().set(rval.get());
 	true
 }

@@ -16,13 +16,13 @@ use crate::format::Config;
 use crate::format::object::format_plain_object;
 
 /// Formats a [JavaScript Object](Object), along with the name of its constructor, as a string with the given [configuration](Config).
-pub fn format_class_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> ClassObjectDisplay<'cx> {
+pub fn format_class_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object) -> ClassObjectDisplay<'cx> {
 	ClassObjectDisplay { cx, object, cfg }
 }
 
 pub struct ClassObjectDisplay<'cx> {
 	cx: &'cx Context,
-	object: &'cx Object<'cx>,
+	object: &'cx Object,
 	cfg: Config,
 }
 

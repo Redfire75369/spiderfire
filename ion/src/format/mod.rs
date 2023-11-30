@@ -30,13 +30,13 @@ pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
 /// Formats a [JavaScript Value](Value) as a string with the given [configuration](Config).
-pub fn format_value<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value<'cx>) -> ValueDisplay<'cx> {
+pub fn format_value<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value) -> ValueDisplay<'cx> {
 	ValueDisplay { cx, value, cfg }
 }
 
 pub struct ValueDisplay<'cx> {
 	cx: &'cx Context,
-	value: &'cx Value<'cx>,
+	value: &'cx Value,
 	cfg: Config,
 }
 

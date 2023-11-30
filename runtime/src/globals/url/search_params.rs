@@ -6,9 +6,9 @@
 use form_urlencoded::{parse, Serializer};
 use mozjs::jsapi::{Heap, JSObject};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, OwnedKey, Result, Value};
+use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Object, OwnedKey, Result, Root, Value};
 use ion::class::Reflector;
-use ion::conversions::{FromValue, ToValue};
+use ion::conversions::FromValue;
 use ion::symbol::WellKnownSymbolCode;
 
 use crate::globals::url::URL;
@@ -163,7 +163,7 @@ impl URLSearchParams {
 
 	fn update(&mut self) {
 		if let Some(url) = &self.url {
-			let mut url = Object::from(unsafe { Local::from_heap(url) });
+			let mut url = Object::from(unsafe { Root::from_heap(url) });
 			let url = URL::get_mut_private(&mut url);
 			if self.pairs.is_empty() {
 				url.url.set_query(None);

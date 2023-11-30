@@ -24,7 +24,7 @@ pub fn format_promise<'cx>(cx: &'cx Context, cfg: Config, promise: &'cx Promise)
 
 pub struct PromiseDisplay<'cx> {
 	cx: &'cx Context,
-	promise: &'cx Promise<'cx>,
+	promise: &'cx Promise,
 	cfg: Config,
 }
 

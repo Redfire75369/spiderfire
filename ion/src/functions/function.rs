@@ -9,14 +9,15 @@ use std::ops::Deref;
 
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId,
+	HandleValueArray, Heap, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId,
 	JS_GetFunctionId, JS_GetFunctionLength, JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction,
 	JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction,
 	JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
+use mozjs::jsval::UndefinedValue;
 
-use crate::{Context, ErrorReport, Local, Object, Value};
+use crate::{Context, ErrorReport, Object, Root, Value};
 use crate::flags::PropertyFlags;
 use crate::functions::closure::{call_closure, Closure, create_closure_object};
 
@@ -26,15 +27,13 @@ pub type NativeFunction = unsafe extern "C" fn(*mut JSContext, u32, *mut JSVal) 
 /// Represents a [Function] within the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions) for more details.
 #[derive(Debug)]
-pub struct Function<'f> {
-	function: Local<'f, *mut JSFunction>,
+pub struct Function {
+	function: Root<Box<Heap<*mut JSFunction>>>,
 }
 
-impl<'f> Function<'f> {
+impl Function {
 	/// Creates a new [Function] with the given name, native function, number of arguments and flags.
-	pub fn new(
-		cx: &'f Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags,
-	) -> Function<'f> {
+	pub fn new(cx: &Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function {
 		let name = CString::new(name).unwrap();
 		Function {
 			function: cx
@@ -43,16 +42,14 @@ impl<'f> Function<'f> {
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
-	pub fn from_spec(cx: &'f Context, spec: &JSFunctionSpec) -> Function<'f> {
+	pub fn from_spec(cx: &Context, spec: &JSFunctionSpec) -> Function {
 		Function {
 			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
 	}
 
 	/// Creates a new [Function] with a [Closure].
-	pub fn from_closure(
-		cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags,
-	) -> Function<'f> {
+	pub fn from_closure(cx: &Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function {
 		unsafe {
 			let function = Function {
 				function: cx.root_function(NewFunctionWithReserved(
@@ -75,7 +72,7 @@ impl<'f> Function<'f> {
 
 	/// Creates a new [Function] from an object.
 	/// Returns [None] if the object is not a function.
-	pub fn from_object(cx: &'f Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'f>> {
+	pub fn from_object(cx: &Context, obj: &Root<Box<Heap<*mut JSObject>>>) -> Option<Function> {
 		if unsafe { Function::is_function_raw(obj.get()) } {
 			Some(Function {
 				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
@@ -86,7 +83,7 @@ impl<'f> Function<'f> {
 	}
 
 	/// Converts the [Function] into an [Object].
-	pub fn to_object(&self, cx: &'f Context) -> Object<'f> {
+	pub fn to_object(&self, cx: &Context) -> Object {
 		cx.root_object(unsafe { JS_GetFunctionObject(self.get()) }).into()
 	}
 
@@ -126,9 +123,7 @@ impl<'f> Function<'f> {
 	/// Calls the [Function] with the given `this` [Object] and arguments.
 	/// Returns the result of the [Function] as a [Value].
 	/// Returns [Err] if the function call fails or an exception occurs.
-	pub fn call<'cx>(
-		&self, cx: &'cx Context, this: &Object, args: &[Value],
-	) -> Result<Value<'cx>, Option<ErrorReport>> {
+	pub fn call(&self, cx: &Context, this: &Object, args: &[Value]) -> Result<Value, Option<ErrorReport>> {
 		let args: Vec<_> = args.iter().map(|a| a.get()).collect();
 		self.call_with_handle(cx, this, unsafe {
 			HandleValueArray::from_rooted_slice(args.as_slice())
@@ -138,10 +133,10 @@ impl<'f> Function<'f> {
 	/// Calls the [Function] with the given `this` [Object] and arguments as a [HandleValueArray].
 	/// Returns the result of the [Function] as a [Value].
 	/// Returns [Err] if the function call fails or an exception occurs.
-	pub fn call_with_handle<'cx>(
-		&self, cx: &'cx Context, this: &Object, args: HandleValueArray,
-	) -> Result<Value<'cx>, Option<ErrorReport>> {
-		let mut rval = Value::undefined(cx);
+	pub fn call_with_handle(
+		&self, cx: &Context, this: &Object, args: HandleValueArray,
+	) -> Result<Value, Option<ErrorReport>> {
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
 		if unsafe {
 			JS_CallFunction(
 				cx.as_ptr(),
@@ -151,7 +146,7 @@ impl<'f> Function<'f> {
 				rval.handle_mut().into(),
 			)
 		} {
-			Ok(rval)
+			Ok(Value::from(cx.root(rval.get())))
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx))
 		}
@@ -178,14 +173,14 @@ impl<'f> Function<'f> {
 	}
 }
 
-impl<'f> From<Local<'f, *mut JSFunction>> for Function<'f> {
-	fn from(function: Local<'f, *mut JSFunction>) -> Function<'f> {
+impl From<Root<Box<Heap<*mut JSFunction>>>> for Function {
+	fn from(function: Root<Box<Heap<*mut JSFunction>>>) -> Function {
 		Function { function }
 	}
 }
 
-impl<'f> Deref for Function<'f> {
-	type Target = Local<'f, *mut JSFunction>;
+impl Deref for Function {
+	type Target = Root<Box<Heap<*mut JSFunction>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.function

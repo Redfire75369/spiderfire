@@ -27,13 +27,13 @@ use crate::format::regexp::format_regexp;
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
-pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> ObjectDisplay<'cx> {
+pub fn format_object(cx: &Context, cfg: Config, object: Object) -> ObjectDisplay {
 	ObjectDisplay { cx, object, cfg }
 }
 
 pub struct ObjectDisplay<'cx> {
 	cx: &'cx Context,
-	object: Object<'cx>,
+	object: Object,
 	cfg: Config,
 }
 
@@ -54,27 +54,23 @@ impl Display for ObjectDisplay<'_> {
 			ESC::Array => write!(
 				f,
 				"{}",
-				format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())
+				format_array(cx, cfg, &Array::from(cx, object.into_root()).unwrap())
 			),
-			ESC::Object => write!(
-				f,
-				"{}",
-				format_plain_object(cx, cfg, &Object::from(object.into_local()))
-			),
+			ESC::Object => write!(f, "{}", format_plain_object(cx, cfg, &Object::from(object.into_root()))),
 			ESC::Date => write!(
 				f,
 				"{}",
-				format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap())
+				format_date(cx, cfg, &Date::from(cx, object.into_root()).unwrap())
 			),
 			ESC::Promise => write!(
 				f,
 				"{}",
-				format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap())
+				format_promise(cx, cfg, &Promise::from(object.into_root()).unwrap())
 			),
 			ESC::RegExp => write!(
 				f,
 				"{}",
-				format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap())
+				format_regexp(cx, cfg, &RegExp::from(cx, object.into_root()).unwrap())
 			),
 			ESC::Function => write!(
 				f,
@@ -87,7 +83,7 @@ impl Display for ObjectDisplay<'_> {
 			},
 			ESC::Other => write!(f, "{}", format_class_object(cx, cfg, &self.object)),
 			_ => {
-				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
+				let source = self.object.to_value(cx).unwrap().to_source(cx).to_owned(cx);
 				f.write_str(&source)
 			}
 		}
@@ -96,13 +92,13 @@ impl Display for ObjectDisplay<'_> {
 
 /// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
 /// Disregards the class of the object.
-pub fn format_plain_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> PlainObjectDisplay<'cx> {
+pub fn format_plain_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object) -> PlainObjectDisplay<'cx> {
 	PlainObjectDisplay { cx, object, cfg }
 }
 
 pub struct PlainObjectDisplay<'cx> {
 	cx: &'cx Context,
-	object: &'cx Object<'cx>,
+	object: &'cx Object,
 	cfg: Config,
 }
 

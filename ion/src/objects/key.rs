@@ -8,42 +8,41 @@ use std::hash::{Hash, Hasher};
 use std::mem::discriminant;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey, ProtoKeyToId};
+use mozjs::jsapi::{Heap, JS_IdToProtoKey, JSProtoKey, ProtoKeyToId};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsid::{IntId, VoidId};
 
-use crate::{Context, Local, String, Symbol, Value};
+use crate::{Context, Root, String, Symbol, Value};
 use crate::conversions::ToPropertyKey;
 
-pub struct PropertyKey<'k> {
-	key: Local<'k, JSPropertyKey>,
+pub struct PropertyKey {
+	key: Root<Box<Heap<JSPropertyKey>>>,
 }
 
-impl<'k> PropertyKey<'k> {
+impl PropertyKey {
 	/// Creates a [PropertyKey] from an integer.
-	pub fn with_int(cx: &'k Context, int: i32) -> PropertyKey<'k> {
+	pub fn with_int(cx: &Context, int: i32) -> PropertyKey {
 		PropertyKey::from(cx.root_property_key(IntId(int)))
 	}
 
 	/// Creates a [PropertyKey] from a string.
-	pub fn with_string(cx: &'k Context, string: &str) -> Option<PropertyKey<'k>> {
+	pub fn with_string(cx: &Context, string: &str) -> Option<PropertyKey> {
 		let string = String::copy_from_str(cx, string)?;
 		string.to_key(cx)
 	}
 
-	pub fn with_symbol(cx: &'k Context, symbol: &Symbol) -> PropertyKey<'k> {
+	pub fn with_symbol(cx: &Context, symbol: &Symbol) -> PropertyKey {
 		symbol.to_key(cx).unwrap()
 	}
 
-	pub fn from_proto_key(cx: &'k Context, proto_key: JSProtoKey) -> PropertyKey<'k> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
+	pub fn from_proto_key(cx: &Context, proto_key: JSProtoKey) -> PropertyKey {
+		rooted!(in(cx.as_ptr()) let mut key = VoidId());
 		unsafe { ProtoKeyToId(cx.as_ptr(), proto_key, key.handle_mut().into()) }
-		key
+		PropertyKey::from(cx.root(key.get()))
 	}
 
-	pub fn from_value(cx: &'k Context, value: &Value) -> Option<PropertyKey<'k>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_ValueToId(cx.as_ptr(), value.handle().into(), key.handle_mut().into()) }).then_some(key)
+	pub fn from_value(cx: &Context, value: &Value) -> Option<PropertyKey> {
+		value.to_key(cx)
 	}
 
 	pub fn to_proto_key(&self, cx: &Context) -> Option<JSProtoKey> {
@@ -51,7 +50,7 @@ impl<'k> PropertyKey<'k> {
 		(proto_key != JSProtoKey::JSProto_Null).then_some(proto_key)
 	}
 
-	pub fn to_owned_key<'cx>(&self, cx: &'cx Context) -> OwnedKey<'cx> {
+	pub fn to_owned_key(&self, cx: &Context) -> OwnedKey {
 		if self.handle().is_int() {
 			OwnedKey::Int(self.handle().to_int())
 		} else if self.handle().is_string() {
@@ -63,26 +62,26 @@ impl<'k> PropertyKey<'k> {
 		}
 	}
 
-	pub fn into_local(self) -> Local<'k, JSPropertyKey> {
+	pub fn into_root(self) -> Root<Box<Heap<JSPropertyKey>>> {
 		self.key
 	}
 }
 
-impl<'k> From<Local<'k, JSPropertyKey>> for PropertyKey<'k> {
-	fn from(key: Local<'k, JSPropertyKey>) -> PropertyKey<'k> {
+impl From<Root<Box<Heap<JSPropertyKey>>>> for PropertyKey {
+	fn from(key: Root<Box<Heap<JSPropertyKey>>>) -> PropertyKey {
 		PropertyKey { key }
 	}
 }
 
-impl<'k> Deref for PropertyKey<'k> {
-	type Target = Local<'k, JSPropertyKey>;
+impl Deref for PropertyKey {
+	type Target = Root<Box<Heap<JSPropertyKey>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.key
 	}
 }
 
-impl<'k> DerefMut for PropertyKey<'k> {
+impl DerefMut for PropertyKey {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.key
 	}
@@ -90,15 +89,15 @@ impl<'k> DerefMut for PropertyKey<'k> {
 
 /// Represents the key on an object.
 #[derive(Debug)]
-pub enum OwnedKey<'k> {
+pub enum OwnedKey {
 	Int(i32),
 	String(std::string::String),
-	Symbol(Symbol<'k>),
+	Symbol(Symbol),
 	Void,
 }
 
-impl<'k> OwnedKey<'k> {
-	pub fn clone(&self, cx: &'k Context) -> OwnedKey<'k> {
+impl OwnedKey {
+	pub fn clone(&self, cx: &Context) -> OwnedKey {
 		match self {
 			OwnedKey::Int(i) => OwnedKey::Int(*i),
 			OwnedKey::String(str) => OwnedKey::String(str.clone()),
@@ -108,7 +107,7 @@ impl<'k> OwnedKey<'k> {
 	}
 }
 
-impl Hash for OwnedKey<'_> {
+impl Hash for OwnedKey {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		discriminant(self).hash(state);
 		match self {
@@ -120,8 +119,8 @@ impl Hash for OwnedKey<'_> {
 	}
 }
 
-impl PartialEq for OwnedKey<'_> {
-	fn eq(&self, other: &OwnedKey<'_>) -> bool {
+impl PartialEq for OwnedKey {
+	fn eq(&self, other: &OwnedKey) -> bool {
 		match (self, other) {
 			(OwnedKey::Int(i), OwnedKey::Int(i2)) => *i == *i2,
 			(OwnedKey::String(str), OwnedKey::String(str2)) => *str == *str2,
@@ -132,4 +131,4 @@ impl PartialEq for OwnedKey<'_> {
 	}
 }
 
-impl Eq for OwnedKey<'_> {}
+impl Eq for OwnedKey {}

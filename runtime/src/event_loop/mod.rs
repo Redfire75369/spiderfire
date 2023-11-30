@@ -12,7 +12,7 @@ use std::task::Poll;
 use futures::future::poll_fn;
 use mozjs::jsapi::{Handle, Heap, JSContext, JSObject, PromiseRejectionHandlingState};
 
-use ion::{Context, ErrorReport, Local, Promise};
+use ion::{Context, ErrorReport, Root, Promise};
 use ion::format::{Config, format_value};
 
 use crate::ContextExt;
@@ -60,7 +60,7 @@ impl EventLoop {
 		}
 
 		while let Some(promise) = self.unhandled_rejections.pop_front() {
-			let promise = Promise::from(unsafe { Local::from_heap(&promise) }).unwrap();
+			let promise = Promise::from(unsafe { Root::from_heap(&promise) }).unwrap();
 			let result = promise.result(cx);
 			eprintln!(
 				"Unhandled Promise Rejection: {}",
@@ -89,7 +89,7 @@ pub(crate) unsafe extern "C" fn promise_rejection_tracker_callback(
 	cx: *mut JSContext, _: bool, promise: Handle<*mut JSObject>, state: PromiseRejectionHandlingState, _: *mut c_void,
 ) {
 	let cx = unsafe { &Context::new_unchecked(cx) };
-	let promise = Promise::from(unsafe { Local::from_raw_handle(promise) }).unwrap();
+	let promise = Promise::from(unsafe { Root::from_raw_handle(promise) }).unwrap();
 	let unhandled = unsafe { &mut (*cx.get_private().as_ptr()).event_loop.unhandled_rejections };
 	match state {
 		PromiseRejectionHandlingState::Unhandled => unhandled.push_back(Heap::boxed(promise.get())),

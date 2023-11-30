@@ -15,14 +15,14 @@ use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
 /// Formats the [key of an object](OwnedKey) as a string with the given [configuration](Config),
-pub fn format_key<'cx>(cx: &'cx Context, cfg: Config, key: &'cx OwnedKey<'cx>) -> KeyDisplay<'cx> {
+pub fn format_key<'cx>(cx: &'cx Context, cfg: Config, key: &'cx OwnedKey) -> KeyDisplay<'cx> {
 	KeyDisplay { cx, cfg, key }
 }
 
 pub struct KeyDisplay<'cx> {
 	cx: &'cx Context,
+	key: &'cx OwnedKey,
 	cfg: Config,
-	key: &'cx OwnedKey<'cx>,
 }
 
 impl Display for KeyDisplay<'_> {

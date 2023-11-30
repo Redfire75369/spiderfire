@@ -21,13 +21,13 @@ use crate::format::Config;
 ///   <#body>
 /// }
 /// ```
-pub fn format_function<'cx>(cx: &'cx Context, cfg: Config, function: &'cx Function<'cx>) -> FunctionDisplay<'cx> {
+pub fn format_function<'cx>(cx: &'cx Context, cfg: Config, function: &'cx Function) -> FunctionDisplay<'cx> {
 	FunctionDisplay { cx, function, cfg }
 }
 
 pub struct FunctionDisplay<'cx> {
 	cx: &'cx Context,
-	function: &'cx Function<'cx>,
+	function: &'cx Function,
 	cfg: Config,
 }
 

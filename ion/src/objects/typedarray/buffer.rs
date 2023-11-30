@@ -9,24 +9,24 @@ use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
-	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferLengthAndData, IsArrayBufferObject,
-	IsDetachedArrayBufferObject, JS_GetTypedArraySharedness, JSObject, NewExternalArrayBuffer,
+	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferLengthAndData, Heap, IsArrayBufferObject,
+	IsDetachedArrayBufferObject, JS_GetTypedArraySharedness, JSObject, NewArrayBufferWithContents,
+	NewExternalArrayBuffer, StealArrayBufferContents,
 };
 use mozjs::typedarray::CreateWith;
-use mozjs_sys::jsapi::JS::{NewArrayBufferWithContents, StealArrayBufferContents};
 
-use crate::{Context, Error, ErrorKind, Local, Object, Result};
+use crate::{Context, Error, ErrorKind, Result, Root};
 use crate::utils::BoxExt;
 
-pub struct ArrayBuffer<'ab> {
-	buffer: Local<'ab, *mut JSObject>,
+pub struct ArrayBuffer {
+	buffer: Root<Box<Heap<*mut JSObject>>>,
 }
 
-impl<'ab> ArrayBuffer<'ab> {
-	fn create_with(cx: &'ab Context, with: CreateWith<u8>) -> Option<ArrayBuffer<'ab>> {
-		let mut buffer = Object::null(cx);
+impl ArrayBuffer {
+	fn create_with(cx: &Context, with: CreateWith<u8>) -> Option<ArrayBuffer> {
+		rooted!(in(cx.as_ptr()) let mut buffer: *mut JSObject = ptr::null_mut());
 		unsafe { mozjs::typedarray::ArrayBuffer::create(cx.as_ptr(), with, buffer.handle_mut()).ok()? };
-		Some(ArrayBuffer { buffer: buffer.into_local() })
+		Some(ArrayBuffer { buffer: cx.root(buffer.get()) })
 	}
 
 	/// Creates a new [ArrayBuffer] with the given length.
@@ -35,7 +35,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 
 	/// Creates a new [ArrayBuffer] by copying the contents of the given slice.
-	pub fn copy_from_bytes(cx: &'ab Context, bytes: &[u8]) -> Option<ArrayBuffer<'ab>> {
+	pub fn copy_from_bytes(cx: &Context, bytes: &[u8]) -> Option<ArrayBuffer> {
 		ArrayBuffer::create_with(cx, CreateWith::Slice(bytes))
 	}
 
@@ -68,7 +68,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		}
 	}
 
-	pub fn from(object: Local<'ab, *mut JSObject>) -> Option<ArrayBuffer<'ab>> {
+	pub fn from(object: Root<Box<Heap<*mut JSObject>>>) -> Option<ArrayBuffer> {
 		if ArrayBuffer::is_array_buffer(object.get()) {
 			Some(ArrayBuffer { buffer: object })
 		} else {
@@ -76,7 +76,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		}
 	}
 
-	pub unsafe fn from_unchecked(object: Local<'ab, *mut JSObject>) -> ArrayBuffer<'ab> {
+	pub unsafe fn from_unchecked(object: Root<Box<Heap<*mut JSObject>>>) -> ArrayBuffer {
 		ArrayBuffer { buffer: object }
 	}
 
@@ -108,7 +108,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 
 	/// Clones an [ArrayBuffer].
-	pub fn clone<'cx>(&self, cx: &'cx Context, offset: usize, len: usize) -> Option<ArrayBuffer<'cx>> {
+	pub fn clone(&self, cx: &Context, offset: usize, len: usize) -> Option<ArrayBuffer> {
 		let buffer = unsafe { ArrayBufferClone(cx.as_ptr(), self.handle().into(), offset, len) };
 		if buffer.is_null() {
 			None
@@ -138,7 +138,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		unsafe { DetachArrayBuffer(cx.as_ptr(), self.handle().into()) }
 	}
 
-	pub fn transfer<'cx>(&mut self, cx: &'cx Context) -> Result<ArrayBuffer<'cx>> {
+	pub fn transfer(&mut self, cx: &Context) -> Result<ArrayBuffer> {
 		let len = self.data().1;
 		let data = unsafe { StealArrayBufferContents(cx.as_ptr(), self.handle().into()) };
 		if data.is_null() {
@@ -166,15 +166,15 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 }
 
-impl<'ab> Deref for ArrayBuffer<'ab> {
-	type Target = Local<'ab, *mut JSObject>;
+impl Deref for ArrayBuffer {
+	type Target = Root<Box<Heap<*mut JSObject>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.buffer
 	}
 }
 
-impl<'ab> DerefMut for ArrayBuffer<'ab> {
+impl DerefMut for ArrayBuffer {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.buffer
 	}

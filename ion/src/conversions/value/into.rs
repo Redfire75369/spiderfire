@@ -4,20 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::{Context, Value};
+use crate::{Context, Result, Value};
 use crate::conversions::ToValue;
 
-pub type BoxedIntoValue = Box<dyn for<'cx> IntoValue<'cx>>;
+pub type BoxedIntoValue = Box<dyn IntoValue>;
 
 /// Represents types that can be converted to JavaScript [Values](Value) with ownership.
 /// Primarily used with dynamic dispatch and [`BoxedIntoValue`](BoxedIntoValue).
-pub trait IntoValue<'cx> {
+pub trait IntoValue {
 	/// Converts `self` into a [`Value`](Value) and stores it in `value`.
-	fn into_value(self: Box<Self>, cx: &'cx Context, value: &mut Value);
+	fn into_value(self: Box<Self>, cx: &Context) -> Result<Value>;
 }
 
-impl<'cx, T: ToValue<'cx>> IntoValue<'cx> for T {
-	fn into_value(self: Box<Self>, cx: &'cx Context, value: &mut Value) {
-		self.to_value(cx, value)
+impl<T: ToValue> IntoValue for T {
+	fn into_value(self: Box<Self>, cx: &Context) -> Result<Value> {
+		self.to_value(cx)
 	}
 }

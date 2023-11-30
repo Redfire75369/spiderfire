@@ -35,12 +35,17 @@ pub(crate) fn impl_wrapper_fn(
 		parse_quote!(__cx: &'cx #ion::Context),
 		parse_quote!(__args: &'a mut #ion::Arguments<'cx>),
 	];
+	let wrapper_output = if is_constructor {
+		parse_quote!(-> #ion::ResultExc<()>)
+	} else {
+		parse_quote!(-> #ion::ResultExc<::core::primitive::bool>)
+	};
 
 	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
 
 	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some())?.map(ToTokens::into_token_stream);
 	if is_constructor {
-		wrapper_args.push(parse_quote!(__this: &mut #ion::Object<'cx>));
+		wrapper_args.push(parse_quote!(__this: &mut #ion::Object));
 	} else {
 		this_statements = this_statements.map(|statement| {
 			quote!(
@@ -66,7 +71,7 @@ pub(crate) fn impl_wrapper_fn(
 	};
 	let result = quote!(#result.map(Box::new));
 	let result = if !is_constructor {
-		quote!(#result.map(|__result| #ion::conversions::IntoValue::into_value(__result, __cx, __args.rval())))
+		quote!(Ok(#ion::functions::handle_result(__cx, #result, __args.rval())))
 	} else {
 		quote!(#result.map(|__result| #ion::ClassDefinition::set_private(__this.handle().get(), __result)))
 	};
@@ -103,7 +108,7 @@ pub(crate) fn impl_wrapper_fn(
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
-	function.sig.output = parse_quote!(-> #ion::ResultExc<()>);
+	function.sig.output = wrapper_output;
 	function.sig.unsafety = Some(<Token![unsafe]>::default());
 
 	function.attrs.clear();

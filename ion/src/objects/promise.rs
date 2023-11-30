@@ -7,18 +7,19 @@
 use std::future::Future;
 use std::mem::transmute;
 use std::ops::{Deref, DerefMut};
+use std::ptr;
 
 use futures::executor::block_on;
 use libffi::high::ClosureOnce3;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
-	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject,
+	AddPromiseReactions, GetPromiseID, GetPromiseState, Heap, IsPromiseObject, JSContext, JSObject, NewPromiseObject,
 	PromiseState, RejectPromise, ResolvePromise,
 };
-use mozjs::jsval::JSVal;
+use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::HandleObject;
 
-use crate::{Arguments, Context, Function, Local, Object, Value};
+use crate::{Arguments, Context, Function, Object, Root, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
@@ -27,13 +28,13 @@ use crate::functions::NativeFunction;
 /// Represents a [Promise] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for more details.
 #[derive(Debug)]
-pub struct Promise<'p> {
-	promise: Local<'p, *mut JSObject>,
+pub struct Promise {
+	promise: Root<Box<Heap<*mut JSObject>>>,
 }
 
-impl<'p> Promise<'p> {
+impl Promise {
 	/// Creates a new [Promise] which never resolves.
-	pub fn new(cx: &'p Context) -> Promise<'p> {
+	pub fn new(cx: &Context) -> Promise {
 		Promise {
 			promise: cx.root_object(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
 		}
@@ -42,17 +43,17 @@ impl<'p> Promise<'p> {
 	/// Creates a new [Promise] with an executor.
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [Value] to resolve or reject the promise with the given value.
-	pub fn new_with_executor<F>(cx: &'p Context, executor: F) -> Option<Promise<'p>>
+	pub fn new_with_executor<F>(cx: &Context, executor: F) -> Option<Promise>
 	where
-		F: for<'cx> FnOnce(&'cx Context, Function<'cx>, Function<'cx>) -> crate::Result<()> + 'static,
+		F: FnOnce(&Context, Function, Function) -> crate::Result<()> + 'static,
 	{
 		unsafe {
 			let native = move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
 				let cx = Context::new_unchecked(cx);
 				let args = Arguments::new(&cx, argc, vp);
 
-				let resolve_obj = args.value(0).unwrap().to_object(&cx).into_local();
-				let reject_obj = args.value(1).unwrap().to_object(&cx).into_local();
+				let resolve_obj = args.value(0).unwrap().to_object(&cx).into_root();
+				let reject_obj = args.value(1).unwrap().to_object(&cx).into_root();
 				let resolve = Function::from_object(&cx, &resolve_obj).unwrap();
 				let reject = Function::from_object(&cx, &reject_obj).unwrap();
 
@@ -83,27 +84,30 @@ impl<'p> Promise<'p> {
 	/// The future is run to completion on the current thread and cannot interact with an asynchronous runtime.
 	///
 	/// The [Result] of the future determines if the promise is resolved or rejected.
-	pub fn block_on_future<F, Output, Error>(cx: &'p Context, future: F) -> Option<Promise<'p>>
+	pub fn block_on_future<F, Output, Error>(cx: &Context, future: F) -> Option<Promise>
 	where
 		F: Future<Output = Result<Output, Error>> + 'static,
-		Output: for<'cx> ToValue<'cx> + 'static,
-		Error: for<'cx> ToValue<'cx> + 'static,
+		Output: ToValue + 'static,
+		Error: ToValue + 'static,
 	{
 		Promise::new_with_executor(cx, move |cx, resolve, reject| {
 			let null = Object::null(cx);
 			block_on(async move {
 				match future.await {
-					Ok(output) => {
-						let value = output.as_value(cx);
-						if let Err(Some(error)) = resolve.call(cx, &null, &[value]) {
-							println!("{}", error.format(cx));
+					Ok(output) => match output.to_value(cx) {
+						Ok(value) => {
+							let _ = resolve.call(cx, &null, &[value]);
 						}
-					}
+						Err(error) => {
+							let _ = reject.call(cx, &null, &[error.to_value(cx).unwrap()]);
+						}
+					},
 					Err(error) => {
-						let value = error.as_value(cx);
-						if let Err(Some(error)) = reject.call(cx, &null, &[value]) {
-							println!("{}", error.format(cx));
-						}
+						let value = match error.to_value(cx) {
+							Ok(value) => value,
+							Err(error) => error.to_value(cx).unwrap(),
+						};
+						let _ = reject.call(cx, &null, &[value]);
 					}
 				}
 			});
@@ -112,7 +116,7 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Creates a [Promise] from an object.
-	pub fn from(object: Local<'p, *mut JSObject>) -> Option<Promise<'p>> {
+	pub fn from(object: Root<Box<Heap<*mut JSObject>>>) -> Option<Promise> {
 		if Promise::is_promise(&object) {
 			Some(Promise { promise: object })
 		} else {
@@ -124,7 +128,7 @@ impl<'p> Promise<'p> {
 	///
 	/// ### Safety
 	/// Object must be a Promise.
-	pub unsafe fn from_unchecked(object: Local<'p, *mut JSObject>) -> Promise<'p> {
+	pub unsafe fn from_unchecked(object: Root<Box<Heap<*mut JSObject>>>) -> Promise {
 		Promise { promise: object }
 	}
 
@@ -141,13 +145,10 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Returns the result of the [Promise].
-	///
-	/// ### Note
-	/// Currently leads to a sefault.
-	pub fn result<'cx>(&self, cx: &'cx Context) -> Value<'cx> {
-		let mut value = Value::undefined(cx);
-		unsafe { JS_GetPromiseResult(self.handle().into(), value.handle_mut().into()) }
-		value
+	pub fn result(&self, cx: &Context) -> Value {
+		rooted!(in(cx.as_ptr()) let mut result = UndefinedValue());
+		unsafe { JS_GetPromiseResult(self.handle().into(), result.handle_mut().into()) }
+		Value::from(cx.root(result.get()))
 	}
 
 	/// Adds Reactions to the [Promise]
@@ -155,16 +156,14 @@ impl<'p> Promise<'p> {
 	/// `on_resolved` is similar to calling `.then()` on a promise.
 	///
 	/// `on_rejected` is similar to calling `.catch()` on a promise.
-	pub fn add_reactions(
-		&self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>,
-	) -> bool {
-		let mut resolved = Object::null(cx);
-		let mut rejected = Object::null(cx);
+	pub fn add_reactions(&self, cx: &'_ Context, on_resolved: Option<Function>, on_rejected: Option<Function>) -> bool {
+		rooted!(in(cx.as_ptr()) let mut resolved: *mut JSObject = ptr::null_mut());
+		rooted!(in(cx.as_ptr()) let mut rejected: *mut JSObject = ptr::null_mut());
 		if let Some(on_resolved) = on_resolved {
-			resolved.handle_mut().set(on_resolved.to_object(cx).handle().get());
+			resolved.set(on_resolved.to_object(cx).handle().get());
 		}
 		if let Some(on_rejected) = on_rejected {
-			rejected.handle_mut().set(on_rejected.to_object(cx).handle().get());
+			rejected.set(on_rejected.to_object(cx).handle().get());
 		}
 		unsafe {
 			AddPromiseReactions(
@@ -193,20 +192,20 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Checks if an object is a promise.
-	pub fn is_promise(object: &Local<*mut JSObject>) -> bool {
+	pub fn is_promise(object: &Root<Box<Heap<*mut JSObject>>>) -> bool {
 		unsafe { IsPromiseObject(object.handle().into()) }
 	}
 }
 
-impl<'p> Deref for Promise<'p> {
-	type Target = Local<'p, *mut JSObject>;
+impl Deref for Promise {
+	type Target = Root<Box<Heap<*mut JSObject>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.promise
 	}
 }
 
-impl<'p> DerefMut for Promise<'p> {
+impl DerefMut for Promise {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.promise
 	}

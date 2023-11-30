@@ -15,13 +15,13 @@ use crate::format::Config;
 use crate::format::object::write_remaining;
 
 /// Formats an [JavaScript Array](Array) as a string using the given [configuration](Config).
-pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array<'cx>) -> ArrayDisplay<'cx> {
+pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array) -> ArrayDisplay<'cx> {
 	ArrayDisplay { cx, array, cfg }
 }
 
 pub struct ArrayDisplay<'cx> {
 	cx: &'cx Context,
-	array: &'cx Array<'cx>,
+	array: &'cx Array,
 	cfg: Config,
 }
 

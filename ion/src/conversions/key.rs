@@ -17,16 +17,16 @@ use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
 use crate::symbol::WellKnownSymbolCode;
 
 /// Represents types that can be converted to [property keys](PropertyKey).
-pub trait ToPropertyKey<'cx> {
+pub trait ToPropertyKey {
 	/// Converts `self` to a new [`PropertyKey`](PropertyKey).
 	/// Returns `None` when conversion fails.
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>>;
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey>;
 }
 
 macro_rules! impl_to_key_for_integer {
 	($ty:ty) => {
-		impl<'cx> ToPropertyKey<'cx> for $ty {
-			fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+		impl ToPropertyKey for $ty {
+			fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 				Some(PropertyKey::with_int(cx, *self as i32))
 			}
 		}
@@ -41,76 +41,84 @@ impl_to_key_for_integer!(u8);
 impl_to_key_for_integer!(u16);
 impl_to_key_for_integer!(u32);
 
-impl<'cx> ToPropertyKey<'cx> for *mut JSString {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for *mut JSString {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		String::from(cx.root_string(*self)).to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for String<'cx> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_StringToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) }).then_some(key)
+impl ToPropertyKey for String {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
+		rooted!(in(cx.as_ptr()) let mut key = VoidId());
+		if unsafe { JS_StringToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) } {
+			Some(PropertyKey::from(cx.root_property_key(key.get())))
+		} else {
+			None
+		}
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for RustString {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for RustString {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		String::copy_from_str(cx, self)?.to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for &str {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for &str {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		String::copy_from_str(cx, self)?.to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for *mut JSSymbol {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for *mut JSSymbol {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		Some(cx.root_property_key(SymbolId(*self)).into())
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for Symbol<'_> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for Symbol {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		self.handle().to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for WellKnownSymbolCode {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for WellKnownSymbolCode {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		Symbol::well_known(cx, *self).to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for JSVal {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for JSVal {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		Value::from(cx.root_value(*self)).to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for Value<'cx> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
-		(unsafe { JS_ValueToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) }).then_some(key)
+impl ToPropertyKey for Value {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
+		rooted!(in(cx.as_ptr()) let mut key = VoidId());
+		if unsafe { JS_ValueToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) } {
+			Some(PropertyKey::from(cx.root_property_key(key.get())))
+		} else {
+			None
+		}
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for JSPropertyKey {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for JSPropertyKey {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		Some(cx.root_property_key(*self).into())
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for PropertyKey<'cx> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for PropertyKey {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		self.handle().to_key(cx)
 	}
 }
 
-impl<'cx> ToPropertyKey<'cx> for OwnedKey<'cx> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl ToPropertyKey for OwnedKey {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		match self {
 			OwnedKey::Int(i) => i.to_key(cx),
 			OwnedKey::String(str) => str.to_key(cx),
@@ -120,26 +128,26 @@ impl<'cx> ToPropertyKey<'cx> for OwnedKey<'cx> {
 	}
 }
 
-impl<'cx, K: ToPropertyKey<'cx>> ToPropertyKey<'cx> for &K {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl<K: ToPropertyKey> ToPropertyKey for &K {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		(**self).to_key(cx)
 	}
 }
 
-impl<'cx, K: ToPropertyKey<'cx>> ToPropertyKey<'cx> for Box<K> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl<K: ToPropertyKey> ToPropertyKey for Box<K> {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		(**self).to_key(cx)
 	}
 }
 
-impl<'cx, K: ToPropertyKey<'cx>> ToPropertyKey<'cx> for Rc<K> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl<K: ToPropertyKey> ToPropertyKey for Rc<K> {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		(**self).to_key(cx)
 	}
 }
 
-impl<'cx, K: ToPropertyKey<'cx>> ToPropertyKey<'cx> for Option<K> {
-	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+impl<K: ToPropertyKey> ToPropertyKey for Option<K> {
+	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		self.as_ref().and_then(|k| k.to_key(cx))
 	}
 }

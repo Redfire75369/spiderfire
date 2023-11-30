@@ -9,22 +9,24 @@ use std::ptr::NonNull;
 
 use mozjs::glue::JS_GetRegExpFlags;
 use mozjs::jsapi::{
-	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, JSObject, NewUCRegExpObject,
+	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, Heap, JSObject, NewUCRegExpObject,
 	ObjectIsRegExp,
 };
 use mozjs::jsapi::RegExpFlags as REFlags;
+use mozjs::jsval::{JSVal, UndefinedValue};
+use mozjs::rust::MutableHandle;
 
-use crate::{Context, Local, Object, Value};
+use crate::{Context, Object, Root, Value};
 use crate::flags::RegExpFlags;
 
 #[derive(Debug)]
-pub struct RegExp<'r> {
-	re: Local<'r, *mut JSObject>,
+pub struct RegExp {
+	re: Root<Box<Heap<*mut JSObject>>>,
 }
 
-impl<'r> RegExp<'r> {
+impl RegExp {
 	/// Creates a new [RegExp] object with the given source and flags.
-	pub fn new(cx: &'r Context, source: &str, flags: RegExpFlags) -> Option<RegExp<'r>> {
+	pub fn new(cx: &Context, source: &str, flags: RegExpFlags) -> Option<RegExp> {
 		let source: Vec<u16> = source.encode_utf16().collect();
 		let regexp = unsafe { NewUCRegExpObject(cx.as_ptr(), source.as_ptr(), source.len(), flags.into()) };
 		NonNull::new(regexp).map(|re| RegExp { re: cx.root_object(re.as_ptr()) })
@@ -32,7 +34,7 @@ impl<'r> RegExp<'r> {
 
 	/// Creates a [RegExp] from an object.
 	/// Returns [None] if it is not a [RegExp].
-	pub fn from(cx: &Context, object: Local<'r, *mut JSObject>) -> Option<RegExp<'r>> {
+	pub fn from(cx: &Context, object: Root<Box<Heap<*mut JSObject>>>) -> Option<RegExp> {
 		if RegExp::is_regexp(cx, &object) {
 			Some(RegExp { re: object })
 		} else {
@@ -44,11 +46,11 @@ impl<'r> RegExp<'r> {
 	///
 	/// ### Safety
 	/// Object must be a [RegExp].
-	pub unsafe fn from_unchecked(object: Local<'r, *mut JSObject>) -> RegExp<'r> {
+	pub unsafe fn from_unchecked(object: Root<Box<Heap<*mut JSObject>>>) -> RegExp {
 		RegExp { re: object }
 	}
 
-	pub fn source<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
+	pub fn source(&self, cx: &Context) -> crate::String {
 		crate::String::from(cx.root_string(unsafe { GetRegExpSource(cx.as_ptr(), self.handle().into()) }))
 	}
 
@@ -65,29 +67,35 @@ impl<'r> RegExp<'r> {
 	}
 
 	pub fn execute_test(&self, cx: &Context, string: &str, index: &mut usize) -> bool {
-		let mut rval = Value::null(cx);
-		self.execute(cx, string, index, true, &mut rval, true) && rval.handle().to_boolean()
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
+		self.execute(cx, string, index, true, rval.handle_mut(), true) && rval.to_boolean()
 	}
 
 	pub fn execute_test_no_static(&self, cx: &Context, string: &str, index: &mut usize) -> bool {
-		let mut rval = Value::null(cx);
-		self.execute(cx, string, index, true, &mut rval, false) && rval.handle().to_boolean()
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
+		self.execute(cx, string, index, true, rval.handle_mut(), false) && rval.to_boolean()
 	}
 
-	pub fn execute_match<'cx>(&self, cx: &'cx Context, string: &str, index: &mut usize) -> Option<Value<'cx>> {
-		let mut rval = Value::null(cx);
-		self.execute(cx, string, index, false, &mut rval, true).then_some(rval)
+	pub fn execute_match(&self, cx: &Context, string: &str, index: &mut usize) -> Option<Value> {
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
+		if self.execute(cx, string, index, false, rval.handle_mut(), true) {
+			Some(Value::from(cx.root(rval.get())))
+		} else {
+			None
+		}
 	}
 
-	pub fn execute_match_no_static<'cx>(
-		&self, cx: &'cx Context, string: &str, index: &mut usize,
-	) -> Option<Value<'cx>> {
-		let mut rval = Value::null(cx);
-		self.execute(cx, string, index, false, &mut rval, false).then_some(rval)
+	pub fn execute_match_no_static(&self, cx: &Context, string: &str, index: &mut usize) -> Option<Value> {
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
+		if self.execute(cx, string, index, false, rval.handle_mut(), false) {
+			Some(Value::from(cx.root(rval.get())))
+		} else {
+			None
+		}
 	}
 
-	fn execute<'cx>(
-		&self, cx: &'cx Context, string: &str, index: &mut usize, test: bool, rval: &mut Value<'cx>, with_static: bool,
+	fn execute(
+		&self, cx: &Context, string: &str, index: &mut usize, test: bool, rval: MutableHandle<JSVal>, with_static: bool,
 	) -> bool {
 		let string: Vec<u16> = string.encode_utf16().collect();
 		if with_static {
@@ -101,7 +109,7 @@ impl<'r> RegExp<'r> {
 					string.len(),
 					index,
 					test,
-					rval.handle_mut().into(),
+					rval.into(),
 				)
 			}
 		} else {
@@ -113,15 +121,15 @@ impl<'r> RegExp<'r> {
 					string.len(),
 					index,
 					test,
-					rval.handle_mut().into(),
+					rval.into(),
 				)
 			}
 		}
 	}
 
-	pub fn check_syntax<'cx>(cx: &'cx Context, source: &str, flags: RegExpFlags) -> Result<(), Value<'cx>> {
+	pub fn check_syntax(cx: &Context, source: &str, flags: RegExpFlags) -> Result<(), Value> {
 		let source: Vec<u16> = source.encode_utf16().collect();
-		let mut error = Value::undefined(cx);
+		rooted!(in(cx.as_ptr()) let mut error = UndefinedValue());
 		let check = unsafe {
 			CheckRegExpSyntax(
 				cx.as_ptr(),
@@ -131,14 +139,10 @@ impl<'r> RegExp<'r> {
 				error.handle_mut().into(),
 			)
 		};
-		if check {
-			if error.handle().is_undefined() {
-				Ok(())
-			} else {
-				Err(error)
-			}
+		if check && error.is_undefined() {
+			Ok(())
 		} else {
-			Err(error)
+			Err(Value::from(cx.root(error.get())))
 		}
 	}
 
@@ -150,21 +154,21 @@ impl<'r> RegExp<'r> {
 	}
 
 	/// Checks if an object is a regexp.
-	pub fn is_regexp(cx: &Context, object: &Local<*mut JSObject>) -> bool {
+	pub fn is_regexp(cx: &Context, object: &Root<Box<Heap<*mut JSObject>>>) -> bool {
 		let mut is_regexp = false;
 		(unsafe { ObjectIsRegExp(cx.as_ptr(), object.handle().into(), &mut is_regexp) }) && is_regexp
 	}
 }
 
-impl<'r> Deref for RegExp<'r> {
-	type Target = Local<'r, *mut JSObject>;
+impl Deref for RegExp {
+	type Target = Root<Box<Heap<*mut JSObject>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.re
 	}
 }
 
-impl DerefMut for RegExp<'_> {
+impl DerefMut for RegExp {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.re
 	}

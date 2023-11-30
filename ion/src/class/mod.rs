@@ -11,12 +11,12 @@ use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction,
-	JSFunctionSpec, JSObject, JSPropertySpec,
+	Handle, Heap, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
+	JSFunction, JSFunctionSpec, JSObject, JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Function, Local, Object};
+use crate::{Arguments, Context, Function, Object, Root};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::functions::NativeFunction;
@@ -38,7 +38,7 @@ pub trait ClassDefinition: NativeObject {
 
 	fn class() -> &'static NativeClass;
 
-	fn parent_class_info(_: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
+	fn parent_class_info(_: &Context) -> Option<(&'static NativeClass, Root<Box<Heap<*mut JSObject>>>)> {
 		None
 	}
 
@@ -130,7 +130,7 @@ pub trait ClassDefinition: NativeObject {
 		object
 	}
 
-	fn get_private<'a>(object: &Object<'a>) -> &'a Self {
+	fn get_private(object: &Object) -> &Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
@@ -138,7 +138,7 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	fn get_mut_private<'a>(object: &mut Object<'a>) -> &'a mut Self {
+	fn get_mut_private(object: &mut Object) -> &mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);

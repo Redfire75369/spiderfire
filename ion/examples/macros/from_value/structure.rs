@@ -5,9 +5,9 @@ use ion::{Context, FromValue, Object, Result, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 
 #[derive(FromValue)]
-pub struct Complex<'cx> {
+pub struct Complex {
 	#[ion(inherit)]
-	pub raw: Object<'cx>,
+	pub raw: Object,
 	pub truth: bool,
 	#[ion(convert = ConversionBehavior::EnforceRange, strict)]
 	pub mode: u32,

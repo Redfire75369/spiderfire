@@ -8,32 +8,32 @@ use std::ops::{Deref, DerefMut};
 
 use chrono::{DateTime, TimeZone};
 use chrono::offset::Utc;
-use mozjs::jsapi::{ClippedTime, DateGetMsecSinceEpoch, DateIsValid, JSObject, NewDateObject, ObjectIsDate};
+use mozjs::jsapi::{ClippedTime, DateGetMsecSinceEpoch, DateIsValid, Heap, JSObject, NewDateObject, ObjectIsDate};
 
-use crate::{Context, Local};
+use crate::{Context, Root};
 
 /// Represents a `Date` in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date) for more details.
 #[derive(Debug)]
-pub struct Date<'d> {
-	date: Local<'d, *mut JSObject>,
+pub struct Date {
+	date: Root<Box<Heap<*mut JSObject>>>,
 }
 
-impl<'d> Date<'d> {
+impl Date {
 	/// Creates a new [Date] with the current time.
-	pub fn new(cx: &'d Context) -> Date<'d> {
+	pub fn new(cx: &Context) -> Date {
 		Date::from_date(cx, Utc::now())
 	}
 
 	/// Creates a new [Date] with the given time.
-	pub fn from_date(cx: &'d Context, time: DateTime<Utc>) -> Date<'d> {
+	pub fn from_date(cx: &Context, time: DateTime<Utc>) -> Date {
 		let date = unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) };
 		Date { date: cx.root_object(date) }
 	}
 
 	/// Creates a [Date] from an object.
 	/// Returns [None] if it is not a [Date].
-	pub fn from(cx: &Context, object: Local<'d, *mut JSObject>) -> Option<Date<'d>> {
+	pub fn from(cx: &Context, object: Root<Box<Heap<*mut JSObject>>>) -> Option<Date> {
 		if Date::is_date(cx, &object) {
 			Some(Date { date: object })
 		} else {
@@ -45,7 +45,7 @@ impl<'d> Date<'d> {
 	///
 	/// ### Safety
 	/// Object must be a [Date].
-	pub unsafe fn from_unchecked(object: Local<'d, *mut JSObject>) -> Date<'d> {
+	pub unsafe fn from_unchecked(object: Root<Box<Heap<*mut JSObject>>>) -> Date {
 		Date { date: object }
 	}
 
@@ -75,21 +75,21 @@ impl<'d> Date<'d> {
 	}
 
 	/// Checks if an object is a date.
-	pub fn is_date(cx: &Context, object: &Local<*mut JSObject>) -> bool {
+	pub fn is_date(cx: &Context, object: &Root<Box<Heap<*mut JSObject>>>) -> bool {
 		let mut is_date = false;
 		(unsafe { ObjectIsDate(cx.as_ptr(), object.handle().into(), &mut is_date) }) && is_date
 	}
 }
 
-impl<'d> Deref for Date<'d> {
-	type Target = Local<'d, *mut JSObject>;
+impl Deref for Date {
+	type Target = Root<Box<Heap<*mut JSObject>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.date
 	}
 }
 
-impl<'d> DerefMut for Date<'d> {
+impl DerefMut for Date {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.date
 	}

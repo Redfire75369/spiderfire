@@ -89,7 +89,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			fn from_value<'v>(cx: &'cx #ion::Context, value: &#ion::Value<'v>, strict: bool, _: ()) -> #ion::Result<Self> {
+			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: bool, _: ()) -> #ion::Result<Self> {
 				#object
 				#body
 			}
@@ -372,7 +372,7 @@ fn map_fields(
 			} else {
 				requires_object = true;
 				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
-				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)
+				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert).transpose()?
 					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
 			};
 

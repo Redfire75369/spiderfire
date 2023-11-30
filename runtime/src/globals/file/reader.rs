@@ -15,9 +15,8 @@ use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::{JSVal, NullValue};
 use mozjs::rust::IntoHandle;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, Root};
 use ion::class::{NativeObject, Reflector};
-use ion::conversions::ToValue;
 use ion::string::byte::{ByteString, Latin1};
 use ion::typedarray::ArrayBuffer;
 
@@ -101,7 +100,7 @@ impl FileReader {
 		let this = this.handle().into_handle();
 
 		future_to_promise(cx, async move {
-			let reader = Object::from(unsafe { Local::from_raw_handle(this) });
+			let reader = Object::from(unsafe { Root::from_raw_handle(this) });
 			let reader = FileReader::get_private(&reader);
 			let array_buffer = ArrayBuffer::from(bytes.to_vec());
 			reader.result.set(array_buffer.as_value(&cx2).get());
@@ -121,7 +120,7 @@ impl FileReader {
 		let this = this.handle().into_handle();
 
 		future_to_promise(cx, async move {
-			let reader = Object::from(unsafe { Local::from_raw_handle(this) });
+			let reader = Object::from(unsafe { Root::from_raw_handle(this) });
 			let reader = FileReader::get_private(&reader);
 			let byte_string = unsafe { ByteString::<Latin1>::from_unchecked(bytes.to_vec()) };
 			reader.result.set(byte_string.as_value(&cx2).get());
@@ -144,7 +143,7 @@ impl FileReader {
 		future_to_promise(cx, async move {
 			let encoding = encoding_from_string_mime(encoding.as_deref(), mime.as_deref());
 
-			let reader = Object::from(unsafe { Local::from_raw_handle(this) });
+			let reader = Object::from(unsafe { Root::from_raw_handle(this) });
 			let reader = FileReader::get_private(&reader);
 			let str = encoding.decode_without_bom_handling(&bytes).0;
 			reader.result.set(str.as_value(&cx2).get());
@@ -165,7 +164,7 @@ impl FileReader {
 		let this = this.handle().into_handle();
 
 		future_to_promise(cx, async move {
-			let reader = Object::from(unsafe { Local::from_raw_handle(this) });
+			let reader = Object::from(unsafe { Root::from_raw_handle(this) });
 			let reader = FileReader::get_private(&reader);
 			let base64 = BASE64_STANDARD.encode(&bytes);
 			let data_url = match mime {

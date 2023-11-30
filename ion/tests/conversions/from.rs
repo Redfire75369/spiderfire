@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use chrono::{TimeZone, Utc};
+use chrono::Utc;
 use mozjs::jsapi::JSAutoRealm;
 use mozjs::jsval::Int32Value;
 use mozjs::rust::{JSEngine, Runtime};
@@ -29,215 +29,174 @@ fn from_value() {
 
 fn test_booleans(cx: &Context) {
 	let value = Value::bool(cx, false);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(!result.unwrap());
+	let result = bool::from_value(cx, &value, true, ()).unwrap();
+	assert!(!result);
 
 	let value = Value::i32(cx, 0);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(!result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(!result);
 
 	let value = Value::f64(cx, PI);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(result);
 
 	let value = Value::string(cx, "");
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(!result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(!result);
 
 	let value = Value::string(cx, "spider");
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(result);
 
 	let value = Value::undefined(cx);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(!result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(!result);
 
 	let value = Value::null(cx);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(!result.unwrap());
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(!result);
 
 	let object = Object::new(cx);
-	let value = object.as_value(cx);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(result.unwrap());
+	let value = object.to_value(cx).unwrap();
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(result);
 
-	let array = Array::new(cx);
-	let value = array.as_value(cx);
-	let result = bool::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = bool::from_value(cx, &value, false, ());
-	assert!(result.unwrap());
+	let value = Array::new(cx).to_value(cx).unwrap();
+	bool::from_value(cx, &value, true, ()).unwrap_err();
+	let result = bool::from_value(cx, &value, false, ()).unwrap();
+	assert!(result);
 }
 
 fn test_integers(cx: &Context) {
 	let value = Value::bool(cx, true);
-	let result = i32::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = i32::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert_eq!(result.unwrap(), 1);
+	i32::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	let result = i32::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap();
+	assert_eq!(result, 1);
 
 	let value = Value::i32(cx, 255);
-	let result = u8::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert_eq!(result.unwrap(), 255);
+	let result = u8::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap();
+	assert_eq!(result, 255);
 
 	let value = Value::string(cx, "spider");
-	let result = u16::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = u16::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
+	u16::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	u16::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap_err();
 
 	let value = Value::string(cx, "-64");
-	let result = i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert_eq!(result.unwrap(), -64);
+	i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	let result = i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap();
+	assert_eq!(result, -64);
 
 	let value = Value::undefined(cx);
-	let result = i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
+	i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap_err();
 
 	let value = Value::null(cx);
-	let result = i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert_eq!(result.unwrap(), 0);
+	i64::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	let result = i64::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap();
+	assert_eq!(result, 0);
 
-	let object = Object::new(cx);
-	let value = object.as_value(cx);
-	let result = u32::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
-	let result = u32::from_value(cx, &value, false, ConversionBehavior::EnforceRange);
-	assert!(result.is_err());
+	let value = Object::new(cx).to_value(cx).unwrap();
+	u32::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap_err();
+	u32::from_value(cx, &value, false, ConversionBehavior::EnforceRange).unwrap_err();
 }
 
 fn test_strings(cx: &Context) {
 	let value = Value::bool(cx, false);
-	let result = String::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = String::from_value(cx, &value, false, ());
-	assert_eq!(&result.unwrap(), "false");
+	String::from_value(cx, &value, true, ()).unwrap_err();
+	let result = String::from_value(cx, &value, false, ()).unwrap();
+	assert_eq!(&result, "false");
 
 	let value = Value::f64(cx, 1.5);
-	let result = String::from_value(cx, &value, true, ());
-	assert!(result.is_err());
+	String::from_value(cx, &value, true, ()).unwrap_err();
 	let result = String::from_value(cx, &value, false, ());
 	assert_eq!(&result.unwrap(), "1.5");
 
 	let value = Value::string(cx, "spider");
-	let result = String::from_value(cx, &value, true, ());
-	assert_eq!(&result.unwrap(), "spider");
+	let result = String::from_value(cx, &value, true, ()).unwrap();
+	assert_eq!(&result, "spider");
 
 	let value = Value::undefined(cx);
-	let result = String::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = String::from_value(cx, &value, false, ());
-	assert_eq!(&result.unwrap(), "undefined");
+	String::from_value(cx, &value, true, ()).unwrap_err();
+	let result = String::from_value(cx, &value, false, ()).unwrap();
+	assert_eq!(&result, "undefined");
 
 	let value = Value::null(cx);
-	let result = String::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = String::from_value(cx, &value, false, ());
-	assert_eq!(&result.unwrap(), "null");
+	String::from_value(cx, &value, true, ()).unwrap_err();
+	let result = String::from_value(cx, &value, false, ()).unwrap();
+	assert_eq!(&result, "null");
 
-	let object = Object::new(cx);
-	let value = object.as_value(cx);
-	let result = String::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = String::from_value(cx, &value, false, ());
-	assert_eq!(&result.unwrap(), "[object Object]");
+	let value = Object::new(cx).to_value(cx).unwrap();
+	String::from_value(cx, &value, true, ()).unwrap_err();
+	let result = String::from_value(cx, &value, false, ()).unwrap();
+	assert_eq!(&result, "[object Object]");
 }
 
 fn test_objects(cx: &Context) {
 	let value = Value::bool(cx, false);
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = Object::from_value(cx, &value, false, ());
-	assert!(result.is_err());
+	Object::from_value(cx, &value, true, ()).unwrap_err();
+	Object::from_value(cx, &value, false, ()).unwrap_err();
 
 	let value = Value::f64(cx, 144.0);
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = Object::from_value(cx, &value, false, ());
-	assert!(result.is_err());
+	Object::from_value(cx, &value, true, ()).unwrap_err();
+	Object::from_value(cx, &value, false, ()).unwrap_err();
 
 	let value = Value::string(cx, "spider");
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = Object::from_value(cx, &value, false, ());
-	assert!(result.is_err());
+	Object::from_value(cx, &value, true, ()).unwrap_err();
+	Object::from_value(cx, &value, false, ()).unwrap_err();
 
 	let value = Value::undefined(cx);
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = Object::from_value(cx, &value, false, ());
-	assert!(result.is_err());
+	Object::from_value(cx, &value, true, ()).unwrap_err();
+	Object::from_value(cx, &value, false, ()).unwrap_err();
 
 	let value = Value::null(cx);
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_err());
-	let result = Object::from_value(cx, &value, false, ());
-	assert!(result.is_err());
+	Object::from_value(cx, &value, true, ()).unwrap_err();
+	Object::from_value(cx, &value, false, ()).unwrap_err();
 
 	let object = Object::new(cx);
-	let value = object.as_value(cx);
-	let result = Object::from_value(cx, &value, true, ());
-	assert!(result.is_ok());
+	let value = object.to_value(cx).unwrap();
+	Object::from_value(cx, &value, true, ()).unwrap();
 
-	let array = Array::new(cx);
-	let value = array.as_value(cx);
-	let result = Array::from_value(cx, &value, true, ());
-	assert!(result.is_ok());
+	let value = Array::new(cx).to_value(cx).unwrap();
+	Array::from_value(cx, &value, true, ()).unwrap();
 
-	let timestamp = Utc.timestamp_millis_opt(Utc::now().timestamp_millis()).unwrap();
-	let date = Date::from_date(cx, timestamp);
-	let value = date.as_value(cx);
-	let result = Date::from_value(cx, &value, true, ());
-	assert_eq!(result.unwrap().to_date(cx).unwrap(), timestamp);
+	let timestamp = Utc::now();
+	let value = Date::from_date(cx, timestamp).to_value(cx).unwrap();
+	let result = Date::from_value(cx, &value, true, ()).unwrap();
+	assert_eq!(result.to_date(cx).unwrap(), timestamp);
 
 	let promise = Promise::new(cx);
-	let value = promise.as_value(cx);
-	let result = Promise::from_value(cx, &value, true, ());
-	assert!(result.is_ok());
+	let value = promise.to_value(cx).unwrap();
+	Promise::from_value(cx, &value, true, ()).unwrap();
 }
 
 fn test_options(cx: &Context) {
 	type Opt = Option<bool>;
 
 	let value = Value::bool(cx, true);
-	let result = Opt::from_value(cx, &value, true, ());
-	assert_eq!(result.unwrap(), Some(true));
+	let result = Opt::from_value(cx, &value, true, ()).unwrap();
+	assert_eq!(result, Some(true));
 
 	let value = Value::undefined(cx);
-	let result = Opt::from_value(cx, &value, true, ());
-	assert_eq!(result.unwrap(), None);
+	let result = Opt::from_value(cx, &value, true, ()).unwrap();
+	assert_eq!(result, None);
 
 	let value = Value::null(cx);
-	let result = Opt::from_value(cx, &value, true, ());
-	assert_eq!(result.unwrap(), None);
+	let result = Opt::from_value(cx, &value, true, ()).unwrap();
+	assert_eq!(result, None);
 }
 
 fn test_vec(cx: &Context) {
 	let int_vec = vec![1, 256, -65536, 2147483647];
 	let vec: Vec<_> = int_vec.iter().map(|i| Int32Value(*i)).collect();
-	let array = Array::from_slice(cx, vec.as_slice());
-	let value = array.as_value(cx);
+	let value = Array::from_slice(cx, vec.as_slice()).to_value(cx).unwrap();
 
-	let result = <Vec<i32>>::from_value(cx, &value, true, ConversionBehavior::EnforceRange);
-	assert_eq!(result.unwrap(), int_vec);
+	let result = <Vec<i32>>::from_value(cx, &value, true, ConversionBehavior::EnforceRange).unwrap();
+	assert_eq!(result, int_vec);
 }

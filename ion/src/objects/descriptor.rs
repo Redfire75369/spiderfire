@@ -7,26 +7,26 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
-use mozjs::jsapi::{FromPropertyDescriptor, ObjectToCompletePropertyDescriptor};
+use mozjs::jsapi::{FromPropertyDescriptor, Heap, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
 
-use crate::{Context, Function, Local, Object, Value};
+use crate::{Context, Function, Object, Root, Value};
 use crate::flags::PropertyFlags;
 
-pub struct PropertyDescriptor<'pd> {
-	desc: Local<'pd, JSPropertyDescriptor>,
+pub struct PropertyDescriptor {
+	desc: Root<Box<Heap<JSPropertyDescriptor>>>,
 }
 
-impl<'pd> PropertyDescriptor<'pd> {
-	pub fn new(cx: &'pd Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
+impl PropertyDescriptor {
+	pub fn new(cx: &Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
 		desc
 	}
 
 	pub fn new_accessor(
-		cx: &'pd Context, getter: &Function, setter: &Function, attrs: PropertyFlags,
-	) -> PropertyDescriptor<'pd> {
+		cx: &Context, getter: &Function, setter: &Function, attrs: PropertyFlags,
+	) -> PropertyDescriptor {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
@@ -41,7 +41,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 		desc
 	}
 
-	pub fn from_object(cx: &'pd Context, object: &Object) -> Option<PropertyDescriptor<'pd>> {
+	pub fn from_object(cx: &Context, object: &Object) -> Option<PropertyDescriptor> {
 		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
 		unsafe {
@@ -55,7 +55,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 		}
 	}
 
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn to_object(&self, cx: &Context) -> Option<Object> {
 		let mut value = Value::undefined(cx);
 		unsafe { FromPropertyDescriptor(cx.as_ptr(), self.handle().into(), value.handle_mut().into()) }
 			.then(|| value.to_object(cx))
@@ -77,38 +77,38 @@ impl<'pd> PropertyDescriptor<'pd> {
 		self.handle().resolving_()
 	}
 
-	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn getter(&self, cx: &Context) -> Option<Object> {
 		self.handle().hasGetter_().then(|| Object::from(cx.root_object(self.handle().getter_)))
 	}
 
-	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn setter(&self, cx: &Context) -> Option<Object> {
 		self.handle().hasSetter_().then(|| Object::from(cx.root_object(self.handle().setter_)))
 	}
 
-	pub fn value<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {
+	pub fn value(&self, cx: &Context) -> Option<Value> {
 		self.handle().hasValue_().then(|| Value::from(cx.root_value(self.handle().value_)))
 	}
 
-	pub fn into_local(self) -> Local<'pd, JSPropertyDescriptor> {
+	pub fn into_root(self) -> Root<Box<Heap<JSPropertyDescriptor>>> {
 		self.desc
 	}
 }
 
-impl<'pd> From<Local<'pd, JSPropertyDescriptor>> for PropertyDescriptor<'pd> {
-	fn from(desc: Local<'pd, JSPropertyDescriptor>) -> PropertyDescriptor<'pd> {
+impl From<Root<Box<Heap<JSPropertyDescriptor>>>> for PropertyDescriptor {
+	fn from(desc: Root<Box<Heap<JSPropertyDescriptor>>>) -> PropertyDescriptor {
 		PropertyDescriptor { desc }
 	}
 }
 
-impl<'pd> Deref for PropertyDescriptor<'pd> {
-	type Target = Local<'pd, JSPropertyDescriptor>;
+impl Deref for PropertyDescriptor {
+	type Target = Root<Box<Heap<JSPropertyDescriptor>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.desc
 	}
 }
 
-impl<'pd> DerefMut for PropertyDescriptor<'pd> {
+impl DerefMut for PropertyDescriptor {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.desc
 	}

@@ -45,7 +45,7 @@ impl Display for Header {
 	}
 }
 
-impl ToValue<'_> for Header {
+impl ToValue for Header {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
 		self.to_string().to_value(cx, value)
 	}
@@ -60,15 +60,14 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 	type Config = ();
 	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
 		let vec: Vec<ByteString<VisibleAscii>> = Vec::from_value(cx, value, false, ())?;
-		let boxed: Box<[ByteString<VisibleAscii>; 2]> = vec
-			.try_into()
-			.map_err(|_| Error::new("Expected Header Entry with Length 2", ErrorKind::Type))?;
+		let boxed: Box<[ByteString<VisibleAscii>; 2]> =
+			vec.try_into().map_err(|_| Error::new("Expected Header Entry with Length 2", ErrorKind::Type))?;
 		let [name, value] = *boxed;
 		Ok(HeaderEntry { name, value })
 	}
 }
 
-impl ToValue<'_> for HeaderEntry {
+impl ToValue for HeaderEntry {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
 		let mut array = Array::new(cx);
 		array.set_as(cx, 0, &self.name);
@@ -462,11 +461,8 @@ fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object) -> Resu
 		let name = HeaderName::from_str(&key.to_lowercase())?;
 		let value = obj.get(cx, &key).unwrap();
 		if let Ok(array) = Array::from_value(cx, &value, false, ()) {
-			let vec: Vec<_> = array
-				.to_vec(cx)
-				.into_iter()
-				.map(|v| String::from_value(cx, &v, false, ()))
-				.collect::<Result<_>>()?;
+			let vec: Vec<_> =
+				array.to_vec(cx).into_iter().map(|v| String::from_value(cx, &v, false, ())).collect::<Result<_>>()?;
 			let str = vec.join(", ");
 			let value = HeaderValue::from_str(&str)?;
 			headers.insert(name, value);

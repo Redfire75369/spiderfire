@@ -11,10 +11,10 @@ use mozjs::jsapi::{
 	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject,
 	ModuleEvaluate, ModuleLink, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
-use mozjs::jsval::JSVal;
+use mozjs::jsval::{JSVal, UndefinedValue};
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use crate::{Context, ErrorReport, Local, Object, Promise, Value};
+use crate::{Context, ErrorReport, Exception, Object, Promise, Value};
 use crate::conversions::{FromValue, ToValue};
 
 /// Represents private module data
@@ -28,45 +28,41 @@ impl ModuleData {
 	pub fn from_private(cx: &Context, private: &Value) -> Option<ModuleData> {
 		private.handle().is_object().then(|| {
 			let private = private.to_object(cx);
-			let path: Option<String> = private.get_as(cx, "path", true, ());
+			let path = private.get_as(cx, "path", true, ()).and_then(|r| r.ok());
 			ModuleData { path }
 		})
 	}
 
 	/// Converts [ModuleData] to an [Object] for storage.
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
+	pub fn to_object(&self, cx: &Context) -> Object {
 		let mut object = Object::new(cx);
-		object.set_as(cx, "path", &self.path);
+		let _ = object.set_as(cx, "path", &self.path);
 		object
 	}
 }
 
 /// Represents a request by the runtime for a module.
 #[derive(Debug)]
-pub struct ModuleRequest<'r>(Object<'r>);
+pub struct ModuleRequest(Object);
 
-impl<'r> ModuleRequest<'r> {
+impl ModuleRequest {
 	/// Creates a new [ModuleRequest] with a given specifier.
-	pub fn new<S: AsRef<str>>(cx: &'r Context, specifier: S) -> ModuleRequest<'r> {
+	pub fn new<S: AsRef<str>>(cx: &Context, specifier: S) -> ModuleRequest {
 		let specifier = crate::String::copy_from_str(cx, specifier.as_ref()).unwrap();
-		ModuleRequest(
-			cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) })
-				.into(),
-		)
+		ModuleRequest(cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) }).into())
 	}
 
 	/// Creates a new [ModuleRequest] from a raw handle.
 	///
 	/// ### Safety
 	/// `request` must be a valid module request object.
-	pub unsafe fn from_raw_request(request: Handle<*mut JSObject>) -> ModuleRequest<'r> {
-		ModuleRequest(Object::from(unsafe { Local::from_raw_handle(request) }))
+	pub fn from_request(cx: &Context, request: Handle<*mut JSObject>) -> ModuleRequest {
+		ModuleRequest(Object::from(cx.root(request.get())))
 	}
 
 	/// Returns the specifier of the request.
-	pub fn specifier<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
-		cx.root_string(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) })
-			.into()
+	pub fn specifier(&self, cx: &Context) -> crate::String {
+		cx.root_string(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) }).into()
 	}
 }
 
@@ -99,16 +95,16 @@ impl ModuleError {
 
 /// Represents a compiled module.
 #[derive(Debug)]
-pub struct Module<'m>(pub Object<'m>);
+pub struct Module(pub Object);
 
-impl<'cx> Module<'cx> {
+impl Module {
 	/// Compiles a [Module] with the given source and filename.
 	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
 	/// The promise is a byproduct of enabling top-level await.
 	#[allow(clippy::result_large_err)]
 	pub fn compile(
-		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
-	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
+		cx: &Context, filename: &str, path: Option<&Path>, script: &str,
+	) -> Result<(Module, Option<Promise>), ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
@@ -123,9 +119,14 @@ impl<'cx> Module<'cx> {
 				path: path.and_then(Path::to_str).map(String::from),
 			};
 
-			unsafe {
-				let private = data.to_object(cx).as_value(cx);
-				SetModulePrivate(module.0.handle().get(), &*private.handle());
+			match data.to_object(cx).to_value(cx) {
+				Ok(private) => unsafe { SetModulePrivate(module.0.handle().get(), &*private.handle()) },
+				Err(error) => {
+					return Err(ModuleError::new(
+						ErrorReport::from(Exception::Error(error), None),
+						ModuleErrorKind::Instantiation,
+					));
+				}
 			}
 
 			if let Err(error) = module.instantiate(cx) {
@@ -158,10 +159,10 @@ impl<'cx> Module<'cx> {
 	}
 
 	/// Evaluates a [Module]. Generally called by [Module::compile].
-	pub fn evaluate(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
-		let mut rval = Value::undefined(cx);
+	pub fn evaluate(&self, cx: &Context) -> Result<Value, ErrorReport> {
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
 		if unsafe { ModuleEvaluate(cx.as_ptr(), self.0.handle().into(), rval.handle_mut().into()) } {
-			Ok(rval)
+			Ok(Value::from(cx.root(rval.get())))
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
@@ -200,15 +201,15 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn resolve(
 		cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>,
 	) -> *mut JSObject {
-		let cx = unsafe { Context::new_unchecked(cx) };
+		let cx = &unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
-				let private = unsafe { Value::from(Local::from_raw_handle(private)) };
-				let request = unsafe { ModuleRequest::from_raw_request(request) };
-				loader.resolve(&cx, &private, &request)
+				let private = Value::from(cx.root(private.get()));
+				let request = ModuleRequest::from_request(cx, request);
+				loader.resolve(cx, &private, &request)
 			})
 			.unwrap_or_else(ptr::null_mut)
 	}
@@ -216,15 +217,15 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn metadata(
 		cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>,
 	) -> bool {
-		let cx = unsafe { Context::new_unchecked(cx) };
+		let cx = &unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
 			.as_mut()
 			.map(|loader| {
-				let private = Value::from(unsafe { Local::from_raw_handle(private_data) });
-				let mut metadata = Object::from(unsafe { Local::from_raw_handle(metadata) });
-				loader.metadata(&cx, &private, &mut metadata)
+				let private = Value::from(cx.root(private_data.get()));
+				let mut metadata = Object::from(cx.root(metadata.get()));
+				loader.metadata(cx, &private, &mut metadata)
 			})
 			.unwrap_or_else(|| true)
 	}

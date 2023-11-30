@@ -6,20 +6,21 @@
 
 use std::path::Path;
 
-use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
+use mozjs::jsapi::{Compile, Heap, JS_ExecuteScript, JSScript};
+use mozjs::jsval::UndefinedValue;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use crate::{Context, ErrorReport, Local, Value};
+use crate::{Context, ErrorReport, Root, Value};
 
 #[derive(Debug)]
-pub struct Script<'cx> {
-	script: Local<'cx, *mut JSScript>,
+pub struct Script {
+	script: Root<Box<Heap<*mut JSScript>>>,
 }
 
-impl<'s> Script<'s> {
+impl Script {
 	/// Compiles a script with a given filename and returns the compiled script.
 	/// Returns [Err] when script compilation fails.
-	pub fn compile<'cx>(cx: &'cx Context, path: &Path, script: &str) -> Result<Script<'cx>, ErrorReport> {
+	pub fn compile(cx: &Context, path: &Path, script: &str) -> Result<Script, ErrorReport> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), path.to_str().unwrap(), 1) };
@@ -35,11 +36,10 @@ impl<'s> Script<'s> {
 
 	/// Evaluates a script and returns its return value.
 	/// Returns [Err] when an exception occurs during script evaluation.
-	pub fn evaluate<'cx>(&self, cx: &'cx Context) -> Result<Value<'cx>, ErrorReport> {
-		let mut rval = Value::undefined(cx);
-
+	pub fn evaluate(&self, cx: &Context) -> Result<Value, ErrorReport> {
+		rooted!(in(cx.as_ptr()) let mut rval = UndefinedValue());
 		if unsafe { JS_ExecuteScript(cx.as_ptr(), self.script.handle().into(), rval.handle_mut().into()) } {
-			Ok(rval)
+			Ok(Value::from(cx.root(rval.get())))
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
@@ -47,7 +47,7 @@ impl<'s> Script<'s> {
 
 	/// Compiles and evaluates a script with a given filename, and returns its return value.
 	/// Returns [Err] when script compilation fails or an exception occurs during script evaluation.
-	pub fn compile_and_evaluate<'cx>(cx: &'cx Context, path: &Path, script: &str) -> Result<Value<'cx>, ErrorReport> {
+	pub fn compile_and_evaluate(cx: &Context, path: &Path, script: &str) -> Result<Value, ErrorReport> {
 		match Script::compile(cx, path, script) {
 			Ok(s) => s.evaluate(cx),
 			Err(e) => Err(e),
@@ -55,8 +55,8 @@ impl<'s> Script<'s> {
 	}
 }
 
-impl<'s> From<Local<'s, *mut JSScript>> for Script<'s> {
-	fn from(script: Local<'s, *mut JSScript>) -> Script<'s> {
+impl From<Root<Box<Heap<*mut JSScript>>>> for Script {
+	fn from(script: Root<Box<Heap<*mut JSScript>>>) -> Script {
 		Script { script }
 	}
 }

@@ -77,7 +77,7 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 			return Err(Error::new(
 				r#impl.span(),
 				"Native Class Impls must contain a constructor.",
-			))
+			));
 		}
 	};
 

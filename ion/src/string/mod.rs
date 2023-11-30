@@ -13,14 +13,14 @@ use bytemuck::cast_slice;
 use byteorder::NativeEndian;
 use mozjs::glue::{CreateJSExternalStringCallbacks, JSExternalStringCallbacksTraps};
 use mozjs::jsapi::{
-	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
+	Heap, JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
 	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
 	JS_NewExternalString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
 use mozjs::jsapi::mozilla::MallocSizeOf;
 use utf16string::{WStr, WString};
 
-use crate::{Context, Local};
+use crate::{Context, Root};
 use crate::string::byte::{ByteStr, Latin1};
 use crate::utils::BoxExt;
 
@@ -60,18 +60,18 @@ impl StringRef<'_> {
 ///
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String) for more details.
 #[derive(Debug)]
-pub struct String<'s> {
-	str: Local<'s, *mut JSString>,
+pub struct String {
+	str: Root<Box<Heap<*mut JSString>>>,
 }
 
-impl<'s> String<'s> {
+impl String {
 	/// Creates an empty [String].
 	pub fn new(cx: &Context) -> String {
 		String::from(cx.root_string(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
 	}
 
 	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
-	pub fn copy_from_str<'cx>(cx: &'cx Context, string: &str) -> Option<String<'cx>> {
+	pub fn copy_from_str(cx: &Context, string: &str) -> Option<String> {
 		let utf16: Vec<u16> = string.encode_utf16().collect();
 		let jsstr = unsafe { JS_NewUCStringCopyN(cx.as_ptr(), utf16.as_ptr(), utf16.len()) };
 		if jsstr.is_null() {
@@ -118,14 +118,14 @@ impl<'s> String<'s> {
 	}
 
 	/// Returns a slice of a [String] as a new [String].
-	pub fn slice<'cx>(&self, cx: &'cx Context, range: Range<usize>) -> String<'cx> {
+	pub fn slice(&self, cx: &Context, range: Range<usize>) -> String {
 		let Range { start, end } = range;
 		String::from(cx.root_string(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), start, end) }))
 	}
 
 	/// Concatenates two [String]s into a new [String].
 	/// The resultant [String] is not linear.
-	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> String<'cx> {
+	pub fn concat(&self, cx: &Context, other: &String) -> String {
 		String::from(
 			cx.root_string(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }),
 		)
@@ -165,7 +165,7 @@ impl<'s> String<'s> {
 
 	/// Converts the [String] into a [prim@slice] of Latin-1 characters.
 	/// Returns [None] if the string contains non-Latin-1 characters.
-	pub fn as_latin1(&self, cx: &Context) -> Option<&'s [u8]> {
+	pub fn as_latin1(&self, cx: &'_ Context) -> Option<&[u8]> {
 		self.is_latin1().then(|| unsafe {
 			let mut length = 0;
 			let chars = JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length);
@@ -175,7 +175,7 @@ impl<'s> String<'s> {
 
 	/// Converts the [String] into a [WStr].
 	/// Returns [None] if the string contains only Latin-1 characters.
-	pub fn as_wstr(&self, cx: &Context) -> Option<&'s WStr<NativeEndian>> {
+	pub fn as_wstr(&self, cx: &'_ Context) -> Option<&WStr<NativeEndian>> {
 		self.is_utf16()
 			.then(|| unsafe {
 				let mut length = 0;
@@ -186,7 +186,7 @@ impl<'s> String<'s> {
 			.map(|bytes| WStr::from_utf16(bytes).unwrap())
 	}
 
-	pub fn as_ref(&self, cx: &Context) -> StringRef<'s> {
+	pub fn as_ref(&self, cx: &'_ Context) -> StringRef {
 		let mut length = 0;
 		if self.is_latin1() {
 			let chars = unsafe { JS_GetLatin1StringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length) };
@@ -212,21 +212,21 @@ impl<'s> String<'s> {
 	}
 }
 
-impl<'s> From<Local<'s, *mut JSString>> for String<'s> {
-	fn from(str: Local<'s, *mut JSString>) -> String<'s> {
+impl From<Root<Box<Heap<*mut JSString>>>> for String {
+	fn from(str: Root<Box<Heap<*mut JSString>>>) -> String {
 		String { str }
 	}
 }
 
-impl<'s> Deref for String<'s> {
-	type Target = Local<'s, *mut JSString>;
+impl Deref for String {
+	type Target = Root<Box<Heap<*mut JSString>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.str
 	}
 }
 
-impl<'s> DerefMut for String<'s> {
+impl DerefMut for String {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.str
 	}

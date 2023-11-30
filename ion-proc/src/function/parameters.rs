@@ -12,7 +12,7 @@ use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
 use crate::attribute::function::ParameterAttribute;
-use crate::utils::{format_pat, path_ends_with, pat_is_ident};
+use crate::utils::{format_pat, pat_is_ident, path_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
 pub(crate) enum Parameter {

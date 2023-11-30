@@ -938,9 +938,7 @@ dependencies = [
  "itoa",
  "libffi",
  "mozjs",
- "mozjs_sys",
  "sourcemap",
- "typed-arena",
  "utf16string",
 ]
 

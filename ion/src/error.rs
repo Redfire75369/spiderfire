@@ -9,8 +9,9 @@ use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
 use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey, UndefinedHandleValue};
+use mozjs::jsval::UndefinedValue;
 
-use crate::{Context, Object, Stack, Value};
+use crate::{Context, Object, Result, Stack, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::stack::Location;
@@ -133,7 +134,7 @@ impl Error {
 		}
 	}
 
-	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn to_object(&self, cx: &Context) -> Option<Object> {
 		if let Some(object) = self.object {
 			return Some(cx.root_object(object).into());
 		}
@@ -151,17 +152,17 @@ impl Error {
 
 				let stack = Object::from(cx.root_object(stack.object.unwrap()));
 
-				let file = file.as_value(cx);
+				let file = file.to_value(cx).unwrap();
 
 				let file_name = cx.root_string(file.handle().to_string());
 
 				let message = (!self.message.is_empty()).then(|| {
-					let value = self.message.as_value(cx);
+					let value = self.message.to_value(cx).unwrap();
 					crate::String::from(cx.root_string(value.handle().to_string()))
 				});
 				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
 
-				let mut error = Value::undefined(cx);
+				rooted!(in(cx.as_ptr()) let mut error = UndefinedValue());
 
 				if CreateError(
 					cx.as_ptr(),
@@ -175,7 +176,7 @@ impl Error {
 					UndefinedHandleValue,
 					error.handle_mut().into(),
 				) {
-					return Some(error.to_object(cx));
+					return Some(Object::from(cx.root(error.to_object())));
 				}
 			}
 		}
@@ -229,8 +230,8 @@ impl ThrowException for Error {
 	}
 }
 
-impl<'cx> ToValue<'cx> for Error {
-	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		self.to_object(cx).to_value(cx, value)
+impl ToValue for Error {
+	fn to_value(&self, cx: &Context) -> Result<Value> {
+		self.to_object(cx).to_value(cx)
 	}
 }
