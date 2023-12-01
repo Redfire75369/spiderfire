@@ -37,7 +37,7 @@ impl ContextExt for Context {
 }
 
 pub struct Runtime<'cx> {
-	global: Object,
+	global: Option<Object>,
 	cx: &'cx Context,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
@@ -49,11 +49,11 @@ impl<'cx> Runtime<'cx> {
 	}
 
 	pub fn global(&self) -> &Object {
-		&self.global
+		self.global.as_ref().unwrap()
 	}
 
 	pub fn global_mut(&mut self) -> &mut Object {
-		&mut self.global
+		self.global.as_mut().unwrap()
 	}
 
 	pub async fn run_event_loop(&self) -> Result<(), Option<ErrorReport>> {
@@ -64,6 +64,7 @@ impl<'cx> Runtime<'cx> {
 
 impl Drop for Runtime<'_> {
 	fn drop(&mut self) {
+		let _ = self.global.take();
 		let private = self.cx.get_private();
 		let _ = unsafe { Box::from_raw(private.as_ptr()) };
 		let inner_private = self.cx.get_inner_data();
@@ -156,7 +157,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 			}
 		}
 
-		Runtime { global, cx, realm }
+		Runtime { global: Some(global), cx, realm }
 	}
 }
 

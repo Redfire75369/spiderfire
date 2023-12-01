@@ -38,10 +38,7 @@ impl File {
 	pub fn constructor(parts: Vec<BlobPart>, name: String, options: Option<FileOptions>) -> File {
 		let options = options.unwrap_or_default();
 		let blob = Blob::constructor(Some(parts), Some(options.blob));
-		let modified = options
-			.modified
-			.and_then(|d| Utc.timestamp_millis_opt(d).single())
-			.unwrap_or_else(Utc::now);
+		let modified = options.modified.and_then(|d| Utc.timestamp_millis_opt(d).single()).unwrap_or_else(Utc::now);
 
 		File { blob, name, modified }
 	}

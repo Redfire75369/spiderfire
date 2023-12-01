@@ -72,11 +72,7 @@ pub struct ByteString<T: BytePredicate = Latin1> {
 
 impl<T: BytePredicate> ByteString<T> {
 	pub fn from(bytes: Vec<u8>) -> Option<ByteString<T>> {
-		bytes
-			.iter()
-			.copied()
-			.all(T::predicate)
-			.then(|| unsafe { ByteString::from_unchecked(bytes) })
+		bytes.iter().copied().all(T::predicate).then(|| unsafe { ByteString::from_unchecked(bytes) })
 	}
 
 	pub unsafe fn from_unchecked(bytes: Vec<u8>) -> ByteString<T> {

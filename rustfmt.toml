@@ -1,4 +1,4 @@
-chain_width = 120
+chain_width = 100
 edition = "2021"
 force_explicit_abi = true
 fn_params_layout = "Compressed"

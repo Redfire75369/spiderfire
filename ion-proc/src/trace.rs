@@ -34,10 +34,8 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 	match data {
 		Data::Struct(r#struct) => {
 			let (idents, skip) = field_idents(&r#struct.fields);
-			let traced = idents
-				.iter()
-				.enumerate()
-				.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
+			let traced =
+				idents.iter().enumerate().filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
 			parse2(quote_spanned!(span => {
 				let Self { #(#idents),* } = self;
 				#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
