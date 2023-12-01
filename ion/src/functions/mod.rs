@@ -22,9 +22,9 @@ mod arguments;
 mod closure;
 mod function;
 
-pub fn handle_result<T: IntoValue>(cx: &Context, result: ResultExc<T>, mut rval: MutableHandle<JSVal>) -> bool {
+pub fn handle_result<T: IntoValue>(cx: &Context, result: ResultExc<Box<T>>, mut rval: MutableHandle<JSVal>) -> bool {
 	match result {
-		Ok(value) => match Box::new(value).into_value(cx) {
+		Ok(value) => match value.into_value(cx) {
 			Ok(value) => {
 				rval.set(value.get());
 				true
@@ -58,7 +58,7 @@ pub fn __handle_native_constructor_result(
 	cx: &Context, result: Result<ResultExc<()>>, this: &Object, rval: MutableHandle<JSVal>,
 ) -> bool {
 	match result {
-		Ok(result) => handle_result(cx, result.map(|_| this), rval),
+		Ok(result) => handle_result(cx, result.map(|_| Box::new(this)), rval),
 		Err(unwind_error) => handle_unwind_error(cx, unwind_error),
 	}
 }

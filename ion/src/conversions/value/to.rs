@@ -117,7 +117,7 @@ impl ToValue for String {
 	}
 }
 
-impl<T: ToOwned + ToValue> ToValue for Cow<'_, T> {
+impl<T: ToOwned + ToValue + ?Sized> ToValue for Cow<'_, T> {
 	fn to_value(&self, cx: &Context) -> Result<Value> {
 		self.as_ref().to_value(cx)
 	}

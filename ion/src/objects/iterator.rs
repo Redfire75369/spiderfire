@@ -87,7 +87,7 @@ impl Iterator {
 		let iterator = Iterator::get_mut_private(&mut this);
 		let result = iterator.next_value(cx);
 
-		handle_result(cx, result.map_err(Into::into), args.rval())
+		handle_result(cx, result.map(Box::new).map_err(Into::into), args.rval())
 	}
 
 	unsafe extern "C" fn iterable(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {

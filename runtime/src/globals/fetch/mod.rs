@@ -21,14 +21,13 @@ use http::header::{
 	IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use mozjs::jsapi::JSObject;
-use mozjs::rust::IntoHandle;
 use sys_locale::get_locales;
 use tokio::fs::read;
 use url::Url;
 
 pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
-use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Promise, ResultExc, Root};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Promise, ResultExc};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
@@ -55,26 +54,24 @@ mod response;
 const DEFAULT_USER_AGENT: &str = concatcp!("Spiderfire/", VERSION);
 
 #[js_fn]
-fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> Option<Promise<'cx>> {
+fn fetch(cx: &Context, resource: RequestInfo, init: Option<RequestInit>) -> Option<Promise> {
 	let promise = Promise::new(cx);
 
-	let request = match Request::constructor(cx, resource, init) {
+	let mut request = match Request::constructor(cx, resource, init) {
 		Ok(request) => request,
 		Err(error) => {
-			promise.reject(cx, &error.as_value(cx));
+			promise.reject(cx, &error.to_value(cx).unwrap());
 			return Some(promise);
 		}
 	};
 
-	let signal = Object::from(unsafe { Root::from_heap(&request.signal_object) });
-	let signal = AbortSignal::get_private(&signal);
+	let signal = AbortSignal::get_private(&request.signal);
 	if let Some(reason) = signal.get_reason() {
 		promise.reject(cx, &cx.root_value(reason).into());
 		return Some(promise);
 	}
 
-	let mut headers = Object::from(unsafe { Root::from_heap(&request.headers) });
-	let headers = Headers::get_mut_private(&mut headers);
+	let headers = Headers::get_mut_private(request.headers.as_mut().unwrap());
 	if !headers.headers.contains_key(ACCEPT) {
 		headers.headers.append(ACCEPT, HeaderValue::from_static("*/*"));
 	}
@@ -91,21 +88,16 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 		headers.headers.append(ACCEPT_LANGUAGE, HeaderValue::from_str(&locale_string).unwrap());
 	}
 
-	let request = cx.root_persistent_object(Request::new_object(cx, Box::new(request)));
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-	let request = request.handle().into_handle();
+	let mut request = Object::from(cx.root(Request::new_object(cx, Box::new(request))));
 	future_to_promise(cx, async move {
-		let mut request = Object::from(unsafe { Root::from_raw_handle(request) });
-		let res = fetch_internal(&cx2, &mut request, GLOBAL_CLIENT.get().unwrap().clone()).await;
-		cx2.unroot_persistent_object(request.handle().get());
-		res
+		fetch_internal(&cx2, &mut request, GLOBAL_CLIENT.get().unwrap().clone()).await
 	})
 }
 
-async fn fetch_internal<'o>(cx: &Context, request: &mut Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
+async fn fetch_internal(cx: &Context, request: &mut Object, client: Client) -> ResultExc<*mut JSObject> {
 	let request = Request::get_mut_private(request);
-	let signal = Object::from(unsafe { Root::from_heap(&request.signal_object) });
-	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
+	let signal = AbortSignal::get_private(&request.signal).signal.clone().poll();
 	let send = Box::pin(main_fetch(cx, request, client, 0));
 	let response = match select(send, signal).await {
 		Either::Left((response, _)) => Ok(response),
@@ -208,7 +200,7 @@ static BAD_PORTS: &[u16] = &[
 
 static SCHEMES: [&str; 4] = ["about", "blob", "data", "file"];
 
-#[async_recursion(? Send)]
+#[async_recursion(?Send)]
 async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirections: u8) -> Response {
 	let scheme = request.url.scheme();
 
@@ -218,18 +210,18 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 	let mut opaque_redirect = false;
 	let mut response = {
 		if request.mode == RequestMode::SameOrigin {
-			network_error()
+			network_error(cx)
 		} else if SCHEMES.contains(&scheme) {
 			scheme_fetch(cx, scheme, request.url.clone()).await
 		} else if scheme == "https" || scheme == "http" {
 			if let Some(port) = request.url.port() {
 				if BAD_PORTS.contains(&port) {
-					return network_error();
+					return network_error(cx);
 				}
 			}
 			if request.mode == RequestMode::NoCors {
 				if request.redirect != RequestRedirect::Follow {
-					return network_error();
+					return network_error(cx);
 				}
 			} else {
 				taint = ResponseTaint::Cors;
@@ -238,7 +230,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 			opaque_redirect = opaque;
 			response
 		} else {
-			network_error()
+			network_error(cx)
 		}
 	};
 
@@ -250,8 +242,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 
 	response.url.get_or_insert(request.url.clone());
 
-	let mut headers = Object::from(unsafe { Root::from_heap(&response.headers) });
-	let headers = Headers::get_mut_private(&mut headers);
+	let headers = Headers::get_mut_private(&mut response.headers);
 
 	if !opaque_redirect
 		&& taint == ResponseTaint::Opaque
@@ -260,8 +251,9 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 		&& !headers.headers.contains_key(RANGE)
 	{
 		let url = response.url.take().unwrap();
-		response = network_error();
+		response = network_error(cx);
 		response.url = Some(url);
+		return response;
 	}
 
 	if !opaque_redirect
@@ -348,7 +340,6 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 	match scheme {
 		"about" if url.path() == "blank" => {
-			let response = Response::new_from_bytes(Bytes::default(), url);
 			let headers = Headers {
 				reflector: Reflector::default(),
 				headers: HeaderMap::from_iter(once((
@@ -357,45 +348,41 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 				))),
 				kind: HeadersKind::Immutable,
 			};
-			response.headers.set(Headers::new_object(cx, Box::new(headers)));
-			response
+
+			Response::new_from_bytes(cx, Bytes::default(), url, headers)
 		}
 		// TODO: blob: URLs
 		"data" => {
 			let data_url = match DataUrl::process(url.as_str()) {
 				Ok(data_url) => data_url,
-				Err(_) => return network_error(),
+				Err(_) => return network_error(cx),
 			};
 
 			let (body, _) = match data_url.decode_to_vec() {
 				Ok(decoded) => decoded,
-				Err(_) => return network_error(),
+				Err(_) => return network_error(cx),
 			};
 			let mime = data_url.mime_type();
 			let mime = format!("{}/{}", mime.type_, mime.subtype);
 
-			let response = Response::new_from_bytes(Bytes::from(body), url);
 			let headers = Headers {
 				reflector: Reflector::default(),
 				headers: HeaderMap::from_iter(once((CONTENT_TYPE, HeaderValue::from_str(&mime).unwrap()))),
 				kind: HeadersKind::Immutable,
 			};
-			response.headers.set(Headers::new_object(cx, Box::new(headers)));
-			response
+			Response::new_from_bytes(cx, Bytes::from(body), url, headers)
 		}
 		"file" => {
 			let path = url.to_file_path().unwrap();
 			match read(path).await {
 				Ok(bytes) => {
-					let response = Response::new_from_bytes(Bytes::from(bytes), url);
 					let headers = Headers::new(HeadersKind::Immutable);
-					response.headers.set(Headers::new_object(cx, Box::new(headers)));
-					response
+					Response::new_from_bytes(cx, Bytes::from(bytes), url, headers)
 				}
-				Err(_) => network_error(),
+				Err(_) => network_error(cx),
 			}
 		}
-		_ => network_error(),
+		_ => network_error(cx),
 	}
 }
 
@@ -409,18 +396,17 @@ async fn http_fetch(
 				http_redirect_fetch(cx, request, response, client, taint, redirections).await,
 				false,
 			),
-			RequestRedirect::Error => (network_error(), false),
+			RequestRedirect::Error => (network_error(cx), false),
 			RequestRedirect::Manual => (response, true),
 		},
 		_ => (response, false),
 	}
 }
 
-#[async_recursion(? Send)]
-async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new: bool) -> Response {
+#[async_recursion(?Send)]
+async fn http_network_fetch(cx: &Context, req: &mut Request, client: Client, is_new: bool) -> Response {
 	let mut request = req.clone();
-	let mut headers = Object::from(unsafe { Root::from_heap(&req.headers) });
-	let headers = Headers::get_mut_private(&mut headers);
+	let headers = Headers::get_mut_private(req.headers.as_mut().unwrap());
 	*request.request.headers_mut() = headers.headers.clone();
 
 	let length = request.body.len().or_else(|| {
@@ -485,30 +471,28 @@ async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new:
 	}
 
 	if request.cache == RequestCache::OnlyIfCached {
-		return network_error();
+		return network_error(cx);
 	}
 
 	let range_requested = headers.contains_key(RANGE);
 
 	let mut response = match client.request(request.request).await {
-		Ok(response) => {
-			let mut response = Response::new(response, req.url.clone());
-
+		Ok(mut response) => {
 			let headers = Headers {
 				reflector: Reflector::default(),
-				headers: take(response.response.as_mut().unwrap().headers_mut()),
+				headers: take(response.headers_mut()),
 				kind: HeadersKind::Immutable,
 			};
-			response.headers.set(Headers::new_object(cx, Box::new(headers)));
-			response
+
+			Response::new(cx, response, req.url.clone(), headers)
 		}
-		Err(_) => return network_error(),
+		Err(_) => return network_error(cx),
 	};
 
 	response.range_requested = range_requested;
 
 	if response.status == Some(StatusCode::PROXY_AUTHENTICATION_REQUIRED) && !req.client_window {
-		return network_error();
+		return network_error(cx);
 	}
 
 	if response.status == Some(StatusCode::MISDIRECTED_REQUEST) && !is_new && req.body.is_not_stream() {
@@ -521,12 +505,11 @@ async fn http_network_fetch(cx: &Context, req: &Request, client: Client, is_new:
 async fn http_redirect_fetch(
 	cx: &Context, request: &mut Request, response: Response, client: Client, taint: ResponseTaint, redirections: u8,
 ) -> Response {
-	let headers = Object::from(unsafe { Root::from_heap(&response.headers) });
-	let headers = Headers::get_private(&headers);
+	let headers = Headers::get_private(&response.headers);
 	let mut location = headers.headers.get_all(LOCATION).into_iter();
 	let location = match location.size_hint().1 {
 		Some(0) => return response,
-		None => return network_error(),
+		None => return network_error(cx),
 		_ => {
 			let location = location.next().unwrap();
 			match Url::options().base_url(response.url.as_ref()).parse(str::from_utf8(location.as_bytes()).unwrap()) {
@@ -536,25 +519,25 @@ async fn http_redirect_fetch(
 					}
 					url
 				}
-				Err(_) => return network_error(),
+				Err(_) => return network_error(cx),
 			}
 		}
 	};
 
 	if !(location.scheme() == "https" || location.scheme() == "http") {
-		return network_error();
+		return network_error(cx);
 	}
 
 	if redirections >= 20 {
-		return network_error();
+		return network_error(cx);
 	}
 
 	if taint == ResponseTaint::Cors && (location.username() != "" || location.password().is_some()) {
-		return network_error();
+		return network_error(cx);
 	}
 
 	if response.status != Some(StatusCode::SEE_OTHER) && !request.body.is_none() && !request.body.is_not_stream() {
-		return network_error();
+		return network_error(cx);
 	}
 
 	if ((response.status == Some(StatusCode::MOVED_PERMANENTLY) || response.status == Some(StatusCode::FOUND))
@@ -564,8 +547,7 @@ async fn http_redirect_fetch(
 	{
 		*request.request.method_mut() = Method::GET;
 		request.body = FetchBody::default();
-		let mut headers = Object::from(unsafe { Root::from_heap(&request.headers) });
-		let headers = Headers::get_mut_private(&mut headers);
+		let headers = Headers::get_mut_private(request.headers.as_mut().unwrap());
 		remove_all_header_entries(&mut headers.headers, &CONTENT_ENCODING);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LANGUAGE);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LOCATION);

@@ -7,14 +7,14 @@
 use std::ffi::CString;
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, LitStr, Member, parse2, Path, Result, Type};
+use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::utils::path_ends_with;
 
-pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 6]> {
+pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 4]> {
 	let ion = &crate_from_attributes(&r#struct.attrs);
 
 	let repr_c = r#struct.attrs.iter().fold(Ok(false), |acc, attr| {
@@ -96,10 +96,7 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 
 fn class_impls(
 	ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type,
-) -> Result<[ItemImpl; 6]> {
-	let from_value = impl_from_value(ion, span, name, r#type, false)?;
-	let from_value_mut = impl_from_value(ion, span, name, r#type, true)?;
-
+) -> Result<[ItemImpl; 4]> {
 	let derived_from = quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {});
 	let derived_from = parse2(derived_from)?;
 	let castable = parse2(quote_spanned!(span => impl #ion::class::Castable for #r#type {}))?;
@@ -166,39 +163,7 @@ fn class_impls(
 	}))?;
 	operations_native_class.attrs.push(parse_quote!(#[doc(hidden)]));
 
-	Ok([
-		from_value,
-		from_value_mut,
-		derived_from,
-		castable,
-		native_object,
-		operations_native_class,
-	])
-}
-
-fn impl_from_value(ion: &TokenStream, span: Span, name: &str, r#type: &Type, mutable: bool) -> Result<ItemImpl> {
-	let from_value_error = LitStr::new(&format!("Expected {}", name), span);
-	let function = if mutable {
-		quote!(get_mut_private)
-	} else {
-		quote!(get_private)
-	};
-	let mutable = mutable.then(<Token![mut]>::default);
-
-	parse2(
-		quote_spanned!(span => impl<'cx> #ion::conversions::FromValue<'cx> for &'cx #mutable #r#type {
-			type Config = ();
-
-			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: ::core::primitive::bool, _: ()) -> #ion::Result<&'cx #mutable #r#type> {
-				let #mutable object = #ion::Object::from_value(cx, value, strict, ())?;
-				if <#r#type as #ion::class::ClassDefinition>::instance_of(cx, &object, None) {
-					Ok(<#r#type as #ion::class::ClassDefinition>::#function(&#mutable object))
-				} else {
-					Err(#ion::Error::new(#from_value_error, #ion::ErrorKind::Type))
-				}
-			}
-		}),
-	)
+	Ok([derived_from, castable, native_object, operations_native_class])
 }
 
 fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {

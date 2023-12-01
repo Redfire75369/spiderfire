@@ -54,7 +54,6 @@ features = ["macros", "sourcemap"]
 
 [dependencies.mime]
 version = "0.3.17"
-optional = true
 
 [dependencies.swc_core]
 version = "0.86.78"
@@ -77,7 +76,7 @@ optional = true
 
 [dependencies.tokio]
 workspace = true
-features = ["sync"]
+features = ["rt", "sync"]
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
@@ -87,7 +86,6 @@ fetch = [
 	"dep:http",
 	"dep:hyper",
 	"dep:hyper-rustls",
-	"dep:mime",
 	"dep:sys-locale",
 ]
 

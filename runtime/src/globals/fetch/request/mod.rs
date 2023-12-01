@@ -9,10 +9,10 @@ use std::str::FromStr;
 use http::{HeaderMap, HeaderValue};
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Method, Uri};
-use mozjs::jsapi::{Heap, JSObject};
+use mozjs::jsapi::JSObject;
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result};
 use ion::class::Reflector;
 pub use options::*;
 
@@ -24,9 +24,9 @@ use crate::globals::fetch::Headers;
 mod options;
 
 #[derive(FromValue)]
-pub enum RequestInfo<'cx> {
+pub enum RequestInfo {
 	#[ion(inherit)]
-	Request(&'cx Request),
+	Request(*const Request),
 	#[ion(inherit)]
 	String(String),
 }
@@ -37,7 +37,8 @@ pub struct Request {
 
 	#[ion(no_trace)]
 	pub(crate) request: hyper::Request<Body>,
-	pub(crate) headers: Box<Heap<*mut JSObject>>,
+	#[ion(no_trace)]
+	pub(crate) headers: Option<Object>,
 	pub(crate) body: FetchBody,
 	pub(crate) body_used: bool,
 
@@ -61,7 +62,8 @@ pub struct Request {
 	pub(crate) keepalive: bool,
 
 	pub(crate) client_window: bool,
-	pub(crate) signal_object: Box<Heap<*mut JSObject>>,
+	#[ion(no_trace)]
+	pub(crate) signal: Object,
 }
 
 #[js_class]
@@ -71,7 +73,7 @@ impl Request {
 		let mut fallback_cors = false;
 
 		let mut request = match info {
-			RequestInfo::Request(request) => request.clone(),
+			RequestInfo::Request(request) => unsafe { (*request).clone() },
 			RequestInfo::String(url) => {
 				let uri = Uri::from_str(&url)?;
 				let url = Url::from_str(&url)?;
@@ -86,7 +88,7 @@ impl Request {
 					reflector: Reflector::default(),
 
 					request,
-					headers: Box::default(),
+					headers: None,
 					body: FetchBody::default(),
 					body_used: false,
 
@@ -107,7 +109,7 @@ impl Request {
 					keepalive: false,
 
 					client_window: true,
-					signal_object: Heap::boxed(AbortSignal::new_object(cx, Box::default())),
+					signal: Object::from(cx.root(AbortSignal::new_object(cx, Box::default()))),
 				}
 			}
 		};
@@ -159,8 +161,8 @@ impl Request {
 				request.keepalive = keepalive;
 			}
 
-			if let Some(signal_object) = init.signal {
-				request.signal_object.set(signal_object);
+			if let Some(signal) = init.signal {
+				request.signal = Object::from(cx.root(signal));
 			}
 
 			if let Some(mut method) = init.method {
@@ -215,7 +217,7 @@ impl Request {
 
 			request.body = body;
 		}
-		request.headers.set(Headers::new_object(cx, Box::new(headers)));
+		request.headers = Some(Object::from(cx.root(Headers::new_object(cx, Box::new(headers)))));
 
 		Ok(request)
 	}
@@ -232,7 +234,7 @@ impl Request {
 
 	#[ion(get)]
 	pub fn get_headers(&self) -> *mut JSObject {
-		self.headers.get()
+		self.headers.as_ref().unwrap().handle().get()
 	}
 
 	#[ion(get)]
@@ -292,7 +294,7 @@ impl Request {
 
 	#[ion(get)]
 	pub fn get_signal(&self) -> *mut JSObject {
-		self.signal_object.get()
+		self.signal.handle().get()
 	}
 
 	#[ion(get)]
@@ -314,7 +316,7 @@ impl Clone for Request {
 			reflector: Reflector::default(),
 
 			request,
-			headers: Box::default(),
+			headers: None,
 			body: self.body.clone(),
 			body_used: self.body_used,
 
@@ -335,7 +337,7 @@ impl Clone for Request {
 			keepalive: self.keepalive,
 
 			client_window: self.client_window,
-			signal_object: Heap::boxed(self.signal_object.get()),
+			signal: Object::from(self.signal.clone()),
 		}
 	}
 }

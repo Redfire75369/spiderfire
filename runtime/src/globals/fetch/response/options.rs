@@ -16,9 +16,9 @@ use ion::conversions::FromValue;
 use crate::globals::fetch::header::HeadersInit;
 
 #[derive(Default, FromValue)]
-pub struct ResponseInit<'cx> {
+pub struct ResponseInit {
 	#[ion(default)]
-	pub(crate) headers: HeadersInit<'cx>,
+	pub(crate) headers: HeadersInit,
 
 	#[ion(default, parser = |s| parse_status(cx, s))]
 	pub(crate) status: StatusCode,

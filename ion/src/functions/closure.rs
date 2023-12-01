@@ -45,7 +45,9 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };
 	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
-	let result = catch_unwind(AssertUnwindSafe(|| Ok(handle_result(cx, closure(args), args.rval()))));
+	let result = catch_unwind(AssertUnwindSafe(|| {
+		Ok(handle_result(cx, closure(args).map(Box::new), args.rval()))
+	}));
 	handle_native_function_result(cx, result)
 }
 

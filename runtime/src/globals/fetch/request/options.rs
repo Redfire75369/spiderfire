@@ -55,10 +55,10 @@ impl Display for Referrer {
 	}
 }
 
-impl<'cx> FromValue<'cx> for Referrer {
+impl FromValue for Referrer {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<Referrer> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<Referrer> {
 		let referrer = String::from_value(cx, value, strict, ())?;
 		Referrer::from_str(&referrer)
 	}
@@ -118,10 +118,10 @@ impl Display for ReferrerPolicy {
 	}
 }
 
-impl<'cx> FromValue<'cx> for ReferrerPolicy {
+impl FromValue for ReferrerPolicy {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<ReferrerPolicy> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<ReferrerPolicy> {
 		let policy = String::from_value(cx, value, true, ())?;
 		ReferrerPolicy::from_str(&policy)
 	}
@@ -166,10 +166,10 @@ impl Display for RequestMode {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestMode {
+impl FromValue for RequestMode {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestMode> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestMode> {
 		let mode = String::from_value(cx, value, true, ())?;
 		RequestMode::from_str(&mode)
 	}
@@ -211,10 +211,10 @@ impl Display for RequestCredentials {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestCredentials {
+impl FromValue for RequestCredentials {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestCredentials> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestCredentials> {
 		let mode = String::from_value(cx, value, true, ())?;
 		RequestCredentials::from_str(&mode)
 	}
@@ -265,10 +265,10 @@ impl Display for RequestCache {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestCache {
+impl FromValue for RequestCache {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestCache> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestCache> {
 		let mode = String::from_value(cx, value, true, ())?;
 		RequestCache::from_str(&mode)
 	}
@@ -310,10 +310,10 @@ impl Display for RequestRedirect {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestRedirect {
+impl FromValue for RequestRedirect {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestRedirect> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestRedirect> {
 		let redirect = String::from_value(cx, value, true, ())?;
 		RequestRedirect::from_str(&redirect)
 	}
@@ -339,10 +339,10 @@ impl FromStr for RequestDuplex {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestDuplex {
+impl FromValue for RequestDuplex {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestDuplex> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestDuplex> {
 		let redirect = String::from_value(cx, value, true, ())?;
 		RequestDuplex::from_str(&redirect)
 	}
@@ -373,19 +373,19 @@ impl FromStr for RequestPriority {
 	}
 }
 
-impl<'cx> FromValue<'cx> for RequestPriority {
+impl FromValue for RequestPriority {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<RequestPriority> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RequestPriority> {
 		let redirect = String::from_value(cx, value, true, ())?;
 		RequestPriority::from_str(&redirect)
 	}
 }
 
 #[derive(Default, FromValue)]
-pub struct RequestInit<'cx> {
+pub struct RequestInit {
 	pub(crate) method: Option<String>,
-	pub(crate) headers: Option<HeadersInit<'cx>>,
+	pub(crate) headers: Option<HeadersInit>,
 	pub(crate) body: Option<FetchBody>,
 
 	pub(crate) referrer: Option<Referrer>,

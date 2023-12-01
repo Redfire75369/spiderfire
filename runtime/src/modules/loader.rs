@@ -33,10 +33,7 @@ impl ModuleLoader for Loader {
 		let data = ModuleData::from_private(cx, private);
 
 		let path = if specifier.starts_with("./") || specifier.starts_with("../") {
-			Path::new(data.as_ref().and_then(|d| d.path.as_ref()).unwrap())
-				.parent()
-				.unwrap()
-				.join(&specifier)
+			Path::new(data.as_ref().and_then(|d| d.path.as_ref()).unwrap()).parent().unwrap().join(&specifier)
 		} else {
 			Path::new(&specifier).to_path_buf()
 		};
@@ -88,7 +85,7 @@ impl ModuleLoader for Loader {
 		if let Some(data) = data {
 			if let Some(path) = data.path.as_ref() {
 				let url = Url::from_file_path(canonicalize(path).unwrap()).unwrap();
-				if !meta.set_as(cx, "url", url.as_str()) {
+				if meta.set_as(cx, "url", url.as_str()).is_err() {
 					return false;
 				}
 			}

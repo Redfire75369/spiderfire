@@ -3,21 +3,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-use form_urlencoded::{parse, Serializer};
-use mozjs::jsapi::{Heap, JSObject};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Object, OwnedKey, Result, Root, Value};
+use form_urlencoded::{parse, Serializer};
+
+use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Object, OwnedKey, Result, Value};
 use ion::class::Reflector;
-use ion::conversions::FromValue;
+use ion::conversions::{FromValue, ToValue};
 use ion::symbol::WellKnownSymbolCode;
 
 use crate::globals::url::URL;
 
 pub struct URLSearchParamsInit(Vec<(String, String)>);
 
-impl<'cx> FromValue<'cx> for URLSearchParamsInit {
+impl FromValue for URLSearchParamsInit {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<URLSearchParamsInit> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<URLSearchParamsInit> {
 		if let Ok(vec) = <Vec<Value>>::from_value(cx, value, strict, ()) {
 			let entries = vec
 				.iter()
@@ -56,7 +56,8 @@ impl<'cx> FromValue<'cx> for URLSearchParamsInit {
 pub struct URLSearchParams {
 	reflector: Reflector,
 	pairs: Vec<(String, String)>,
-	pub(super) url: Option<Heap<*mut JSObject>>,
+	#[ion(no_trace)]
+	pub(super) url: Option<Object>,
 }
 
 impl URLSearchParams {
@@ -70,18 +71,14 @@ impl URLSearchParams {
 	#[ion(constructor)]
 	pub fn constructor(init: Option<URLSearchParamsInit>) -> URLSearchParams {
 		let pairs = init.map(|init| init.0).unwrap_or_default();
-		URLSearchParams {
-			reflector: Reflector::default(),
-			pairs,
-			url: None,
-		}
+		URLSearchParams::new(pairs, None)
 	}
 
-	pub(super) fn new(pairs: Vec<(String, String)>) -> URLSearchParams {
+	pub(super) fn new(pairs: Vec<(String, String)>, url: Option<Object>) -> URLSearchParams {
 		URLSearchParams {
 			reflector: Reflector::default(),
 			pairs,
-			url: Some(Heap::default()),
+			url,
 		}
 	}
 
@@ -162,9 +159,8 @@ impl URLSearchParams {
 	}
 
 	fn update(&mut self) {
-		if let Some(url) = &self.url {
-			let mut url = Object::from(unsafe { Root::from_heap(url) });
-			let url = URL::get_mut_private(&mut url);
+		if let Some(url) = &mut self.url {
+			let url = URL::get_mut_private(url);
 			if self.pairs.is_empty() {
 				url.url.set_query(None);
 			} else {
@@ -175,8 +171,8 @@ impl URLSearchParams {
 
 	#[ion(name = WellKnownSymbolCode::Iterator)]
 	pub fn iterator(cx: &Context, #[ion(this)] this: &Object) -> ion::Iterator {
-		let thisv = this.as_value(cx);
-		ion::Iterator::new(SearchParamsIterator::default(), &thisv)
+		let thisv = this.to_value(cx).unwrap();
+		ion::Iterator::new(cx, SearchParamsIterator::default(), &thisv)
 	}
 }
 
@@ -184,13 +180,13 @@ impl URLSearchParams {
 pub struct SearchParamsIterator(usize);
 
 impl JSIterator for SearchParamsIterator {
-	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
+	fn next_value(&mut self, cx: &Context, private: &Value) -> Option<Result<Value>> {
 		let object = private.to_object(cx);
 		let search_params = URLSearchParams::get_private(&object);
 		let pair = search_params.pairs.get(self.0);
 		pair.map(move |(k, v)| {
 			self.0 += 1;
-			[k, v].as_value(cx)
+			[k, v].to_value(cx)
 		})
 	}
 }

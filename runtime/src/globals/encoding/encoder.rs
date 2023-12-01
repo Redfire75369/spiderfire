@@ -6,7 +6,7 @@
 
 use encoding_rs::{Encoder, UTF_8};
 
-use ion::{Context, Object, Value};
+use ion::{Context, Object, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::typedarray::Uint8Array;
@@ -16,12 +16,12 @@ pub struct EncodeResult {
 	written: u64,
 }
 
-impl<'cx> ToValue<'cx> for EncodeResult {
-	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+impl ToValue for EncodeResult {
+	fn to_value(&self, cx: &Context) -> Result<Value> {
 		let mut object = Object::new(cx);
-		object.set_as(cx, "read", &self.read);
-		object.set_as(cx, "written", &self.written);
-		object.to_value(cx, value);
+		object.set_as(cx, "read", &self.read)?;
+		object.set_as(cx, "written", &self.written)?;
+		object.to_value(cx)
 	}
 }
 

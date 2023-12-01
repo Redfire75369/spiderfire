@@ -26,10 +26,12 @@ fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
 const FUNCTION: JSFunctionSpec = function_spec!(queueMicrotask, 0);
 
 pub fn define(cx: &Context, global: &mut Object) -> bool {
-	global.define_as(
-		cx,
-		"queueMicrotask",
-		&Function::from_spec(cx, &FUNCTION),
-		PropertyFlags::CONSTANT_ENUMERATED,
-	)
+	global
+		.define_as(
+			cx,
+			"queueMicrotask",
+			&Function::from_spec(cx, &FUNCTION),
+			PropertyFlags::CONSTANT_ENUMERATED,
+		)
+		.is_ok()
 }

@@ -33,15 +33,16 @@ pub fn buffer_source_to_bytes(object: &Object) -> Result<Bytes> {
 #[derive(Clone, Debug, Default)]
 pub struct BlobPart(Bytes);
 
-impl<'cx> FromValue<'cx> for BlobPart {
+impl FromValue for BlobPart {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<BlobPart> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<BlobPart> {
 		if value.handle().is_string() {
 			return Ok(BlobPart(Bytes::from(String::from_value(cx, value, true, ())?)));
 		} else if value.handle().is_object() {
 			if let Ok(bytes) = buffer_source_to_bytes(&value.to_object(cx)) {
 				return Ok(BlobPart(bytes));
-			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
+			} else if let Ok(blob) = <*const Blob>::from_value(cx, value, strict, ()) {
+				let blob = unsafe { &*blob };
 				return Ok(BlobPart(blob.bytes.clone()));
 			}
 		}
@@ -71,10 +72,10 @@ impl FromStr for Endings {
 	}
 }
 
-impl<'cx> FromValue<'cx> for Endings {
+impl FromValue for Endings {
 	type Config = ();
 
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<Endings> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<Endings> {
 		let endings = String::from_value(cx, value, strict, ())?;
 		Endings::from_str(&endings)
 	}
@@ -199,13 +200,13 @@ impl Blob {
 		Blob::new_object(cx, Box::new(blob))
 	}
 
-	pub fn text<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+	pub fn text(&self, cx: &Context) -> Option<Promise> {
 		let bytes = self.bytes.clone();
 		future_to_promise(cx, async move { Ok::<_, ()>(UTF_8.decode(&bytes).0.into_owned()) })
 	}
 
 	#[ion(name = "arrayBuffer")]
-	pub fn array_buffer<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+	pub fn array_buffer(&self, cx: &Context) -> Option<Promise> {
 		let bytes = self.bytes.clone();
 		future_to_promise(cx, async move {
 			Ok::<_, ()>(ion::typedarray::ArrayBuffer::from(bytes.to_vec()))

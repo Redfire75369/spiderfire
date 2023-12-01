@@ -14,11 +14,11 @@ use ion::conversions::{BoxedIntoValue, IntoValue};
 use crate::ContextExt;
 
 /// Returns None if no future queue has been initialised.
-pub fn future_to_promise<'cx, F, O, E>(cx: &'cx Context, future: F) -> Option<Promise<'cx>>
+pub fn future_to_promise<F, O, E>(cx: &Context, future: F) -> Option<Promise>
 where
 	F: Future<Output = Result<O, E>> + 'static,
-	O: for<'cx2> IntoValue<'cx2> + 'static,
-	E: for<'cx2> IntoValue<'cx2> + 'static,
+	O: IntoValue + 'static,
+	E: IntoValue + 'static,
 {
 	let promise = Promise::new(cx);
 	let object = promise.handle().get();

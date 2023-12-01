@@ -134,14 +134,14 @@ impl<'a, 'cx> Accessor<'a, 'cx> {
 		self.index
 	}
 
-	pub fn arg<T: FromValue<'cx>>(&mut self, strict: bool, config: T::Config) -> Option<Result<T>> {
+	pub fn arg<T: FromValue>(&mut self, strict: bool, config: T::Config) -> Option<Result<T>> {
 		self.args.values.get(self.index).map(|value| {
 			self.index += 1;
 			T::from_value(self.args.cx, value, strict, config)
 		})
 	}
 
-	pub fn args<T: FromValue<'cx>>(&mut self, strict: bool, config: T::Config) -> Result<Vec<T>>
+	pub fn args<T: FromValue>(&mut self, strict: bool, config: T::Config) -> Result<Vec<T>>
 	where
 		T::Config: Clone,
 	{

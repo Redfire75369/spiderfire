@@ -46,8 +46,8 @@ impl Display for Header {
 }
 
 impl ToValue for Header {
-	fn to_value(&self, cx: &Context, value: &mut Value) {
-		self.to_string().to_value(cx, value)
+	fn to_value(&self, cx: &Context) -> Result<Value> {
+		self.to_string().to_value(cx)
 	}
 }
 
@@ -56,9 +56,9 @@ pub struct HeaderEntry {
 	value: ByteString<VisibleAscii>,
 }
 
-impl<'cx> FromValue<'cx> for HeaderEntry {
+impl FromValue for HeaderEntry {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<HeaderEntry> {
 		let vec: Vec<ByteString<VisibleAscii>> = Vec::from_value(cx, value, false, ())?;
 		let boxed: Box<[ByteString<VisibleAscii>; 2]> =
 			vec.try_into().map_err(|_| Error::new("Expected Header Entry with Length 2", ErrorKind::Type))?;
@@ -68,19 +68,19 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 }
 
 impl ToValue for HeaderEntry {
-	fn to_value(&self, cx: &Context, value: &mut Value) {
+	fn to_value(&self, cx: &Context) -> Result<Value> {
 		let mut array = Array::new(cx);
-		array.set_as(cx, 0, &self.name);
-		array.set_as(cx, 1, &self.value);
-		array.to_value(cx, value);
+		array.set_as(cx, 0, &self.name)?;
+		array.set_as(cx, 1, &self.value)?;
+		array.to_value(cx)
 	}
 }
 
 pub struct HeadersObject(HeaderMap);
 
-impl<'cx> FromValue<'cx> for HeadersObject {
+impl FromValue for HeadersObject {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<HeadersObject> {
+	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<HeadersObject> {
 		let object = Object::from_value(cx, value, true, ())?;
 		let mut headers = HeaderMap::new();
 		append_to_headers(cx, &mut headers, object)?;
@@ -89,9 +89,9 @@ impl<'cx> FromValue<'cx> for HeadersObject {
 }
 
 #[derive(Default, FromValue)]
-pub enum HeadersInit<'cx> {
+pub enum HeadersInit {
 	#[ion(inherit)]
-	Existing(&'cx Headers),
+	Existing(*const Headers),
 	#[ion(inherit)]
 	Array(Vec<HeaderEntry>),
 	#[ion(inherit)]
@@ -101,10 +101,11 @@ pub enum HeadersInit<'cx> {
 	Empty,
 }
 
-impl HeadersInit<'_> {
+impl HeadersInit {
 	pub(crate) fn into_headers(self, mut headers: HeaderMap, kind: HeadersKind) -> Result<Headers> {
 		match self {
 			HeadersInit::Existing(existing) => {
+				let existing = unsafe { &*existing };
 				headers.extend(existing.headers.iter().map(|(name, value)| (name.clone(), value.clone())));
 				Ok(Headers {
 					reflector: Reflector::default(),
@@ -256,8 +257,9 @@ impl Headers {
 		}
 		keys.sort();
 
-		let this = self.reflector.get().as_value(cx);
+		let this = self.reflector.get().to_value(cx).unwrap();
 		ion::Iterator::new(
+			cx,
 			HeadersIterator {
 				keys: keys.into_iter(),
 				cookies: cookies.into_iter(),
@@ -273,16 +275,16 @@ pub struct HeadersIterator {
 }
 
 impl JSIterator for HeadersIterator {
-	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
+	fn next_value(&mut self, cx: &Context, private: &Value) -> Option<Result<Value>> {
 		let object = private.to_object(cx);
 		let headers = Headers::get_private(&object);
 		let key = self.keys.next();
 		key.and_then(|key| {
 			if key == SET_COOKIE.as_str() {
-				self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].as_value(cx))
+				self.cookies.next().map(|value| [key.as_str(), value.to_str().unwrap()].to_value(cx))
 			} else {
 				get_header(&headers.headers, &HeaderName::from_bytes(key.as_bytes()).unwrap())
-					.map(|value| [key.as_str(), &value.to_string()].as_value(cx))
+					.map(|value| [key.as_str(), &value.to_string()].to_value(cx))
 			}
 		})
 	}

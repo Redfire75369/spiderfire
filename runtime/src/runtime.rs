@@ -37,7 +37,7 @@ impl ContextExt for Context {
 }
 
 pub struct Runtime<'cx> {
-	global: Object<'cx>,
+	global: Object,
 	cx: &'cx Context,
 	#[allow(dead_code)]
 	realm: JSAutoRealm,
@@ -48,11 +48,11 @@ impl<'cx> Runtime<'cx> {
 		self.cx
 	}
 
-	pub fn global(&self) -> &Object<'cx> {
+	pub fn global(&self) -> &Object {
 		&self.global
 	}
 
-	pub fn global_mut(&mut self) -> &mut Object<'cx> {
+	pub fn global_mut(&mut self) -> &mut Object {
 		&mut self.global
 	}
 
@@ -109,7 +109,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 		let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 		let global_obj = global.handle().get();
-		global.set_as(cx, "global", &global_obj);
+		global.set_as(cx, "global", &global_obj).unwrap();
 		init_globals(cx, &mut global);
 
 		let mut private = Box::<ContextPrivate>::default();

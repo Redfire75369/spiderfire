@@ -100,8 +100,8 @@ impl Object {
 
 	/// Gets the value at the given key of the [Object]. as a Rust type.
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
-	pub fn get_as<'cx, K: ToPropertyKey, T: FromValue<'cx>>(
-		&self, cx: &'cx Context, key: K, strict: bool, config: T::Config,
+	pub fn get_as<K: ToPropertyKey, T: FromValue>(
+		&self, cx: &Context, key: K, strict: bool, config: T::Config,
 	) -> Option<Result<T>> {
 		self.get(cx, key).map(|val| T::from_value(cx, &val, strict, config))
 	}

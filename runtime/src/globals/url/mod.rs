@@ -7,10 +7,10 @@
 use std::cmp::Ordering;
 
 use mozjs::conversions::ConversionBehavior::EnforceRange;
-use mozjs::jsapi::{Heap, JSObject};
+use mozjs::jsapi::JSObject;
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, Object, Result, Root};
+use ion::{ClassDefinition, Context, Error, Object, Result};
 use ion::class::Reflector;
 pub use search_params::URLSearchParams;
 
@@ -31,7 +31,8 @@ pub struct URL {
 	reflector: Reflector,
 	#[ion(no_trace)]
 	pub(crate) url: Url,
-	search_params: Box<Heap<*mut JSObject>>,
+	#[ion(no_trace)]
+	search_params: Object,
 }
 
 #[js_class]
@@ -44,9 +45,11 @@ impl URL {
 			.parse(&input)
 			.map_err(|error| Error::new(&error.to_string(), None))?;
 
-		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
-		search_params.url.as_ref().unwrap().set(this.handle().get());
-		let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+		let search_params = Box::new(URLSearchParams::new(
+			url.query_pairs().into_owned().collect(),
+			Some(Object::from((**this).clone())),
+		));
+		let search_params = Object::from(cx.root(URLSearchParams::new_object(cx, search_params)));
 
 		Ok(URL {
 			reflector: Reflector::default(),
@@ -93,8 +96,7 @@ impl URL {
 	pub fn set_href(&mut self, input: String) -> Result<()> {
 		match Url::parse(&input) {
 			Ok(url) => {
-				let mut search_params = Object::from(unsafe { Root::from_heap(&self.search_params) });
-				let search_params = URLSearchParams::get_mut_private(&mut search_params);
+				let search_params = URLSearchParams::get_mut_private(&mut self.search_params);
 				search_params.set_pairs(url.query_pairs().into_owned().collect());
 				self.url = url;
 				Ok(())
@@ -228,7 +230,7 @@ impl URL {
 
 	#[ion(get)]
 	pub fn get_search_params(&self) -> *mut JSObject {
-		self.search_params.get()
+		self.search_params.handle().get()
 	}
 }
 

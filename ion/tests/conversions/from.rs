@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use chrono::Utc;
+use chrono::{TimeZone, Utc};
 use mozjs::jsapi::JSAutoRealm;
 use mozjs::jsval::Int32Value;
 use mozjs::rust::{JSEngine, Runtime};
@@ -166,7 +166,7 @@ fn test_objects(cx: &Context) {
 	let value = Array::new(cx).to_value(cx).unwrap();
 	Array::from_value(cx, &value, true, ()).unwrap();
 
-	let timestamp = Utc::now();
+	let timestamp = Utc.timestamp_millis_opt(Utc::now().timestamp_millis()).unwrap();
 	let value = Date::from_date(cx, timestamp).to_value(cx).unwrap();
 	let result = Date::from_value(cx, &value, true, ()).unwrap();
 	assert_eq!(result.to_date(cx).unwrap(), timestamp);

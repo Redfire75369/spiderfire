@@ -105,9 +105,7 @@ impl Array {
 
 	/// Gets the value at the given index of the [Array] as a Rust type.
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
-	pub fn get_as<'cx, T: FromValue<'cx>>(
-		&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config,
-	) -> Option<Result<T>> {
+	pub fn get_as<T: FromValue>(&self, cx: &Context, index: u32, strict: bool, config: T::Config) -> Option<Result<T>> {
 		self.arr.get_as(cx, index, strict, config)
 	}
 

@@ -16,9 +16,10 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Function, Object, Root};
+use crate::{Arguments, Context, Error, ErrorKind, Function, Object, Result, Root, Value};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
+use crate::conversions::FromValue;
 use crate::functions::NativeFunction;
 
 mod native;
@@ -157,6 +158,32 @@ pub trait ClassDefinition: NativeObject {
 		unsafe {
 			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
 			JS_InstanceOf(cx.as_ptr(), object.handle().into(), &Self::class().base, args)
+		}
+	}
+}
+
+impl<T: ClassDefinition> FromValue for *const T {
+	type Config = ();
+
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<*const T> {
+		let object = Object::from_value(cx, value, strict, ())?;
+		if T::instance_of(cx, &object, None) {
+			Ok(T::get_private(&object))
+		} else {
+			Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
+		}
+	}
+}
+
+impl<T: ClassDefinition> FromValue for *mut T {
+	type Config = ();
+
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<*mut T> {
+		let mut object = Object::from_value(cx, value, strict, ())?;
+		if T::instance_of(cx, &object, None) {
+			Ok(T::get_mut_private(&mut object))
+		} else {
+			Err(Error::new(&format!("Expected {}", T::NAME), ErrorKind::Type))
 		}
 	}
 }

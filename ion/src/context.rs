@@ -25,9 +25,9 @@ use crate::module::ModuleLoader;
 use crate::Root;
 
 pub trait StableTraceable: Traceable + Sized + 'static {
-	type Trace;
+	type Traced;
 
-	fn stable_trace(&self) -> *const Self::Trace;
+	fn traced(&self) -> *const Self::Traced;
 
 	fn traceable(&self) -> *const dyn Traceable;
 }
@@ -36,14 +36,14 @@ impl<T: Copy + GCMethods + 'static> StableTraceable for Box<Heap<T>>
 where
 	Heap<T>: Traceable,
 {
-	type Trace = T;
+	type Traced = T;
 
-	fn stable_trace(&self) -> *const T {
+	fn traced(&self) -> *const T {
 		self.get_unsafe().cast_const()
 	}
 
 	fn traceable(&self) -> *const dyn Traceable {
-		self.stable_trace() as *const Heap<T> as *const _
+		self.traced() as *const Heap<T> as *const _
 	}
 }
 
@@ -171,7 +171,7 @@ impl Context {
 		unsafe {
 			let roots = &(*self.get_inner_data().as_ptr()).roots;
 			roots.root(heap.traceable());
-			Root::new(heap, NonNull::new(roots as *const _ as *mut _))
+			Root::new(heap, NonNull::new(roots as *const _ as *mut _).unwrap())
 		}
 	}
 

@@ -10,11 +10,10 @@ use http::header::CONTENT_TYPE;
 use hyper::{Body, StatusCode};
 use hyper::body::HttpBody;
 use hyper::ext::ReasonPhrase;
-use mozjs::jsapi::{Heap, JSObject};
-use mozjs::rust::IntoHandle;
+use mozjs::jsapi::JSObject;
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Root, Object, Promise, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::typedarray::ArrayBuffer;
 pub use options::*;
@@ -32,7 +31,8 @@ pub struct Response {
 
 	#[ion(no_trace)]
 	pub(crate) response: Option<hyper::Response<Body>>,
-	pub(crate) headers: Box<Heap<*mut JSObject>>,
+	#[ion(no_trace)]
+	pub(crate) headers: Object,
 	pub(crate) body: Option<FetchBody>,
 	pub(crate) body_used: bool,
 
@@ -49,7 +49,7 @@ pub struct Response {
 }
 
 impl Response {
-	pub fn new(response: hyper::Response<Body>, url: Url) -> Response {
+	pub fn new(cx: &Context, response: hyper::Response<Body>, url: Url, headers: Headers) -> Response {
 		let status = response.status();
 		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
 			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
@@ -61,7 +61,7 @@ impl Response {
 			reflector: Reflector::default(),
 
 			response: Some(response),
-			headers: Box::default(),
+			headers: Object::from(cx.root(Headers::new_object(cx, Box::new(headers)))),
 			body: None,
 			body_used: false,
 
@@ -76,13 +76,13 @@ impl Response {
 		}
 	}
 
-	pub fn new_from_bytes(bytes: Bytes, url: Url) -> Response {
+	pub fn new_from_bytes(cx: &Context, bytes: Bytes, url: Url, headers: Headers) -> Response {
 		let response = hyper::Response::builder().body(Body::from(bytes)).unwrap();
 		Response {
 			reflector: Reflector::default(),
 
 			response: Some(response),
-			headers: Box::default(),
+			headers: Object::from(cx.root(Headers::new_object(cx, Box::new(headers)))),
 			body: None,
 			body_used: false,
 
@@ -104,28 +104,9 @@ impl Response {
 	pub fn constructor(cx: &Context, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
 		let init = init.unwrap_or_default();
 
-		let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
-		let mut response = Response {
-			reflector: Reflector::default(),
-
-			response: Some(response),
-			headers: Box::default(),
-			body: None,
-			body_used: false,
-
-			kind: ResponseKind::default(),
-			url: None,
-			redirected: false,
-
-			status: Some(init.status),
-			status_text: init.status_text,
-
-			range_requested: false,
-		};
-
 		let mut headers = init.headers.into_headers(HeaderMap::new(), HeadersKind::Response)?;
 
-		if let Some(body) = body {
+		let body = if let Some(body) = body {
 			if init.status == StatusCode::NO_CONTENT
 				|| init.status == StatusCode::RESET_CONTENT
 				|| init.status == StatusCode::NOT_MODIFIED
@@ -141,10 +122,29 @@ impl Response {
 					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
 				}
 			}
-			response.body = Some(body);
-		}
+			Some(body)
+		} else {
+			None
+		};
 
-		response.headers.set(Headers::new_object(cx, Box::new(headers)));
+		let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
+		let response = Response {
+			reflector: Reflector::default(),
+
+			response: Some(response),
+			headers: Object::from(cx.root(Headers::new_object(cx, Box::new(headers)))),
+			body,
+			body_used: false,
+
+			kind: ResponseKind::default(),
+			url: None,
+			redirected: false,
+
+			status: Some(init.status),
+			status_text: init.status_text,
+
+			range_requested: false,
+		};
 
 		Ok(response)
 	}
@@ -181,7 +181,7 @@ impl Response {
 
 	#[ion(get)]
 	pub fn get_headers(&self) -> *mut JSObject {
-		self.headers.get()
+		self.headers.handle().get()
 	}
 
 	#[ion(get)]
@@ -227,39 +227,31 @@ impl Response {
 	}
 
 	#[ion(name = "arrayBuffer")]
-	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let this = cx.root_persistent_object(self.reflector().get());
-		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-		let this = this.handle().into_handle();
+	pub fn array_buffer(&mut self, cx: &Context) -> Option<Promise> {
+		let mut this = Object::from(cx.root(self.reflector().get()));
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Root::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Response::get_mut_private(&mut this);
 			let bytes = response.read_to_bytes().await?;
-			cx2.unroot_persistent_object(this.get());
 			Ok(ArrayBuffer::from(bytes))
 		})
 	}
 
-	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let this = cx.root_persistent_object(self.reflector().get());
-		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-		let this = this.handle().into_handle();
+	pub fn text(&mut self, cx: &Context) -> Option<Promise> {
+		let mut this = Object::from(cx.root(self.reflector().get()));
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Root::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Response::get_mut_private(&mut this);
 			let bytes = response.read_to_bytes().await?;
-			cx2.unroot_persistent_object(this.get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
 		})
 	}
 }
 
-pub fn network_error() -> Response {
+pub fn network_error(cx: &Context) -> Response {
 	Response {
 		reflector: Reflector::default(),
 
 		response: None,
-		headers: Box::default(),
+		headers: Object::null(cx),
 		body: None,
 		body_used: false,
 

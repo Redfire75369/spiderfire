@@ -6,7 +6,7 @@
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, parse2, Result, Type};
+use syn::{Block, Data, DeriveInput, Error, Field, Fields, Generics, ItemImpl, Meta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -19,18 +19,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	add_trait_bounds(&mut input.generics, &parse_quote!(#ion::conversions::FromValue));
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-	let mut impl_generics: Generics = parse2(quote_spanned!(impl_generics.span() => #impl_generics))?;
-
-	let has_cx = impl_generics.params.iter().any(|param| {
-		if let GenericParam::Lifetime(lt) = param {
-			lt.lifetime == parse_quote!('cx)
-		} else {
-			false
-		}
-	});
-	if !has_cx {
-		impl_generics.params.push(parse2(quote!('cx))?);
-	}
+	let impl_generics: Generics = parse2(quote_spanned!(impl_generics.span() => #impl_generics))?;
 
 	let mut tag = Tag::default();
 	let mut inherit = false;
@@ -86,10 +75,10 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	parse2(quote_spanned!(input.span() =>
 		#[automatically_derived]
-		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
+		impl #impl_generics #ion::conversions::FromValue for #name #ty_generics #where_clause {
 			type Config = ();
 
-			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: bool, _: ()) -> #ion::Result<Self> {
+			fn from_value(cx: &#ion::Context, value: &#ion::Value, strict: bool, _: ()) -> #ion::Result<Self> {
 				#object
 				#body
 			}

@@ -28,8 +28,8 @@ pub enum Signal {
 	#[default]
 	None,
 	Abort(JSVal),
-	Receiver(Receiver<Option<JSVal>>),
-	Timeout(Receiver<Option<JSVal>>, Arc<AtomicBool>),
+	Receiver(Receiver<Option<Value>>),
+	Timeout(Receiver<Option<Value>>, Arc<AtomicBool>),
 }
 
 impl Signal {
@@ -50,13 +50,13 @@ impl Future for SignalFuture {
 			Signal::None => Poll::Pending,
 			Signal::Abort(abort) => Poll::Ready(*abort),
 			Signal::Receiver(receiver) | Signal::Timeout(receiver, _) => {
-				if let Some(abort) = *receiver.borrow() {
-					return Poll::Ready(abort);
+				if let Some(abort) = &*receiver.borrow() {
+					return Poll::Ready(abort.get());
 				}
 				let changed = { pin!(receiver.changed()).poll(cx) };
 				match changed {
-					Poll::Ready(_) => match *receiver.borrow() {
-						Some(abort) => Poll::Ready(abort),
+					Poll::Ready(_) => match &*receiver.borrow() {
+						Some(abort) => Poll::Ready(abort.get()),
 						None => Poll::Pending,
 					},
 					Poll::Pending => Poll::Pending,
@@ -80,7 +80,7 @@ impl Drop for SignalFuture {
 pub struct AbortController {
 	reflector: Reflector,
 	#[ion(no_trace)]
-	sender: Sender<Option<JSVal>>,
+	sender: Sender<Option<Value>>,
 }
 
 #[js_class]
@@ -103,9 +103,9 @@ impl AbortController {
 		)
 	}
 
-	pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
-		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
-		self.sender.send_replace(Some(reason.get()));
+	pub fn abort(&self, cx: &Context, reason: Option<Value>) {
+		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).to_value(cx).unwrap());
+		self.sender.send_replace(Some(reason));
 	}
 }
 
@@ -134,7 +134,7 @@ impl AbortSignal {
 		match &self.signal {
 			Signal::None => None,
 			Signal::Abort(abort) => Some(*abort),
-			Signal::Receiver(receiver) | Signal::Timeout(receiver, _) => *receiver.borrow(),
+			Signal::Receiver(receiver) | Signal::Timeout(receiver, _) => receiver.borrow().as_deref().map(|v| v.get()),
 		}
 	}
 
@@ -147,8 +147,8 @@ impl AbortSignal {
 		}
 	}
 
-	pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> *mut JSObject {
-		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
+	pub fn abort(cx: &Context, reason: Option<Value>) -> *mut JSObject {
+		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).to_value(cx).unwrap());
 		AbortSignal::new_object(
 			cx,
 			Box::new(AbortSignal {
@@ -163,7 +163,7 @@ impl AbortSignal {
 		let terminate = Arc::new(AtomicBool::new(false));
 		let terminate2 = terminate.clone();
 
-		let error = Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx).get();
+		let error = Error::new(&format!("Timeout Error: {}ms", time), None).to_value(cx).unwrap();
 		let callback = Box::new(move || {
 			sender.send_replace(Some(error));
 		});
@@ -188,9 +188,9 @@ impl AbortSignal {
 	}
 }
 
-impl<'cx> FromValue<'cx> for AbortSignal {
+impl FromValue for AbortSignal {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<AbortSignal> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<AbortSignal> {
 		let object = Object::from_value(cx, value, strict, ())?;
 		if AbortSignal::instance_of(cx, &object, None) {
 			Ok(AbortSignal {

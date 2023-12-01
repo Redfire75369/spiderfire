@@ -48,7 +48,7 @@ pub fn init_module<M: NativeModule>(cx: &Context, global: &mut Object) -> bool {
 	let module = M::module(cx);
 
 	if let Some(module) = module {
-		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT) {
+		if global.define_as(cx, &internal, &module, PropertyFlags::CONSTANT).is_ok() {
 			let (module, _) = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
 			let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 			return loader.as_mut().is_some_and(|loader| {
@@ -65,7 +65,7 @@ pub fn init_global_module<M: NativeModule>(cx: &Context, global: &mut Object) ->
 	let module = M::module(cx);
 
 	if let Some(module) = module {
-		global.define_as(cx, M::NAME, &module, PropertyFlags::CONSTANT_ENUMERATED)
+		global.define_as(cx, M::NAME, &module, PropertyFlags::CONSTANT_ENUMERATED).is_ok()
 	} else {
 		false
 	}

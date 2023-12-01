@@ -12,8 +12,8 @@ use futures::StreamExt;
 use mozjs::jsapi::JSObject;
 use tokio::task::JoinHandle;
 
-use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException, Value};
-use ion::conversions::BoxedIntoValue;
+use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException};
+use ion::conversions::{BoxedIntoValue, ToValue};
 
 type FutureOutput = (Result<BoxedIntoValue, BoxedIntoValue>, *mut JSObject);
 
@@ -37,16 +37,18 @@ impl FutureQueue {
 		}
 
 		for (result, promise) in results {
-			let mut value = Value::undefined(cx);
 			let promise = Promise::from(cx.root_object(promise)).unwrap();
 
 			let result = match result {
-				Ok(o) => {
-					o.into_value(cx, &mut value);
-					promise.resolve(cx, &value)
-				}
+				Ok(o) => match o.into_value(cx) {
+					Ok(value) => promise.resolve(cx, &value),
+					Err(error) => promise.reject(cx, &error.to_value(cx).unwrap()),
+				},
 				Err(e) => {
-					e.into_value(cx, &mut value);
+					let value = match e.into_value(cx) {
+						Ok(value) => value,
+						Err(error) => error.to_value(cx).unwrap(),
+					};
 					promise.reject(cx, &value)
 				}
 			};

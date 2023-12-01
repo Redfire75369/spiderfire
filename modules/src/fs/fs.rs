@@ -161,10 +161,8 @@ fn readDirSync(path_str: String) -> Result<Vec<String>> {
 
 	check_is_dir(path)?;
 	if let Ok(dir) = fs::read_dir(path) {
-		let mut entries: Vec<_> = dir
-			.filter_map(|entry| entry.ok())
-			.map(|entry| entry.file_name().into_string().unwrap())
-			.collect();
+		let mut entries: Vec<_> =
+			dir.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().into_string().unwrap()).collect();
 		entries.sort();
 
 		Ok(entries)
@@ -438,7 +436,7 @@ impl NativeModule for FileSystem {
 
 		if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
 			&& unsafe { sync.define_methods(cx, SYNC_FUNCTIONS) }
-			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
+			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED).is_ok()
 		{
 			return Some(fs);
 		}

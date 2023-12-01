@@ -22,16 +22,16 @@ use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
-pub trait FromValue<'cx>: Sized {
+pub trait FromValue: Sized {
 	type Config;
 
 	/// Converts `value` to the desired type.
 	/// `strict` and `config` determine the strictness of the conversion and specify additional conversion constraints respectively.
 	/// Returns [Err] with the [error](Error) if conversion fails.
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: Self::Config) -> Result<Self>;
+	fn from_value(cx: &Context, value: &Value, strict: bool, config: Self::Config) -> Result<Self>;
 }
 
-impl FromValue<'_> for bool {
+impl FromValue for bool {
 	type Config = ();
 
 	fn from_value(_: &Context, value: &Value, strict: bool, _: ()) -> Result<bool> {
@@ -50,7 +50,7 @@ impl FromValue<'_> for bool {
 
 macro_rules! impl_from_value_for_integer {
 	($ty:ty) => {
-		impl FromValue<'_> for $ty {
+		impl FromValue for $ty {
 			type Config = ConversionBehavior;
 
 			fn from_value(cx: &Context, value: &Value, strict: bool, config: ConversionBehavior) -> Result<$ty> {
@@ -82,7 +82,7 @@ impl_from_value_for_integer!(i16);
 impl_from_value_for_integer!(i32);
 impl_from_value_for_integer!(i64);
 
-impl FromValue<'_> for f32 {
+impl FromValue for f32 {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<f32> {
@@ -90,7 +90,7 @@ impl FromValue<'_> for f32 {
 	}
 }
 
-impl FromValue<'_> for f64 {
+impl FromValue for f64 {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<f64> {
@@ -104,7 +104,7 @@ impl FromValue<'_> for f64 {
 	}
 }
 
-impl FromValue<'_> for *mut JSString {
+impl FromValue for *mut JSString {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<*mut JSString> {
@@ -116,7 +116,7 @@ impl FromValue<'_> for *mut JSString {
 	}
 }
 
-impl FromValue<'_> for crate::String {
+impl FromValue for crate::String {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, config: ()) -> Result<crate::String> {
@@ -124,7 +124,7 @@ impl FromValue<'_> for crate::String {
 	}
 }
 
-impl<T: BytePredicate> FromValue<'_> for ByteString<T> {
+impl<T: BytePredicate> FromValue for ByteString<T> {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, config: ()) -> Result<ByteString<T>> {
@@ -149,7 +149,7 @@ impl<T: BytePredicate> FromValue<'_> for ByteString<T> {
 	}
 }
 
-impl FromValue<'_> for String {
+impl FromValue for String {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, config: ()) -> Result<String> {
@@ -157,7 +157,7 @@ impl FromValue<'_> for String {
 	}
 }
 
-impl FromValue<'_> for *mut JSObject {
+impl FromValue for *mut JSObject {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<*mut JSObject> {
@@ -174,7 +174,7 @@ impl FromValue<'_> for *mut JSObject {
 	}
 }
 
-impl FromValue<'_> for Object {
+impl FromValue for Object {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Object> {
@@ -190,7 +190,7 @@ impl FromValue<'_> for Object {
 	}
 }
 
-impl FromValue<'_> for Array {
+impl FromValue for Array {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Array> {
@@ -210,7 +210,7 @@ impl FromValue<'_> for Array {
 	}
 }
 
-impl FromValue<'_> for Date {
+impl FromValue for Date {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Date> {
@@ -230,7 +230,7 @@ impl FromValue<'_> for Date {
 	}
 }
 
-impl FromValue<'_> for Promise {
+impl FromValue for Promise {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Promise> {
@@ -250,7 +250,7 @@ impl FromValue<'_> for Promise {
 	}
 }
 
-impl FromValue<'_> for RegExp {
+impl FromValue for RegExp {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<RegExp> {
@@ -270,7 +270,7 @@ impl FromValue<'_> for RegExp {
 	}
 }
 
-impl FromValue<'_> for *mut JSFunction {
+impl FromValue for *mut JSFunction {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, config: ()) -> Result<*mut JSFunction> {
@@ -278,7 +278,7 @@ impl FromValue<'_> for *mut JSFunction {
 	}
 }
 
-impl FromValue<'_> for Function {
+impl FromValue for Function {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Function> {
@@ -298,7 +298,7 @@ impl FromValue<'_> for Function {
 	}
 }
 
-impl FromValue<'_> for *mut JSSymbol {
+impl FromValue for *mut JSSymbol {
 	type Config = ();
 
 	fn from_value(_: &Context, value: &Value, _: bool, _: ()) -> Result<*mut JSSymbol> {
@@ -311,7 +311,7 @@ impl FromValue<'_> for *mut JSSymbol {
 	}
 }
 
-impl FromValue<'_> for Symbol {
+impl FromValue for Symbol {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, strict: bool, config: Self::Config) -> Result<Symbol> {
@@ -319,7 +319,7 @@ impl FromValue<'_> for Symbol {
 	}
 }
 
-impl FromValue<'_> for JSVal {
+impl FromValue for JSVal {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<JSVal> {
@@ -331,7 +331,7 @@ impl FromValue<'_> for JSVal {
 	}
 }
 
-impl FromValue<'_> for Value {
+impl FromValue for Value {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<Value> {
@@ -343,10 +343,10 @@ impl FromValue<'_> for Value {
 	}
 }
 
-impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Option<T> {
+impl<T: FromValue> FromValue for Option<T> {
 	type Config = T::Config;
 
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: T::Config) -> Result<Option<T>> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, config: T::Config) -> Result<Option<T>> {
 		if value.handle().is_null_or_undefined() {
 			Ok(None)
 		} else {
@@ -367,14 +367,14 @@ impl<'a> ForOfIteratorGuard<'a> {
 	}
 }
 
-impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Vec<T>
+impl<T: FromValue> FromValue for Vec<T>
 where
 	T::Config: Clone,
 {
 	type Config = T::Config;
 
 	// Adapted from [rust-mozjs](https://github.com/servo/rust-mozjs/blob/master/src/conversions.rs#L644-L707)
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: T::Config) -> Result<Vec<T>> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, config: T::Config) -> Result<Vec<T>> {
 		if !value.handle().is_object() {
 			return Err(Error::new("Expected Object", ErrorKind::Type));
 		}
@@ -429,7 +429,7 @@ where
 	}
 }
 
-impl<T: TypedArrayElement, S: JSObjectStorage> FromValue<'_> for TypedArray<T, S> {
+impl<T: TypedArrayElement, S: JSObjectStorage> FromValue for TypedArray<T, S> {
 	type Config = ();
 
 	fn from_value(cx: &Context, value: &Value, _: bool, _: ()) -> Result<TypedArray<T, S>> {

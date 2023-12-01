@@ -285,7 +285,7 @@ fn timeEnd(label: Option<String>) {
 
 #[js_fn]
 fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
-	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
+	fn sort_keys<I: IntoIterator<Item = OwnedKey>>(cx: &Context, unsorted: I) -> IndexSet<OwnedKey> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
 
@@ -427,5 +427,5 @@ const METHODS: &[JSFunctionSpec] = &[
 pub fn define(cx: &Context, global: &mut Object) -> bool {
 	let mut console = Object::new(cx);
 	(unsafe { console.define_methods(cx, METHODS) })
-		&& global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
+		&& global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED).is_ok()
 }

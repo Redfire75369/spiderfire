@@ -102,9 +102,9 @@ impl Default for FetchBody {
 	}
 }
 
-impl<'cx> FromValue<'cx> for FetchBody {
+impl FromValue for FetchBody {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<FetchBody> {
+	fn from_value(cx: &Context, value: &Value, strict: bool, _: ()) -> Result<FetchBody> {
 		if value.handle().is_string() {
 			return Ok(FetchBody {
 				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, strict, ()).unwrap())),
@@ -118,13 +118,15 @@ impl<'cx> FromValue<'cx> for FetchBody {
 					source: Some(Heap::boxed(value.get())),
 					kind: None,
 				});
-			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
+			} else if let Ok(blob) = <*const Blob>::from_value(cx, value, strict, ()) {
+				let blob = unsafe { &*blob };
 				return Ok(FetchBody {
 					body: FetchBodyInner::Bytes(blob.as_bytes().clone()),
 					source: Some(Heap::boxed(value.get())),
 					kind: blob.kind().map(FetchBodyKind::Blob),
 				});
-			} else if let Ok(search_params) = <&URLSearchParams>::from_value(cx, value, strict, ()) {
+			} else if let Ok(search_params) = <*const URLSearchParams>::from_value(cx, value, strict, ()) {
+				let search_params = unsafe { &*search_params };
 				return Ok(FetchBody {
 					body: FetchBodyInner::Bytes(Bytes::from(
 						Serializer::new(String::new()).extend_pairs(search_params.pairs()).finish(),
