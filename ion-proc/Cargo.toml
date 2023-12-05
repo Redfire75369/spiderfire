@@ -10,7 +10,7 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 convert_case = "0.6.0"
 quote = "1.0.33"
 prettyplease = "0.2.15"
-proc-macro2 = "1.0.69"
+proc-macro2 = "1.0.70"
 
 [dependencies.syn]
 version = "2.0.39"

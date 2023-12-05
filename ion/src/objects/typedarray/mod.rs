@@ -12,6 +12,8 @@ use crate::{Context, Error, Object, Result, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 
+pub mod buffer;
+
 macro_rules! impl_typedarray_wrapper {
 	($typedarray:ident, $ty:ty) => {
 		pub struct $typedarray {

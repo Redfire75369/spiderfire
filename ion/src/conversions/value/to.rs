@@ -103,7 +103,7 @@ impl<'cx> ToValue<'cx> for crate::String<'cx> {
 
 impl ToValue<'_> for str {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
-		let string = crate::String::new(cx, self);
+		let string = crate::String::copy_from_str(cx, self);
 		if let Some(string) = string {
 			string.to_value(cx, value);
 		} else {

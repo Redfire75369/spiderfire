@@ -5,6 +5,7 @@
  */
 
 use std::path::{Component, Path, PathBuf};
+use std::slice;
 
 /// Normalises a [Path] by removing all `./` and resolving all `../` simplistically.
 /// This function does not follow symlinks and may result in unexpected behaviour.
@@ -27,4 +28,24 @@ pub fn normalise_path<P: AsRef<Path>>(path: P) -> PathBuf {
 		}
 	}
 	buf
+}
+
+pub trait BoxExt<T> {
+	unsafe fn into_raw_parts(self) -> (*mut T, usize);
+
+	unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self;
+}
+
+impl<T> BoxExt<T> for Box<[T]> {
+	unsafe fn into_raw_parts(self) -> (*mut T, usize) {
+		let len = self.len();
+		(Box::into_raw(self).cast(), len)
+	}
+
+	unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
+		unsafe {
+			let slice = slice::from_raw_parts_mut(ptr, len);
+			Box::from_raw(slice)
+		}
+	}
 }
