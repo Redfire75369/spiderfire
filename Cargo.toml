@@ -40,3 +40,7 @@ default-features = false
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "forbid"
+
+[profile.release]
+lto = "fat"
+strip = "symbols"

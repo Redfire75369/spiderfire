@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-13]
-        rust: [stable, beta]
         include:
           - os: windows-latest
             id: windows
@@ -33,11 +32,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+       
+      - name: Install LLVM
+        if: matrix.id == 'linux'
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "17.0"
+ 
       - name: Setup Dependencies
         uses: ./.github/actions/setup
         with:
           os: ${{ matrix.id }}
-          cache-id: ${{ matrix.id }}
+          cache-id: release-${{ matrix.id }}
 
       - name: Build Windows
         if: matrix.id == 'windows'
@@ -47,7 +57,6 @@ jobs:
           CXX: clang-cl
           AR: llvm-lib
           LINKER: lld-link
-          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true -Clinker=lld-link
         run: |
           just build-release -v --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
@@ -58,7 +67,6 @@ jobs:
           CC: clang
           CXX: clang++
           RUSTC_WRAPPER: sccache
-          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true
         run: |
           just build-release -v --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
@@ -66,17 +74,20 @@ jobs:
       - name: Build Linux
         if: matrix.id == 'linux'
         env:
+          MOZ_LTO: full
           CC: clang
+          CFLAGS: -flto -fuse-ld=lld
           CXX: clang++
+          CXXFLAGS: -flto -fuse-ld=lld
+          LDFLAGS: -fuse-ld=lld
           RUSTC_WRAPPER: sccache
-          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true -Cstrip=symbols
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=-v
         run: |
-          just build-release -v --target $TARGET
+          just build-release -vv --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Upload Executables as Artifacts
         uses: actions/upload-artifact@v3
-        if: matrix.rust == 'stable'
         with:
           name: spiderfire-${{ github.sha }}-${{ matrix.id }}
           path: target/${{ matrix.target }}/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}
