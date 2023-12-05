@@ -81,9 +81,9 @@ jobs:
           CXXFLAGS: -flto -fuse-ld=lld
           LDFLAGS: -fuse-ld=lld
           RUSTC_WRAPPER: sccache
-          RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld -Clink-arg=-v
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld
         run: |
-          just build-release -vv --target $TARGET
+          just build-release -v --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Upload Executables as Artifacts
