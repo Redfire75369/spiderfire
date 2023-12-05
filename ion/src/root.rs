@@ -7,41 +7,46 @@
 use std::cell::UnsafeCell;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::ptr::NonNull;
 
-use mozjs::gc::GCMethods;
+use mozjs::gc::{GCMethods, Traceable};
 use mozjs::jsapi::Heap;
 use mozjs::rust::Handle;
 
 use crate::context::{RootCollection, StableTraceable};
 
-pub struct Root<T: StableTraceable> {
+pub struct Root<T: StableTraceable>
+where
+	Heap<T::Traced>: Traceable,
+{
 	value: T,
-	roots: NonNull<RootCollection>,
+	roots: *const RootCollection,
 }
 
-impl<T: StableTraceable> Root<T> {
-	pub(crate) unsafe fn new(value: T, roots: NonNull<RootCollection>) -> Root<T> {
+impl<T: StableTraceable> Root<T>
+where
+	Heap<T::Traced>: Traceable,
+{
+	pub(crate) unsafe fn new(value: T, roots: *const RootCollection) -> Root<T> {
 		Root { value, roots }
 	}
 
 	pub fn handle(&self) -> Handle<T::Traced> {
-		unsafe { Handle::from_marked_location(self.value.traced()) }
+		unsafe { Handle::from_raw(self.value.heap().handle()) }
 	}
 }
 
 impl<T: StableTraceable> Root<T>
 where
-	T::Traced: Copy,
+	Heap<T::Traced>: Traceable,
 {
 	pub fn get(&self) -> T::Traced {
 		self.handle().get()
 	}
 }
 
-impl<T: Copy + GCMethods> Clone for Root<Box<Heap<T>>>
+impl<T: Copy + GCMethods + 'static> Clone for Root<Box<Heap<T>>>
 where
-	Box<Heap<T>>: StableTraceable<Traced = T>,
+	Heap<T>: Traceable,
 {
 	fn clone(&self) -> Root<Box<Heap<T>>> {
 		let heap = Box::new(Heap {
@@ -49,7 +54,7 @@ where
 		});
 		heap.set(self.get());
 		unsafe {
-			(*self.roots.as_ptr()).root(heap.traceable());
+			(*self.roots).root(heap.heap());
 			Root::new(heap, self.roots)
 		}
 	}
@@ -60,16 +65,25 @@ where
 	}
 }
 
-impl<T: Debug + StableTraceable> Debug for Root<T> {
+impl<T: StableTraceable> Debug for Root<T>
+where
+	T::Traced: Debug,
+	Heap<T::Traced>: Traceable,
+{
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("Root").field("value", &self.value).finish()
+		f.debug_struct("Root").field("value", unsafe { &*self.value.heap().get_unsafe() }).finish()
 	}
 }
 
-impl<T: StableTraceable + 'static> Drop for Root<T> {
+impl<T: StableTraceable> Drop for Root<T>
+where
+	Heap<T::Traced>: Traceable,
+{
 	fn drop(&mut self) {
-		unsafe {
-			(*self.roots.as_ptr()).unroot(self.value.traceable());
+		if !self.roots.is_null() {
+			unsafe {
+				(*self.roots).unroot(self.value.heap());
+			}
 		}
 	}
 }

@@ -19,7 +19,7 @@ pub struct PropertyDescriptor {
 
 impl PropertyDescriptor {
 	pub fn new(cx: &Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
 		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
 		desc
 	}
@@ -29,7 +29,7 @@ impl PropertyDescriptor {
 	) -> PropertyDescriptor {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
 		unsafe {
 			SetAccessorPropertyDescriptor(
 				desc.handle_mut().into(),
@@ -42,7 +42,7 @@ impl PropertyDescriptor {
 	}
 
 	pub fn from_object(cx: &Context, object: &Object) -> Option<PropertyDescriptor> {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
 		unsafe {
 			ObjectToCompletePropertyDescriptor(
@@ -78,15 +78,15 @@ impl PropertyDescriptor {
 	}
 
 	pub fn getter(&self, cx: &Context) -> Option<Object> {
-		self.handle().hasGetter_().then(|| Object::from(cx.root_object(self.handle().getter_)))
+		self.handle().hasGetter_().then(|| Object::from(cx.root(self.handle().getter_)))
 	}
 
 	pub fn setter(&self, cx: &Context) -> Option<Object> {
-		self.handle().hasSetter_().then(|| Object::from(cx.root_object(self.handle().setter_)))
+		self.handle().hasSetter_().then(|| Object::from(cx.root(self.handle().setter_)))
 	}
 
 	pub fn value(&self, cx: &Context) -> Option<Value> {
-		self.handle().hasValue_().then(|| Value::from(cx.root_value(self.handle().value_)))
+		self.handle().hasValue_().then(|| Value::from(cx.root(self.handle().value_)))
 	}
 
 	pub fn into_root(self) -> Root<Box<Heap<JSPropertyDescriptor>>> {

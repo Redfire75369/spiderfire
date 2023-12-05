@@ -43,7 +43,7 @@ impl Display for ObjectDisplay<'_> {
 
 		let cx = self.cx;
 		let cfg = self.cfg;
-		let object = Object::from(cx.root_object(self.object.handle().get()));
+		let object = Object::from(cx.root(self.object.handle().get()));
 
 		let class = self.object.get_builtin_class(cx);
 

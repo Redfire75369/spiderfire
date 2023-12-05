@@ -43,7 +43,7 @@ impl_to_key_for_integer!(u32);
 
 impl ToPropertyKey for *mut JSString {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
-		String::from(cx.root_string(*self)).to_key(cx)
+		String::from(cx.root(*self)).to_key(cx)
 	}
 }
 
@@ -51,7 +51,7 @@ impl ToPropertyKey for String {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		rooted!(in(cx.as_ptr()) let mut key = VoidId());
 		if unsafe { JS_StringToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) } {
-			Some(PropertyKey::from(cx.root_property_key(key.get())))
+			Some(PropertyKey::from(cx.root(key.get())))
 		} else {
 			None
 		}
@@ -72,7 +72,7 @@ impl ToPropertyKey for &str {
 
 impl ToPropertyKey for *mut JSSymbol {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
-		Some(cx.root_property_key(SymbolId(*self)).into())
+		Some(cx.root(SymbolId(*self)).into())
 	}
 }
 
@@ -90,7 +90,7 @@ impl ToPropertyKey for WellKnownSymbolCode {
 
 impl ToPropertyKey for JSVal {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
-		Value::from(cx.root_value(*self)).to_key(cx)
+		Value::from(cx.root(*self)).to_key(cx)
 	}
 }
 
@@ -98,7 +98,7 @@ impl ToPropertyKey for Value {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
 		rooted!(in(cx.as_ptr()) let mut key = VoidId());
 		if unsafe { JS_ValueToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) } {
-			Some(PropertyKey::from(cx.root_property_key(key.get())))
+			Some(PropertyKey::from(cx.root(key.get())))
 		} else {
 			None
 		}
@@ -107,7 +107,7 @@ impl ToPropertyKey for Value {
 
 impl ToPropertyKey for JSPropertyKey {
 	fn to_key(&self, cx: &Context) -> Option<PropertyKey> {
-		Some(cx.root_property_key(*self).into())
+		Some(cx.root(*self).into())
 	}
 }
 
@@ -123,7 +123,7 @@ impl ToPropertyKey for OwnedKey {
 			OwnedKey::Int(i) => i.to_key(cx),
 			OwnedKey::String(str) => str.to_key(cx),
 			OwnedKey::Symbol(symbol) => symbol.to_key(cx),
-			OwnedKey::Void => Some(cx.root_property_key(VoidId()).into()),
+			OwnedKey::Void => Some(cx.root(VoidId()).into()),
 		}
 	}
 }

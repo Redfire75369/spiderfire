@@ -22,7 +22,7 @@ pub struct PropertyKey {
 impl PropertyKey {
 	/// Creates a [PropertyKey] from an integer.
 	pub fn with_int(cx: &Context, int: i32) -> PropertyKey {
-		PropertyKey::from(cx.root_property_key(IntId(int)))
+		PropertyKey::from(cx.root(IntId(int)))
 	}
 
 	/// Creates a [PropertyKey] from a string.
@@ -54,9 +54,9 @@ impl PropertyKey {
 		if self.handle().is_int() {
 			OwnedKey::Int(self.handle().to_int())
 		} else if self.handle().is_string() {
-			OwnedKey::String(String::from(cx.root_string(self.handle().to_string())).to_owned(cx))
+			OwnedKey::String(String::from(cx.root(self.handle().to_string())).to_owned(cx))
 		} else if self.handle().is_symbol() {
-			OwnedKey::Symbol(cx.root_symbol(self.handle().to_symbol()).into())
+			OwnedKey::Symbol(cx.root(self.handle().to_symbol()).into())
 		} else {
 			OwnedKey::Void
 		}
@@ -101,7 +101,7 @@ impl OwnedKey {
 		match self {
 			OwnedKey::Int(i) => OwnedKey::Int(*i),
 			OwnedKey::String(str) => OwnedKey::String(str.clone()),
-			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root_symbol(symbol.get()).into()),
+			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root(symbol.get()).into()),
 			OwnedKey::Void => OwnedKey::Void,
 		}
 	}

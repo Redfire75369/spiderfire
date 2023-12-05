@@ -49,20 +49,20 @@ impl ModuleRequest {
 	/// Creates a new [ModuleRequest] with a given specifier.
 	pub fn new<S: AsRef<str>>(cx: &Context, specifier: S) -> ModuleRequest {
 		let specifier = crate::String::copy_from_str(cx, specifier.as_ref()).unwrap();
-		ModuleRequest(cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) }).into())
+		ModuleRequest(cx.root(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) }).into())
 	}
 
 	/// Creates a new [ModuleRequest] from a raw handle.
 	///
 	/// ### Safety
 	/// `request` must be a valid module request object.
-	pub fn from_request(cx: &Context, request: Handle<*mut JSObject>) -> ModuleRequest {
+	pub unsafe fn from_request(cx: &Context, request: Handle<*mut JSObject>) -> ModuleRequest {
 		ModuleRequest(Object::from(cx.root(request.get())))
 	}
 
 	/// Returns the specifier of the request.
 	pub fn specifier(&self, cx: &Context) -> crate::String {
-		cx.root_string(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) }).into()
+		cx.root(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) }).into()
 	}
 }
 
@@ -113,7 +113,7 @@ impl Module {
 		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const().cast(), &mut source) };
 
 		if !module.is_null() {
-			let module = Module(Object::from(cx.root_object(module)));
+			let module = Module(Object::from(cx.root(module)));
 
 			let data = ModuleData {
 				path: path.and_then(Path::to_str).map(String::from),
@@ -208,7 +208,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 			.as_mut()
 			.map(|loader| {
 				let private = Value::from(cx.root(private.get()));
-				let request = ModuleRequest::from_request(cx, request);
+				let request = unsafe { ModuleRequest::from_request(cx, request) };
 				loader.resolve(cx, &private, &request)
 			})
 			.unwrap_or_else(ptr::null_mut)

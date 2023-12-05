@@ -23,7 +23,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 		let cx = &#ion::Context::new_unchecked(cx);
 		let args = &mut #ion::Arguments::new(cx, argc, vp);
 		let mut this = #ion::Object::from(
-			cx.root_object(
+			cx.root(
 				::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &<#ty as #ion::ClassDefinition>::class().base, &args.call_args())
 			)
 		);

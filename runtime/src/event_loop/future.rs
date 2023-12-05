@@ -37,7 +37,7 @@ impl FutureQueue {
 		}
 
 		for (result, promise) in results {
-			let promise = Promise::from(cx.root_object(promise)).unwrap();
+			let promise = Promise::from(cx.root(promise)).unwrap();
 
 			let result = match result {
 				Ok(o) => match o.into_value(cx) {

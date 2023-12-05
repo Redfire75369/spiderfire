@@ -36,7 +36,7 @@ impl Promise {
 	/// Creates a new [Promise] which never resolves.
 	pub fn new(cx: &Context) -> Promise {
 		Promise {
-			promise: cx.root_object(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
+			promise: cx.root(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
 		}
 	}
 
@@ -73,7 +73,7 @@ impl Promise {
 			let promise = NewPromiseObject(cx.as_ptr(), executor.handle().into());
 
 			if !promise.is_null() {
-				Some(Promise { promise: cx.root_object(promise) })
+				Some(Promise { promise: cx.root(promise) })
 			} else {
 				None
 			}

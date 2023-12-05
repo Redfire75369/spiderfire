@@ -118,7 +118,7 @@ unsafe impl Traceable for Iterator {
 
 impl IntoValue for Iterator {
 	fn into_value(self: Box<Self>, cx: &Context) -> Result<Value> {
-		let object = cx.root_object(Iterator::new_object(cx, self));
+		let object = cx.root(Iterator::new_object(cx, self));
 		object.handle().get().to_value(cx)
 	}
 }
@@ -195,7 +195,7 @@ impl ClassDefinition for Iterator {
 	fn parent_class_info(cx: &Context) -> Option<(&'static NativeClass, Root<Box<Heap<*mut JSObject>>>)> {
 		Some((
 			&ITERATOR_CLASS,
-			cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }),
+			cx.root(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }),
 		))
 	}
 

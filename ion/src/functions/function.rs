@@ -36,15 +36,14 @@ impl Function {
 	pub fn new(cx: &Context, name: &str, func: Option<NativeFunction>, nargs: u32, flags: PropertyFlags) -> Function {
 		let name = CString::new(name).unwrap();
 		Function {
-			function: cx
-				.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
+			function: cx.root(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
 		}
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
 	pub fn from_spec(cx: &Context, spec: &JSFunctionSpec) -> Function {
 		Function {
-			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
+			function: cx.root(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
 	}
 
@@ -52,7 +51,7 @@ impl Function {
 	pub fn from_closure(cx: &Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags) -> Function {
 		unsafe {
 			let function = Function {
-				function: cx.root_function(NewFunctionWithReserved(
+				function: cx.root(NewFunctionWithReserved(
 					cx.as_ptr(),
 					Some(call_closure),
 					nargs,
@@ -75,7 +74,7 @@ impl Function {
 	pub fn from_object(cx: &Context, obj: &Root<Box<Heap<*mut JSObject>>>) -> Option<Function> {
 		if unsafe { Function::is_function_raw(obj.get()) } {
 			Some(Function {
-				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
+				function: cx.root(unsafe { JS_GetObjectFunction(obj.get()) }),
 			})
 		} else {
 			None
@@ -84,7 +83,7 @@ impl Function {
 
 	/// Converts the [Function] into an [Object].
 	pub fn to_object(&self, cx: &Context) -> Object {
-		cx.root_object(unsafe { JS_GetFunctionObject(self.get()) }).into()
+		cx.root(unsafe { JS_GetFunctionObject(self.get()) }).into()
 	}
 
 	/// Converts the [Function] into a [String] in the form of its definition/source.

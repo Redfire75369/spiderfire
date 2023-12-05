@@ -24,12 +24,13 @@ use crate::class::ClassInfo;
 use crate::module::ModuleLoader;
 use crate::Root;
 
-pub trait StableTraceable: Traceable + Sized + 'static {
-	type Traced;
+pub trait StableTraceable
+where
+	Heap<Self::Traced>: Traceable,
+{
+	type Traced: Copy + GCMethods + 'static;
 
-	fn traced(&self) -> *const Self::Traced;
-
-	fn traceable(&self) -> *const dyn Traceable;
+	fn heap(&self) -> &Heap<Self::Traced>;
 }
 
 impl<T: Copy + GCMethods + 'static> StableTraceable for Box<Heap<T>>
@@ -38,12 +39,8 @@ where
 {
 	type Traced = T;
 
-	fn traced(&self) -> *const T {
-		self.get_unsafe().cast_const()
-	}
-
-	fn traceable(&self) -> *const dyn Traceable {
-		self.traced() as *const Heap<T> as *const _
+	fn heap(&self) -> &Heap<T> {
+		self
 	}
 }
 
@@ -151,6 +148,7 @@ macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
 			#[doc = concat!("Roots a [", stringify!($pointer), "](", stringify!($pointer), ") as a ", stringify!($gc_type), " ands returns a [Local] to it.")]
+			#[deprecated]
 			pub fn $fn_name(&self, ptr: $pointer) -> Root<Box<Heap<$pointer>>> {
 				self.root(ptr)
 			}
@@ -170,8 +168,8 @@ impl Context {
 
 		unsafe {
 			let roots = &(*self.get_inner_data().as_ptr()).roots;
-			roots.root(heap.traceable());
-			Root::new(heap, NonNull::new(roots as *const _ as *mut _).unwrap())
+			roots.root(heap.heap());
+			Root::new(heap, roots)
 		}
 	}
 

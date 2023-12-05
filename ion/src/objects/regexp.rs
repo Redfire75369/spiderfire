@@ -29,7 +29,7 @@ impl RegExp {
 	pub fn new(cx: &Context, source: &str, flags: RegExpFlags) -> Option<RegExp> {
 		let source: Vec<u16> = source.encode_utf16().collect();
 		let regexp = unsafe { NewUCRegExpObject(cx.as_ptr(), source.as_ptr(), source.len(), flags.into()) };
-		NonNull::new(regexp).map(|re| RegExp { re: cx.root_object(re.as_ptr()) })
+		NonNull::new(regexp).map(|re| RegExp { re: cx.root(re.as_ptr()) })
 	}
 
 	/// Creates a [RegExp] from an object.
@@ -51,7 +51,7 @@ impl RegExp {
 	}
 
 	pub fn source(&self, cx: &Context) -> crate::String {
-		crate::String::from(cx.root_string(unsafe { GetRegExpSource(cx.as_ptr(), self.handle().into()) }))
+		crate::String::from(cx.root(unsafe { GetRegExpSource(cx.as_ptr(), self.handle().into()) }))
 	}
 
 	pub fn flags(&self, cx: &Context) -> RegExpFlags {

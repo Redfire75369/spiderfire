@@ -28,7 +28,7 @@ impl Script {
 		let script = unsafe { Compile(cx.as_ptr(), options.ptr, &mut source) };
 
 		if !script.is_null() {
-			Ok(Script { script: cx.root_script(script) })
+			Ok(Script { script: cx.root(script) })
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}

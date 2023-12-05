@@ -31,7 +31,7 @@ impl Array {
 	/// Creates an empty [Array] with the given length.
 	pub fn new_with_length(cx: &Context, length: usize) -> Array {
 		Array {
-			arr: cx.root_object(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
+			arr: cx.root(unsafe { NewArrayObject1(cx.as_ptr(), length) }).into(),
 		}
 	}
 
@@ -43,7 +43,7 @@ impl Array {
 	/// Creates an [Array] from a [HandleValueArray].
 	pub fn from_handle(cx: &Context, handle: HandleValueArray) -> Array {
 		Array {
-			arr: cx.root_object(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
+			arr: cx.root(unsafe { NewArrayObject(cx.as_ptr(), &handle) }).into(),
 		}
 	}
 
@@ -69,7 +69,7 @@ impl Array {
 	/// Converts an [Array] to a [Vec].
 	/// Returns an empty [Vec] if the conversion fails.
 	pub fn to_vec(&self, cx: &Context) -> Vec<Value> {
-		let value = cx.root_value(ObjectValue(self.arr.handle().get())).into();
+		let value = cx.root(ObjectValue(self.arr.handle().get())).into();
 		if let Ok(vec) = Vec::from_value(cx, &value, true, ()) {
 			vec
 		} else {
@@ -79,7 +79,7 @@ impl Array {
 
 	/// Converts an [Array] to an [Object].
 	pub fn to_object(&self, cx: &Context) -> Object {
-		Object::from(cx.root_object(self.arr.handle().get()))
+		Object::from(cx.root(self.arr.handle().get()))
 	}
 
 	/// Returns the length of the [Array].

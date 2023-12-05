@@ -94,10 +94,10 @@ pub trait ClassDefinition: NativeObject {
 						static_functions.as_ptr(),
 					)
 				};
-				let prototype = cx.root_object(class);
+				let prototype = cx.root(class);
 
 				let constructor = unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) };
-				let constructor = Object::from(cx.root_object(constructor));
+				let constructor = Object::from(cx.root(constructor));
 				let constructor = Function::from_object(cx, &constructor).unwrap();
 
 				let class_info = ClassInfo {

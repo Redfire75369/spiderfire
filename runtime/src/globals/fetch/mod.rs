@@ -67,7 +67,7 @@ fn fetch(cx: &Context, resource: RequestInfo, init: Option<RequestInit>) -> Opti
 
 	let signal = AbortSignal::get_private(&request.signal);
 	if let Some(reason) = signal.get_reason() {
-		promise.reject(cx, &cx.root_value(reason).into());
+		promise.reject(cx, &cx.root(reason).into());
 		return Some(promise);
 	}
 

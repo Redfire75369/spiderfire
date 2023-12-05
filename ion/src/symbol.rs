@@ -134,7 +134,7 @@ impl Symbol {
 		rooted!(in(cx.as_ptr()) let description = description.handle().to_string());
 
 		let symbol = unsafe { NewSymbol(cx.as_ptr(), description.handle().into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Gets a [Symbol] from the symbol registry with the given key.
@@ -143,13 +143,13 @@ impl Symbol {
 		rooted!(in(cx.as_ptr()) let key = key.handle().to_string());
 
 		let symbol = unsafe { GetSymbolFor(cx.as_ptr(), key.handle().into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Creates a well-known symbol with its corresponding code.
 	pub fn well_known(cx: &Context, code: WellKnownSymbolCode) -> Symbol {
 		let symbol = unsafe { GetWellKnownSymbol(cx.as_ptr(), code.into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Returns the identifying code of a [Symbol].

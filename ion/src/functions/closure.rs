@@ -24,7 +24,7 @@ pub type Closure = dyn FnMut(&mut Arguments) -> ResultExc<Value> + 'static;
 
 pub(crate) fn create_closure_object(cx: &Context, closure: Box<Closure>) -> Object {
 	unsafe {
-		let object = Object::from(cx.root_object(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
+		let object = Object::from(cx.root(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
 		JS_SetReservedSlot(
 			object.handle().get(),
 			CLOSURE_SLOT,
@@ -38,8 +38,8 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	let cx = &unsafe { Context::new_unchecked(cx) };
 	let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
-	let callee = cx.root_object(args.call_args().callee());
-	let reserved = cx.root_value(unsafe { *GetFunctionNativeReserved(callee.get(), 0) });
+	let callee = cx.root(args.call_args().callee());
+	let reserved = cx.root(unsafe { *GetFunctionNativeReserved(callee.get(), 0) });
 
 	let mut value = UndefinedValue();
 	unsafe { JS_GetReservedSlot(reserved.handle().to_object(), CLOSURE_SLOT, &mut value) };

@@ -61,7 +61,7 @@ impl Display for PrimitiveDisplay<'_> {
 		} else if value.is_undefined() {
 			write!(f, "{}", "undefined".color(colours.undefined))
 		} else if value.is_bigint() {
-			let bi = BigInt::from(self.cx.root_bigint(value.to_bigint()));
+			let bi = BigInt::from(self.cx.root(value.to_bigint()));
 			write!(
 				f,
 				"{}{}",
@@ -69,7 +69,7 @@ impl Display for PrimitiveDisplay<'_> {
 				"n".color(colours.bigint)
 			)
 		} else if value.is_symbol() {
-			let symbol = Symbol::from(self.cx.root_symbol(value.to_symbol()));
+			let symbol = Symbol::from(self.cx.root(value.to_symbol()));
 			write!(f, "{}", format_symbol(self.cx, self.cfg, &symbol))
 		} else if value.is_magic() {
 			write!(f, "{}", "<magic>".color(colours.boolean))
