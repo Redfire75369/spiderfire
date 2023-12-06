@@ -53,12 +53,16 @@ jobs:
         if: matrix.id == 'windows'
         env:
           MOZTOOLS_PATH: ${{ github.workspace }}\\target\\dependencies\\moztools-4.0
+          MOZ_LTO: full
           CC: clang-cl
           CXX: clang-cl
           AR: llvm-lib
           LINKER: lld-link
+          CFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
+          CXXFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link -Clink-arg=/verbose
         run: |
-          just build-release -v --target $env:TARGET
+          just build-release -vv --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
 
       - name: Build MacOS
