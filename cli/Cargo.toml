@@ -8,7 +8,7 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
 humansize = "2.1.3"
-rustyline-derive = "0.9.0"
+rustyline-derive = "0.10.0"
 
 colored.workspace = true
 dunce.workspace = true
@@ -18,7 +18,7 @@ mozjs.workspace = true
 sourcemap.workspace = true
 
 [dependencies.clap]
-version = "4.4.10"
+version = "4.4.11"
 features = ["derive"]
 
 [dependencies.runtime]
@@ -26,7 +26,7 @@ workspace = true
 features = ["fetch"]
 
 [dependencies.rustyline]
-version = "12.0.0"
+version = "13.0.0"
 default-features = false
 
 [dependencies.tokio]
