@@ -25,6 +25,7 @@ pub mod primitive;
 pub mod promise;
 pub mod regexp;
 pub mod symbol;
+pub mod typedarray;
 
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";

@@ -24,6 +24,8 @@ use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
+use crate::format::typedarray::format_array_buffer;
+use crate::typedarray::buffer::ArrayBuffer;
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
@@ -80,6 +82,11 @@ impl Display for ObjectDisplay<'_> {
 				f,
 				"{}",
 				format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap())
+			),
+			ESC::ArrayBuffer => write!(
+				f,
+				"{}",
+				format_array_buffer(cfg, &ArrayBuffer::from(object.into_local()).unwrap())
 			),
 			ESC::Error => match Exception::from_object(cx, &self.object) {
 				Exception::Error(error) => f.write_str(&error.format()),

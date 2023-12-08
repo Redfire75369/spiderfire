@@ -5,7 +5,7 @@
  */
 
 use std::any::{Any, TypeId};
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ptr::NonNull;
 
@@ -60,7 +60,7 @@ pub struct ContextInner {
 	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
 	persistent: Persistent,
-	private: Option<UnsafeCell<Box<dyn Any>>>,
+	private: Option<Box<dyn Any>>,
 }
 
 /// Represents the thread-local state of the runtime.
@@ -113,13 +113,13 @@ impl Context {
 
 	pub fn get_raw_private(&self) -> *mut dyn Any {
 		let inner = self.get_inner_data();
-		unsafe { (*inner.as_ptr()).private.as_ref().unwrap().get() }
+		unsafe { (*inner.as_ptr()).private.as_deref().unwrap() as *const _ as *mut _ }
 	}
 
 	pub fn set_private(&self, private: Box<dyn Any>) {
 		let inner_private = self.get_inner_data();
 		unsafe {
-			(*inner_private.as_ptr()).private = Some(UnsafeCell::new(private));
+			(*inner_private.as_ptr()).private = Some(private);
 		}
 	}
 }
