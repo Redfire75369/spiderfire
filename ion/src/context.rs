@@ -4,11 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::any::TypeId;
-use std::cell::RefCell;
+use std::any::{Any, TypeId};
+use std::cell::{RefCell, UnsafeCell};
 use std::collections::HashMap;
-use std::ffi::c_void;
-use std::ptr;
 use std::ptr::NonNull;
 
 use mozjs::gc::{GCMethods, RootedTraceableSet};
@@ -57,22 +55,12 @@ pub struct Persistent {
 	objects: Vec<Box<Heap<*mut JSObject>>>,
 }
 
+#[derive(Default)]
 pub struct ContextInner {
 	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
 	persistent: Persistent,
-	private: *mut c_void,
-}
-
-impl Default for ContextInner {
-	fn default() -> ContextInner {
-		ContextInner {
-			class_infos: HashMap::new(),
-			module_loader: None,
-			persistent: Persistent::default(),
-			private: ptr::null_mut(),
-		}
-	}
+	private: Option<UnsafeCell<Box<dyn Any>>>,
 }
 
 /// Represents the thread-local state of the runtime.
@@ -123,15 +111,15 @@ impl Context {
 		self.private
 	}
 
-	pub fn get_raw_private(&self) -> *mut c_void {
+	pub fn get_raw_private(&self) -> *mut dyn Any {
 		let inner = self.get_inner_data();
-		unsafe { (*inner.as_ptr()).private }
+		unsafe { (*inner.as_ptr()).private.as_ref().unwrap().get() }
 	}
 
-	pub fn set_private<T>(&self, private: Box<T>) {
+	pub fn set_private(&self, private: Box<dyn Any>) {
 		let inner_private = self.get_inner_data();
 		unsafe {
-			(*inner_private.as_ptr()).private = Box::into_raw(private).cast();
+			(*inner_private.as_ptr()).private = Some(UnsafeCell::new(private));
 		}
 	}
 }

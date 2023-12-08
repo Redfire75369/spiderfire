@@ -5,7 +5,6 @@
  */
 
 use std::ptr;
-use std::ptr::NonNull;
 
 use mozjs::glue::CreateJobQueue;
 use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue, SetPromiseRejectionTrackerCallback};
@@ -27,12 +26,13 @@ pub struct ContextPrivate {
 }
 
 pub trait ContextExt {
-	fn get_private(&self) -> NonNull<ContextPrivate>;
+	#[allow(clippy::mut_from_ref)]
+	unsafe fn get_private(&self) -> &mut ContextPrivate;
 }
 
 impl ContextExt for Context {
-	fn get_private(&self) -> NonNull<ContextPrivate> {
-		unsafe { NonNull::new_unchecked(self.get_raw_private() as *mut ContextPrivate) }
+	unsafe fn get_private(&self) -> &mut ContextPrivate {
+		unsafe { (*self.get_raw_private()).downcast_mut().unwrap() }
 	}
 }
 
@@ -57,15 +57,13 @@ impl<'cx> Runtime<'cx> {
 	}
 
 	pub async fn run_event_loop(&self) -> Result<(), Option<ErrorReport>> {
-		let event_loop = unsafe { &mut (*self.cx.get_private().as_ptr()).event_loop };
+		let event_loop = unsafe { &mut self.cx.get_private().event_loop };
 		event_loop.run_event_loop(self.cx).await
 	}
 }
 
 impl Drop for Runtime<'_> {
 	fn drop(&mut self) {
-		let private = self.cx.get_private();
-		let _ = unsafe { Box::from_raw(private.as_ptr()) };
 		let inner_private = self.cx.get_inner_data();
 		let _ = unsafe { Box::from_raw(inner_private.as_ptr()) };
 	}

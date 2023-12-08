@@ -90,7 +90,7 @@ pub(crate) unsafe extern "C" fn promise_rejection_tracker_callback(
 ) {
 	let cx = unsafe { &Context::new_unchecked(cx) };
 	let promise = Promise::from(unsafe { Local::from_raw_handle(promise) }).unwrap();
-	let unhandled = unsafe { &mut (*cx.get_private().as_ptr()).event_loop.unhandled_rejections };
+	let unhandled = unsafe { &mut cx.get_private().event_loop.unhandled_rejections };
 	match state {
 		PromiseRejectionHandlingState::Unhandled => unhandled.push_back(Heap::boxed(promise.get())),
 		PromiseRejectionHandlingState::Handled => {
