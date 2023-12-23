@@ -15,7 +15,7 @@ use mozjs::gc::{RootedTraceableSet, Traceable};
 use mozjs::gc::GCMethods;
 use mozjs::jsapi::{
 	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString,
-	PropertyKey, Symbol,
+	PropertyDescriptor, PropertyKey, Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::Runtime;
@@ -173,13 +173,13 @@ impl Context {
 		}
 	}
 
-	// TODO: (root_property_descriptor, PropertyDescriptor, property_descriptors, PropertyDescriptor),
 	impl_root_methods! {
 		(root_value, JSVal, values, Value),
 		(root_object, *mut JSObject, objects, Object),
 		(root_string, *mut JSString, strings, String),
 		(root_script, *mut JSScript, scripts, Script),
 		(root_property_key, PropertyKey, property_keys, PropertyKey),
+		(root_property_descriptor, PropertyDescriptor, property_descriptors, PropertyDescriptor),
 		(root_function, *mut JSFunction, functions, Function),
 		(root_bigint, *mut BigInt, big_ints, BigInt),
 		(root_symbol, *mut Symbol, symbols, Symbol),

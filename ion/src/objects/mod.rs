@@ -14,7 +14,7 @@ use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 
 pub use array::Array;
 pub use date::Date;
-// pub use descriptor::PropertyDescriptor;
+pub use descriptor::PropertyDescriptor;
 pub use iterator::{Iterator, JSIterator};
 pub use key::{OwnedKey, PropertyKey};
 pub use object::Object;
@@ -25,7 +25,7 @@ use crate::Context;
 
 mod array;
 mod date;
-// mod descriptor;
+mod descriptor;
 mod iterator;
 mod key;
 mod object;

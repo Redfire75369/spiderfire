@@ -9,6 +9,7 @@ use std::ops::{Deref, DerefMut};
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
 use mozjs::jsapi::{FromPropertyDescriptor, Heap, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
+use mozjs::jsval::UndefinedValue;
 
 use crate::{Context, Function, Object, Root, Value};
 use crate::flags::PropertyFlags;
@@ -19,9 +20,9 @@ pub struct PropertyDescriptor {
 
 impl PropertyDescriptor {
 	pub fn new(cx: &Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor {
-		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
+		rooted!(in(cx.as_ptr()) let mut desc = JSPropertyDescriptor::default());
 		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
-		desc
+		PropertyDescriptor::from(cx.root(desc.get()))
 	}
 
 	pub fn new_accessor(
@@ -29,7 +30,7 @@ impl PropertyDescriptor {
 	) -> PropertyDescriptor {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
-		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
+		rooted!(in(cx.as_ptr()) let mut desc = JSPropertyDescriptor::default());
 		unsafe {
 			SetAccessorPropertyDescriptor(
 				desc.handle_mut().into(),
@@ -38,12 +39,12 @@ impl PropertyDescriptor {
 				attrs.bits() as u32,
 			)
 		};
-		desc
+		PropertyDescriptor::from(cx.root(desc.get()))
 	}
 
 	pub fn from_object(cx: &Context, object: &Object) -> Option<PropertyDescriptor> {
-		let mut desc = PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()));
 		let desc_value = Value::object(cx, object);
+		rooted!(in(cx.as_ptr()) let mut desc = JSPropertyDescriptor::default());
 		unsafe {
 			ObjectToCompletePropertyDescriptor(
 				cx.as_ptr(),
@@ -51,14 +52,14 @@ impl PropertyDescriptor {
 				desc_value.handle().into(),
 				desc.handle_mut().into(),
 			)
-			.then_some(desc)
+			.then(|| PropertyDescriptor::from(cx.root(desc.get())))
 		}
 	}
 
 	pub fn to_object(&self, cx: &Context) -> Option<Object> {
-		let mut value = Value::undefined(cx);
+		rooted!(in(cx.as_ptr()) let mut value = UndefinedValue());
 		unsafe { FromPropertyDescriptor(cx.as_ptr(), self.handle().into(), value.handle_mut().into()) }
-			.then(|| value.to_object(cx))
+			.then(|| Object::from(cx.root(value.to_object())))
 	}
 
 	pub fn is_configurable(&self) -> bool {
