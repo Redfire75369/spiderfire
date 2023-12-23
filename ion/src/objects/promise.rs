@@ -5,11 +5,9 @@
  */
 
 use std::future::Future;
-use std::mem::transmute;
 use std::ops::{Deref, DerefMut};
 
 use futures::executor::block_on;
-use libffi::high::ClosureOnce3;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
 	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject,
@@ -22,7 +20,6 @@ use crate::{Arguments, Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
-use crate::functions::NativeFunction;
 
 /// Represents a [Promise] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for more details.
@@ -47,7 +44,7 @@ impl<'p> Promise<'p> {
 		F: for<'cx> FnOnce(&'cx Context, Function<'cx>, Function<'cx>) -> crate::Result<()> + 'static,
 	{
 		unsafe {
-			let native = move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
+			let closure = Box::new(move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
 				let cx = Context::new_unchecked(cx);
 				let args = Arguments::new(&cx, argc, vp);
 
@@ -63,11 +60,9 @@ impl<'p> Promise<'p> {
 						false as u8
 					}
 				}
-			};
-			let closure = ClosureOnce3::new(native);
-			let fn_ptr: &NativeFunction = transmute(closure.code_ptr());
+			});
 
-			let function = Function::new(cx, "executor", Some(*fn_ptr), 2, PropertyFlags::empty());
+			let function = Function::from_closure_once(cx, "executor", closure, 2, PropertyFlags::empty());
 			let executor = function.to_object(cx);
 			let promise = NewPromiseObject(cx.as_ptr(), executor.handle().into());
 
@@ -141,9 +136,6 @@ impl<'p> Promise<'p> {
 	}
 
 	/// Returns the result of the [Promise].
-	///
-	/// ### Note
-	/// Currently leads to a sefault.
 	pub fn result<'cx>(&self, cx: &'cx Context) -> Value<'cx> {
 		let mut value = Value::undefined(cx);
 		unsafe { JS_GetPromiseResult(self.handle().into(), value.handle_mut().into()) }
