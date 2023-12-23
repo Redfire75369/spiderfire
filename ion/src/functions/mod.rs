@@ -9,7 +9,7 @@ use std::mem::forget;
 use std::thread::Result;
 
 pub use arguments::Arguments;
-pub use closure::Closure;
+pub use closure::{Closure, ClosureOnce};
 pub use function::{Function, NativeFunction};
 
 use crate::{Context, Error, Object, ResultExc, ThrowException, Value};

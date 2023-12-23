@@ -18,7 +18,9 @@ use mozjs::jsval::{JSVal, ObjectValue};
 
 use crate::{Context, ErrorReport, Local, Object, Value};
 use crate::flags::PropertyFlags;
-use crate::functions::closure::{call_closure, Closure, create_closure_object};
+use crate::functions::closure::{
+	call_closure, call_closure_once, Closure, ClosureOnce, create_closure_object, create_closure_once_object,
+};
 
 /// Native Function that can be used from JavaScript.
 pub type NativeFunction = unsafe extern "C" fn(*mut JSContext, u32, *mut JSVal) -> bool;
@@ -46,6 +48,31 @@ impl<'f> Function<'f> {
 	pub fn from_spec(cx: &'f Context, spec: &JSFunctionSpec) -> Function<'f> {
 		Function {
 			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
+		}
+	}
+
+	/// Creates a new [Function] with a [ClosureOnce].
+	/// Throws a JS Exception if called more than once.
+	pub fn from_closure_once(
+		cx: &'f Context, name: &str, closure: Box<ClosureOnce>, nargs: u32, flags: PropertyFlags,
+	) -> Function<'f> {
+		unsafe {
+			let function = Function {
+				function: cx.root_function(NewFunctionWithReserved(
+					cx.as_ptr(),
+					Some(call_closure_once),
+					nargs,
+					flags.bits() as u32,
+					name.as_ptr().cast(),
+				)),
+			};
+			let closure_object = create_closure_once_object(cx, closure);
+			SetFunctionNativeReserved(
+				JS_GetFunctionObject(function.get()),
+				0,
+				&ObjectValue(closure_object.handle().get()),
+			);
+			function
 		}
 	}
 
