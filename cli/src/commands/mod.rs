@@ -7,15 +7,15 @@
 use runtime::cache::Cache;
 use runtime::config::{Config, CONFIG, LogLevel};
 
-use crate::Command;
+use crate::{Cli, Command};
 
 mod cache;
 mod eval;
 mod repl;
 mod run;
 
-pub(crate) async fn handle_command(command: Option<Command>) {
-	match command {
+pub(crate) async fn handle_command(cli: Cli) {
+	match cli.command {
 		Some(Command::Cache { clear }) => {
 			if !clear {
 				cache::cache_statistics();

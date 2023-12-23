@@ -35,7 +35,3 @@ features = ["macros", "rt"]
 
 [features]
 debugmozjs = ["ion/debugmozjs"]
-
-[[bin]]
-name = "cli"
-test = false
