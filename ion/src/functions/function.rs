@@ -52,6 +52,7 @@ impl<'f> Function<'f> {
 	}
 
 	/// Creates a new [Function] with a [ClosureOnce].
+	///
 	/// Throws a JS Exception if called more than once.
 	pub fn from_closure_once(
 		cx: &'f Context, name: &str, closure: Box<ClosureOnce>, nargs: u32, flags: PropertyFlags,

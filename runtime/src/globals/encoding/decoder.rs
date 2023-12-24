@@ -47,7 +47,7 @@ impl TextDecoder {
 					return Err(Error::new(
 						&format!("The given encoding '{}' is not supported.", label),
 						ErrorKind::Range,
-					))
+					));
 				}
 				Some(enc) => encoding = enc,
 			}

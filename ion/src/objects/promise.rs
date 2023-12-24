@@ -10,15 +10,13 @@ use std::ops::{Deref, DerefMut};
 use futures::executor::block_on;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
-	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSContext, JSObject, NewPromiseObject,
-	PromiseState, RejectPromise, ResolvePromise,
+	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSObject, NewPromiseObject, PromiseState,
+	RejectPromise, ResolvePromise,
 };
-use mozjs::jsval::JSVal;
 use mozjs::rust::HandleObject;
 
-use crate::{Arguments, Context, Function, Local, Object, Value};
+use crate::{Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
-use crate::exception::ThrowException;
 use crate::flags::PropertyFlags;
 
 /// Represents a [Promise] in the JavaScript Runtime.
@@ -44,25 +42,24 @@ impl<'p> Promise<'p> {
 		F: for<'cx> FnOnce(&'cx Context, Function<'cx>, Function<'cx>) -> crate::Result<()> + 'static,
 	{
 		unsafe {
-			let closure = Box::new(move |cx: *mut JSContext, argc: u32, vp: *mut JSVal| {
-				let cx = Context::new_unchecked(cx);
-				let args = Arguments::new(&cx, argc, vp);
+			let function = Function::from_closure_once(
+				cx,
+				"executor",
+				Box::new(move |args| {
+					let cx = args.cx();
+					let resolve_obj = args.value(0).unwrap().to_object(cx).into_local();
+					let reject_obj = args.value(1).unwrap().to_object(cx).into_local();
+					let resolve = Function::from_object(cx, &resolve_obj).unwrap();
+					let reject = Function::from_object(cx, &reject_obj).unwrap();
 
-				let resolve_obj = args.value(0).unwrap().to_object(&cx).into_local();
-				let reject_obj = args.value(1).unwrap().to_object(&cx).into_local();
-				let resolve = Function::from_object(&cx, &resolve_obj).unwrap();
-				let reject = Function::from_object(&cx, &reject_obj).unwrap();
-
-				match executor(&cx, resolve, reject) {
-					Ok(()) => true as u8,
-					Err(error) => {
-						error.throw(&cx);
-						false as u8
+					match executor(cx, resolve, reject) {
+						Ok(()) => Ok(Value::undefined(cx)),
+						Err(e) => Err(e.into()),
 					}
-				}
-			});
-
-			let function = Function::from_closure_once(cx, "executor", closure, 2, PropertyFlags::empty());
+				}),
+				2,
+				PropertyFlags::empty(),
+			);
 			let executor = function.to_object(cx);
 			let promise = NewPromiseObject(cx.as_ptr(), executor.handle().into());
 

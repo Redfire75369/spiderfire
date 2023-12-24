@@ -10,10 +10,10 @@ use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
 	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferLengthAndData, IsArrayBufferObject,
-	IsDetachedArrayBufferObject, JS_GetTypedArraySharedness, JSObject, NewExternalArrayBuffer,
+	IsDetachedArrayBufferObject, JS_GetTypedArraySharedness, JSObject, NewArrayBufferWithContents,
+	NewExternalArrayBuffer, StealArrayBufferContents,
 };
 use mozjs::typedarray::CreateWith;
-use mozjs_sys::jsapi::JS::{NewArrayBufferWithContents, StealArrayBufferContents};
 
 use crate::{Context, Error, ErrorKind, Local, Object, Result};
 use crate::utils::BoxExt;

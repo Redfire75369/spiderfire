@@ -38,7 +38,7 @@ version = "0.2.11"
 optional = true
 
 [dependencies.hyper]
-version = "0.14.27"
+version = "0.14.28"
 features = ["client", "http1", "tcp"]
 optional = true
 
@@ -57,7 +57,7 @@ version = "0.3.17"
 optional = true
 
 [dependencies.swc_core]
-version = "0.86.101"
+version = "0.87.6"
 features = [
 	"common",
 	"common_sourcemap",

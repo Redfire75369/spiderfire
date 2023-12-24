@@ -6,12 +6,11 @@
 
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::SameValue;
+use mozjs::jsapi::{JS_ValueToSource, SameValue};
 use mozjs::jsval::{
 	BigIntValue, BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, SymbolValue, UInt32Value,
 	UndefinedValue,
 };
-use mozjs_sys::jsapi::JS_ValueToSource;
 
 use crate::{Array, Context, Local, Object, Symbol};
 use crate::bigint::BigInt;
