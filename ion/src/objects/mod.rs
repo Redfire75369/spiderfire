@@ -38,15 +38,16 @@ pub const fn class_reserved_slots(slots: u32) -> u32 {
 	(slots & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
 }
 
-pub fn new_global<'cx, P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmOptions>>>(
-	cx: &'cx Context, class: &JSClass, principals: P, hook_option: OnNewGlobalHookOption, realm_options: R,
+pub fn new_global<'cx>(
+	cx: &'cx Context, class: &JSClass, principals: Option<*mut JSPrincipals>, hook_option: OnNewGlobalHookOption,
+	realm_options: Option<RealmOptions>,
 ) -> Object<'cx> {
-	let realm_options = realm_options.into().unwrap_or_default();
+	let realm_options = realm_options.unwrap_or_default();
 	let global = unsafe {
 		JS_NewGlobalObject(
 			cx.as_ptr(),
 			class,
-			principals.into().unwrap_or_else(ptr::null_mut),
+			principals.unwrap_or_else(ptr::null_mut),
 			hook_option,
 			&*realm_options,
 		)
@@ -55,11 +56,15 @@ pub fn new_global<'cx, P: Into<Option<*mut JSPrincipals>>, R: Into<Option<RealmO
 }
 
 pub fn default_new_global(cx: &Context) -> Object {
+	let mut options = RealmOptions::default();
+	options.creationOptions_.sharedMemoryAndAtomics_ = true;
+	options.creationOptions_.defineSharedArrayBufferConstructor_ = true;
+
 	new_global(
 		cx,
 		&SIMPLE_GLOBAL_CLASS,
 		None,
 		OnNewGlobalHookOption::FireOnNewGlobalHook,
-		None,
+		Some(options),
 	)
 }

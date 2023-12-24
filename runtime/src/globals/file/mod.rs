@@ -7,7 +7,7 @@
 use chrono::{DateTime, TimeZone, Utc};
 use mozjs::conversions::ConversionBehavior;
 
-pub use blob::{Blob, buffer_source_to_bytes};
+pub use blob::{Blob, BufferSource};
 use ion::{ClassDefinition, Context, Object};
 
 use crate::globals::file::blob::{BlobOptions, BlobPart};

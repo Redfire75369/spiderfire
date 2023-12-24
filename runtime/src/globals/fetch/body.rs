@@ -16,7 +16,7 @@ use mozjs::jsval::JSVal;
 use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
 
-use crate::globals::file::{Blob, buffer_source_to_bytes};
+use crate::globals::file::{Blob, BufferSource};
 use crate::globals::url::URLSearchParams;
 
 #[derive(Debug, Clone, Traceable)]
@@ -112,9 +112,9 @@ impl<'cx> FromValue<'cx> for FetchBody {
 				kind: Some(FetchBodyKind::String),
 			});
 		} else if value.handle().is_object() {
-			if let Ok(bytes) = buffer_source_to_bytes(&value.to_object(cx)) {
+			if let Ok(source) = BufferSource::from_value(cx, value, strict, false) {
 				return Ok(FetchBody {
-					body: FetchBodyInner::Bytes(bytes),
+					body: FetchBodyInner::Bytes(source.to_bytes()),
 					source: Some(Heap::boxed(value.get())),
 					kind: None,
 				});

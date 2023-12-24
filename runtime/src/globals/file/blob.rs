@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::marker::PhantomData;
 use std::str::FromStr;
 
 use bytes::Bytes;
@@ -19,14 +20,67 @@ use ion::format::NEWLINE;
 
 use crate::promise::future_to_promise;
 
-pub fn buffer_source_to_bytes(object: &Object) -> Result<Bytes> {
-	let obj = object.handle().get();
-	if let Ok(arr) = ArrayBuffer::from(obj) {
-		Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
-	} else if let Ok(arr) = ArrayBufferView::from(obj) {
-		Ok(Bytes::copy_from_slice(unsafe { arr.as_slice() }))
-	} else {
-		Err(Error::new("Object is not a buffer source.", ErrorKind::Type))
+enum BufferSourceInner {
+	Buffer(ArrayBuffer),
+	View(ArrayBufferView),
+}
+
+pub struct BufferSource<'cx> {
+	source: BufferSourceInner,
+	lifetime: PhantomData<&'cx Object<'cx>>,
+}
+
+impl BufferSource<'_> {
+	pub fn len(&self) -> usize {
+		unsafe { self.as_slice().len() }
+	}
+
+	pub fn is_shared(&self) -> bool {
+		match &self.source {
+			BufferSourceInner::Buffer(buffer) => buffer.is_shared(),
+			BufferSourceInner::View(view) => view.is_shared(),
+		}
+	}
+
+	pub unsafe fn as_slice(&self) -> &[u8] {
+		match &self.source {
+			BufferSourceInner::Buffer(buffer) => unsafe { buffer.as_slice() },
+			BufferSourceInner::View(view) => unsafe { view.as_slice() },
+		}
+	}
+
+	pub fn to_vec(&self) -> Vec<u8> {
+		unsafe { self.as_slice().to_vec() }
+	}
+
+	pub fn to_bytes(&self) -> Bytes {
+		Bytes::copy_from_slice(unsafe { self.as_slice() })
+	}
+}
+
+impl<'cx> FromValue<'cx> for BufferSource<'cx> {
+	type Config = bool;
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, allow_shared: bool) -> Result<BufferSource<'cx>> {
+		let obj = Object::from_value(cx, value, strict, ())?.handle().get();
+		if let Ok(buffer) = ArrayBuffer::from(obj) {
+			if buffer.is_shared() && !allow_shared {
+				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
+			}
+			Ok(BufferSource {
+				source: BufferSourceInner::Buffer(buffer),
+				lifetime: PhantomData,
+			})
+		} else if let Ok(view) = ArrayBufferView::from(obj) {
+			if view.is_shared() && !allow_shared {
+				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
+			}
+			Ok(BufferSource {
+				source: BufferSourceInner::View(view),
+				lifetime: PhantomData,
+			})
+		} else {
+			Err(Error::new("Object is not a buffer source.", ErrorKind::Type))
+		}
 	}
 }
 
@@ -39,8 +93,8 @@ impl<'cx> FromValue<'cx> for BlobPart {
 		if value.handle().is_string() {
 			return Ok(BlobPart(Bytes::from(String::from_value(cx, value, true, ())?)));
 		} else if value.handle().is_object() {
-			if let Ok(bytes) = buffer_source_to_bytes(&value.to_object(cx)) {
-				return Ok(BlobPart(bytes));
+			if let Ok(buffer_source) = BufferSource::from_value(cx, value, strict, false) {
+				return Ok(BlobPart(buffer_source.to_bytes()));
 			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
 				return Ok(BlobPart(blob.bytes.clone()));
 			}

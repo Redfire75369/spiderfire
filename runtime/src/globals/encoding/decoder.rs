@@ -5,10 +5,10 @@
  */
 
 use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
-use mozjs::typedarray::ArrayBufferView;
 
 use ion::{Error, ErrorKind, Result};
 use ion::class::Reflector;
+use crate::globals::file::BufferSource;
 
 #[derive(Default, FromValue)]
 pub struct TextDecoderOptions {
@@ -70,11 +70,20 @@ impl TextDecoder {
 		})
 	}
 
-	pub fn decode(&mut self, buffer: ArrayBufferView, options: Option<TextDecodeOptions>) -> Result<String> {
+	pub fn decode(
+		&mut self, #[ion(convert = true)] buffer: BufferSource, options: Option<TextDecodeOptions>,
+	) -> Result<String> {
 		let mut string = String::with_capacity(self.decoder.max_utf8_buffer_length(buffer.len()).unwrap());
 		let stream = options.unwrap_or_default().stream;
 		if self.fatal {
-			let buffer = unsafe { buffer.as_slice() };
+			let vec_buffer;
+			let buffer = if buffer.is_shared() {
+				vec_buffer = buffer.to_vec();
+				&vec_buffer
+			} else {
+				unsafe { buffer.as_slice() }
+			};
+
 			let (result, _) = self.decoder.decode_to_string_without_replacement(buffer, &mut string, !stream);
 			if let DecoderResult::Malformed(_, _) = result {
 				return Err(Error::new("TextDecoder.decode: Decoding Failed", ErrorKind::Type));

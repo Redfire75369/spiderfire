@@ -74,7 +74,7 @@ pub(crate) unsafe extern "C" fn call_closure_once(cx: *mut JSContext, argc: u32,
 		__handle_native_function_result(cx, result)
 	} else {
 		Error::new("ClosureOnce was called more than once.", ErrorKind::Type).throw(cx);
-		return false;
+		false
 	}
 }
 
