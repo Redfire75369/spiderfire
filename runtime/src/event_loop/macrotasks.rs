@@ -136,9 +136,9 @@ impl Macrotask {
 }
 
 impl MacrotaskQueue {
-	pub fn run_jobs(&mut self, cx: &Context) -> Result<(), Option<ErrorReport>> {
+	pub fn run_job(&mut self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		self.find_next();
-		while let Some(next) = self.next {
+		if let Some(next) = self.next {
 			let macrotask = { self.map.remove_entry(&next) };
 			if let Some((id, macrotask)) = macrotask {
 				let macrotask = macrotask.run(cx)?;
@@ -149,7 +149,6 @@ impl MacrotaskQueue {
 					}
 				}
 			}
-			self.find_next();
 		}
 
 		Ok(())

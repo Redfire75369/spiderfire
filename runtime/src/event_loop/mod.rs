@@ -55,7 +55,7 @@ impl EventLoop {
 
 		if let Some(macrotasks) = &mut self.macrotasks {
 			if !macrotasks.is_empty() {
-				macrotasks.run_jobs(cx)?;
+				macrotasks.run_job(cx)?;
 			}
 		}
 

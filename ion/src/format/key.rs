@@ -33,7 +33,7 @@ impl Display for KeyDisplay<'_> {
 				let mut buffer = Buffer::new();
 				write!(f, "{}", buffer.format(*i).color(colours.number))
 			}
-			OwnedKey::String(str) => write!(f, "{1}{}{1}", r#"""#.color(colours.string), str.color(colours.string)),
+			OwnedKey::String(str) => write!(f, "{0}{1}{0}", r#"""#.color(colours.string), str.color(colours.string)),
 			OwnedKey::Symbol(sym) => {
 				write!(f, "{}", "[".color(colours.symbol))?;
 				write!(f, "{}", format_symbol(self.cx, self.cfg, sym))?;

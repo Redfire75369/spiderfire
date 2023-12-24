@@ -52,7 +52,7 @@ impl Display for PrimitiveDisplay<'_> {
 		} else if value.is_string() {
 			let str = crate::String::from_value(self.cx, self.value, true, ()).unwrap().to_owned(self.cx);
 			if self.cfg.quoted {
-				write!(f, "{1}{}{1}", r#"""#.color(colours.string), str.color(colours.string))
+				write!(f, "{0}{1}{0}", r#"""#.color(colours.string), str.color(colours.string))
 			} else {
 				f.write_str(&str)
 			}
