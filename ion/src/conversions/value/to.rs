@@ -15,11 +15,14 @@ use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue,
 	UInt32Value, UndefinedValue,
 };
+use mozjs::typedarray as jsta;
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
 
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
 use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteStr, ByteString};
+use crate::typedarray::buffer::ArrayBuffer;
+use crate::typedarray::view::{TypedArray, TypedArrayElement};
 
 /// Represents types that can be converted to JavaScript [Values](Value).
 pub trait ToValue<'cx> {
@@ -181,6 +184,24 @@ impl<'cx> ToValue<'cx> for Promise<'cx> {
 impl<'cx> ToValue<'cx> for RegExp<'cx> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		self.handle().to_value(cx, value);
+	}
+}
+
+impl<T: jsta::TypedArrayElement, S: jsta::JSObjectStorage> ToValue<'_> for jsta::TypedArray<T, S> {
+	fn to_value(&self, cx: &Context, value: &mut Value) {
+		unsafe { self.underlying_object().as_raw().to_value(cx, value) }
+	}
+}
+
+impl<'cx> ToValue<'cx> for ArrayBuffer<'cx> {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		self.handle().to_value(cx, value)
+	}
+}
+
+impl<'cx, T: TypedArrayElement> ToValue<'cx> for TypedArray<'cx, T> {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		self.handle().to_value(cx, value)
 	}
 }
 

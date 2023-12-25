@@ -68,7 +68,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		}
 	}
 
-	pub fn from(object: Local<'ab, *mut JSObject>) -> Option<ArrayBuffer<'ab>> {
+	pub fn from(object: Local<*mut JSObject>) -> Option<ArrayBuffer> {
 		if ArrayBuffer::is_array_buffer(object.get()) {
 			Some(ArrayBuffer { buffer: object })
 		} else {
@@ -76,7 +76,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		}
 	}
 
-	pub unsafe fn from_unchecked(object: Local<'ab, *mut JSObject>) -> ArrayBuffer<'ab> {
+	pub unsafe fn from_unchecked(object: Local<*mut JSObject>) -> ArrayBuffer {
 		ArrayBuffer { buffer: object }
 	}
 

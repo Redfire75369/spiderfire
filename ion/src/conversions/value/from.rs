@@ -13,13 +13,16 @@ use mozjs::jsapi::{
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
-use mozjs::typedarray::{JSObjectStorage, TypedArray, TypedArrayElement};
+use mozjs::typedarray as jsta;
+use mozjs::typedarray::JSObjectStorage;
 
 use crate::{
 	Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value,
 };
 use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
+use crate::typedarray::buffer::ArrayBuffer;
+use crate::typedarray::view::{TypedArray, TypedArrayElement};
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {
@@ -278,6 +281,61 @@ impl<'cx> FromValue<'cx> for RegExp<'cx> {
 	}
 }
 
+impl<'cx, T: jsta::TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for jsta::TypedArray<T, S> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<jsta::TypedArray<T, S>> {
+		let value = value.handle();
+		if value.is_object() {
+			let object = value.to_object();
+			cx.root_object(object);
+			jsta::TypedArray::from(object).map_err(|_| Error::new("Expected Typed Array", ErrorKind::Type))
+		} else {
+			Err(Error::new("Expected Object", ErrorKind::Type))
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for ArrayBuffer<'cx> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<ArrayBuffer<'cx>> {
+		if !value.handle().is_object() {
+			return Err(Error::new("Expected ArrayBuffer", ErrorKind::Type));
+		}
+
+		let object = value.to_object(cx).into_local();
+		if let Some(buffer) = ArrayBuffer::from(object) {
+			unsafe {
+				AssertSameCompartment(cx.as_ptr(), buffer.get());
+			}
+			Ok(buffer)
+		} else {
+			Err(Error::new("Expected ArrayBuffer", ErrorKind::Type))
+		}
+	}
+}
+
+impl<'cx, T: TypedArrayElement> FromValue<'cx> for TypedArray<'cx, T> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<TypedArray<'cx, T>> {
+		if !value.handle().is_object() {
+			return Err(Error::new("Expected ArrayBuffer", ErrorKind::Type));
+		}
+
+		let object = value.to_object(cx).into_local();
+		if let Some(array) = TypedArray::from(object) {
+			unsafe {
+				AssertSameCompartment(cx.as_ptr(), array.get());
+			}
+			Ok(array)
+		} else {
+			Err(Error::new("Expected ArrayBuffer", ErrorKind::Type))
+		}
+	}
+}
+
 impl<'cx> FromValue<'cx> for *mut JSFunction {
 	type Config = ();
 
@@ -429,20 +487,5 @@ where
 			ret.push(T::from_value(cx, &value, strict, config.clone())?);
 		}
 		Ok(ret)
-	}
-}
-
-impl<'cx, T: TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for TypedArray<T, S> {
-	type Config = ();
-
-	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<TypedArray<T, S>> {
-		let value = value.handle();
-		if value.is_object() {
-			let object = value.to_object();
-			cx.root_object(object);
-			TypedArray::from(object).map_err(|_| Error::new("Expected Typed Array", ErrorKind::Type))
-		} else {
-			Err(Error::new("Expected Object", ErrorKind::Type))
-		}
 	}
 }

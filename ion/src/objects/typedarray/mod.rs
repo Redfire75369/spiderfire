@@ -13,6 +13,7 @@ use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 
 pub mod buffer;
+pub mod view;
 
 macro_rules! impl_typedarray_wrapper {
 	($typedarray:ident, $ty:ty) => {
