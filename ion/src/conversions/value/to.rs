@@ -21,8 +21,7 @@ use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, mayb
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
 use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteStr, ByteString};
-use crate::typedarray::buffer::ArrayBuffer;
-use crate::typedarray::view::{TypedArray, TypedArrayElement};
+use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 /// Represents types that can be converted to JavaScript [Values](Value).
 pub trait ToValue<'cx> {

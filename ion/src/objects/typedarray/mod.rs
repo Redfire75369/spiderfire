@@ -6,74 +6,96 @@
 
 use std::ops::Deref;
 
-use mozjs::typedarray::CreateWith;
+use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
+use mozjs::typedarray as jsta;
 
-use crate::{Context, Error, Object, Result, Value};
-use crate::conversions::ToValue;
-use crate::exception::ThrowException;
+use crate::{Context, Value};
+use crate::conversions::{IntoValue, ToValue};
 
-pub mod buffer;
-pub mod view;
+pub use buffer::*;
+pub use view::*;
+
+mod buffer;
+mod view;
+
+pub struct ArrayBufferWrapper {
+	buf: Box<[<ArrayBufferU8 as jsta::TypedArrayElement>::Element]>,
+}
+
+impl ArrayBufferWrapper {
+	pub fn into_array_buffer(self, cx: &Context) -> Option<ArrayBuffer> {
+		ArrayBuffer::from_boxed_slice(cx, self.buf)
+	}
+}
+
+impl<B: Into<Box<[<ArrayBufferU8 as jsta::TypedArrayElement>::Element]>>> From<B> for ArrayBufferWrapper {
+	fn from(buffer: B) -> ArrayBufferWrapper {
+		ArrayBufferWrapper { buf: buffer.into() }
+	}
+}
+
+impl Deref for ArrayBufferWrapper {
+	type Target = Box<[<ArrayBufferU8 as jsta::TypedArrayElement>::Element]>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.buf
+	}
+}
+
+impl<'cx> IntoValue<'cx> for ArrayBufferWrapper {
+	fn into_value(self: Box<Self>, cx: &'cx Context, value: &mut Value) {
+		if let Some(buffer) = self.into_array_buffer(cx) {
+			buffer.to_value(cx, value);
+		}
+	}
+}
 
 macro_rules! impl_typedarray_wrapper {
-	($typedarray:ident, $ty:ty) => {
-		pub struct $typedarray {
-			buf: Box<[$ty]>,
-		}
+	($(($typedarray:ident, $element:ty)$(,)?)*) => {
+		$(
+			pub struct $typedarray {
+				buf: Box<[<$element as jsta::TypedArrayElement>::Element]>,
+			}
 
-		impl $typedarray {
-			pub fn to_object<'cx>(&self, cx: &'cx Context) -> Result<Object<'cx>> {
-				let mut typed_array = Object::new(cx);
-				if unsafe {
-					mozjs::typedarray::$typedarray::create(
-						cx.as_ptr(),
-						CreateWith::Slice(&self.buf),
-						typed_array.handle_mut(),
-					)
-					.is_ok()
-				} {
-					Ok(typed_array)
-				} else {
-					Err(Error::new(
-						concat!("Failed to create", stringify!($typedarray)),
-						None,
-					))
+			impl $typedarray {
+				pub fn into_typed_array(self, cx: &Context) -> Option<TypedArray<$element>> {
+					TypedArray::from_boxed_slice(cx, self.buf)
 				}
 			}
-		}
 
-		impl<B: Into<Box<[$ty]>>> From<B> for $typedarray {
-			fn from(buffer: B) -> $typedarray {
-				$typedarray { buf: buffer.into() }
-			}
-		}
-
-		impl Deref for $typedarray {
-			type Target = Box<[$ty]>;
-
-			fn deref(&self) -> &Self::Target {
-				&self.buf
-			}
-		}
-
-		impl<'cx> ToValue<'cx> for $typedarray {
-			fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-				match self.to_object(cx) {
-					Ok(typed_array) => typed_array.to_value(cx, value),
-					Err(error) => error.throw(cx),
+			impl<B: Into<Box<[<$element as jsta::TypedArrayElement>::Element]>>> From<B> for $typedarray {
+				fn from(buffer: B) -> $typedarray {
+					$typedarray { buf: buffer.into() }
 				}
 			}
-		}
+
+			impl Deref for $typedarray {
+				type Target = Box<[<$element as jsta::TypedArrayElement>::Element]>;
+
+				fn deref(&self) -> &Self::Target {
+					&self.buf
+				}
+			}
+
+			impl<'cx> IntoValue<'cx> for $typedarray {
+				fn into_value(self: Box<Self>, cx: &'cx Context, value: &mut Value) {
+					if let Some(array) =  self.into_typed_array(cx) {
+						array.to_value(cx, value);
+					}
+				}
+			}
+		)*
 	};
 }
 
-impl_typedarray_wrapper!(Uint8Array, u8);
-impl_typedarray_wrapper!(Uint16Array, u16);
-impl_typedarray_wrapper!(Uint32Array, u32);
-impl_typedarray_wrapper!(Int8Array, i8);
-impl_typedarray_wrapper!(Int16Array, i16);
-impl_typedarray_wrapper!(Int32Array, i32);
-impl_typedarray_wrapper!(Float32Array, f32);
-impl_typedarray_wrapper!(Float64Array, f64);
-impl_typedarray_wrapper!(Uint8ClampedArray, u8);
-impl_typedarray_wrapper!(ArrayBuffer, u8);
+impl_typedarray_wrapper!(
+	(Uint8ArrayWrapper, Uint8),
+	(Uint16ArrayWrapper, Uint16),
+	(Uint32ArrayWrapper, Uint32),
+	(Int8ArrayWrapper, Int8),
+	(Int16ArrayWrapper, Int16),
+	(Int32ArrayWrapper, Int32),
+	(Float32ArrayWrapper, Float32),
+	(Float64ArrayWrapper, Float64),
+	(ClampedUint8ArrayWrapper, ClampedU8),
+);

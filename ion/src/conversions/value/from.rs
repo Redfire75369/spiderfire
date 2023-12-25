@@ -21,8 +21,7 @@ use crate::{
 };
 use crate::objects::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
-use crate::typedarray::buffer::ArrayBuffer;
-use crate::typedarray::view::{TypedArray, TypedArrayElement};
+use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {

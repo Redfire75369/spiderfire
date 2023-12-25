@@ -16,7 +16,7 @@ use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
-use ion::typedarray::ArrayBuffer;
+use ion::typedarray::ArrayBufferWrapper;
 pub use options::*;
 
 use crate::globals::fetch::body::FetchBody;
@@ -236,7 +236,7 @@ impl Response {
 			let response = Response::get_mut_private(&mut response);
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
-			Ok(ArrayBuffer::from(bytes))
+			Ok(ArrayBufferWrapper::from(bytes))
 		})
 	}
 

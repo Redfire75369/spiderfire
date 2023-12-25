@@ -4,30 +4,24 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::marker::PhantomData;
 use std::str::FromStr;
 
 use bytes::Bytes;
 use encoding_rs::UTF_8;
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::JSObject;
-use mozjs::typedarray::{ArrayBuffer, ArrayBufferView};
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::FromValue;
 use ion::format::NEWLINE;
+use ion::typedarray::{ArrayBuffer, ArrayBufferView, ArrayBufferWrapper};
 
 use crate::promise::future_to_promise;
 
-enum BufferSourceInner {
-	Buffer(ArrayBuffer),
-	View(ArrayBufferView),
-}
-
-pub struct BufferSource<'cx> {
-	source: BufferSourceInner,
-	lifetime: PhantomData<&'cx Object<'cx>>,
+pub enum BufferSource<'cx> {
+	Buffer(ArrayBuffer<'cx>),
+	View(ArrayBufferView<'cx>),
 }
 
 impl BufferSource<'_> {
@@ -35,17 +29,17 @@ impl BufferSource<'_> {
 		unsafe { self.as_slice().len() }
 	}
 
-	pub fn is_shared(&self) -> bool {
-		match &self.source {
-			BufferSourceInner::Buffer(buffer) => buffer.is_shared(),
-			BufferSourceInner::View(view) => view.is_shared(),
+	pub fn is_shared(&self, cx: &Context) -> bool {
+		match self {
+			BufferSource::Buffer(buffer) => buffer.is_shared(),
+			BufferSource::View(view) => view.is_shared(cx),
 		}
 	}
 
 	pub unsafe fn as_slice(&self) -> &[u8] {
-		match &self.source {
-			BufferSourceInner::Buffer(buffer) => unsafe { buffer.as_slice() },
-			BufferSourceInner::View(view) => unsafe { view.as_slice() },
+		match self {
+			BufferSource::Buffer(buffer) => unsafe { buffer.as_slice() },
+			BufferSource::View(view) => unsafe { view.as_slice() },
 		}
 	}
 
@@ -61,23 +55,17 @@ impl BufferSource<'_> {
 impl<'cx> FromValue<'cx> for BufferSource<'cx> {
 	type Config = bool;
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, allow_shared: bool) -> Result<BufferSource<'cx>> {
-		let obj = Object::from_value(cx, value, strict, ())?.handle().get();
-		if let Ok(buffer) = ArrayBuffer::from(obj) {
+		let obj = Object::from_value(cx, value, strict, ())?;
+		if let Some(buffer) = ArrayBuffer::from(cx.root_object(obj.handle().get())) {
 			if buffer.is_shared() && !allow_shared {
 				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
 			}
-			Ok(BufferSource {
-				source: BufferSourceInner::Buffer(buffer),
-				lifetime: PhantomData,
-			})
-		} else if let Ok(view) = ArrayBufferView::from(obj) {
-			if view.is_shared() && !allow_shared {
+			Ok(BufferSource::Buffer(buffer))
+		} else if let Some(view) = ArrayBufferView::from(obj.into_local()) {
+			if view.is_shared(cx) && !allow_shared {
 				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
 			}
-			Ok(BufferSource {
-				source: BufferSourceInner::View(view),
-				lifetime: PhantomData,
-			})
+			Ok(BufferSource::View(view))
 		} else {
 			Err(Error::new("Object is not a buffer source.", ErrorKind::Type))
 		}
@@ -261,8 +249,6 @@ impl Blob {
 	#[ion(name = "arrayBuffer")]
 	pub fn array_buffer<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let bytes = self.bytes.clone();
-		future_to_promise(cx, async move {
-			Ok::<_, ()>(ion::typedarray::ArrayBuffer::from(bytes.to_vec()))
-		})
+		future_to_promise(cx, async move { Ok::<_, ()>(ArrayBufferWrapper::from(bytes.to_vec())) })
 	}
 }

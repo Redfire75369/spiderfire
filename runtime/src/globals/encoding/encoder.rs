@@ -9,7 +9,7 @@ use encoding_rs::{Encoder, UTF_8};
 use ion::{Context, Object, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
-use ion::typedarray::Uint8Array;
+use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
 
 pub struct EncodeResult {
 	read: u64,
@@ -42,16 +42,16 @@ impl TextEncoder {
 		}
 	}
 
-	pub fn encode(&mut self, input: Option<String>) -> Uint8Array {
+	pub fn encode(&mut self, input: Option<String>) -> Uint8ArrayWrapper {
 		let input = input.unwrap_or_default();
 		let buf_len = self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap();
 		let mut buf = Vec::with_capacity(buf_len);
 		let (_, _, _) = self.encoder.encode_from_utf8_to_vec(&input, &mut buf, true);
-		Uint8Array::from(buf)
+		Uint8ArrayWrapper::from(buf)
 	}
 
 	#[ion(name = "encodeInto")]
-	pub fn encode_into(&mut self, input: String, destination: mozjs::typedarray::Uint8Array) -> EncodeResult {
+	pub fn encode_into(&mut self, input: String, destination: Uint8Array) -> EncodeResult {
 		let mut destination = destination;
 		let (_, read, written, _) = self.encoder.encode_from_utf8(&input, unsafe { destination.as_mut_slice() }, true);
 		EncodeResult {

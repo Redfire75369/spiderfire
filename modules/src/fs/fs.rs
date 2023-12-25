@@ -14,7 +14,7 @@ use tokio_stream::wrappers::ReadDirStream;
 
 use ion::{Context, Error, Object, Promise, Result};
 use ion::flags::PropertyFlags;
-use ion::typedarray::Uint8Array;
+use ion::typedarray::Uint8ArrayWrapper;
 use runtime::modules::NativeModule;
 use runtime::promise::future_to_promise;
 
@@ -89,7 +89,7 @@ fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
 
 		check_is_file(path)?;
 		if let Ok(bytes) = tokio::fs::read(&path).await {
-			Ok(Uint8Array::from(bytes))
+			Ok(Uint8ArrayWrapper::from(bytes))
 		} else {
 			Err(Error::new(&format!("Could not read file: {}", path_str), None))
 		}
@@ -97,12 +97,12 @@ fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn readBinarySync(path_str: String) -> Result<Uint8Array> {
+fn readBinarySync(path_str: String) -> Result<Uint8ArrayWrapper> {
 	let path = Path::new(&path_str);
 
 	check_is_file(path)?;
 	if let Ok(bytes) = fs::read(path) {
-		Ok(Uint8Array::from(bytes))
+		Ok(Uint8ArrayWrapper::from(bytes))
 	} else {
 		Err(Error::new(&format!("Could not read file: {}", path_str), None))
 	}

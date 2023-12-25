@@ -25,7 +25,7 @@ use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
 use crate::format::typedarray::format_array_buffer;
-use crate::typedarray::buffer::ArrayBuffer;
+use crate::typedarray::ArrayBuffer;
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].

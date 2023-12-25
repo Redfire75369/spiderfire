@@ -17,6 +17,7 @@ use mozjs::jsapi::{
 	JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer,
 	JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, NewExternalArrayBuffer, Type, IsLargeArrayBufferView,
 };
+use mozjs::typedarray as jsta;
 use mozjs::typedarray::{
 	ArrayBufferViewU8, ClampedU8, CreateWith, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8,
 };
@@ -25,19 +26,28 @@ use crate::{Context, Local, Object};
 use crate::typedarray::buffer::ArrayBuffer;
 use crate::utils::BoxExt;
 
-pub trait TypedArrayElement: mozjs::typedarray::TypedArrayElement {}
+pub trait TypedArrayElement: jsta::TypedArrayElement {}
 
-pub trait TypedArrayElementCreator: mozjs::typedarray::TypedArrayElementCreator + TypedArrayElement {
+pub trait TypedArrayElementCreator: jsta::TypedArrayElementCreator + TypedArrayElement {
 	unsafe fn create_with_buffer(cx: *mut JSContext, object: HandleObject, offset: usize, length: i64)
 		-> *mut JSObject;
 }
 
 macro_rules! typed_array_elements {
-	($(($t:ty, $create_with_buffer:ident)$(,)?)*) => {
+	($(($view:ident, $element:ty)$(,)?)*) => {
 		$(
-			impl TypedArrayElement for $t {}
+			pub type $view<'bv> = TypedArray<'bv, $element>;
 
-			impl TypedArrayElementCreator for $t {
+			impl TypedArrayElement for $element {}
+		)*
+	};
+	($(($view:ident, $element:ty, $create_with_buffer:ident)$(,)?)*) => {
+		$(
+			pub type $view<'bv> = TypedArray<'bv, $element>;
+
+			impl TypedArrayElement for $element {}
+
+			impl TypedArrayElementCreator for $element {
 				unsafe fn create_with_buffer(
 					cx: *mut JSContext, object: HandleObject, offset: usize, length: i64,
 				) -> *mut JSObject {
@@ -48,24 +58,23 @@ macro_rules! typed_array_elements {
 			}
 		)*
 	};
-	($($t:ty$(,)?)*) => {
-		$(
-			impl TypedArrayElement for $t {}
-		)*
-	};
+
 }
 
-typed_array_elements!(ArrayBufferViewU8);
 typed_array_elements! {
-	(Uint8, JS_NewUint8ArrayWithBuffer),
-	(Uint16, JS_NewUint16ArrayWithBuffer),
-	(Uint32, JS_NewUint32ArrayWithBuffer),
-	(Int8, JS_NewInt8ArrayWithBuffer),
-	(Int16, JS_NewInt16ArrayWithBuffer),
-	(Int32, JS_NewInt32ArrayWithBuffer),
-	(Float32, JS_NewFloat32ArrayWithBuffer),
-	(Float64, JS_NewFloat64ArrayWithBuffer),
-	(ClampedU8, JS_NewUint8ClampedArrayWithBuffer),
+	(ArrayBufferView, ArrayBufferViewU8),
+}
+
+typed_array_elements! {
+	(Uint8Array, Uint8, JS_NewUint8ArrayWithBuffer),
+	(Uint16Array, Uint16, JS_NewUint16ArrayWithBuffer),
+	(Uint32Array, Uint32, JS_NewUint32ArrayWithBuffer),
+	(Int8Array, Int8, JS_NewInt8ArrayWithBuffer),
+	(Int16Array, Int16, JS_NewInt16ArrayWithBuffer),
+	(Int32Array, Int32, JS_NewInt32ArrayWithBuffer),
+	(Float32Array, Float32, JS_NewFloat32ArrayWithBuffer),
+	(Float64Array, Float64, JS_NewFloat64ArrayWithBuffer),
+	(ClampedUint8Array, ClampedU8, JS_NewUint8ClampedArrayWithBuffer),
 }
 
 pub struct TypedArray<'bv, T: TypedArrayElement> {
@@ -76,9 +85,7 @@ pub struct TypedArray<'bv, T: TypedArrayElement> {
 impl<'bv, T: TypedArrayElementCreator> TypedArray<'bv, T> {
 	pub fn create_with(cx: &'bv Context, with: CreateWith<T::Element>) -> Option<TypedArray<'bv, T>> {
 		let mut view = Object::null(cx);
-		unsafe {
-			mozjs::typedarray::TypedArray::<T, *mut JSObject>::create(cx.as_ptr(), with, view.handle_mut()).ok()?
-		};
+		unsafe { jsta::TypedArray::<T, *mut JSObject>::create(cx.as_ptr(), with, view.handle_mut()).ok()? };
 		Some(TypedArray {
 			view: view.into_local(),
 			_phantom: PhantomData,

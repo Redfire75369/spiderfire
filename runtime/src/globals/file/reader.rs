@@ -19,7 +19,7 @@ use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::ToValue;
 use ion::string::byte::{ByteString, Latin1};
-use ion::typedarray::ArrayBuffer;
+use ion::typedarray::ArrayBufferWrapper;
 
 use crate::globals::file::Blob;
 use crate::promise::future_to_promise;
@@ -103,7 +103,7 @@ impl FileReader {
 		future_to_promise(cx, async move {
 			let reader = Object::from(unsafe { Local::from_raw_handle(this) });
 			let reader = FileReader::get_private(&reader);
-			let array_buffer = ArrayBuffer::from(bytes.to_vec());
+			let array_buffer = ArrayBufferWrapper::from(bytes.to_vec());
 			reader.result.set(array_buffer.as_value(&cx2).get());
 			cx2.unroot_persistent_object(this.get());
 			Ok::<_, ()>(())
@@ -206,8 +206,8 @@ impl FileReaderSync {
 	}
 
 	#[ion(name = "readAsArrayBuffer")]
-	pub fn read_as_array_buffer(&mut self, blob: &Blob) -> ArrayBuffer {
-		ArrayBuffer::from(blob.as_bytes().to_vec())
+	pub fn read_as_array_buffer(&mut self, blob: &Blob) -> ArrayBufferWrapper {
+		ArrayBufferWrapper::from(blob.as_bytes().to_vec())
 	}
 
 	#[ion(name = "readAsBinaryString")]

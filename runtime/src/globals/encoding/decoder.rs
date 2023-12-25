@@ -6,7 +6,7 @@
 
 use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 
-use ion::{Error, ErrorKind, Result};
+use ion::{Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
 use crate::globals::file::BufferSource;
 
@@ -71,13 +71,13 @@ impl TextDecoder {
 	}
 
 	pub fn decode(
-		&mut self, #[ion(convert = true)] buffer: BufferSource, options: Option<TextDecodeOptions>,
+		&mut self, cx: &Context, #[ion(convert = true)] buffer: BufferSource, options: Option<TextDecodeOptions>,
 	) -> Result<String> {
 		let mut string = String::with_capacity(self.decoder.max_utf8_buffer_length(buffer.len()).unwrap());
 		let stream = options.unwrap_or_default().stream;
 		if self.fatal {
 			let vec_buffer;
-			let buffer = if buffer.is_shared() {
+			let buffer = if buffer.is_shared(cx) {
 				vec_buffer = buffer.to_vec();
 				&vec_buffer
 			} else {
