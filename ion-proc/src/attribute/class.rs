@@ -4,8 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::Span;
-use syn::{Error, ExprPath, LitStr, Result};
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, Span, TokenStream};
+use syn::{Error, Expr, ExprLit, ExprPath, Lit, LitStr, Result};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Bracket;
@@ -42,6 +43,31 @@ impl Name {
 		match self {
 			Name::String(literal) => literal.value(),
 			Name::Symbol(path) => path.path.segments.last().map(|segment| format!("[{}]", segment.ident)).unwrap(),
+		}
+	}
+
+	pub(crate) fn to_property_spec(&self, ion: &TokenStream, function: &mut Ident) -> (Box<Expr>, Box<Expr>) {
+		match self {
+			Name::String(literal) => {
+				let mut name = literal.value();
+				if name.is_case(Case::ScreamingSnake) {
+					name = name.to_case(Case::Camel)
+				}
+				(
+					Box::new(Expr::Lit(ExprLit {
+						attrs: Vec::new(),
+						lit: Lit::Str(LitStr::new(&name, literal.span())),
+					})),
+					parse_quote!(#ion::flags::PropertyFlags::CONSTANT_ENUMERATED),
+				)
+			}
+			Name::Symbol(symbol) => {
+				*function = format_ident!("{}_symbol", function);
+				(
+					Box::new(Expr::Path(symbol.clone())),
+					parse_quote!(#ion::flags::PropertyFlags::CONSTANT),
+				)
+			}
 		}
 	}
 }

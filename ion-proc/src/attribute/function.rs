@@ -20,7 +20,7 @@ mod keywords {
 struct ConvertArgument {
 	_kw: keywords::convert,
 	_eq: Token![=],
-	pub(crate) conversion: Box<Expr>,
+	conversion: Box<Expr>,
 }
 
 impl Parse for ConvertArgument {
@@ -75,7 +75,7 @@ pub(crate) struct ParameterAttribute {
 impl Parse for ParameterAttribute {
 	fn parse(input: ParseStream) -> Result<ParameterAttribute> {
 		use ParameterAttributeArgument as PAA;
-		let mut attributes = ParameterAttribute {
+		let mut attribute = ParameterAttribute {
 			this: false,
 			varargs: false,
 			convert: None,
@@ -87,29 +87,29 @@ impl Parse for ParameterAttribute {
 		for arg in args {
 			match arg {
 				PAA::This(_) => {
-					if attributes.this {
+					if attribute.this {
 						return Err(Error::new(span, "Parameter cannot have multiple `this` attributes."));
 					}
-					attributes.this = true
+					attribute.this = true
 				}
 				PAA::VarArgs(_) => {
-					if attributes.varargs {
+					if attribute.varargs {
 						return Err(Error::new(span, "Parameter cannot have multiple `varargs` attributes."));
 					}
-					attributes.varargs = true
+					attribute.varargs = true
 				}
 				PAA::Convert(ConvertArgument { conversion, .. }) => {
-					if attributes.convert.is_some() {
+					if attribute.convert.is_some() {
 						return Err(Error::new(span, "Parameter cannot have multiple `convert` attributes."));
 					}
-					attributes.convert = Some(conversion)
+					attribute.convert = Some(conversion)
 				}
-				PAA::Strict(_) => attributes.strict = true,
+				PAA::Strict(_) => attribute.strict = true,
 			}
 		}
 
-		if attributes.this {
-			if attributes.varargs || attributes.convert.is_some() || attributes.strict {
+		if attribute.this {
+			if attribute.varargs || attribute.convert.is_some() || attribute.strict {
 				return Err(Error::new(
 					span,
 					"Parameter with `this` attribute cannot have `varargs`, `convert`, or `strict` attributes.",
@@ -117,7 +117,7 @@ impl Parse for ParameterAttribute {
 			}
 		}
 
-		Ok(attributes)
+		Ok(attribute)
 	}
 }
 

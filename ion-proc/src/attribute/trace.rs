@@ -38,22 +38,22 @@ pub struct TraceAttribute {
 impl Parse for TraceAttribute {
 	fn parse(input: ParseStream) -> Result<TraceAttribute> {
 		use TraceAttributeArgument as TAA;
-		let mut attributes = TraceAttribute { no_trace: false };
+		let mut attribute = TraceAttribute { no_trace: false };
 		let span = input.span();
 
 		let args = Punctuated::<TraceAttributeArgument, Token![,]>::parse_terminated(input)?;
 		for arg in args {
 			match arg {
 				TAA::NoTrace(_) => {
-					if attributes.no_trace {
+					if attribute.no_trace {
 						return Err(Error::new(span, "Field cannot have multiple `no_trace` attributes."));
 					}
-					attributes.no_trace = true;
+					attribute.no_trace = true;
 				}
 			}
 		}
 
-		Ok(attributes)
+		Ok(attribute)
 	}
 }
 

@@ -9,11 +9,9 @@ use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
-use quote::ToTokens;
-use syn::{Error, ItemFn, LitStr, Result, Type};
+use syn::{Error, ItemFn, Result, Type};
 use syn::spanned::Spanned;
 
-use crate::attribute::class::Name;
 use crate::class::method::{impl_method, Method};
 use crate::function::parameters::{Parameter, Parameters};
 
@@ -26,24 +24,8 @@ impl Accessor {
 			.iter()
 			.map(|name| {
 				let mut function_ident = format_ident!("property_spec");
-				let key;
-				let flags;
 
-				match name {
-					Name::String(literal) => {
-						let mut name = literal.value();
-						if name.is_case(Case::ScreamingSnake) {
-							name = name.to_case(Case::Camel)
-						}
-						key = LitStr::new(&name, literal.span()).into_token_stream();
-						flags = quote!(#ion::flags::PropertyFlags::CONSTANT_ENUMERATED);
-					}
-					Name::Symbol(symbol) => {
-						key = symbol.to_token_stream();
-						function_ident = format_ident!("{}_symbol", function_ident);
-						flags = quote!(#ion::flags::PropertyFlags::CONSTANT);
-					}
-				}
+				let (key, flags) = name.to_property_spec(ion, &mut function_ident);
 
 				match self {
 					Accessor(Some(getter), Some(setter)) => {
