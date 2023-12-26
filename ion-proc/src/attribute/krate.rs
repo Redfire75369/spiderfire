@@ -8,10 +8,9 @@ use proc_macro2::TokenStream;
 use syn::{Attribute, Result};
 use syn::parse::{Parse, ParseStream};
 
-#[allow(dead_code)]
 struct CrateAttribute {
-	kw: Token![crate],
-	eq: Token![=],
+	_kw: Token![crate],
+	_eq: Token![=],
 	krate: TokenStream,
 }
 
@@ -20,8 +19,8 @@ impl Parse for CrateAttribute {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(Token![crate]) {
 			Ok(CrateAttribute {
-				kw: input.parse()?,
-				eq: input.parse()?,
+				_kw: input.parse()?,
+				_eq: input.parse()?,
 				krate: input.parse()?,
 			})
 		} else {

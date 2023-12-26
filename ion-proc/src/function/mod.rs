@@ -25,7 +25,7 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 
 	function.attrs.clear();
 	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
-	function.block = Box::new(impl_fn_body(ion, &wrapper)?);
+	function.block = impl_fn_body(ion, &wrapper)?;
 
 	Ok(function)
 }
@@ -53,7 +53,7 @@ pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
 	Ok(())
 }
 
-pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Block> {
+pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Box<Block>> {
 	parse2(quote!({
 		let cx = &#ion::Context::new_unchecked(cx);
 		let args = &mut #ion::Arguments::new(cx, argc, vp);

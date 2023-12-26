@@ -48,7 +48,7 @@ where
 		method.attrs.clear();
 		method.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 		method.sig.ident = format_ident!("__ion_bindings_method_{}", method.sig.ident);
-		method.block = Box::new(impl_fn_body(ion, &wrapper)?);
+		method.block = impl_fn_body(ion, &wrapper)?;
 
 		let method = Method {
 			receiver: if parameters.this.is_some() {

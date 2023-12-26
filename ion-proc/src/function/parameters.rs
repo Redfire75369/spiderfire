@@ -5,44 +5,47 @@
  */
 
 use proc_macro2::{Span, TokenStream};
-use syn::{Error, Expr, FnArg, GenericArgument, Ident, Lifetime, parse2, Pat, PathArguments, PatType, Result, Stmt, Type};
+use quote::ToTokens;
+use syn::{
+	Error, Expr, FnArg, GenericArgument, Ident, parse2, Pat, PathArguments, PatIdent, PatType, Receiver, Result, Stmt,
+	Type,
+};
+use syn::ext::IdentExt;
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
+use crate::attribute::AttributeExt;
 use crate::attribute::function::ParameterAttribute;
 use crate::utils::{format_pat, pat_is_ident, path_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
 pub(crate) enum Parameter {
 	Regular {
-		pat: Box<Pat>,
-		ty: Box<Type>,
-		conversion: Box<Expr>,
+		pat_ty: PatType,
+		convert: Box<Expr>,
 		strict: bool,
 		option: Option<Box<Type>>,
 	},
 	VarArgs {
-		pat: Box<Pat>,
-		ty: Box<Type>,
-		conversion: Box<Expr>,
+		pat_ty: PatType,
+		convert: Box<Expr>,
 		strict: bool,
 	},
-	Context(Box<Pat>, Box<Type>),
-	Arguments(Box<Pat>, Box<Type>),
+	Context(PatType),
+	Arguments(PatType),
 }
 
 #[derive(Clone)]
 pub(crate) enum ThisKind {
-	Ref(Option<Lifetime>, Option<Token![mut]>),
-	Object(Option<Lifetime>, Option<Token![mut]>),
+	Ref { ty: Box<Type> },
+	Object,
 	Owned,
 }
 
 pub(crate) struct ThisParameter {
-	pat: Box<Pat>,
-	ty: Box<Type>,
+	pat_ty: PatType,
 	kind: ThisKind,
 }
 
@@ -57,50 +60,24 @@ impl Parameter {
 	pub(crate) fn from_arg(arg: &FnArg) -> Result<Parameter> {
 		match arg {
 			FnArg::Typed(pat_ty) => {
-				let PatType { pat, ty, .. } = pat_ty.clone();
-
-				if let Type::Reference(reference) = &*ty {
+				let mut pat_ty = pat_ty.clone();
+				if let Type::Reference(reference) = &*pat_ty.ty {
 					if let Type::Path(path) = &*reference.elem {
 						if path_ends_with(&path.path, "Context") {
-							return Ok(Parameter::Context(pat, ty));
+							return Ok(Parameter::Context(pat_ty));
 						} else if path_ends_with(&path.path, "Arguments") {
-							return Ok(Parameter::Arguments(pat, ty));
+							return Ok(Parameter::Arguments(pat_ty));
 						}
 					}
 				}
 
 				let mut option = None;
-				let mut vararg = false;
 
-				let mut conversion = None;
-				let mut strict = false;
+				let attribute = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)?.unwrap_or_default();
+				let ParameterAttribute { varargs, convert, strict, .. } = attribute;
+				let convert = convert.unwrap_or_else(|| parse_quote!(()));
 
-				for attr in &pat_ty.attrs {
-					if attr.path().is_ident("ion") {
-						let args: Punctuated<ParameterAttribute, Token![,]> =
-							attr.parse_args_with(Punctuated::parse_terminated)?;
-
-						use ParameterAttribute as PA;
-						for arg in args {
-							match arg {
-								PA::VarArgs(_) => {
-									vararg = true;
-								}
-								PA::Convert(convert) => {
-									conversion = Some(convert.conversion);
-								}
-								PA::Strict(_) => {
-									strict = true;
-								}
-								_ => (),
-							}
-						}
-					}
-				}
-
-				let conversion = conversion.unwrap_or_else(|| parse_quote!(()));
-
-				if let Type::Path(ty) = &*ty {
+				if let Type::Path(ty) = &*pat_ty.ty {
 					if path_ends_with(&ty.path, "Option") {
 						let option_segment = ty.path.segments.last().unwrap();
 						if let PathArguments::AngleBracketed(inner) = &option_segment.arguments {
@@ -111,20 +88,24 @@ impl Parameter {
 					}
 				}
 
-				if vararg {
-					Ok(Parameter::VarArgs { pat, ty, conversion, strict })
+				if varargs {
+					Ok(Parameter::VarArgs { pat_ty, convert, strict })
 				} else {
-					Ok(Parameter::Regular { pat, ty, conversion, strict, option })
+					Ok(Parameter::Regular { pat_ty, convert, strict, option })
 				}
 			}
 			FnArg::Receiver(_) => unreachable!(),
 		}
 	}
 
-	pub(crate) fn get_type_without_lifetimes(&self) -> Type {
+	pub(crate) fn pat_type(&self) -> &PatType {
 		use Parameter as P;
-		let (P::Regular { ty, .. } | P::VarArgs { ty, .. } | P::Context(_, ty) | P::Arguments(_, ty)) = self;
-		let mut ty = *ty.clone();
+		let (P::Regular { pat_ty, .. } | P::VarArgs { pat_ty, .. } | P::Context(pat_ty) | P::Arguments(pat_ty)) = self;
+		pat_ty
+	}
+
+	pub(crate) fn get_type_without_lifetimes(&self) -> Box<Type> {
+		let mut ty = self.pat_type().ty.clone();
 		visit_type_mut(&mut LifetimeRemover, &mut ty);
 		ty
 	}
@@ -132,13 +113,20 @@ impl Parameter {
 	pub(crate) fn to_statement(&self, ion: &TokenStream) -> Result<Stmt> {
 		use Parameter as P;
 		let ty = self.get_type_without_lifetimes();
+		let mut pat_ty = self.pat_type().clone();
+		pat_ty.attrs.clear();
 		match self {
-			P::Regular { pat, conversion, strict, option, .. } => {
-				regular_param_statement(ion, pat, &ty, option.as_deref(), conversion, *strict)
+			P::Regular { convert, strict, option, .. } => {
+				pat_ty.ty = ty;
+				regular_param_statement(ion, &pat_ty, option.as_deref(), convert, *strict)
 			}
-			P::VarArgs { pat, conversion, strict, .. } => varargs_param_statement(pat, &ty, conversion, *strict),
-			P::Context(pat, _) => parse2(quote!(let #pat: #ty = __cx;)),
-			P::Arguments(pat, _) => parse2(quote!(let #pat: #ty = __args;)),
+			P::VarArgs { convert, strict, .. } => {
+				let mut pat_ty = pat_ty.clone();
+				pat_ty.ty = ty;
+				varargs_param_statement(&pat_ty, convert, *strict)
+			}
+			P::Context(..) => parse2(quote!(let #pat_ty = __cx;)),
+			P::Arguments(..) => parse2(quote!(let #pat_ty = __args;)),
 		}
 	}
 }
@@ -148,22 +136,16 @@ impl ThisParameter {
 		match arg {
 			FnArg::Typed(pat_ty) => {
 				let span = pat_ty.span();
-				let PatType { pat, mut ty, .. } = pat_ty.clone();
+				let mut pat_ty = pat_ty.clone();
 				match class_ty {
-					Some(class_ty) if pat_is_ident(&pat, "self") => {
-						visit_type_mut(&mut SelfRenamer { ty: class_ty }, &mut ty);
-						parse_this(pat, ty, true, span).map(Some)
+					Some(class_ty) if pat_is_ident(&pat_ty.pat, "self") => {
+						visit_type_mut(&mut SelfRenamer { ty: class_ty }, &mut pat_ty.ty);
+						parse_this(pat_ty, true, span).map(Some)
 					}
 					_ => {
-						for attr in &pat_ty.attrs {
-							if attr.path().is_ident("ion") {
-								let args: Punctuated<ParameterAttribute, Token![,]> =
-									attr.parse_args_with(Punctuated::parse_terminated)?;
-								for arg in args {
-									if let ParameterAttribute::This(_) = arg {
-										return parse_this(pat, ty, class_ty.is_some(), span).map(Some);
-									}
-								}
+						if let Some(attr) = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)? {
+							if attr.this {
+								return parse_this(pat_ty, class_ty.is_some(), span).map(Some);
 							}
 						}
 						Ok(None)
@@ -174,47 +156,60 @@ impl ThisParameter {
 				if class_ty.is_none() {
 					return Err(Error::new(arg.span(), "Can only have self on Class Methods"));
 				}
-				if recv.reference.is_none() {
+
+				let class_ty = class_ty.unwrap();
+				if recv.colon_token.is_some() {
 					return Err(Error::new(arg.span(), "Invalid type for self"));
 				}
-				let lifetime = recv.reference.as_ref().and_then(|(_, l)| l.as_ref());
-				let mutability = recv.mutability;
-				let this = <Token![self]>::default();
-				let parser = Pat::parse_single;
-				let this = Box::new(parser.parse2(quote!(#this)).unwrap());
-				let ty = class_ty.unwrap();
 
-				let ty = parse2(quote!(&#lifetime #mutability #ty)).unwrap();
-				parse_this(this, ty, true, recv.span()).map(Some)
+				let Receiver {
+					attrs, reference, mutability, self_token, ..
+				} = recv;
+				let lifetime = &reference.as_ref().unwrap().1;
+
+				let pat_ty = PatType {
+					attrs: attrs.clone(),
+					pat: Box::new(Pat::Ident(PatIdent {
+						attrs: Vec::new(),
+						by_ref: None,
+						mutability: None,
+						ident: Ident::parse_any.parse2(self_token.to_token_stream()).unwrap(),
+						subpat: None,
+					})),
+					colon_token: <Token![:]>::default(),
+					ty: parse2(quote_spanned!(recv.span() => &#lifetime #mutability #class_ty)).unwrap(),
+				};
+				parse_this(pat_ty, true, recv.span()).map(Some)
 			}
 		}
 	}
 
 	pub(crate) fn to_statement(&self, ion: &TokenStream, is_class: bool) -> Result<Stmt> {
-		let ThisParameter { pat, ty, kind } = self;
-		let self_ = parse_quote!(self_);
-		let pat = if is_class && pat_is_ident(pat, "self") {
-			&self_
-		} else {
-			pat
-		};
-		let mut ty = ty.clone();
-		visit_type_mut(&mut LifetimeRemover, &mut ty);
+		let ThisParameter { pat_ty, kind } = self;
+		let mut pat_ty = pat_ty.clone();
+		pat_ty.attrs.clear();
+
+		if is_class && pat_is_ident(&pat_ty.pat, "self") {
+			pat_ty.pat = parse_quote!(self_);
+		}
 
 		match kind {
-			ThisKind::Ref(lt, mutability) => {
+			ThisKind::Ref { ty } => {
+				let mut ty = ty.clone();
+				visit_type_mut(&mut LifetimeRemover, &mut ty);
+
 				if is_class {
 					parse2(quote!(
-						let #pat: &#lt #mutability #ty = <#ty as #ion::ClassDefinition>::get_mut_private(__this);
+						let #pat_ty = <#ty as #ion::ClassDefinition>::get_mut_private(__this);
 					))
 				} else {
 					parse2(quote!(
-						let #pat: #ty = <#ty as #ion::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;
+						let #pat_ty = <#ty as #ion::conversions::FromValue>::from_value(__cx, __accessor.this(), true, ())?;
 					))
 				}
 			}
-			ThisKind::Object(_, mutability) => parse2(quote!(let #pat: &#mutability #ty = __this;)),
-			ThisKind::Owned => Err(Error::new(pat.span(), "This cannot be owned")),
+			ThisKind::Object => parse2(quote!(let #pat_ty = __this;)),
+			ThisKind::Owned => Err(Error::new(pat_ty.span(), "This cannot be owned")),
 		}
 	}
 }
@@ -232,53 +227,52 @@ impl Parameters {
 				let this_param = ThisParameter::from_arg(arg, ty);
 				match this_param {
 					Ok(Some(this_param)) => {
-						if let Pat::Ident(ident) = (*this_param.pat).clone() {
+						if let Pat::Ident(ident) = &*this_param.pat_ty.pat {
 							if let Some(this) = &this {
 								return Some(Err(Error::new(
 									this.1.span(),
 									"Unable to have multiple this/self parameters",
 								)));
 							}
-							this = Some((this_param, ident.ident.clone(), i));
+							let ident = ident.ident.clone();
+							this = Some((this_param, ident, i));
 						}
 						return None;
 					}
 					Err(e) => return Some(Err(e)),
 					_ => (),
 				}
+
 				let param = Parameter::from_arg(arg);
-				match param {
-					Ok(Parameter::Regular { pat, ty, conversion, strict, option }) => {
+				match &param {
+					Ok(Parameter::Regular { pat_ty, option, .. }) => {
 						if option.is_none() {
 							nargs.0 += 1;
 						} else {
 							nargs.1 += 1;
 						}
-						if let Some(ident) = get_ident(&pat) {
+						if let Some(ident) = get_ident(&pat_ty.pat) {
 							idents.push(ident);
 						}
-						Some(Ok(Parameter::Regular { pat, ty, conversion, strict, option }))
 					}
-					Ok(Parameter::VarArgs { pat, ty, conversion, strict }) => {
-						if let Some(ident) = get_ident(&pat) {
+					Ok(Parameter::VarArgs { pat_ty, .. }) => {
+						if let Some(ident) = get_ident(&pat_ty.pat) {
 							idents.push(ident);
 						}
-						Some(Ok(Parameter::VarArgs { pat, ty, conversion, strict }))
 					}
-					Ok(Parameter::Context(pat, ty)) => {
-						if let Some(ident) = get_ident(&pat) {
+					Ok(Parameter::Context(pat_ty)) => {
+						if let Some(ident) = get_ident(&pat_ty.pat) {
 							idents.push(ident);
 						}
-						Some(Ok(Parameter::Context(pat, ty)))
 					}
-					Ok(Parameter::Arguments(pat, ty)) => {
-						if let Some(ident) = get_ident(&pat) {
+					Ok(Parameter::Arguments(pat_ty)) => {
+						if let Some(ident) = get_ident(&pat_ty.pat) {
 							idents.push(ident);
 						}
-						Some(Ok(Parameter::Arguments(pat, ty)))
 					}
-					Err(e) => Some(Err(e)),
+					_ => {}
 				}
+				Some(param)
 			})
 			.collect::<Result<_>>()?;
 
@@ -306,30 +300,12 @@ impl Parameters {
 		args.extend(
 			self.parameters
 				.iter()
-				.map(|parameter| match parameter {
-					Parameter::Regular { pat, ty, .. } | Parameter::VarArgs { pat, ty, .. } => {
-						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
-					}
-					Parameter::Context(pat, ty) | Parameter::Arguments(pat, ty) => {
-						parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap()
-					}
-				})
+				.map(|parameter| FnArg::Typed(parameter.pat_type().clone()))
 				.collect::<Vec<_>>(),
 		);
 
-		if let Some((ThisParameter { pat, ty, kind }, _, index)) = &self.this {
-			args.insert(
-				*index,
-				match kind {
-					ThisKind::Ref(lt, mutability) => {
-						parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap()
-					}
-					ThisKind::Object(lt, mutability) => {
-						parse2(quote_spanned!(pat.span() => #pat: &#lt #mutability #ty)).unwrap()
-					}
-					ThisKind::Owned => parse2(quote_spanned!(pat.span() => #pat: #ty)).unwrap(),
-				},
-			);
+		if let Some((ThisParameter { pat_ty, .. }, _, index)) = &self.this {
+			args.insert(*index, FnArg::Typed(pat_ty.clone()));
 		}
 
 		args
@@ -347,30 +323,33 @@ impl Parameters {
 }
 
 fn regular_param_statement(
-	ion: &TokenStream, pat: &Pat, ty: &Type, option: Option<&Type>, conversion: &Expr, strict: bool,
+	ion: &TokenStream, pat_ty: &PatType, option: Option<&Type>, conversion: &Expr, strict: bool,
 ) -> Result<Stmt> {
-	let pat_str = format_pat(pat);
-	let not_found_error = if let Some(pat) = pat_str {
+	let not_found_error = if let Some(pat) = format_pat(&pat_ty.pat) {
 		format!("Argument {} at index {{}} was not found.", pat)
 	} else {
 		String::from("Argument at index {{}} was not found.")
 	};
+
 	let if_none: Expr = if option.is_some() {
 		parse2(quote!(::std::option::Option::None)).unwrap()
 	} else {
-		parse2(quote!(return Err(#ion::Error::new(#not_found_error, #ion::ErrorKind::Type).into()))).unwrap()
+		parse2(quote!(
+			return ::std::result::Result::Err(#ion::Error::new(#not_found_error, #ion::ErrorKind::Type).into())
+		))
+		.unwrap()
 	};
 
 	parse2(quote!(
-		let #pat: #ty = match unsafe { __accessor.arg(#strict, #conversion) } {
+		let #pat_ty = match unsafe { __accessor.arg(#strict, #conversion) } {
 			::std::option::Option::Some(value) => value?,
 			::std::option::Option::None => #if_none
 		};
 	))
 }
 
-fn varargs_param_statement(pat: &Pat, ty: &Type, conversion: &Expr, strict: bool) -> Result<Stmt> {
-	parse2(quote!(let #pat: #ty = unsafe { __accessor.args(#strict, #conversion)? };))
+fn varargs_param_statement(pat_ty: &PatType, conversion: &Expr, strict: bool) -> Result<Stmt> {
+	parse2(quote!(let #pat_ty = unsafe { __accessor.args(#strict, #conversion)? };))
 }
 
 pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {
@@ -381,29 +360,18 @@ pub(crate) fn get_ident(pat: &Pat) -> Option<Ident> {
 	}
 }
 
-pub(crate) fn parse_this(pat: Box<Pat>, ty: Box<Type>, is_class: bool, span: Span) -> Result<ThisParameter> {
-	match *ty {
+pub(crate) fn parse_this(pat_ty: PatType, is_class: bool, span: Span) -> Result<ThisParameter> {
+	match &*pat_ty.ty {
 		Type::Reference(reference) => {
-			let lt = reference.lifetime;
-			let mutability = reference.mutability;
-			match *reference.elem {
-				Type::Path(ty) if path_ends_with(&ty.path, "Object") => Ok(ThisParameter {
-					pat,
-					ty: Box::new(Type::Path(ty)),
-					kind: ThisKind::Object(lt, mutability),
-				}),
-				ty => Ok(ThisParameter {
-					pat,
-					ty: Box::new(ty),
-					kind: ThisKind::Ref(lt, mutability),
-				}),
+			let elem = reference.clone().elem;
+			match &*elem {
+				Type::Path(ty) if path_ends_with(&ty.path, "Object") => {
+					Ok(ThisParameter { pat_ty, kind: ThisKind::Object })
+				}
+				_ => Ok(ThisParameter { pat_ty, kind: ThisKind::Ref { ty: elem } }),
 			}
 		}
-		ty if !is_class => Ok(ThisParameter {
-			pat,
-			ty: Box::new(ty),
-			kind: ThisKind::Owned,
-		}),
+		_ if !is_class => Ok(ThisParameter { pat_ty, kind: ThisKind::Owned }),
 		_ => Err(Error::new(span, "Invalid type for self")),
 	}
 }

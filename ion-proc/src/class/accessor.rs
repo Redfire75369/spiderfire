@@ -117,8 +117,8 @@ pub(super) fn impl_accessor(
 	let (mut accessor, parameters) = impl_method(ion, method, ty, |sig| {
 		let parameters = Parameters::parse(&sig.inputs, Some(ty))?;
 		let nargs = parameters.parameters.iter().fold(0, |mut acc, param| {
-			if let Parameter::Regular { ty, .. } = &param {
-				if let Type::Path(_) = &**ty {
+			if let Parameter::Regular { pat_ty, .. } = &param {
+				if let Type::Path(_) = &*pat_ty.ty {
 					acc += 1;
 				}
 			}
