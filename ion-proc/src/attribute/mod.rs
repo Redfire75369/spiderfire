@@ -14,6 +14,7 @@ pub(crate) mod krate;
 pub(crate) mod name;
 pub(crate) mod property;
 pub(crate) mod trace;
+pub(crate) mod value;
 
 pub trait AttributeExt: Parse {
 	fn from_attributes<I: ?Sized>(path: &I, attrs: &[Attribute]) -> Result<Option<Self>>

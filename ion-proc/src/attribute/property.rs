@@ -56,12 +56,7 @@ pub struct PropertyAttribute {
 impl Parse for PropertyAttribute {
 	fn parse(input: ParseStream) -> Result<PropertyAttribute> {
 		use PropertyAttributeArgument as PAA;
-		let mut attribute = PropertyAttribute {
-			name: None,
-			alias: Vec::new(),
-			skip: false,
-			r#static: false,
-		};
+		let mut attribute = PropertyAttribute::default();
 		let span = input.span();
 
 		let args = Punctuated::<PAA, Token![,]>::parse_terminated(input)?;

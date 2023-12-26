@@ -113,12 +113,7 @@ pub(crate) struct MethodAttribute {
 impl Parse for MethodAttribute {
 	fn parse(input: ParseStream) -> Result<MethodAttribute> {
 		use MethodAttributeArgument as MAA;
-		let mut attribute = MethodAttribute {
-			name: None,
-			alias: Vec::new(),
-			kind: None,
-			skip: false,
-		};
+		let mut attribute = MethodAttribute::default();
 		let span = input.span();
 
 		let args = Punctuated::<MAA, Token![,]>::parse_terminated(input)?;

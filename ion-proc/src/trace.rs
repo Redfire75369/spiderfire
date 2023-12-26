@@ -31,7 +31,7 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 	))
 }
 
-fn impl_body(span: Span, data: &Data) -> Result<Block> {
+fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 	match data {
 		Data::Struct(r#struct) => {
 			let (idents, skip) = field_idents(&r#struct.fields)?;

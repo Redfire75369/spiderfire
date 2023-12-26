@@ -17,10 +17,10 @@ mod keywords {
 	custom_keyword!(strict);
 }
 
-struct ConvertArgument {
+pub(crate) struct ConvertArgument {
 	_kw: keywords::convert,
 	_eq: Token![=],
-	conversion: Box<Expr>,
+	pub(crate) conversion: Box<Expr>,
 }
 
 impl Parse for ConvertArgument {
@@ -75,12 +75,7 @@ pub(crate) struct ParameterAttribute {
 impl Parse for ParameterAttribute {
 	fn parse(input: ParseStream) -> Result<ParameterAttribute> {
 		use ParameterAttributeArgument as PAA;
-		let mut attribute = ParameterAttribute {
-			this: false,
-			varargs: false,
-			convert: None,
-			strict: false,
-		};
+		let mut attribute = ParameterAttribute::default();
 		let span = input.span();
 
 		let args = Punctuated::<PAA, Token![,]>::parse_terminated(input)?;

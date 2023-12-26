@@ -10,9 +10,10 @@ use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
+use crate::attribute::AttributeExt;
 use crate::attribute::krate::crate_from_attributes;
 use crate::utils::{add_trait_bounds, format_type, path_ends_with};
-use crate::value::attribute::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
+use crate::attribute::value::{DataAttribute, DefaultValueArgument, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	let ion = &crate_from_attributes(&input.attrs);
@@ -32,24 +33,12 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl_generics.params.push(parse2(quote!('cx))?);
 	}
 
-	let mut tag = Tag::default();
-	let mut inherit = false;
+	let attribute = DataAttribute::from_attributes("ion", &input.attrs)?.unwrap_or_default();
+	let DataAttribute { tag, inherit } = attribute;
+
 	let mut repr = None;
 	for attr in &input.attrs {
-		if attr.path().is_ident("ion") {
-			let args: Punctuated<DataAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
-
-			for arg in args {
-				match arg {
-					DataAttribute::Tag(data_tag) => {
-						tag = data_tag;
-					}
-					DataAttribute::Inherit(_) => {
-						inherit = true;
-					}
-				}
-			}
-		} else if attr.path().is_ident("repr") {
+		if attr.path().is_ident("repr") {
 			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 			let allowed_reprs: Vec<Ident> = vec![
 				parse_quote!(i8),
@@ -98,8 +87,8 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 }
 
 fn impl_body(
-	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Tag, inherit: bool, repr: Option<Ident>,
-) -> Result<(Block, bool)> {
+	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Option<Tag>, inherit: bool, repr: Option<Ident>,
+) -> Result<(Box<Block>, bool)> {
 	match data {
 		Data::Struct(data) => match &data.fields {
 			Fields::Named(fields) => {
@@ -136,31 +125,18 @@ fn impl_body(
 					let variant_ident = &variant.ident;
 					let variant_string = variant_ident.to_string();
 
-					let mut tag = tag.clone();
-					let mut inherit = inherit;
+					let old_tag = tag.clone();
+					let old_inherit = inherit;
 
-					for attr in &variant.attrs {
-						if attr.path().is_ident("ion") {
-							let args: Punctuated<VariantAttribute, Token![,]> =
-								match attr.parse_args_with(Punctuated::parse_terminated) {
-									Ok(args) => args,
-									Err(e) => return Some(Err(e)),
-								};
-
-							for arg in args {
-								match arg {
-									VariantAttribute::Tag(variant_tag) => {
-										tag = variant_tag;
-									}
-									VariantAttribute::Inherit(_) => {
-										inherit = true;
-									}
-									VariantAttribute::Skip(_) => {
-										return None;
-									}
-								}
-							}
-						}
+					let attribute = match VariantAttribute::from_attributes("ion", &variant.attrs) {
+						Ok(attribute) => attribute.unwrap_or_default(),
+						Err(e) => return Some(Err(e)),
+					};
+					let VariantAttribute { tag, inherit, skip } = attribute;
+					let tag = old_tag.or(tag);
+					let inherit = old_inherit || inherit;
+					if skip {
+						return None;
 					}
 
 					let handle_result = quote!(if let ::std::result::Result::Ok(success) = variant {
@@ -259,12 +235,12 @@ fn impl_body(
 }
 
 fn map_fields(
-	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Tag, inherit: bool,
+	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Option<Tag>, inherit: bool,
 ) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
 	let mut is_tagged = None;
 
-	let requirement = match tag {
-		Tag::Untagged(_) => quote!(),
+	let requirement = match tag.unwrap_or_default() {
+		Tag::Untagged => quote!(),
 		Tag::External(kw) => {
 			is_tagged = Some(kw);
 			if let Some(variant) = variant {
@@ -277,7 +253,7 @@ fn map_fields(
 				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
 			}
 		}
-		Tag::Internal { kw, key, .. } => {
+		Tag::Internal(kw, key) => {
 			is_tagged = Some(kw);
 			if let Some(variant) = variant {
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
@@ -307,7 +283,6 @@ fn map_fields(
 			};
 
 			let ty = &field.ty;
-			let attrs = &field.attrs;
 
 			let mut optional = false;
 			if let Type::Path(ty) = ty {
@@ -316,46 +291,19 @@ fn map_fields(
 				}
 			}
 
-			let mut convert = None;
-			let mut strict = false;
-			let mut default = None;
-			let mut parser = None;
-			let mut inherit = inherit;
+			let old_inherit = inherit;
 
-			for attr in attrs {
-				if attr.path().is_ident("ion") {
-					let args: Punctuated<FieldAttribute, Token![,]> = match attr.parse_args_with(Punctuated::parse_terminated) {
-						Ok(args) => args,
-						Err(e) => return Some(Err(e)),
-					};
-
-					for arg in args {
-						use FieldAttribute as FA;
-						match arg {
-							FA::Name { name, .. } => {
-								key = name.value();
-							}
-							FA::Inherit(_) => {
-								inherit = true;
-							}
-							FA::Skip(_) => {
-								return None;
-							}
-							FA::Convert { expr, .. } => {
-								convert = Some(expr);
-							}
-							FA::Strict(_) => {
-								strict = true;
-							}
-							FA::Default { def, .. } => {
-								default = Some(def);
-							}
-							FA::Parser { expr, .. } => {
-								parser = Some(expr);
-							}
-						}
-					}
-				}
+			let attribute = match FieldAttribute::from_attributes("ion", &field.attrs) {
+				Ok(attribute) => attribute.unwrap_or_default(),
+				Err(e) => return Some(Err(e)),
+			};
+			let FieldAttribute { name, inherit, skip, convert, strict, default, parser } = attribute;
+			if let Some(name) = name {
+				key = name.value();
+			}
+			let inherit = old_inherit || inherit;
+			if skip {
+				return None;
 			}
 
 			let convert = convert.unwrap_or_else(|| parse_quote!(()));
@@ -380,7 +328,7 @@ fn map_fields(
 				quote_spanned!(field.span() => #base.ok();)
 			} else {
 				match default {
-					Some(Some(DefaultValue::Expr(expr))) => {
+					Some(Some(DefaultValueArgument::Expr(expr))) => {
 						if inherit {
 							return Some(Err(Error::new(
 								field.span(),
@@ -390,8 +338,8 @@ fn map_fields(
 							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 						}
 					}
-					Some(Some(DefaultValue::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
-					Some(Some(DefaultValue::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
+					Some(Some(DefaultValueArgument::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
+					Some(Some(DefaultValueArgument::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
 					Some(None) => quote_spanned!(field.span() => #base.unwrap_or_default();),
 					None => quote_spanned!(field.span() => #base?;),
 				}
