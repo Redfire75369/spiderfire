@@ -108,13 +108,11 @@ impl Parse for ParameterAttribute {
 			}
 		}
 
-		if attribute.this {
-			if attribute.varargs || attribute.convert.is_some() || attribute.strict {
-				return Err(Error::new(
-					span,
-					"Parameter with `this` attribute cannot have `varargs`, `convert`, or `strict` attributes.",
-				));
-			}
+		if attribute.this && (attribute.varargs || attribute.convert.is_some() || attribute.strict) {
+			return Err(Error::new(
+				span,
+				"Parameter with `this` attribute cannot have `varargs`, `convert`, or `strict` attributes.",
+			));
 		}
 
 		Ok(attribute)

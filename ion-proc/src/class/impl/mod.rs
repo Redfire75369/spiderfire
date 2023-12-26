@@ -7,11 +7,12 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens;
 use syn::{Error, FnArg, ImplItem, ImplItemFn, ItemFn, ItemImpl, parse2, Result, Type, Visibility};
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::attribute::class::{MethodAttribute, Name};
+use crate::attribute::AttributeExt;
+use crate::attribute::class::MethodAttribute;
 use crate::attribute::krate::crate_from_attributes;
+use crate::attribute::name::Name;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
@@ -93,69 +94,27 @@ fn parse_class_method(
 		_ => return Ok(None),
 	}
 
-	let mut name = None;
 	let mut names = vec![];
-	let mut indexes = Vec::new();
 
-	let mut kind = None;
-	let mut skip = None;
-
-	for (index, attr) in r#fn.attrs.iter().enumerate() {
-		if attr.path().is_ident("ion") {
-			let args: Punctuated<MethodAttribute, Token![,]> = attr.parse_args_with(Punctuated::parse_terminated)?;
-
-			for arg in args {
-				let arg_kind = arg.to_kind();
-				if let Some(arg_kind) = arg_kind {
-					match kind {
-						Some(kind) => {
-							return Err(Error::new(
-								r#fn.span(),
-								format!("Received conflicting method kinds: {:?} and {:?}", arg_kind, kind),
-							));
-						}
-						None => kind = Some(arg_kind),
-					}
-				}
-				match arg {
-					MethodAttribute::Skip(_) => {
-						skip = Some(index);
-						break;
-					}
-					MethodAttribute::Name(name_) => name = Some(name_.name),
-					MethodAttribute::Alias(alias) => {
-						for alias in alias.aliases {
-							names.push(Name::String(alias));
-						}
-					}
-					_ => (),
-				}
-			}
-			indexes.push(index);
-		}
+	let attribute = MethodAttribute::from_attributes_mut("ion", &mut r#fn.attrs)?.unwrap_or_default();
+	let MethodAttribute { name, alias, kind, skip } = attribute;
+	for alias in alias {
+		names.push(Name::String(alias));
 	}
-
-	if let Some(skip) = skip {
-		r#fn.attrs.remove(skip);
+	if skip {
 		return Ok(None);
 	}
-	for index in indexes {
-		r#fn.attrs.remove(index);
-	}
 
-	let name = match name {
-		Some(name) => name,
-		None => {
-			if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
-				Name::from_string(
-					get_accessor_name(r#fn.sig.ident.to_string(), kind == Some(MethodKind::Setter)),
-					r#fn.sig.ident.span(),
-				)
-			} else {
-				Name::from_string(r#fn.sig.ident.to_string(), r#fn.sig.ident.span())
-			}
+	let name = name.unwrap_or_else(|| {
+		if kind == Some(MethodKind::Getter) || kind == Some(MethodKind::Setter) {
+			Name::from_string(
+				get_accessor_name(r#fn.sig.ident.to_string(), kind == Some(MethodKind::Setter)),
+				r#fn.sig.ident.span(),
+			)
+		} else {
+			Name::from_string(r#fn.sig.ident.to_string(), r#fn.sig.ident.span())
 		}
-	};
+	});
 	names.insert(0, name.clone());
 
 	let method: ItemFn = parse2(r#fn.to_token_stream())?;

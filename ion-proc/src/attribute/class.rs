@@ -4,13 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Expr, ExprLit, ExprPath, Lit, LitStr, Result};
+use syn::{Error, LitStr, Result};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::Bracket;
 
+use crate::attribute::AttributeExt;
+use crate::attribute::name::{AliasArgument, Name, NameArgument};
 use crate::class::method::MethodKind;
 
 mod keywords {
@@ -21,103 +20,16 @@ mod keywords {
 	custom_keyword!(class);
 
 	custom_keyword!(convert);
-	custom_keyword!(readonly);
 
 	custom_keyword!(constructor);
 	custom_keyword!(get);
 	custom_keyword!(set);
 }
 
-#[derive(Clone)]
-pub(crate) enum Name {
-	String(LitStr),
-	Symbol(ExprPath),
-}
-
-impl Name {
-	pub(crate) fn from_string<S: AsRef<str>>(string: S, span: Span) -> Name {
-		Name::String(LitStr::new(string.as_ref(), span))
-	}
-
-	pub(crate) fn as_string(&self) -> String {
-		match self {
-			Name::String(literal) => literal.value(),
-			Name::Symbol(path) => path.path.segments.last().map(|segment| format!("[{}]", segment.ident)).unwrap(),
-		}
-	}
-
-	pub(crate) fn to_property_spec(&self, ion: &TokenStream, function: &mut Ident) -> (Box<Expr>, Box<Expr>) {
-		match self {
-			Name::String(literal) => {
-				let mut name = literal.value();
-				if name.is_case(Case::ScreamingSnake) {
-					name = name.to_case(Case::Camel)
-				}
-				(
-					Box::new(Expr::Lit(ExprLit {
-						attrs: Vec::new(),
-						lit: Lit::Str(LitStr::new(&name, literal.span())),
-					})),
-					parse_quote!(#ion::flags::PropertyFlags::CONSTANT_ENUMERATED),
-				)
-			}
-			Name::Symbol(symbol) => {
-				*function = format_ident!("{}_symbol", function);
-				(
-					Box::new(Expr::Path(symbol.clone())),
-					parse_quote!(#ion::flags::PropertyFlags::CONSTANT),
-				)
-			}
-		}
-	}
-}
-
-impl Parse for Name {
-	fn parse(input: ParseStream) -> Result<Name> {
-		if let Ok(literal) = input.parse::<LitStr>() {
-			let string = literal.value();
-			if !string.starts_with('[') && !string.ends_with(']') {
-				Ok(Name::String(literal))
-			} else {
-				Err(Error::new(
-					literal.span(),
-					"Function name must not start with '[' or end with ']'",
-				))
-			}
-		} else if let Ok(other) = input.parse() {
-			Ok(Name::Symbol(other))
-		} else {
-			Err(Error::new(input.span(), "Function name is not a string or expression"))
-		}
-	}
-}
-
-#[allow(dead_code)]
-pub(crate) struct NameAttribute {
-	kw: keywords::name,
-	eq: Token![=],
-	pub(crate) name: Name,
-}
-
-impl Parse for NameAttribute {
-	fn parse(input: ParseStream) -> Result<NameAttribute> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(NameAttribute {
-				kw: input.parse()?,
-				eq: input.parse()?,
-				name: input.parse()?,
-			})
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
 #[allow(dead_code)]
 pub(crate) struct ClassNameAttribute {
-	kw: keywords::name,
-	eq: Token![=],
+	_kw: keywords::name,
+	_eq: Token![=],
 	pub(crate) name: LitStr,
 }
 
@@ -126,36 +38,10 @@ impl Parse for ClassNameAttribute {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::name) {
 			Ok(ClassNameAttribute {
-				kw: input.parse()?,
-				eq: input.parse()?,
+				_kw: input.parse()?,
+				_eq: input.parse()?,
 				name: input.parse()?,
 			})
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
-#[allow(dead_code)]
-pub(crate) struct AliasAttribute {
-	kw: keywords::alias,
-	eq: Token![=],
-	bracket: Bracket,
-	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
-}
-
-impl Parse for AliasAttribute {
-	fn parse(input: ParseStream) -> Result<AliasAttribute> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::alias) {
-			let inner;
-			let aliases = AliasAttribute {
-				kw: input.parse()?,
-				eq: input.parse()?,
-				bracket: bracketed!(inner in input),
-				aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
-			};
-			Ok(aliases)
 		} else {
 			Err(lookahead.error())
 		}
@@ -184,30 +70,18 @@ impl Parse for ClassAttribute {
 	}
 }
 
-pub(crate) enum MethodAttribute {
-	Name(NameAttribute),
-	Alias(AliasAttribute),
+pub(crate) enum MethodAttributeArgument {
+	Name(NameArgument),
+	Alias(AliasArgument),
 	Constructor(keywords::constructor),
 	Getter(keywords::get),
 	Setter(keywords::set),
 	Skip(keywords::skip),
 }
 
-impl MethodAttribute {
-	pub(crate) fn to_kind(&self) -> Option<MethodKind> {
-		use MethodAttribute as MA;
-		match self {
-			MA::Constructor(_) => Some(MethodKind::Constructor),
-			MA::Getter(_) => Some(MethodKind::Getter),
-			MA::Setter(_) => Some(MethodKind::Setter),
-			_ => None,
-		}
-	}
-}
-
-impl Parse for MethodAttribute {
-	fn parse(input: ParseStream) -> Result<MethodAttribute> {
-		use MethodAttribute as MA;
+impl Parse for MethodAttributeArgument {
+	fn parse(input: ParseStream) -> Result<MethodAttributeArgument> {
+		use MethodAttributeArgument as MA;
 
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::name) {
@@ -227,3 +101,76 @@ impl Parse for MethodAttribute {
 		}
 	}
 }
+
+#[derive(Default)]
+pub(crate) struct MethodAttribute {
+	pub(crate) name: Option<Name>,
+	pub(crate) alias: Vec<LitStr>,
+	pub(crate) kind: Option<MethodKind>,
+	pub(crate) skip: bool,
+}
+
+impl Parse for MethodAttribute {
+	fn parse(input: ParseStream) -> Result<MethodAttribute> {
+		use MethodAttributeArgument as MAA;
+		let mut attribute = MethodAttribute {
+			name: None,
+			alias: Vec::new(),
+			kind: None,
+			skip: false,
+		};
+		let span = input.span();
+
+		let args = Punctuated::<MAA, Token![,]>::parse_terminated(input)?;
+		for arg in args {
+			match arg {
+				MethodAttributeArgument::Name(name) => {
+					if attribute.name.is_some() {
+						return Err(Error::new(span, "Method cannot have multiple `name` attributes."));
+					}
+					attribute.name = Some(name.name);
+				}
+				MethodAttributeArgument::Alias(alias) => {
+					attribute.alias.extend(alias.aliases);
+				}
+				MethodAttributeArgument::Constructor(_) => {
+					if attribute.kind.is_some() {
+						return Err(Error::new(
+							span,
+							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
+						));
+					}
+					attribute.kind = Some(MethodKind::Constructor);
+				}
+				MethodAttributeArgument::Getter(_) => {
+					if attribute.kind.is_some() {
+						return Err(Error::new(
+							span,
+							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
+						));
+					}
+					attribute.kind = Some(MethodKind::Getter);
+				}
+				MethodAttributeArgument::Setter(_) => {
+					if attribute.kind.is_some() {
+						return Err(Error::new(
+							span,
+							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
+						));
+					}
+					attribute.kind = Some(MethodKind::Setter);
+				}
+				MethodAttributeArgument::Skip(_) => {
+					if attribute.skip {
+						return Err(Error::new(span, "Method cannot have multiple `skip` attributes."));
+					}
+					attribute.skip = true;
+				}
+			}
+		}
+
+		Ok(attribute)
+	}
+}
+
+impl AttributeExt for MethodAttribute {}

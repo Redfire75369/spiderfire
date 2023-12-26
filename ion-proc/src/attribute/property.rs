@@ -10,7 +10,8 @@ use syn::punctuated::Punctuated;
 use syn::token::Static;
 
 use crate::attribute::AttributeExt;
-use crate::attribute::class::{AliasAttribute, Name, NameAttribute};
+use crate::attribute::name::{Name, NameArgument};
+use crate::attribute::name::AliasArgument;
 
 mod keywords {
 	custom_keyword!(name);
@@ -19,8 +20,8 @@ mod keywords {
 }
 
 enum PropertyAttributeArgument {
-	Name(NameAttribute),
-	Alias(AliasAttribute),
+	Name(NameArgument),
+	Alias(AliasArgument),
 	Skip(keywords::skip),
 	Static(Static),
 }

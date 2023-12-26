@@ -29,9 +29,7 @@ pub struct TextDecoder {
 	reflector: Reflector,
 	#[trace(no_trace)]
 	decoder: Decoder,
-	#[ion(readonly)]
 	pub fatal: bool,
-	#[ion(readonly, name = "ignoreBOM")]
 	pub ignore_byte_order_mark: bool,
 }
 
@@ -97,5 +95,15 @@ impl TextDecoder {
 	#[ion(get)]
 	pub fn get_encoding(&self) -> String {
 		String::from(self.decoder.encoding().name())
+	}
+
+	#[ion(get)]
+	pub fn get_fatal(&self) -> bool {
+		self.fatal
+	}
+
+	#[ion(get, name = "ignoreBOM")]
+	pub fn get_ignore_bom(&self) -> bool {
+		self.ignore_byte_order_mark
 	}
 }

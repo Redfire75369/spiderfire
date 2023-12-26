@@ -10,7 +10,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{ImplItemFn, parse2, Result, Type};
 
-use crate::attribute::class::Name;
+use crate::attribute::name::Name;
 use crate::class::accessor::{Accessor, flatten_accessors};
 use crate::class::method::Method;
 use crate::class::property::Property;

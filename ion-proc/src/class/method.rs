@@ -7,7 +7,7 @@
 use proc_macro2::TokenStream;
 use syn::{ItemFn, Result, Signature, Type};
 
-use crate::attribute::class::Name;
+use crate::attribute::name::Name;
 use crate::function::{check_abi, impl_fn_body, set_signature};
 use crate::function::parameters::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
