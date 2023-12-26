@@ -8,7 +8,7 @@ use proc_macro2::{Ident, Span};
 use syn::{Arm, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, parse2, Result};
 use syn::spanned::Spanned;
 
-use crate::attribute::AttributeExt;
+use crate::attribute::ParseAttribute;
 use crate::attribute::trace::TraceAttribute;
 use crate::utils::add_trait_bounds;
 
@@ -90,7 +90,7 @@ fn field_idents(fields: &Fields) -> Result<(Vec<Ident>, Vec<usize>)> {
 		.iter()
 		.enumerate()
 		.map(|(index, field)| {
-			let attribute = TraceAttribute::from_attributes("trace", &field.attrs)?.unwrap_or_default();
+			let attribute = TraceAttribute::from_attributes("trace", &field.attrs)?;
 			if attribute.no_trace {
 				skip.push(index);
 			}

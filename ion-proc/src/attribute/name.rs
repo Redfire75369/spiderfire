@@ -11,11 +11,6 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Bracket;
 
-mod keywords {
-	custom_keyword!(name);
-	custom_keyword!(alias);
-}
-
 #[derive(Clone)]
 pub(crate) enum Name {
 	String(LitStr),
@@ -81,28 +76,20 @@ impl Parse for Name {
 }
 
 pub(crate) struct NameArgument {
-	_kw: keywords::name,
 	_eq: Token![=],
 	pub(crate) name: Name,
 }
 
 impl Parse for NameArgument {
 	fn parse(input: ParseStream) -> syn::Result<NameArgument> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(NameArgument {
-				_kw: input.parse()?,
-				_eq: input.parse()?,
-				name: input.parse()?,
-			})
-		} else {
-			Err(lookahead.error())
-		}
+		Ok(NameArgument {
+			_eq: input.parse()?,
+			name: input.parse()?,
+		})
 	}
 }
 
 pub(crate) struct AliasArgument {
-	_kw: keywords::alias,
 	_eq: Token![=],
 	_bracket: Bracket,
 	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
@@ -110,18 +97,12 @@ pub(crate) struct AliasArgument {
 
 impl Parse for AliasArgument {
 	fn parse(input: ParseStream) -> syn::Result<AliasArgument> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::alias) {
-			let inner;
-			let aliases = AliasArgument {
-				_kw: input.parse()?,
-				_eq: input.parse()?,
-				_bracket: bracketed!(inner in input),
-				aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
-			};
-			Ok(aliases)
-		} else {
-			Err(lookahead.error())
-		}
+		let inner;
+		let aliases = AliasArgument {
+			_eq: input.parse()?,
+			_bracket: bracketed!(inner in input),
+			aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
+		};
+		Ok(aliases)
 	}
 }

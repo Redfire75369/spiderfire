@@ -9,11 +9,11 @@ use std::ops::Deref;
 use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 use mozjs::typedarray as jsta;
 
-use crate::{Context, Value};
-use crate::conversions::{IntoValue, ToValue};
-
 pub use buffer::*;
 pub use view::*;
+
+use crate::{Context, Value};
+use crate::conversions::{IntoValue, ToValue};
 
 mod buffer;
 mod view;

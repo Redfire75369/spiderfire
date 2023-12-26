@@ -16,8 +16,8 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
 
-use crate::attribute::AttributeExt;
 use crate::attribute::function::ParameterAttribute;
+use crate::attribute::ParseAttribute;
 use crate::utils::{format_pat, pat_is_ident, path_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 
@@ -73,7 +73,7 @@ impl Parameter {
 
 				let mut option = None;
 
-				let attribute = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)?.unwrap_or_default();
+				let attribute = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)?;
 				let ParameterAttribute { varargs, convert, strict, .. } = attribute;
 				let convert = convert.unwrap_or_else(|| parse_quote!(()));
 
@@ -143,10 +143,9 @@ impl ThisParameter {
 						parse_this(pat_ty, true, span).map(Some)
 					}
 					_ => {
-						if let Some(attr) = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)? {
-							if attr.this {
-								return parse_this(pat_ty, class_ty.is_some(), span).map(Some);
-							}
+						let attribute = ParameterAttribute::from_attributes_mut("ion", &mut pat_ty.attrs)?;
+						if attribute.this {
+							return parse_this(pat_ty, class_ty.is_some(), span).map(Some);
 						}
 						Ok(None)
 					}

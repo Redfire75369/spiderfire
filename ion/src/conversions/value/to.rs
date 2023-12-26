@@ -15,8 +15,8 @@ use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue,
 	UInt32Value, UndefinedValue,
 };
-use mozjs::typedarray as jsta;
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
+use mozjs::typedarray as jsta;
 
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
 use crate::objects::RegExp;

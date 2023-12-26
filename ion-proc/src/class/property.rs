@@ -7,8 +7,8 @@
 use proc_macro2::{Ident, TokenStream};
 use syn::{ImplItemConst, Result, Type};
 
-use crate::attribute::AttributeExt;
 use crate::attribute::name::Name;
+use crate::attribute::ParseAttribute;
 use crate::attribute::property::PropertyAttribute;
 use crate::utils::path_ends_with;
 
@@ -30,7 +30,7 @@ impl Property {
 	pub(super) fn from_const(r#const: &mut ImplItemConst) -> Result<Option<(Property, bool)>> {
 		let mut names = Vec::new();
 
-		let attribute = PropertyAttribute::from_attributes_mut("ion", &mut r#const.attrs)?.unwrap_or_default();
+		let attribute = PropertyAttribute::from_attributes_mut("ion", &mut r#const.attrs)?;
 
 		let PropertyAttribute { name, alias, skip, r#static } = attribute;
 		for alias in alias {

@@ -4,26 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{Error, LitStr, Result};
+use syn::{LitStr, Result};
+use syn::meta::ParseNestedMeta;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
 
-use crate::attribute::AttributeExt;
 use crate::attribute::name::{AliasArgument, Name, NameArgument};
+use crate::attribute::ParseAttribute;
 use crate::class::method::MethodKind;
 
 mod keywords {
 	custom_keyword!(name);
-	custom_keyword!(alias);
-	custom_keyword!(skip);
-
 	custom_keyword!(class);
-
-	custom_keyword!(convert);
-
-	custom_keyword!(constructor);
-	custom_keyword!(get);
-	custom_keyword!(set);
 }
 
 #[allow(dead_code)]
@@ -70,38 +61,6 @@ impl Parse for ClassAttribute {
 	}
 }
 
-pub(crate) enum MethodAttributeArgument {
-	Name(NameArgument),
-	Alias(AliasArgument),
-	Constructor(keywords::constructor),
-	Getter(keywords::get),
-	Setter(keywords::set),
-	Skip(keywords::skip),
-}
-
-impl Parse for MethodAttributeArgument {
-	fn parse(input: ParseStream) -> Result<MethodAttributeArgument> {
-		use MethodAttributeArgument as MA;
-
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(MA::Name(input.parse()?))
-		} else if lookahead.peek(keywords::alias) {
-			Ok(MA::Alias(input.parse()?))
-		} else if lookahead.peek(keywords::constructor) {
-			Ok(MA::Constructor(input.parse()?))
-		} else if lookahead.peek(keywords::get) {
-			Ok(MA::Getter(input.parse()?))
-		} else if lookahead.peek(keywords::set) {
-			Ok(MA::Setter(input.parse()?))
-		} else if lookahead.peek(keywords::skip) {
-			Ok(MA::Skip(input.parse()?))
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
 #[derive(Default)]
 pub(crate) struct MethodAttribute {
 	pub(crate) name: Option<Name>,
@@ -110,62 +69,41 @@ pub(crate) struct MethodAttribute {
 	pub(crate) skip: bool,
 }
 
-impl Parse for MethodAttribute {
-	fn parse(input: ParseStream) -> Result<MethodAttribute> {
-		use MethodAttributeArgument as MAA;
-		let mut attribute = MethodAttribute::default();
-		let span = input.span();
+impl ParseAttribute for MethodAttribute {
+	fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
+		const METHOD_KIND_ERROR: &str = "Method cannot have multiple `constructor`, `get`, or `set` attributes.";
 
-		let args = Punctuated::<MAA, Token![,]>::parse_terminated(input)?;
-		for arg in args {
-			match arg {
-				MethodAttributeArgument::Name(name) => {
-					if attribute.name.is_some() {
-						return Err(Error::new(span, "Method cannot have multiple `name` attributes."));
-					}
-					attribute.name = Some(name.name);
-				}
-				MethodAttributeArgument::Alias(alias) => {
-					attribute.alias.extend(alias.aliases);
-				}
-				MethodAttributeArgument::Constructor(_) => {
-					if attribute.kind.is_some() {
-						return Err(Error::new(
-							span,
-							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
-						));
-					}
-					attribute.kind = Some(MethodKind::Constructor);
-				}
-				MethodAttributeArgument::Getter(_) => {
-					if attribute.kind.is_some() {
-						return Err(Error::new(
-							span,
-							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
-						));
-					}
-					attribute.kind = Some(MethodKind::Getter);
-				}
-				MethodAttributeArgument::Setter(_) => {
-					if attribute.kind.is_some() {
-						return Err(Error::new(
-							span,
-							"Method cannot have multiple `constructor`, `get`, or `set` attributes.",
-						));
-					}
-					attribute.kind = Some(MethodKind::Setter);
-				}
-				MethodAttributeArgument::Skip(_) => {
-					if attribute.skip {
-						return Err(Error::new(span, "Method cannot have multiple `skip` attributes."));
-					}
-					attribute.skip = true;
-				}
+		if meta.path.is_ident("name") {
+			let name: NameArgument = meta.input.parse()?;
+			if self.name.is_some() {
+				return Err(meta.error("Method cannot have multiple `name` attributes."));
 			}
+			self.name = Some(name.name);
+		} else if meta.path.is_ident("alias") {
+			let alias: AliasArgument = meta.input.parse()?;
+			self.alias.extend(alias.aliases);
+		} else if meta.path.is_ident("constructor") {
+			if self.kind.is_some() {
+				return Err(meta.error(METHOD_KIND_ERROR));
+			}
+			self.kind = Some(MethodKind::Constructor);
+		} else if meta.path.is_ident("get") {
+			if self.kind.is_some() {
+				return Err(meta.error(METHOD_KIND_ERROR));
+			}
+			self.kind = Some(MethodKind::Getter);
+		} else if meta.path.is_ident("set") {
+			if self.kind.is_some() {
+				return Err(meta.error(METHOD_KIND_ERROR));
+			}
+			self.kind = Some(MethodKind::Setter);
+		} else if meta.path.is_ident("skip") {
+			if self.skip {
+				return Err(meta.error("Method cannot have multiple `skip` attributes."));
+			}
+			self.skip = true;
 		}
 
-		Ok(attribute)
+		Ok(())
 	}
 }
-
-impl AttributeExt for MethodAttribute {}

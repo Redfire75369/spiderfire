@@ -9,10 +9,10 @@ use quote::ToTokens;
 use syn::{Error, FnArg, ImplItem, ImplItemFn, ItemFn, ItemImpl, parse2, Result, Type, Visibility};
 use syn::spanned::Spanned;
 
-use crate::attribute::AttributeExt;
 use crate::attribute::class::MethodAttribute;
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::name::Name;
+use crate::attribute::ParseAttribute;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
@@ -96,7 +96,7 @@ fn parse_class_method(
 
 	let mut names = vec![];
 
-	let attribute = MethodAttribute::from_attributes_mut("ion", &mut r#fn.attrs)?.unwrap_or_default();
+	let attribute = MethodAttribute::from_attributes_mut("ion", &mut r#fn.attrs)?;
 	let MethodAttribute { name, alias, kind, skip } = attribute;
 	for alias in alias {
 		names.push(Name::String(alias));

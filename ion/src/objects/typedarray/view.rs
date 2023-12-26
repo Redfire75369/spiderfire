@@ -11,11 +11,11 @@ use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
-	GetArrayBufferViewLengthAndData, HandleObject, JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength,
-	JS_GetArrayBufferViewByteOffset, JS_GetArrayBufferViewType, JS_IsArrayBufferViewObject,
-	JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer,
-	JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer,
-	JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, NewExternalArrayBuffer, Type, IsLargeArrayBufferView,
+	GetArrayBufferViewLengthAndData, HandleObject, IsLargeArrayBufferView, JS_GetArrayBufferViewBuffer,
+	JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset, JS_GetArrayBufferViewType,
+	JS_IsArrayBufferViewObject, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt16ArrayWithBuffer,
+	JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer,
+	JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, NewExternalArrayBuffer, Type,
 };
 use mozjs::typedarray as jsta;
 use mozjs::typedarray::{

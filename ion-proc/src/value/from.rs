@@ -10,10 +10,10 @@ use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::attribute::AttributeExt;
 use crate::attribute::krate::crate_from_attributes;
+use crate::attribute::ParseAttribute;
+use crate::attribute::value::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 use crate::utils::{add_trait_bounds, format_type, path_ends_with};
-use crate::attribute::value::{DataAttribute, DefaultValueArgument, FieldAttribute, Tag, VariantAttribute};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	let ion = &crate_from_attributes(&input.attrs);
@@ -33,7 +33,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl_generics.params.push(parse2(quote!('cx))?);
 	}
 
-	let attribute = DataAttribute::from_attributes("ion", &input.attrs)?.unwrap_or_default();
+	let attribute = DataAttribute::from_attributes("ion", &input.attrs)?;
 	let DataAttribute { tag, inherit } = attribute;
 
 	let mut repr = None;
@@ -129,7 +129,7 @@ fn impl_body(
 					let old_inherit = inherit;
 
 					let attribute = match VariantAttribute::from_attributes("ion", &variant.attrs) {
-						Ok(attribute) => attribute.unwrap_or_default(),
+						Ok(attribute) => attribute,
 						Err(e) => return Some(Err(e)),
 					};
 					let VariantAttribute { tag, inherit, skip } = attribute;
@@ -237,39 +237,38 @@ fn impl_body(
 fn map_fields(
 	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Option<Tag>, inherit: bool,
 ) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
-	let mut is_tagged = None;
+	let mut requires_object = false;
 
 	let requirement = match tag.unwrap_or_default() {
 		Tag::Untagged => quote!(),
-		Tag::External(kw) => {
-			is_tagged = Some(kw);
+		Tag::External => {
+			requires_object = true;
 			if let Some(variant) = variant {
 				let error = format!("Expected Object at External Tag {}", variant);
-				quote_spanned!(kw.span() =>
+				quote!(
 					let __object: #ion::Object = __object.get_as(cx, #variant, true, ())
 						.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
 				)
 			} else {
-				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
+				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
 			}
 		}
-		Tag::Internal(kw, key) => {
-			is_tagged = Some(kw);
+		Tag::Internal(key) => {
+			requires_object = true;
 			if let Some(variant) = variant {
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
 				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
-				quote_spanned!(kw.span() =>
+				quote!(
 					let __key: ::std::string::String = __object.get_as(cx, #key, true, ()).ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
 					if __key != #variant {
 						return Err(#ion::Error::new(#error, #ion::ErrorKind::Type));
 					}
 				)
 			} else {
-				return Err(Error::new(kw.span(), "Cannot have Tag for Struct"));
+				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
 			}
 		}
 	};
-	let mut requires_object = is_tagged.is_some();
 
 	let vec: Vec<_> = fields
 		.iter()
@@ -294,7 +293,7 @@ fn map_fields(
 			let old_inherit = inherit;
 
 			let attribute = match FieldAttribute::from_attributes("ion", &field.attrs) {
-				Ok(attribute) => attribute.unwrap_or_default(),
+				Ok(attribute) => attribute,
 				Err(e) => return Some(Err(e)),
 			};
 			let FieldAttribute { name, inherit, skip, convert, strict, default, parser } = attribute;
@@ -309,7 +308,7 @@ fn map_fields(
 			let convert = convert.unwrap_or_else(|| parse_quote!(()));
 
 			let base = if inherit {
-				if is_tagged.is_some() {
+				if requires_object {
 					return Some(Err(Error::new(field.span(), "Inherited Field cannot be parsed from a Tagged Enum")));
 				}
 				quote_spanned!(field.span() => let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert))
@@ -328,7 +327,7 @@ fn map_fields(
 				quote_spanned!(field.span() => #base.ok();)
 			} else {
 				match default {
-					Some(Some(DefaultValueArgument::Expr(expr))) => {
+					Some(Some(DefaultValue::Expr(expr))) => {
 						if inherit {
 							return Some(Err(Error::new(
 								field.span(),
@@ -338,8 +337,8 @@ fn map_fields(
 							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 						}
 					}
-					Some(Some(DefaultValueArgument::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
-					Some(Some(DefaultValueArgument::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
+					Some(Some(DefaultValue::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
+					Some(Some(DefaultValue::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
 					Some(None) => quote_spanned!(field.span() => #base.unwrap_or_default();),
 					None => quote_spanned!(field.span() => #base?;),
 				}
