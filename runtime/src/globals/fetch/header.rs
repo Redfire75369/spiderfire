@@ -151,9 +151,9 @@ pub enum HeadersKind {
 #[derive(Debug, Default)]
 pub struct Headers {
 	pub(crate) reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) headers: HeaderMap,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) kind: HeadersKind,
 }
 

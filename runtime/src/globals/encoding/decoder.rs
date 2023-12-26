@@ -27,7 +27,7 @@ pub struct TextDecodeOptions {
 #[js_class]
 pub struct TextDecoder {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	decoder: Decoder,
 	#[ion(readonly)]
 	pub fatal: bool,

@@ -28,7 +28,7 @@ pub struct FileOptions {
 pub struct File {
 	blob: Blob,
 	name: String,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	modified: DateTime<Utc>,
 }
 

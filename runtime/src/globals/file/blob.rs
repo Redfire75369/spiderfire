@@ -133,7 +133,7 @@ pub struct BlobOptions {
 #[js_class]
 pub struct Blob {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	bytes: Bytes,
 	kind: Option<String>,
 }

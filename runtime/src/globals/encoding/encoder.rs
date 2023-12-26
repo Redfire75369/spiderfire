@@ -28,7 +28,7 @@ impl<'cx> ToValue<'cx> for EncodeResult {
 #[js_class]
 pub struct TextEncoder {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	encoder: Encoder,
 }
 

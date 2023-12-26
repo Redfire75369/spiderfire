@@ -30,18 +30,18 @@ mod options;
 pub struct Response {
 	reflector: Reflector,
 
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) response: Option<hyper::Response<Body>>,
 	pub(crate) headers: Box<Heap<*mut JSObject>>,
 	pub(crate) body: Option<FetchBody>,
 	pub(crate) body_used: bool,
 
 	pub(crate) kind: ResponseKind,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) url: Option<Url>,
 	pub(crate) redirected: bool,
 
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) status: Option<StatusCode>,
 	pub(crate) status_text: Option<String>,
 

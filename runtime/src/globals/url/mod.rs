@@ -29,7 +29,7 @@ pub struct FormatOptions {
 #[js_class]
 pub struct URL {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) url: Url,
 	search_params: Box<Heap<*mut JSObject>>,
 }

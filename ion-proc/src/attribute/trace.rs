@@ -4,24 +4,57 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use syn::Error;
 use syn::parse::{Parse, ParseStream, Result};
+use syn::punctuated::Punctuated;
+
+use crate::attribute::AttributeExt;
 
 mod keywords {
 	custom_keyword!(no_trace);
 }
 
-#[allow(dead_code)]
-pub struct NoTraceFieldAttribute {
-	kw: keywords::no_trace,
+pub enum TraceAttributeArgument {
+	NoTrace(keywords::no_trace),
 }
 
-impl Parse for NoTraceFieldAttribute {
+impl Parse for TraceAttributeArgument {
 	fn parse(input: ParseStream) -> Result<Self> {
+		use TraceAttributeArgument as TAA;
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::no_trace) {
-			Ok(NoTraceFieldAttribute { kw: input.parse()? })
+			Ok(TAA::NoTrace(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
 	}
 }
+
+#[derive(Default)]
+pub struct TraceAttribute {
+	pub(crate) no_trace: bool,
+}
+
+impl Parse for TraceAttribute {
+	fn parse(input: ParseStream) -> Result<TraceAttribute> {
+		use TraceAttributeArgument as TAA;
+		let mut attributes = TraceAttribute { no_trace: false };
+		let span = input.span();
+
+		let args = Punctuated::<TraceAttributeArgument, Token![,]>::parse_terminated(input)?;
+		for arg in args {
+			match arg {
+				TAA::NoTrace(_) => {
+					if attributes.no_trace {
+						return Err(Error::new(span, "Field cannot have multiple `no_trace` attributes."));
+					}
+					attributes.no_trace = true;
+				}
+			}
+		}
+
+		Ok(attributes)
+	}
+}
+
+impl AttributeExt for TraceAttribute {}

@@ -42,7 +42,7 @@ pub fn js_class(_attr: TokenStream, stream: TokenStream) -> TokenStream {
 	}
 }
 
-#[proc_macro_derive(Traceable, attributes(ion))]
+#[proc_macro_derive(Traceable, attributes(trace))]
 pub fn trace(input: TokenStream) -> TokenStream {
 	match impl_trace(parse_macro_input!(input)) {
 		Ok(trace) => trace.into_token_stream().into(),

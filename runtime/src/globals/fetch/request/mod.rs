@@ -35,15 +35,15 @@ pub enum RequestInfo<'cx> {
 pub struct Request {
 	reflector: Reflector,
 
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) request: hyper::Request<Body>,
 	pub(crate) headers: Box<Heap<*mut JSObject>>,
 	pub(crate) body: FetchBody,
 	pub(crate) body_used: bool,
 
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) url: Url,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) locations: Vec<Url>,
 
 	pub(crate) referrer: Referrer,

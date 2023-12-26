@@ -24,7 +24,7 @@ pub enum Referrer {
 	NoReferrer,
 	#[default]
 	Client,
-	Url(#[ion(no_trace)] Url),
+	Url(#[trace(no_trace)] Url),
 }
 
 impl FromStr for Referrer {

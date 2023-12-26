@@ -79,7 +79,7 @@ impl Drop for SignalFuture {
 #[js_class]
 pub struct AbortController {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	sender: Sender<Option<JSVal>>,
 }
 
@@ -113,7 +113,7 @@ impl AbortController {
 #[derive(Default)]
 pub struct AbortSignal {
 	reflector: Reflector,
-	#[ion(no_trace)]
+	#[trace(no_trace)]
 	pub(crate) signal: Signal,
 }
 

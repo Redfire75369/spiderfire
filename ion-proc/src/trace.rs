@@ -8,7 +8,8 @@ use proc_macro2::{Ident, Span};
 use syn::{Arm, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, parse2, Result};
 use syn::spanned::Spanned;
 
-use crate::attribute::trace::NoTraceFieldAttribute;
+use crate::attribute::AttributeExt;
+use crate::attribute::trace::TraceAttribute;
 use crate::utils::add_trait_bounds;
 
 pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
@@ -33,7 +34,7 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 fn impl_body(span: Span, data: &Data) -> Result<Block> {
 	match data {
 		Data::Struct(r#struct) => {
-			let (idents, skip) = field_idents(&r#struct.fields);
+			let (idents, skip) = field_idents(&r#struct.fields)?;
 			let traced = idents
 				.iter()
 				.enumerate()
@@ -49,7 +50,7 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 				.iter()
 				.map(|variant| {
 					let ident = &variant.ident;
-					let (idents, skip) = field_idents(&variant.fields);
+					let (idents, skip) = field_idents(&variant.fields)?;
 					let traced = idents
 						.iter()
 						.enumerate()
@@ -78,27 +79,26 @@ fn impl_body(span: Span, data: &Data) -> Result<Block> {
 	}
 }
 
-fn field_idents(fields: &Fields) -> (Vec<Ident>, Vec<usize>) {
+fn field_idents(fields: &Fields) -> Result<(Vec<Ident>, Vec<usize>)> {
 	let fields = match fields {
 		Fields::Named(fields) => &fields.named,
 		Fields::Unnamed(fields) => &fields.unnamed,
-		Fields::Unit => return (Vec::new(), Vec::new()),
+		Fields::Unit => return Ok((Vec::new(), Vec::new())),
 	};
 	let mut skip = Vec::new();
 	let idents = fields
 		.iter()
 		.enumerate()
 		.map(|(index, field)| {
-			for attr in &field.attrs {
-				if attr.path().is_ident("ion") && attr.parse_args::<NoTraceFieldAttribute>().is_ok() {
-					skip.push(index);
-				}
+			let attribute = TraceAttribute::from_attributes("trace", &field.attrs)?.unwrap_or_default();
+			if attribute.no_trace {
+				skip.push(index);
 			}
 			match &field.ident {
-				Some(ident) => ident.clone(),
-				None => format_ident!("var{}", index),
+				Some(ident) => Ok(ident.clone()),
+				None => Ok(format_ident!("var{}", index)),
 			}
 		})
-		.collect();
-	(idents, skip)
+		.collect::<Result<_>>()?;
+	Ok((idents, skip))
 }

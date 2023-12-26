@@ -23,7 +23,7 @@ use crate::globals::url::URLSearchParams;
 #[non_exhaustive]
 enum FetchBodyInner {
 	None,
-	Bytes(#[ion(no_trace)] Bytes),
+	Bytes(#[trace(no_trace)] Bytes),
 }
 
 #[derive(Clone, Debug, Traceable)]
