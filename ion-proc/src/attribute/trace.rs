@@ -7,22 +7,16 @@
 use syn::meta::ParseNestedMeta;
 use syn::parse::Result;
 
-use crate::attribute::ParseAttribute;
+use crate::attribute::{ParseArgument, ParseAttribute};
 
 #[derive(Default)]
-pub struct TraceAttribute {
+pub(crate) struct TraceAttribute {
 	pub(crate) no_trace: bool,
 }
 
 impl ParseAttribute for TraceAttribute {
-	fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
-		if meta.path.is_ident("no_trace") {
-			if self.no_trace {
-				return Err(meta.error("Field cannot have multiple `no_trace` attributes."));
-			}
-			self.no_trace = true;
-		}
-
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.no_trace.parse_argument(meta, "no_trace", "Field")?;
 		Ok(())
 	}
 }

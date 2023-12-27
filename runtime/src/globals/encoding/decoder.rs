@@ -8,6 +8,7 @@ use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 
 use ion::{Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
+
 use crate::globals::file::BufferSource;
 
 #[derive(Default, FromValue)]

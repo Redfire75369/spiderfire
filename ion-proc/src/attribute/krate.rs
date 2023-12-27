@@ -4,39 +4,45 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use syn::{Attribute, Result};
-use syn::parse::{Parse, ParseStream};
+use syn::meta::ParseNestedMeta;
 
+use crate::attribute::{ParseArgument, ParseAttribute};
+
+#[derive(Default)]
 struct CrateAttribute {
-	_kw: Token![crate],
-	_eq: Token![=],
-	krate: TokenStream,
+	krate: Option<TokenStream>,
 }
 
-impl Parse for CrateAttribute {
-	fn parse(input: ParseStream) -> Result<CrateAttribute> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(Token![crate]) {
-			Ok(CrateAttribute {
-				_kw: input.parse()?,
-				_eq: input.parse()?,
-				krate: input.parse()?,
-			})
-		} else {
-			Err(lookahead.error())
-		}
+impl ParseAttribute for CrateAttribute {
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.krate.parse_argument(meta, "crate", "Attribute")?;
+		Ok(())
 	}
-}
 
-pub fn crate_from_attributes(attrs: &[Attribute]) -> TokenStream {
-	for attr in attrs {
-		if attr.path().is_ident("ion") {
-			if let Ok(CrateAttribute { krate, .. }) = attr.parse_args::<CrateAttribute>() {
-				return krate;
+	fn from_attributes_mut<I: ?Sized>(path: &I, attrs: &mut Vec<Attribute>) -> Result<Self>
+	where
+		Ident: PartialEq<I>,
+	{
+		let mut indices = Vec::new();
+		let mut attribute = Self::default();
+		for (i, attr) in attrs.iter().enumerate() {
+			if attr.path().is_ident(path) {
+				if attr.parse_nested_meta(|meta| attribute.parse(&meta)).is_ok() {
+					indices.push(i);
+				}
+				break;
 			}
 		}
+		while let Some(index) = indices.pop() {
+			attrs.remove(index);
+		}
+		Ok(attribute)
 	}
+}
 
-	parse_quote!(::ion)
+pub(crate) fn crate_from_attributes(attrs: &mut Vec<Attribute>) -> TokenStream {
+	let attribute = CrateAttribute::from_attributes_mut("ion", attrs).unwrap();
+	attribute.krate.unwrap_or_else(|| parse_quote!(::ion))
 }

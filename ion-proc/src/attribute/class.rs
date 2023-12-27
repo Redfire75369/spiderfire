@@ -8,8 +8,8 @@ use syn::{LitStr, Result};
 use syn::meta::ParseNestedMeta;
 use syn::parse::{Parse, ParseStream};
 
-use crate::attribute::name::{AliasArgument, Name, NameArgument};
-use crate::attribute::ParseAttribute;
+use crate::attribute::{ArgumentError, ParseArgument, ParseArgumentWith, ParseAttribute};
+use crate::attribute::name::Name;
 use crate::class::method::MethodKind;
 
 mod keywords {
@@ -70,39 +70,17 @@ pub(crate) struct MethodAttribute {
 }
 
 impl ParseAttribute for MethodAttribute {
-	fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
-		const METHOD_KIND_ERROR: &str = "Method cannot have multiple `constructor`, `get`, or `set` attributes.";
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		const METHOD_KIND_ERROR: ArgumentError =
+			ArgumentError::Full("Method cannot have multiple `constructor`, `get`, or `set` attributes.");
 
-		if meta.path.is_ident("name") {
-			let name: NameArgument = meta.input.parse()?;
-			if self.name.is_some() {
-				return Err(meta.error("Method cannot have multiple `name` attributes."));
-			}
-			self.name = Some(name.name);
-		} else if meta.path.is_ident("alias") {
-			let alias: AliasArgument = meta.input.parse()?;
-			self.alias.extend(alias.aliases);
-		} else if meta.path.is_ident("constructor") {
-			if self.kind.is_some() {
-				return Err(meta.error(METHOD_KIND_ERROR));
-			}
-			self.kind = Some(MethodKind::Constructor);
-		} else if meta.path.is_ident("get") {
-			if self.kind.is_some() {
-				return Err(meta.error(METHOD_KIND_ERROR));
-			}
-			self.kind = Some(MethodKind::Getter);
-		} else if meta.path.is_ident("set") {
-			if self.kind.is_some() {
-				return Err(meta.error(METHOD_KIND_ERROR));
-			}
-			self.kind = Some(MethodKind::Setter);
-		} else if meta.path.is_ident("skip") {
-			if self.skip {
-				return Err(meta.error("Method cannot have multiple `skip` attributes."));
-			}
-			self.skip = true;
-		}
+		self.name.parse_argument(meta, "name", "Method")?;
+		self.alias.parse_argument(meta, "alias", None)?;
+		self.kind
+			.parse_argument_with(meta, MethodKind::Constructor, "constructor", METHOD_KIND_ERROR)?;
+		self.kind.parse_argument_with(meta, MethodKind::Getter, "get", METHOD_KIND_ERROR)?;
+		self.kind.parse_argument_with(meta, MethodKind::Setter, "set", METHOD_KIND_ERROR)?;
+		self.skip.parse_argument(meta, "skip", "Method")?;
 
 		Ok(())
 	}

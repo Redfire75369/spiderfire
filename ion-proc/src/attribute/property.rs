@@ -7,12 +7,11 @@
 use syn::{LitStr, Result};
 use syn::meta::ParseNestedMeta;
 
-use crate::attribute::name::{Name, NameArgument};
-use crate::attribute::name::AliasArgument;
-use crate::attribute::ParseAttribute;
+use crate::attribute::{ParseArgument, ParseAttribute};
+use crate::attribute::name::Name;
 
 #[derive(Default)]
-pub struct PropertyAttribute {
+pub(crate) struct PropertyAttribute {
 	pub(crate) name: Option<Name>,
 	pub(crate) alias: Vec<LitStr>,
 	pub(crate) skip: bool,
@@ -20,27 +19,11 @@ pub struct PropertyAttribute {
 }
 
 impl ParseAttribute for PropertyAttribute {
-	fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
-		if meta.path.is_ident("name") {
-			let name: NameArgument = meta.input.parse()?;
-			if self.name.is_some() {
-				return Err(meta.error("Property cannot have multiple `name` attributes."));
-			}
-			self.name = Some(name.name);
-		} else if meta.path.is_ident("alias") {
-			let alias: AliasArgument = meta.input.parse()?;
-			self.alias.extend(alias.aliases);
-		} else if meta.path.is_ident("skip") {
-			if self.skip {
-				return Err(meta.error("Property cannot have multiple `skip` attributes."));
-			}
-			self.skip = true;
-		} else if meta.path.is_ident("static") {
-			if self.r#static {
-				return Err(meta.error("Property cannot have multiple `static` attributes."));
-			}
-			self.r#static = true;
-		}
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.name.parse_argument(meta, "name", "Property")?;
+		self.alias.parse_argument(meta, "alias", None)?;
+		self.skip.parse_argument(meta, "skip", "Property")?;
+		self.r#static.parse_argument(meta, "static", "Property")?;
 
 		Ok(())
 	}

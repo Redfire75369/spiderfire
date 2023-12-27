@@ -6,23 +6,8 @@
 
 use syn::{Expr, Result};
 use syn::meta::ParseNestedMeta;
-use syn::parse::{Parse, ParseStream};
 
-use crate::attribute::ParseAttribute;
-
-pub(crate) struct ConvertArgument {
-	_eq: Token![=],
-	pub(crate) conversion: Box<Expr>,
-}
-
-impl Parse for ConvertArgument {
-	fn parse(input: ParseStream) -> Result<ConvertArgument> {
-		Ok(ConvertArgument {
-			_eq: input.parse()?,
-			conversion: input.parse()?,
-		})
-	}
-}
+use crate::attribute::{ParseArgument, ParseAttribute};
 
 #[derive(Default)]
 pub(crate) struct ParameterAttribute {
@@ -33,28 +18,16 @@ pub(crate) struct ParameterAttribute {
 }
 
 impl ParseAttribute for ParameterAttribute {
-	fn parse(&mut self, meta: ParseNestedMeta) -> Result<()> {
-		if meta.path.is_ident("this") {
-			if self.this {
-				return Err(meta.error("Parameter cannot have multiple `this` attributes."));
-			}
-			self.this = true;
-		} else if meta.path.is_ident("varargs") {
-			if self.varargs {
-				return Err(meta.error("Parameter cannot have multiple `varargs` attributes."));
-			}
-			self.varargs = true;
-		} else if meta.path.is_ident("convert") {
-			let convert: ConvertArgument = meta.input.parse()?;
-			if self.convert.is_some() {
-				return Err(meta.error("Parameter cannot have multiple `convert` attributes."));
-			}
-			self.convert = Some(convert.conversion);
-		} else if meta.path.is_ident("strict") {
-			if self.strict {
-				return Err(meta.error("Parameter cannot have multiple `strict` attributes."));
-			}
-			self.strict = true;
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.this.parse_argument(meta, "this", "Parameter")?;
+		self.varargs.parse_argument(meta, "varargs", "Parameter")?;
+		self.convert.parse_argument(meta, "convert", "Parameter")?;
+		self.strict.parse_argument(meta, "strict", "Parameter")?;
+
+		if self.this && (self.varargs || self.convert.is_some() || self.strict) {
+			return Err(
+				meta.error("Parameter with `this` attribute cannot have `varargs`, `convert`, or `strict` attributes.")
+			);
 		}
 
 		Ok(())

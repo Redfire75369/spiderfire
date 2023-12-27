@@ -10,13 +10,13 @@ use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
+use crate::attribute::{Optional, ParseAttribute};
 use crate::attribute::krate::crate_from_attributes;
-use crate::attribute::ParseAttribute;
 use crate::attribute::value::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
 use crate::utils::{add_trait_bounds, format_type, path_ends_with};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
-	let ion = &crate_from_attributes(&input.attrs);
+	let ion = &crate_from_attributes(&mut input.attrs);
 
 	add_trait_bounds(&mut input.generics, &parse_quote!(#ion::conversions::FromValue));
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -87,7 +87,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 }
 
 fn impl_body(
-	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Option<Tag>, inherit: bool, repr: Option<Ident>,
+	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Optional<Tag>, inherit: bool, repr: Option<Ident>,
 ) -> Result<(Box<Block>, bool)> {
 	match data {
 		Data::Struct(data) => match &data.fields {
@@ -133,7 +133,7 @@ fn impl_body(
 						Err(e) => return Some(Err(e)),
 					};
 					let VariantAttribute { tag, inherit, skip } = attribute;
-					let tag = old_tag.or(tag);
+					let tag = Optional(old_tag.0.or(tag.0));
 					let inherit = old_inherit || inherit;
 					if skip {
 						return None;
@@ -235,14 +235,13 @@ fn impl_body(
 }
 
 fn map_fields(
-	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Option<Tag>, inherit: bool,
+	ion: &TokenStream, fields: &Punctuated<Field, Token![,]>, variant: Option<String>, tag: Optional<Tag>,
+	inherit: bool,
 ) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
-	let mut requires_object = false;
+	let mut requires_object = matches!(tag.0, Some(Tag::External | Tag::Internal(_)));
 
-	let requirement = match tag.unwrap_or_default() {
-		Tag::Untagged => quote!(),
-		Tag::External => {
-			requires_object = true;
+	let requirement = match tag.0 {
+		Some(Tag::External) => {
 			if let Some(variant) = variant {
 				let error = format!("Expected Object at External Tag {}", variant);
 				quote!(
@@ -253,8 +252,7 @@ fn map_fields(
 				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
 			}
 		}
-		Tag::Internal(key) => {
-			requires_object = true;
+		Some(Tag::Internal(key)) => {
 			if let Some(variant) = variant {
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
 				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
@@ -268,6 +266,7 @@ fn map_fields(
 				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
 			}
 		}
+		_ => quote!(),
 	};
 
 	let vec: Vec<_> = fields
@@ -326,8 +325,8 @@ fn map_fields(
 			let stmt = if optional {
 				quote_spanned!(field.span() => #base.ok();)
 			} else {
-				match default {
-					Some(Some(DefaultValue::Expr(expr))) => {
+				match default.0 {
+					Some(DefaultValue::Expr(expr)) => {
 						if inherit {
 							return Some(Err(Error::new(
 								field.span(),
@@ -337,9 +336,9 @@ fn map_fields(
 							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 						}
 					}
-					Some(Some(DefaultValue::Closure(closure))) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
-					Some(Some(DefaultValue::Literal(lit))) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
-					Some(None) => quote_spanned!(field.span() => #base.unwrap_or_default();),
+					Some(DefaultValue::Closure(closure)) => quote_spanned!(field.span() => #base.unwrap_or_else(#closure);),
+					Some(DefaultValue::Literal(lit)) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
+					Some(DefaultValue::Default) => quote_spanned!(field.span() => #base.unwrap_or_default();),
 					None => quote_spanned!(field.span() => #base?;),
 				}
 			};

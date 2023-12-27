@@ -8,8 +8,6 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{Error, Expr, ExprLit, ExprPath, Lit, LitStr};
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::Bracket;
 
 #[derive(Clone)]
 pub(crate) enum Name {
@@ -72,37 +70,5 @@ impl Parse for Name {
 		} else {
 			Err(Error::new(input.span(), "Function name is not a string or expression"))
 		}
-	}
-}
-
-pub(crate) struct NameArgument {
-	_eq: Token![=],
-	pub(crate) name: Name,
-}
-
-impl Parse for NameArgument {
-	fn parse(input: ParseStream) -> syn::Result<NameArgument> {
-		Ok(NameArgument {
-			_eq: input.parse()?,
-			name: input.parse()?,
-		})
-	}
-}
-
-pub(crate) struct AliasArgument {
-	_eq: Token![=],
-	_bracket: Bracket,
-	pub(crate) aliases: Punctuated<LitStr, Token![,]>,
-}
-
-impl Parse for AliasArgument {
-	fn parse(input: ParseStream) -> syn::Result<AliasArgument> {
-		let inner;
-		let aliases = AliasArgument {
-			_eq: input.parse()?,
-			_bracket: bracketed!(inner in input),
-			aliases: inner.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
-		};
-		Ok(aliases)
 	}
 }

@@ -22,7 +22,7 @@ use crate::class::r#impl::spec::PrototypeSpecs;
 mod spec;
 
 pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]> {
-	let ion = &crate_from_attributes(&r#impl.attrs);
+	let ion = &crate_from_attributes(&mut r#impl.attrs);
 
 	if !r#impl.generics.params.is_empty() {
 		return Err(Error::new(

@@ -11,6 +11,8 @@ pub struct Complex<'cx> {
 	pub truth: bool,
 	#[ion(convert = ConversionBehavior::EnforceRange, strict)]
 	pub mode: u32,
+	#[ion(default)]
+	pub new: bool,
 	#[ion(default = String::from("string"))]
 	pub text: String,
 	#[ion(strict, default = true)]
