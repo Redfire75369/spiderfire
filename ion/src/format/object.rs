@@ -10,7 +10,7 @@ use std::fmt::{Display, Formatter, Write};
 
 use colored::{Color, Colorize};
 use itoa::Buffer;
-use mozjs::jsapi::ESClass;
+use mozjs::jsapi::{ESClass, Type};
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyKey, RegExp, Value};
 use crate::conversions::ToValue;
@@ -24,8 +24,11 @@ use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
-use crate::format::typedarray::format_array_buffer;
-use crate::typedarray::ArrayBuffer;
+use crate::format::typedarray::{format_array_buffer, format_typed_array};
+use crate::typedarray::{
+	ArrayBuffer, ArrayBufferView, ClampedUint8Array, Float32Array, Float64Array, Int16Array, Int32Array, Int8Array,
+	Uint16Array, Uint32Array, Uint8Array,
+};
 
 /// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
@@ -58,11 +61,6 @@ impl Display for ObjectDisplay<'_> {
 				"{}",
 				format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())
 			),
-			ESC::Object => write!(
-				f,
-				"{}",
-				format_plain_object(cx, cfg, &Object::from(object.into_local()))
-			),
 			ESC::Date => write!(
 				f,
 				"{}",
@@ -92,7 +90,69 @@ impl Display for ObjectDisplay<'_> {
 				Exception::Error(error) => f.write_str(&error.format()),
 				_ => unreachable!("Expected Error"),
 			},
-			ESC::Other => write!(f, "{}", format_class_object(cx, cfg, &self.object)),
+			ESC::Object => {
+				write!(
+					f,
+					"{}",
+					format_plain_object(cx, cfg, &Object::from(object.into_local()))
+				)
+			}
+			ESC::Other => {
+				if let Some(view) = ArrayBufferView::from(cx.root_object(object.handle().get())) {
+					'view: {
+						return match view.view_type() {
+							Type::Int8 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Int8Array::from(view.into_local()).unwrap())
+							),
+							Type::Uint8 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Uint8Array::from(view.into_local()).unwrap())
+							),
+							Type::Int16 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Int16Array::from(view.into_local()).unwrap())
+							),
+							Type::Uint16 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Uint16Array::from(view.into_local()).unwrap())
+							),
+							Type::Int32 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Int32Array::from(view.into_local()).unwrap())
+							),
+							Type::Uint32 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Uint32Array::from(view.into_local()).unwrap())
+							),
+							Type::Float32 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Float32Array::from(view.into_local()).unwrap())
+							),
+							Type::Float64 => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &Float64Array::from(view.into_local()).unwrap())
+							),
+							Type::Uint8Clamped => write!(
+								f,
+								"{}",
+								format_typed_array(cfg, &ClampedUint8Array::from(view.into_local()).unwrap())
+							),
+							_ => break 'view,
+						};
+					}
+				}
+
+				write!(f, "{}", format_class_object(cx, cfg, &self.object))
+			}
 			_ => {
 				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
 				f.write_str(&source)

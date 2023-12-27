@@ -29,10 +29,10 @@ impl BufferSource<'_> {
 		unsafe { self.as_slice().len() }
 	}
 
-	pub fn is_shared(&self, cx: &Context) -> bool {
+	pub fn is_shared(&self) -> bool {
 		match self {
 			BufferSource::Buffer(buffer) => buffer.is_shared(),
-			BufferSource::View(view) => view.is_shared(cx),
+			BufferSource::View(view) => view.is_shared(),
 		}
 	}
 
@@ -62,7 +62,7 @@ impl<'cx> FromValue<'cx> for BufferSource<'cx> {
 			}
 			Ok(BufferSource::Buffer(buffer))
 		} else if let Some(view) = ArrayBufferView::from(obj.into_local()) {
-			if view.is_shared(cx) && !allow_shared {
+			if view.is_shared() && !allow_shared {
 				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
 			}
 			Ok(BufferSource::View(view))

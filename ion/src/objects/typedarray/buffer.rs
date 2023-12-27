@@ -9,8 +9,8 @@ use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
-	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferLengthAndData, IsArrayBufferObject,
-	IsDetachedArrayBufferObject, JS_GetTypedArraySharedness, JSObject, NewArrayBufferWithContents,
+	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferMaybeSharedLengthAndData,
+	IsArrayBufferObjectMaybeShared, IsDetachedArrayBufferObject, JSObject, NewArrayBufferWithContents,
 	NewExternalArrayBuffer, StealArrayBufferContents,
 };
 use mozjs::typedarray::CreateWith;
@@ -83,19 +83,19 @@ impl<'ab> ArrayBuffer<'ab> {
 	/// Returns a pointer and length to the contents of the [ArrayBuffer].
 	///
 	/// The pointer may be invalidated if the [ArrayBuffer] is detached.
-	pub fn data(&self) -> (*mut u8, usize) {
+	pub fn data(&self) -> (*mut u8, usize, bool) {
 		let mut len = 0;
 		let mut shared = false;
 		let mut data = ptr::null_mut();
-		unsafe { GetArrayBufferLengthAndData(self.get(), &mut len, &mut shared, &mut data) };
-		(data, len)
+		unsafe { GetArrayBufferMaybeSharedLengthAndData(self.get(), &mut len, &mut shared, &mut data) };
+		(data, len, shared)
 	}
 
 	/// Returns a slice to the contents of the [ArrayBuffer].
 	///
 	/// The slice may be invalidated if the [ArrayBuffer] is detached.
 	pub unsafe fn as_slice(&self) -> &[u8] {
-		let (ptr, len) = self.data();
+		let (ptr, len, _) = self.data();
 		unsafe { slice::from_raw_parts(ptr, len) }
 	}
 
@@ -103,7 +103,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	///
 	/// The slice may be invalidated if the [ArrayBuffer] is detached.
 	pub unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
-		let (ptr, len) = self.data();
+		let (ptr, len, _) = self.data();
 		unsafe { slice::from_raw_parts_mut(ptr, len) }
 	}
 
@@ -156,13 +156,13 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 
 	pub fn is_shared(&self) -> bool {
-		unsafe { JS_GetTypedArraySharedness(self.get()) }
+		self.data().2
 	}
 
 	/// Checks if an object is an array buffer.
 	#[allow(clippy::not_unsafe_ptr_arg_deref)]
 	pub fn is_array_buffer(object: *mut JSObject) -> bool {
-		unsafe { IsArrayBufferObject(object) }
+		unsafe { IsArrayBufferObjectMaybeShared(object) }
 	}
 }
 

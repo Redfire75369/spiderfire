@@ -11,11 +11,12 @@ use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::{
-	GetArrayBufferViewLengthAndData, HandleObject, IsLargeArrayBufferView, JS_GetArrayBufferViewBuffer,
-	JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset, JS_GetArrayBufferViewType,
-	JS_IsArrayBufferViewObject, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt16ArrayWithBuffer,
-	JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer,
-	JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, NewExternalArrayBuffer, Type,
+	GetArrayBufferViewLengthAndData, HandleObject, IsArrayBufferViewShared, IsLargeArrayBufferView,
+	JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset,
+	JS_GetArrayBufferViewType, JS_IsArrayBufferViewObject, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer,
+	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer,
+	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject,
+	NewExternalArrayBuffer, Type,
 };
 use mozjs::typedarray as jsta;
 use mozjs::typedarray::{
@@ -26,7 +27,9 @@ use crate::{Context, Local, Object};
 use crate::typedarray::buffer::ArrayBuffer;
 use crate::utils::BoxExt;
 
-pub trait TypedArrayElement: jsta::TypedArrayElement {}
+pub trait TypedArrayElement: jsta::TypedArrayElement {
+	const NAME: &'static str;
+}
 
 pub trait TypedArrayElementCreator: jsta::TypedArrayElementCreator + TypedArrayElement {
 	unsafe fn create_with_buffer(cx: *mut JSContext, object: HandleObject, offset: usize, length: i64)
@@ -38,14 +41,18 @@ macro_rules! typed_array_elements {
 		$(
 			pub type $view<'bv> = TypedArray<'bv, $element>;
 
-			impl TypedArrayElement for $element {}
+			impl TypedArrayElement for $element {
+				const NAME: &'static str = stringify!($view);
+			}
 		)*
 	};
 	($(($view:ident, $element:ty, $create_with_buffer:ident)$(,)?)*) => {
 		$(
 			pub type $view<'bv> = TypedArray<'bv, $element>;
 
-			impl TypedArrayElement for $element {}
+			impl TypedArrayElement for $element {
+				const NAME: &'static str = stringify!($view);
+			}
 
 			impl TypedArrayElementCreator for $element {
 				unsafe fn create_with_buffer(
@@ -208,13 +215,8 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 	}
 
 	/// Checks if the underlying [ArrayBuffer] is shared.
-	pub fn is_shared(&self, cx: &Context) -> bool {
-		// TODO: Use `IsArrayBufferViewShared` when mozjs has bindings. (servo/mozjs#442)
-		let mut shared = false;
-		unsafe {
-			JS_GetArrayBufferViewBuffer(cx.as_ptr(), self.handle().into(), &mut shared);
-		}
-		shared
+	pub fn is_shared(&self) -> bool {
+		unsafe { IsArrayBufferViewShared(self.get()) }
 	}
 
 	/// Returns the underlying [ArrayBuffer]. The buffer may be shared and/or detached.
@@ -224,6 +226,10 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 			cx.root_object(unsafe { JS_GetArrayBufferViewBuffer(cx.as_ptr(), self.handle().into(), &mut shared) }),
 		)
 		.unwrap()
+	}
+
+	pub fn into_local(self) -> Local<'bv, *mut JSObject> {
+		self.view
 	}
 
 	/// Checks if an object is an array buffer view.

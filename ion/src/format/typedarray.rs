@@ -8,9 +8,10 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
+use itoa::Buffer;
 
 use crate::format::{Config, INDENT, NEWLINE};
-use crate::typedarray::ArrayBuffer;
+use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 pub fn format_array_buffer<'cx>(cfg: Config, buffer: &'cx ArrayBuffer<'cx>) -> ArrayBufferDisplay<'cx> {
 	ArrayBufferDisplay { buffer, cfg }
@@ -26,7 +27,13 @@ impl Display for ArrayBufferDisplay<'_> {
 		let colour = self.cfg.colours.object;
 		write!(f, "{}", "ArrayBuffer {".color(colour))?;
 
-		let bytes = unsafe { self.buffer.as_slice() };
+		let vec;
+		let bytes = if self.buffer.is_shared() {
+			vec = unsafe { self.buffer.as_slice().to_vec() };
+			&vec
+		} else {
+			unsafe { self.buffer.as_slice() }
+		};
 
 		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		if bytes.len() < 8 {
@@ -45,7 +52,7 @@ impl Display for ArrayBufferDisplay<'_> {
 		f.write_str("<")?;
 
 		for (i, byte) in bytes.iter().enumerate() {
-			write!(f, "{:02x}", *byte)?;
+			write!(f, "{:02x}", byte)?;
 
 			if i != bytes.len() - 1 {
 				f.write_char(' ')?;
@@ -68,6 +75,72 @@ impl Display for ArrayBufferDisplay<'_> {
 			f.write_str(NEWLINE)?;
 		}
 
+		write!(f, "{}", "}".color(colour))?;
+
+		Ok(())
+	}
+}
+
+pub fn format_typed_array<'cx, T: TypedArrayElement>(
+	cfg: Config, array: &'cx TypedArray<'cx, T>,
+) -> TypedArrayDisplay<'cx, T>
+where
+	T::Element: Display + Copy,
+{
+	TypedArrayDisplay { array, cfg }
+}
+
+pub struct TypedArrayDisplay<'cx, T: TypedArrayElement>
+where
+	T::Element: Display + Copy,
+{
+	array: &'cx TypedArray<'cx, T>,
+	cfg: Config,
+}
+
+impl<'cx, T: TypedArrayElement> Display for TypedArrayDisplay<'cx, T>
+where
+	T::Element: Display + Copy,
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let colour = self.cfg.colours.object;
+
+		let vec;
+		let elements = if self.array.is_shared() {
+			vec = unsafe { self.array.as_slice().to_vec() };
+			&vec
+		} else {
+			unsafe { self.array.as_slice() }
+		};
+
+		let mut buffer = Buffer::new();
+		write!(
+			f,
+			"{}{}{}{}",
+			T::NAME.color(colour),
+			"(".color(colour),
+			buffer.format(elements.len()).color(self.cfg.colours.number),
+			") [".color(colour)
+		)?;
+
+		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+		f.write_str(NEWLINE)?;
+		f.write_str(&indent)?;
+
+		for (i, element) in elements.iter().enumerate() {
+			write!(f, "{}", element.to_string().color(self.cfg.colours.number))?;
+			write!(f, "{}", ",".color(colour))?;
+
+			if i != elements.len() - 1 {
+				f.write_char(' ')?;
+				if (i + 1) % 16 == 0 {
+					f.write_str(NEWLINE)?;
+					f.write_str(&indent)?;
+				}
+			}
+		}
+
+		f.write_str(NEWLINE)?;
 		write!(f, "{}", "}".color(colour))?;
 
 		Ok(())

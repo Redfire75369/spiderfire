@@ -36,13 +36,13 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-       
+
       - name: Install LLVM
         if: matrix.id == 'linux'
         uses: KyleMayes/install-llvm-action@v1
         with:
           version: "17.0"
- 
+
       - name: Setup Dependencies
         uses: ./.github/actions/setup
         with:
@@ -60,7 +60,7 @@ jobs:
           LINKER: lld-link
           CFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
           CXXFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
-          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link -Clink-arg=/verbose
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
         run: |
           just build-release -vv --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
