@@ -20,8 +20,7 @@ pub use future::PromiseFuture;
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use local::Local;
-pub use objects::{Array, Date, Iterator, JSIterator, Object, OwnedKey, Promise, PropertyKey, RegExp};
-pub use objects::typedarray;
+pub use objects::*;
 pub use stack::{Stack, StackRecord};
 pub use string::{String, StringRef};
 pub use symbol::Symbol;

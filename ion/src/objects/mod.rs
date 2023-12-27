@@ -17,9 +17,11 @@ pub use date::Date;
 pub use descriptor::PropertyDescriptor;
 pub use iterator::{Iterator, JSIterator};
 pub use key::{OwnedKey, PropertyKey};
+pub use map::Map;
 pub use object::Object;
 pub use promise::Promise;
 pub use regexp::RegExp;
+pub use set::Set;
 
 use crate::Context;
 
@@ -28,9 +30,11 @@ mod date;
 mod descriptor;
 mod iterator;
 mod key;
+mod map;
 mod object;
 mod promise;
 mod regexp;
+mod set;
 pub mod typedarray;
 
 /// Returns the bit-masked representation of reserved slots for a class.
