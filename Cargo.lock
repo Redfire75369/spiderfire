@@ -1447,6 +1447,7 @@ dependencies = [
  "sys-locale",
  "term-table",
  "tokio",
+ "uri-url",
  "url",
 ]
 
@@ -2290,6 +2291,16 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "uri-url"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "208b24f86e526648c8b6349eeda3dba47af0eb79d070b29edb5c8c8b1e394721"
+dependencies = [
+ "http",
+ "url",
+]
 
 [[package]]
 name = "url"
