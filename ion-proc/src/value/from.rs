@@ -218,9 +218,9 @@ fn impl_body(
 
 			if unit {
 				if let Some(repr) = repr {
-					if_unit = Some(
-						quote_spanned!(repr.span() => let discriminant: #repr = #ion::conversions::FromValue::from_value(cx, value, true, #ion::conversions::ConversionBehavior::EnforceRange)?;),
-					);
+					if_unit = Some(quote_spanned!(repr.span() =>
+						let discriminant: #repr = #ion::conversions::FromValue::from_value(cx, value, true, #ion::conversions::ConversionBehavior::EnforceRange)?;
+					));
 				}
 			}
 

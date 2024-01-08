@@ -8,6 +8,8 @@ use std::any::Any;
 use std::mem::forget;
 use std::thread::Result;
 
+use mozjs::conversions::ConversionBehavior;
+
 pub use arguments::{Accessor, Arguments, FromArgument};
 pub use closure::{Closure, ClosureOnce};
 pub use function::{Function, NativeFunction};
@@ -76,5 +78,41 @@ impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Strict<T> {
 
 	fn from_value(cx: &'cx Context, value: &Value, _: bool, config: Self::Config) -> crate::Result<Strict<T>> {
 		T::from_value(cx, value, true, config).map(Strict)
+	}
+}
+
+/// Helper type for integer arguments that wraps.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Wrap<T>(pub T);
+
+impl<'cx, T: FromValue<'cx, Config = ConversionBehavior>> FromValue<'cx> for Wrap<T> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> crate::Result<Wrap<T>> {
+		T::from_value(cx, value, strict, ConversionBehavior::Default).map(Wrap)
+	}
+}
+
+/// Helper type for integer arguments that enforces the range.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Enforce<T>(pub T);
+
+impl<'cx, T: FromValue<'cx, Config = ConversionBehavior>> FromValue<'cx> for Enforce<T> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> crate::Result<Enforce<T>> {
+		T::from_value(cx, value, strict, ConversionBehavior::EnforceRange).map(Enforce)
+	}
+}
+
+/// Helper type for integer arguments that clamps.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Clamp<T>(pub T);
+
+impl<'cx, T: FromValue<'cx, Config = ConversionBehavior>> FromValue<'cx> for Clamp<T> {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> crate::Result<Clamp<T>> {
+		T::from_value(cx, value, strict, ConversionBehavior::Clamp).map(Clamp)
 	}
 }

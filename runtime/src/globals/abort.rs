@@ -19,8 +19,7 @@ use tokio::sync::watch::{channel, Receiver, Sender};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
-use ion::conversions::ConversionBehavior::EnforceRange;
-use ion::function::Opt;
+use ion::function::{Enforce, Opt};
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
@@ -160,7 +159,7 @@ impl AbortSignal {
 		)
 	}
 
-	pub fn timeout(cx: &Context, #[ion(convert = EnforceRange)] time: u64) -> *mut JSObject {
+	pub fn timeout(cx: &Context, Enforce(time): Enforce<u64>) -> *mut JSObject {
 		let (sender, receiver) = channel(None);
 		let terminate = Arc::new(AtomicBool::new(false));
 		let terminate2 = terminate.clone();

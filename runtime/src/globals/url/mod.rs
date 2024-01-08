@@ -6,13 +6,12 @@
 
 use std::cmp::Ordering;
 
-use mozjs::conversions::ConversionBehavior::EnforceRange;
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
 use ion::{ClassDefinition, Context, Error, Local, Object, Result};
 use ion::class::Reflector;
-use ion::function::Opt;
+use ion::function::{Enforce, Opt};
 pub use search_params::URLSearchParams;
 
 mod search_params;
@@ -174,8 +173,8 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_port(&mut self, #[ion(convert = EnforceRange)] Opt(port): Opt<u16>) -> Result<()> {
-		self.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
+	pub fn set_port(&mut self, Opt(port): Opt<Enforce<u16>>) -> Result<()> {
+		self.url.set_port(port.map(|p| p.0)).map_err(|_| Error::new("Invalid Port", None))
 	}
 
 	#[ion(get)]

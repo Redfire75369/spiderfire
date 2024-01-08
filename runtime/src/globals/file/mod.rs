@@ -5,11 +5,10 @@
  */
 
 use chrono::{DateTime, TimeZone, Utc};
-use mozjs::conversions::ConversionBehavior;
 
 pub use blob::{Blob, BufferSource};
 use ion::{ClassDefinition, Context, Object};
-use ion::function::Opt;
+use ion::function::{Opt, Wrap};
 
 use crate::globals::file::blob::{BlobOptions, BlobPart};
 use crate::globals::file::reader::{FileReader, FileReaderSync};
@@ -21,8 +20,7 @@ mod reader;
 pub struct FileOptions {
 	#[ion(inherit)]
 	blob: BlobOptions,
-	#[ion(convert = ConversionBehavior::Default)]
-	modified: Option<i64>,
+	modified: Option<Wrap<i64>>,
 }
 
 #[js_class]
@@ -41,7 +39,7 @@ impl File {
 		let blob = Blob::constructor(Opt(Some(parts)), Opt(Some(options.blob)));
 		let modified = options
 			.modified
-			.and_then(|d| Utc.timestamp_millis_opt(d).single())
+			.and_then(|d| Utc.timestamp_millis_opt(d.0).single())
 			.unwrap_or_else(Utc::now);
 
 		File { blob, name, modified }

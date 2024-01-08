@@ -8,14 +8,13 @@ use std::str::FromStr;
 
 use bytes::Bytes;
 use encoding_rs::UTF_8;
-use mozjs::conversions::ConversionBehavior::Clamp;
 use mozjs::jsapi::JSObject;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::FromValue;
 use ion::format::NEWLINE;
-use ion::function::Opt;
+use ion::function::{Clamp, Opt};
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, ArrayBufferWrapper};
 
 use crate::promise::future_to_promise;
@@ -205,18 +204,17 @@ impl Blob {
 	}
 
 	pub fn slice(
-		&self, cx: &Context, #[ion(convert = Clamp)] Opt(start): Opt<i64>, #[ion(convert = Clamp)] Opt(end): Opt<i64>,
-		Opt(kind): Opt<String>,
+		&self, cx: &Context, Opt(start): Opt<Clamp<i64>>, Opt(end): Opt<Clamp<i64>>, Opt(kind): Opt<String>,
 	) -> *mut JSObject {
 		let size = self.bytes.len() as i64;
 
-		let mut start = start.unwrap_or(0);
+		let mut start = start.unwrap_or_default().0;
 		if start < 0 {
 			start = 0.max(size + start);
 		}
 		let start = start.min(size) as usize;
 
-		let mut end = end.unwrap_or(size);
+		let mut end = end.unwrap_or(Clamp(size)).0;
 		if end < 0 {
 			end = 0.max(size + end);
 		}

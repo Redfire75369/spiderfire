@@ -1,11 +1,11 @@
-use ion::conversions::ConversionBehavior;
+use ion::function::Clamp;
 use ion::js_fn;
 
 #[js_fn]
-pub fn integer(#[ion(convert = ConversionBehavior::Clamp)] _integer: u8) {}
+pub fn integer(Clamp(_integer): Clamp<u8>) {}
 
 #[js_fn]
-pub fn integer_optional(#[ion(convert = ConversionBehavior::Clamp)] _integer: Option<i16>) {}
+pub fn integer_optional(_integer: Option<Clamp<i16>>) {}
 
 #[js_fn]
-pub fn integer_vec(#[ion(convert = ConversionBehavior::Clamp)] _integers: Vec<u32>) {}
+pub fn integer_vec(_integers: Vec<Clamp<u32>>) {}
