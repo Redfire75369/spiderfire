@@ -8,12 +8,12 @@ use std::any::Any;
 use std::mem::forget;
 use std::thread::Result;
 
-pub use arguments::Arguments;
+pub use arguments::{Accessor, Arguments, FromArgument};
 pub use closure::{Closure, ClosureOnce};
 pub use function::{Function, NativeFunction};
 
 use crate::{Context, Error, Object, ResultExc, ThrowException, Value};
-use crate::conversions::ToValue;
+use crate::conversions::{FromValue, ToValue};
 
 mod arguments;
 mod closure;
@@ -58,4 +58,23 @@ fn handle_unwind_error(cx: &Context, unwind_error: Box<dyn Any + Send>) -> bool 
 		forget(unwind_error);
 	}
 	false
+}
+
+/// Helper type for optional arguments.
+pub struct Opt<T>(pub Option<T>);
+
+/// Helper type for rest/spread/variable arguments.
+pub struct Rest<T>(pub Box<[T]>);
+
+pub type VarArgs<T> = Rest<T>;
+
+/// Helper type for strict arguments.
+pub struct Strict<T>(pub T);
+
+impl<'cx, T: FromValue<'cx>> FromValue<'cx> for Strict<T> {
+	type Config = T::Config;
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, config: Self::Config) -> crate::Result<Strict<T>> {
+		T::from_value(cx, value, true, config).map(Strict)
+	}
 }

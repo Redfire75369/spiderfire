@@ -75,7 +75,7 @@ impl<'m> Map<'m> {
 	}
 
 	/// Sets the value of the [Map] at the given key.
-	pub fn set(&mut self, cx: &Context, key: &Value, value: &Value) -> bool {
+	pub fn set(&self, cx: &Context, key: &Value, value: &Value) -> bool {
 		unsafe {
 			MapSet(
 				cx.as_ptr(),
@@ -87,13 +87,13 @@ impl<'m> Map<'m> {
 	}
 
 	/// Deletes the value of the [Map] at the given key.
-	pub fn delete(&mut self, cx: &Context, key: &Value) -> bool {
+	pub fn delete(&self, cx: &Context, key: &Value) -> bool {
 		let mut rval = false;
 		unsafe { MapDelete(cx.as_ptr(), self.handle().into(), key.handle().into(), &mut rval) && rval }
 	}
 
 	/// Clears the contents of the [Map].
-	pub fn clear(&mut self, cx: &Context) -> bool {
+	pub fn clear(&self, cx: &Context) -> bool {
 		unsafe { MapClear(cx.as_ptr(), self.handle().into()) }
 	}
 

@@ -48,7 +48,7 @@ pub struct IteratorResult<'cx> {
 
 impl<'cx> ToValue<'cx> for IteratorResult<'cx> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		let mut object = Object::new(cx);
+		let object = Object::new(cx);
 		object.set_as(cx, "value", &self.value);
 		object.set_as(cx, "done", &self.done);
 		object.to_value(cx, value);
@@ -91,11 +91,11 @@ impl Iterator {
 		let cx = &unsafe { Context::new_unchecked(cx) };
 		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
-		let mut this = args.this().to_object(cx);
-		let iterator = Iterator::get_mut_private(&mut this);
+		let this = args.this().to_object(cx);
+		let iterator = Iterator::get_mut_private(&this);
 		let result = iterator.next_value(cx);
 
-		result.to_value(cx, args.rval());
+		result.to_value(cx, &mut args.rval());
 		true
 	}
 

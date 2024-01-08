@@ -52,7 +52,7 @@ impl<'cx> Runtime<'cx> {
 		&self.global
 	}
 
-	pub fn global_mut(&mut self) -> &mut Object<'cx> {
+	pub fn global_mut(&mut self) -> &Object<'cx> {
 		&mut self.global
 	}
 
@@ -103,18 +103,18 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 	}
 
 	pub fn build(self, cx: &mut Context) -> Runtime {
-		let mut global = default_new_global(cx);
+		let global = default_new_global(cx);
 		let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 		let global_obj = global.handle().get();
 		global.set_as(cx, "global", &global_obj);
-		init_globals(cx, &mut global);
+		init_globals(cx, &global);
 
 		let mut private = Box::<ContextPrivate>::default();
 
 		if self.microtask_queue {
 			private.event_loop.microtasks = Some(MicrotaskQueue::default());
-			init_microtasks(cx, &mut global);
+			init_microtasks(cx, &global);
 			private.event_loop.futures = Some(FutureQueue::default());
 
 			unsafe {
@@ -134,7 +134,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 		}
 		if self.macrotask_queue {
 			private.event_loop.macrotasks = Some(MacrotaskQueue::default());
-			init_timers(cx, &mut global);
+			init_timers(cx, &global);
 		}
 
 		let _options = unsafe { &mut *ContextOptionsRef(cx.as_ptr()) };
@@ -148,9 +148,9 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 
 		if let Some(standard_modules) = self.standard_modules {
 			if has_loader {
-				standard_modules.init(cx, &mut global);
+				standard_modules.init(cx, &global);
 			} else {
-				standard_modules.init_globals(cx, &mut global);
+				standard_modules.init_globals(cx, &global);
 			}
 		}
 

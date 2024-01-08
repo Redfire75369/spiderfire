@@ -24,7 +24,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 		let args = &mut #ion::Arguments::new(cx, argc, vp);
 		let mut this = #ion::Object::from(
 			cx.root_object(
-				::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &<#ty as #ion::ClassDefinition>::class().base, &args.call_args())
+				::mozjs::jsapi::JS_NewObjectForConstructor(cx.as_ptr(), &<#ty as #ion::ClassDefinition>::class().base, args.call_args())
 			)
 		);
 
@@ -38,7 +38,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 			wrapper(cx, args, &mut this)
 		}));
 
-		#ion::functions::__handle_native_constructor_result(cx, result, &this, args.rval())
+		#ion::functions::__handle_native_constructor_result(cx, result, &this, &mut args.rval())
 	});
 	constructor.block = body;
 	constructor.sig.ident = format_ident!("__ion_bindings_constructor", span = constructor.sig.ident.span());
@@ -46,7 +46,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 	let method = Method {
 		receiver: MethodReceiver::Static,
 		method: constructor,
-		nargs: parameters.nargs.0,
+		nargs: parameters.nargs,
 		names: vec![],
 	};
 	Ok(method)

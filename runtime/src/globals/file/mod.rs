@@ -57,7 +57,7 @@ impl File {
 	}
 }
 
-pub fn define(cx: &Context, object: &mut Object) -> bool {
+pub fn define(cx: &Context, object: &Object) -> bool {
 	Blob::init_class(cx, object).0
 		&& File::init_class(cx, object).0
 		&& FileReader::init_class(cx, object).0

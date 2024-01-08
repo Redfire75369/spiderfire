@@ -286,7 +286,7 @@ impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Option<T> {
 
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for [T] {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		let mut array = Array::new_with_length(cx, self.len());
+		let array = Array::new_with_length(cx, self.len());
 
 		for (i, t) in self.iter().enumerate() {
 			assert!(array.set_as(cx, i as u32, t));

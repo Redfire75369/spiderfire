@@ -10,6 +10,7 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, Function, Object, Result};
+use ion::functions::Rest;
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
@@ -18,7 +19,7 @@ const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;
 
 fn set_timer(
-	cx: &Context, callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool,
+	cx: &Context, callback: Function, duration: Option<i32>, arguments: Box<[JSVal]>, repeat: bool,
 ) -> Result<u32> {
 	let event_loop = unsafe { &mut cx.get_private().event_loop };
 	if let Some(queue) = &mut event_loop.macrotasks {
@@ -52,16 +53,14 @@ fn clear_timer(cx: &Context, id: Option<u32>) -> Result<()> {
 
 #[js_fn]
 fn setTimeout(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
-	#[ion(varargs)] arguments: Vec<JSVal>,
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, false)
 }
 
 #[js_fn]
 fn setInterval(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
-	#[ion(varargs)] arguments: Vec<JSVal>,
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, true)
 }
@@ -96,6 +95,6 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	unsafe { global.define_methods(cx, FUNCTIONS) }
 }

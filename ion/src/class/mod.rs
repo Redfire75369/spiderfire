@@ -16,7 +16,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Function, Local, Object};
+use crate::{Context, Function, Local, Object};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::functions::NativeFunction;
@@ -60,7 +60,7 @@ pub trait ClassDefinition: NativeObject {
 		&[JSPropertySpec::ZERO]
 	}
 
-	fn init_class<'cx>(cx: &'cx Context, object: &mut Object) -> (bool, &'cx ClassInfo) {
+	fn init_class<'cx>(cx: &'cx Context, object: &Object) -> (bool, &'cx ClassInfo) {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let entry = infos.entry(TypeId::of::<Self>());
 
@@ -138,7 +138,8 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	fn get_mut_private<'a>(object: &mut Object<'a>) -> &'a mut Self {
+	#[allow(clippy::mut_from_ref)]
+	fn get_mut_private<'a>(object: &Object<'a>) -> &'a mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
@@ -153,10 +154,14 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	fn instance_of(cx: &Context, object: &Object, args: Option<&Arguments>) -> bool {
+	fn instance_of(cx: &Context, object: &Object) -> bool {
 		unsafe {
-			let args = args.map(|a| a.call_args()).as_mut().map_or(ptr::null_mut(), |args| args);
-			JS_InstanceOf(cx.as_ptr(), object.handle().into(), &Self::class().base, args)
+			JS_InstanceOf(
+				cx.as_ptr(),
+				object.handle().into(),
+				&Self::class().base,
+				ptr::null_mut(),
+			)
 		}
 	}
 }

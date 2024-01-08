@@ -12,7 +12,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::attribute::krate::crate_from_attributes;
-use crate::utils::path_ends_with;
+use crate::utils::{new_token, path_ends_with};
 
 pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 6]> {
 	let ion = &crate_from_attributes(&mut r#struct.attrs);
@@ -178,21 +178,20 @@ fn class_impls(
 
 fn impl_from_value(ion: &TokenStream, span: Span, name: &str, r#type: &Type, mutable: bool) -> Result<ItemImpl> {
 	let from_value_error = LitStr::new(&format!("Expected {}", name), span);
-	let function = if mutable {
-		quote!(get_mut_private)
+	let (function, mutable) = if mutable {
+		(quote!(get_mut_private), Some(new_token![mut]))
 	} else {
-		quote!(get_private)
+		(quote!(get_private), None)
 	};
-	let mutable = mutable.then(<Token![mut]>::default);
 
 	parse2(
 		quote_spanned!(span => impl<'cx> #ion::conversions::FromValue<'cx> for &'cx #mutable #r#type {
 			type Config = ();
 
 			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: ::core::primitive::bool, _: ()) -> #ion::Result<&'cx #mutable #r#type> {
-				let #mutable object = #ion::Object::from_value(cx, value, strict, ())?;
-				if <#r#type as #ion::class::ClassDefinition>::instance_of(cx, &object, None) {
-					Ok(<#r#type as #ion::class::ClassDefinition>::#function(&#mutable object))
+				let object = #ion::Object::from_value(cx, value, strict, ())?;
+				if <#r#type as #ion::class::ClassDefinition>::instance_of(cx, &object) {
+					Ok(<#r#type as #ion::class::ClassDefinition>::#function(&object))
 				} else {
 					Err(#ion::Error::new(#from_value_error, #ion::ErrorKind::Type))
 				}

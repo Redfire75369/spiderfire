@@ -9,7 +9,7 @@ use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::name::Name;
 use crate::function::{check_abi, impl_fn_body, set_signature};
-use crate::function::parameters::Parameters;
+use crate::function::parameter::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -57,7 +57,7 @@ where
 				MethodReceiver::Static
 			},
 			method,
-			nargs: parameters.nargs.0,
+			nargs: parameters.nargs,
 			names: vec![],
 		};
 		Ok((method, parameters))

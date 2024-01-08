@@ -15,7 +15,7 @@ fn object() {
 	let global = default_new_global(cx);
 	let _realm = JSAutoRealm::new(runtime.cx(), global.handle().get());
 
-	let mut object = Object::new(cx);
+	let object = Object::new(cx);
 	object.set(cx, "key1", &Value::null(cx));
 	object.define(cx, "key2", &Value::undefined(cx), PropertyFlags::all());
 

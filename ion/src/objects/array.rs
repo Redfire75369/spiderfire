@@ -113,33 +113,33 @@ impl<'a> Array<'a> {
 
 	/// Sets the [Value] at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set(&mut self, cx: &Context, index: u32, value: &Value) -> bool {
+	pub fn set(&self, cx: &Context, index: u32, value: &Value) -> bool {
 		self.arr.set(cx, index, value)
 	}
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
+	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&self, cx: &'cx Context, index: u32, value: &T) -> bool {
 		self.arr.set_as(cx, index, value)
 	}
 
 	/// Defines the [Value] at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define(&mut self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
+	pub fn define(&self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
 		self.arr.define(cx, index, value, attrs)
 	}
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
 	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
+		&self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
 	) -> bool {
 		self.arr.define_as(cx, index, value, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete(&mut self, cx: &Context, index: u32) -> bool {
+	pub fn delete(&self, cx: &Context, index: u32) -> bool {
 		self.arr.delete(cx, index)
 	}
 

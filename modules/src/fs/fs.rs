@@ -433,8 +433,8 @@ impl NativeModule for FileSystem {
 	const SOURCE: &'static str = include_str!("fs.js");
 
 	fn module(cx: &Context) -> Option<Object> {
-		let mut fs = Object::new(cx);
-		let mut sync = Object::new(cx);
+		let fs = Object::new(cx);
+		let sync = Object::new(cx);
 
 		if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
 			&& unsafe { sync.define_methods(cx, SYNC_FUNCTIONS) }

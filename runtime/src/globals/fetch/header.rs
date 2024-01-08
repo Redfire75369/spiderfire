@@ -70,7 +70,7 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 
 impl ToValue<'_> for HeaderEntry {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
-		let mut array = Array::new(cx);
+		let array = Array::new(cx);
 		array.set_as(cx, 0, &self.name);
 		array.set_as(cx, 1, &self.value);
 		array.to_value(cx, value);

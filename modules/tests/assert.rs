@@ -75,7 +75,7 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 
 #[ion::js_fn]
 fn on_rejected(cx: &Context, value: Value) {
-	let mut global = Object::global(cx);
+	let global = Object::global(cx);
 	global.set(cx, EXCEPTION_STRING, &value);
 	Exception::clear(cx);
 }

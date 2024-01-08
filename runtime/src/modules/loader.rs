@@ -82,7 +82,7 @@ impl ModuleLoader for Loader {
 		}
 	}
 
-	fn metadata(&self, cx: &Context, private: &Value, meta: &mut Object) -> bool {
+	fn metadata(&self, cx: &Context, private: &Value, meta: &Object) -> bool {
 		let data = ModuleData::from_private(cx, private);
 
 		if let Some(data) = data {

@@ -17,7 +17,7 @@ pub mod microtasks;
 pub mod timers;
 pub mod url;
 
-pub fn init_globals(cx: &Context, global: &mut Object) -> bool {
+pub fn init_globals(cx: &Context, global: &Object) -> bool {
 	let result = base64::define(cx, global)
 		&& console::define(cx, global)
 		&& encoding::define(cx, global)
@@ -34,10 +34,10 @@ pub fn init_globals(cx: &Context, global: &mut Object) -> bool {
 	}
 }
 
-pub fn init_timers(cx: &Context, global: &mut Object) -> bool {
+pub fn init_timers(cx: &Context, global: &Object) -> bool {
 	timers::define(cx, global) && abort::define(cx, global)
 }
 
-pub fn init_microtasks(cx: &Context, global: &mut Object) -> bool {
+pub fn init_microtasks(cx: &Context, global: &Object) -> bool {
 	microtasks::define(cx, global)
 }

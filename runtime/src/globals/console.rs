@@ -22,6 +22,7 @@ use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
 use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
+use ion::functions::Rest;
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
@@ -68,43 +69,43 @@ fn get_label(label: Option<String>) -> String {
 }
 
 #[js_fn]
-fn log(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn log(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Info {
 		print_indent(false);
-		print_args(cx, values.as_slice(), false);
+		print_args(cx, &values, false);
 		println!();
 	}
 }
 
 #[js_fn]
-fn warn(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn warn(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Warn {
 		print_indent(true);
-		print_args(cx, values.as_slice(), true);
+		print_args(cx, &values, true);
 		println!();
 	}
 }
 
 #[js_fn]
-fn error(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn error(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
 		print_indent(true);
-		print_args(cx, values.as_slice(), true);
+		print_args(cx, &values, true);
 		println!();
 	}
 }
 
 #[js_fn]
-fn debug(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn debug(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
-		print_args(cx, values.as_slice(), false);
+		print_args(cx, &values, false);
 		println!();
 	}
 }
 
 #[js_fn]
-fn assert(cx: &Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Value>) {
+fn assert(cx: &Context, assertion: Option<bool>, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -130,7 +131,7 @@ fn assert(cx: &Context, assertion: Option<bool>, #[ion(varargs)] values: Vec<Val
 
 			print_indent(true);
 			eprint!("Assertion Failed: ");
-			print_args(cx, values.as_slice(), true);
+			print_args(cx, &values, true);
 			println!();
 		} else {
 			eprintln!("Assertion Failed:");
@@ -147,11 +148,11 @@ fn clear() {
 }
 
 #[js_fn]
-fn trace(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn trace(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
 		print_indent(false);
 		print!("Trace: ");
-		print_args(cx, values.as_slice(), false);
+		print_args(cx, &values, false);
 		println!();
 
 		let mut stack = Stack::from_capture(cx);
@@ -172,11 +173,11 @@ fn trace(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
 }
 
 #[js_fn]
-fn group(cx: &Context, #[ion(varargs)] values: Vec<Value>) {
+fn group(cx: &Context, Rest(values): Rest<Value>) {
 	INDENTS.set(INDENTS.get().min(u16::MAX - 1) + 1);
 
 	if Config::global().log_level >= LogLevel::Info {
-		print_args(cx, values.as_slice(), false);
+		print_args(cx, &values, false);
 		println!();
 	}
 }
@@ -240,7 +241,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog(cx: &Context, label: Option<String>, #[ion(varargs)] values: Vec<Value>) {
+fn timeLog(cx: &Context, label: Option<String>, Rest(values): Rest<Value>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow(|timers| match timers.get(&label) {
 		Some(start) => {
@@ -248,7 +249,7 @@ fn timeLog(cx: &Context, label: Option<String>, #[ion(varargs)] values: Vec<Valu
 				let duration = Utc::now().timestamp_millis() - start.timestamp_millis();
 				print_indent(false);
 				print!("{}: {}ms ", label, duration);
-				print_args(cx, values.as_slice(), false);
+				print_args(cx, &values, false);
 				println!();
 			}
 		}
@@ -424,8 +425,8 @@ const METHODS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
-	let mut console = Object::new(cx);
+pub fn define(cx: &Context, global: &Object) -> bool {
+	let console = Object::new(cx);
 	(unsafe { console.define_methods(cx, METHODS) })
 		&& global.define_as(cx, "console", &console, PropertyFlags::CONSTANT_ENUMERATED)
 }

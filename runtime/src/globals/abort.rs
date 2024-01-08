@@ -192,7 +192,7 @@ impl<'cx> FromValue<'cx> for AbortSignal {
 	type Config = ();
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<AbortSignal> {
 		let object = Object::from_value(cx, value, strict, ())?;
-		if AbortSignal::instance_of(cx, &object, None) {
+		if AbortSignal::instance_of(cx, &object) {
 			Ok(AbortSignal {
 				reflector: Reflector::default(),
 				signal: AbortSignal::get_private(&object).signal.clone(),
@@ -203,6 +203,6 @@ impl<'cx> FromValue<'cx> for AbortSignal {
 	}
 }
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	AbortController::init_class(cx, global).0 && AbortSignal::init_class(cx, global).0
 }

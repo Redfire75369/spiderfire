@@ -70,8 +70,13 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 
 	let (body, requires_object) = impl_body(ion, input.span(), &input.data, name, tag, inherit, repr)?;
 
-	let object = requires_object
-		.then(|| quote_spanned!(input.span() => let __object = #ion::Object::from_value(cx, value, true, ())?;));
+	let object = if requires_object {
+		Some(quote_spanned!(input.span() =>
+			let __object = #ion::Object::from_value(cx, value, true, ())?;
+		))
+	} else {
+		None
+	};
 
 	parse2(quote_spanned!(input.span() =>
 		#[automatically_derived]

@@ -5,7 +5,9 @@
  */
 
 use hyper::{Body, body};
+
 use ion::Result;
+
 use crate::globals::fetch::body::FetchBody;
 
 #[derive(Traceable)]

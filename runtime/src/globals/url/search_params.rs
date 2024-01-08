@@ -163,8 +163,8 @@ impl URLSearchParams {
 
 	fn update(&mut self) {
 		if let Some(url) = &self.url {
-			let mut url = Object::from(unsafe { Local::from_heap(url) });
-			let url = URL::get_mut_private(&mut url);
+			let url = Object::from(unsafe { Local::from_heap(url) });
+			let url = URL::get_mut_private(&url);
 			if self.pairs.is_empty() {
 				url.url.set_query(None);
 			} else {

@@ -73,8 +73,8 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 		return Some(promise);
 	}
 
-	let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-	let headers = Headers::get_mut_private(&mut headers);
+	let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+	let headers = Headers::get_mut_private(&headers);
 	if !headers.headers.contains_key(ACCEPT) {
 		headers.headers.append(ACCEPT, HeaderValue::from_static("*/*"));
 	}
@@ -95,14 +95,14 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 	let request = request.handle().into_handle();
 	future_to_promise(cx, async move {
-		let mut request = Object::from(unsafe { Local::from_raw_handle(request) });
-		let res = fetch_internal(&cx2, &mut request, GLOBAL_CLIENT.get().unwrap().clone()).await;
+		let request = Object::from(unsafe { Local::from_raw_handle(request) });
+		let res = fetch_internal(&cx2, &request, GLOBAL_CLIENT.get().unwrap().clone()).await;
 		cx2.unroot_persistent_object(request.handle().get());
 		res
 	})
 }
 
-async fn fetch_internal<'o>(cx: &Context, request: &mut Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
+async fn fetch_internal<'o>(cx: &Context, request: &Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
 	let request = Request::get_mut_private(request);
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
@@ -250,8 +250,8 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 
 	response.url.get_or_insert(request.url.clone());
 
-	let mut headers = Object::from(unsafe { Local::from_heap(&response.headers) });
-	let headers = Headers::get_mut_private(&mut headers);
+	let headers = Object::from(unsafe { Local::from_heap(&response.headers) });
+	let headers = Headers::get_mut_private(&headers);
 
 	if !opaque_redirect
 		&& taint == ResponseTaint::Opaque
@@ -419,8 +419,8 @@ async fn http_fetch(
 
 #[async_recursion(?Send)]
 async fn http_network_fetch(cx: &Context, request: &Request, client: Client, is_new: bool) -> Response {
-	let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-	let mut headers = Headers::get_mut_private(&mut headers).headers.clone();
+	let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+	let mut headers = Headers::get_mut_private(&headers).headers.clone();
 
 	let length = request
 		.body
@@ -569,8 +569,8 @@ async fn http_redirect_fetch(
 	{
 		request.method = Method::GET;
 		request.body = FetchBody::default();
-		let mut headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-		let headers = Headers::get_mut_private(&mut headers);
+		let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+		let headers = Headers::get_mut_private(&headers);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_ENCODING);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LANGUAGE);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LOCATION);
@@ -591,7 +591,7 @@ async fn http_redirect_fetch(
 	main_fetch(cx, request, client, redirections + 1).await
 }
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	let _ = GLOBAL_CLIENT.set(default_client());
 	global.define_method(cx, "fetch", fetch, 1, PropertyFlags::CONSTANT_ENUMERATED);
 	Headers::init_class(cx, global).0 && Request::init_class(cx, global).0 && Response::init_class(cx, global).0

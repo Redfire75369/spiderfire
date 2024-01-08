@@ -189,8 +189,8 @@ impl Response {
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&response);
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
 			Ok(ArrayBufferWrapper::from(bytes))
@@ -202,8 +202,8 @@ impl Response {
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		let this = this.handle().into();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&response);
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))

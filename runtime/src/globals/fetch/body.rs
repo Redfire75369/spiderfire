@@ -9,8 +9,8 @@ use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
 use form_urlencoded::Serializer;
-use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue};
+use http::header::CONTENT_TYPE;
 use hyper::Body;
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;

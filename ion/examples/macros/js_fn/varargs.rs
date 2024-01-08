@@ -1,11 +1,12 @@
 use ion::{js_fn, Object};
 use ion::conversions::ConversionBehavior;
+use ion::functions::Rest;
 
 #[js_fn]
-pub fn varargs(#[ion(varargs)] _strings: Vec<String>) {}
+pub fn varargs(Rest(_strings): Rest<String>) {}
 
 #[js_fn]
-pub fn varargs_integer(#[ion(varargs, convert = ConversionBehavior::EnforceRange)] _integers: Vec<i64>) {}
+pub fn varargs_integer(#[ion(convert = ConversionBehavior::EnforceRange)] Rest(_integers): Rest<i64>) {}
 
 #[js_fn]
-pub fn varargs_object(#[ion(varargs)] _objects: Vec<Object>) {}
+pub fn varargs_object(Rest(_objects): Rest<Object>) {}

@@ -12,7 +12,7 @@ fn main() {
 	let runtime = Runtime::new(engine.handle());
 
 	let cx = &Context::from_runtime(&runtime);
-	let mut global = default_new_global(cx);
+	let global = default_new_global(cx);
 	let _realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 	let _native = global.define_method(cx, "native", native, 1, PropertyFlags::all());
@@ -43,7 +43,7 @@ unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bo
 	}
 
 	let arg2 = args.value(2).unwrap();
-	if arg2.handle().is_string() && String::from_value(cx, arg2, false, ()).unwrap() == *"Old String" {
+	if arg2.handle().is_string() && String::from_value(cx, &arg2, false, ()).unwrap() == *"Old String" {
 		correct_args += 1;
 	}
 
