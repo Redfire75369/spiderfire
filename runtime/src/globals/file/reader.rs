@@ -18,6 +18,7 @@ use mozjs::rust::IntoHandle;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::ToValue;
+use ion::function::Opt;
 use ion::string::byte::{ByteString, Latin1};
 use ion::typedarray::ArrayBufferWrapper;
 
@@ -132,7 +133,7 @@ impl FileReader {
 	}
 
 	#[ion(name = "readAsText")]
-	pub fn read_as_text(&mut self, cx: &Context, blob: &Blob, encoding: Option<String>) -> Result<()> {
+	pub fn read_as_text(&mut self, cx: &Context, blob: &Blob, Opt(encoding): Opt<String>) -> Result<()> {
 		self.state.validate()?;
 		let bytes = blob.as_bytes().clone();
 		let mime = blob.kind();
@@ -216,7 +217,7 @@ impl FileReaderSync {
 	}
 
 	#[ion(name = "readAsText")]
-	pub fn read_as_text(&mut self, blob: &Blob, encoding: Option<String>) -> String {
+	pub fn read_as_text(&mut self, blob: &Blob, Opt(encoding): Opt<String>) -> String {
 		let encoding = encoding_from_string_mime(encoding.as_deref(), blob.kind().as_deref());
 		encoding.decode_without_bom_handling(blob.as_bytes()).0.into_owned()
 	}

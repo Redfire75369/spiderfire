@@ -152,7 +152,7 @@ fn class_impls(
 			const ION_NATIVE_CLASS: #ion::class::NativeClass = #ion::class::NativeClass {
 				base: ::mozjs::jsapi::JSClass {
 					name: #name.as_ptr().cast(),
-					flags: #ion::objects::class_reserved_slots(1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
+					flags: #ion::object::class_reserved_slots(1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
 					cOps: &ION_CLASS_OPERATIONS as *const _,
 					spec: ::std::ptr::null_mut(),
 					ext: ::std::ptr::null_mut(),

@@ -19,7 +19,7 @@ use mozjs::jsval::{PrivateValue, UndefinedValue};
 use crate::{Context, Function, Local, Object};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
-use crate::functions::NativeFunction;
+use crate::function::NativeFunction;
 
 mod native;
 mod reflect;

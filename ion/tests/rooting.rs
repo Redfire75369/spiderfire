@@ -5,7 +5,7 @@ use mozjs::rust::{JSEngine, Runtime};
 use ion::{Arguments, Context, Function, Object, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
-use ion::objects::default_new_global;
+use ion::object::default_new_global;
 
 fn main() {
 	let engine = JSEngine::init().unwrap();

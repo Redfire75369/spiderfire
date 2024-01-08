@@ -18,7 +18,9 @@ use tokio::sync::watch::{channel, Receiver, Sender};
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 use ion::class::Reflector;
-use ion::conversions::{ConversionBehavior, FromValue, ToValue};
+use ion::conversions::{FromValue, ToValue};
+use ion::conversions::ConversionBehavior::EnforceRange;
+use ion::function::Opt;
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
@@ -103,7 +105,7 @@ impl AbortController {
 		)
 	}
 
-	pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
+	pub fn abort<'cx>(&self, cx: &'cx Context, Opt(reason): Opt<Value<'cx>>) {
 		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
 		self.sender.send_replace(Some(reason.get()));
 	}
@@ -147,7 +149,7 @@ impl AbortSignal {
 		}
 	}
 
-	pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> *mut JSObject {
+	pub fn abort<'cx>(cx: &'cx Context, Opt(reason): Opt<Value<'cx>>) -> *mut JSObject {
 		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
 		AbortSignal::new_object(
 			cx,
@@ -158,7 +160,7 @@ impl AbortSignal {
 		)
 	}
 
-	pub fn timeout(cx: &Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> *mut JSObject {
+	pub fn timeout(cx: &Context, #[ion(convert = EnforceRange)] time: u64) -> *mut JSObject {
 		let (sender, receiver) = channel(None);
 		let terminate = Arc::new(AtomicBool::new(false));
 		let terminate2 = terminate.clone();

@@ -19,8 +19,8 @@ use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object
 use crate::class::{NativeClass, NativeObject, Reflector, TypeIdWrapper};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
-use crate::functions::NativeFunction;
-use crate::objects::class_reserved_slots;
+use crate::function::NativeFunction;
+use crate::object::class_reserved_slots;
 use crate::spec::{create_function_spec, create_function_spec_symbol};
 use crate::symbol::WellKnownSymbolCode;
 

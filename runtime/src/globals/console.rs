@@ -22,7 +22,7 @@ use ion::format::{format_value, INDENT};
 use ion::format::Config as FormatConfig;
 use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
-use ion::functions::Rest;
+use ion::function::{Opt, Rest};
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
@@ -105,7 +105,7 @@ fn debug(cx: &Context, Rest(values): Rest<Value>) {
 }
 
 #[js_fn]
-fn assert(cx: &Context, assertion: Option<bool>, Rest(values): Rest<Value>) {
+fn assert(cx: &Context, Opt(assertion): Opt<bool>, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
 		if let Some(assertion) = assertion {
 			if assertion {
@@ -188,7 +188,7 @@ fn groupEnd() {
 }
 
 #[js_fn]
-fn count(label: Option<String>) {
+fn count(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
 		Entry::Vacant(v) => {
@@ -209,7 +209,7 @@ fn count(label: Option<String>) {
 }
 
 #[js_fn]
-fn countReset(label: Option<String>) {
+fn countReset(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
 		Entry::Vacant(_) => {
@@ -225,7 +225,7 @@ fn countReset(label: Option<String>) {
 }
 
 #[js_fn]
-fn time(label: Option<String>) {
+fn time(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
 		Entry::Vacant(v) => {
@@ -241,7 +241,7 @@ fn time(label: Option<String>) {
 }
 
 #[js_fn]
-fn timeLog(cx: &Context, label: Option<String>, Rest(values): Rest<Value>) {
+fn timeLog(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow(|timers| match timers.get(&label) {
 		Some(start) => {
@@ -263,7 +263,7 @@ fn timeLog(cx: &Context, label: Option<String>, Rest(values): Rest<Value>) {
 }
 
 #[js_fn]
-fn timeEnd(label: Option<String>) {
+fn timeEnd(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
 		Entry::Vacant(_) => {
@@ -285,7 +285,7 @@ fn timeEnd(label: Option<String>) {
 }
 
 #[js_fn]
-fn table(cx: &Context, data: Value, columns: Option<Vec<String>>) {
+fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
 	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();

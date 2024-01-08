@@ -12,6 +12,7 @@ use url::Url;
 
 use ion::{ClassDefinition, Context, Error, Local, Object, Result};
 use ion::class::Reflector;
+use ion::function::Opt;
 pub use search_params::URLSearchParams;
 
 mod search_params;
@@ -37,7 +38,7 @@ pub struct URL {
 #[js_class]
 impl URL {
 	#[ion(constructor)]
-	pub fn constructor(#[ion(this)] this: &Object, cx: &Context, input: String, base: Option<String>) -> Result<URL> {
+	pub fn constructor(#[ion(this)] this: &Object, cx: &Context, input: String, Opt(base): Opt<String>) -> Result<URL> {
 		let base = base.as_ref().and_then(|base| Url::parse(base).ok());
 		let url = Url::options()
 			.base_url(base.as_ref())
@@ -56,12 +57,12 @@ impl URL {
 	}
 
 	#[ion(name = "canParse")]
-	pub fn can_parse(input: String, base: Option<String>) -> bool {
+	pub fn can_parse(input: String, Opt(base): Opt<String>) -> bool {
 		let base = base.as_ref().and_then(|base| Url::parse(base).ok());
 		Url::options().base_url(base.as_ref()).parse(&input).is_ok()
 	}
 
-	pub fn format(&self, options: Option<FormatOptions>) -> Result<String> {
+	pub fn format(&self, Opt(options): Opt<FormatOptions>) -> Result<String> {
 		let mut url = self.url.clone();
 
 		let options = options.unwrap_or_default();
@@ -125,7 +126,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_host(&mut self, host: Option<String>) -> Result<()> {
+	pub fn set_host(&mut self, Opt(host): Opt<String>) -> Result<()> {
 		if let Some(host) = host {
 			let segments: Vec<&str> = host.split(':').collect();
 			let (host, port) = match segments.len().cmp(&2) {
@@ -156,7 +157,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_hostname(&mut self, hostname: Option<String>) -> Result<()> {
+	pub fn set_hostname(&mut self, Opt(hostname): Opt<String>) -> Result<()> {
 		self.url
 			.set_host(hostname.as_deref())
 			.map_err(|error| Error::new(&error.to_string(), None))
@@ -173,7 +174,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_port(&mut self, #[ion(convert = EnforceRange)] port: Option<u16>) -> Result<()> {
+	pub fn set_port(&mut self, #[ion(convert = EnforceRange)] Opt(port): Opt<u16>) -> Result<()> {
 		self.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
 	}
 
@@ -204,7 +205,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_password(&mut self, password: Option<String>) -> Result<()> {
+	pub fn set_password(&mut self, Opt(password): Opt<String>) -> Result<()> {
 		self.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid Url", None))
 	}
 
@@ -214,7 +215,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_search(&mut self, search: Option<String>) {
+	pub fn set_search(&mut self, Opt(search): Opt<String>) {
 		self.url.set_query(search.as_deref());
 	}
 
@@ -224,7 +225,7 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_hash(&mut self, hash: Option<String>) {
+	pub fn set_hash(&mut self, Opt(hash): Opt<String>) {
 		self.url.set_fragment(hash.as_deref());
 	}
 

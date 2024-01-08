@@ -10,9 +10,9 @@ use mozjs::jsapi::{JSFunctionSpec, JSPropertySpec};
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
-use ion::functions::Rest;
+use ion::function::Rest;
 use ion::spec::create_property_spec_string;
-use runtime::modules::NativeModule;
+use runtime::module::NativeModule;
 
 #[cfg(windows)]
 const SEPARATOR: &str = "\\\0";

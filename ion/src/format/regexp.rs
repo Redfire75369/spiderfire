@@ -11,7 +11,7 @@ use colored::Colorize;
 
 use crate::Context;
 use crate::format::Config;
-use crate::objects::RegExp;
+use crate::object::RegExp;
 
 /// Formats a [RegExp object](RegExp) as a string using the given [configuration](Config).
 pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp<'cx>) -> RegExpDisplay<'cx> {

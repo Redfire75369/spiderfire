@@ -32,6 +32,7 @@ use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, 
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
+use ion::function::Opt;
 pub use request::{Request, RequestInfo, RequestInit};
 pub use response::Response;
 
@@ -55,7 +56,7 @@ mod response;
 const DEFAULT_USER_AGENT: &str = concatcp!("Spiderfire/", VERSION);
 
 #[js_fn]
-fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Option<RequestInit>) -> Option<Promise<'cx>> {
+fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -> Option<Promise<'cx>> {
 	let promise = Promise::new(cx);
 
 	let request = match Request::constructor(cx, resource, init) {

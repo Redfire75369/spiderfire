@@ -18,7 +18,7 @@ use mozjs::jsval::{JSVal, ObjectValue};
 
 use crate::{Context, ErrorReport, Local, Object, Value};
 use crate::flags::PropertyFlags;
-use crate::functions::closure::{
+use crate::function::closure::{
 	call_closure, call_closure_once, Closure, ClosureOnce, create_closure_object, create_closure_once_object,
 };
 

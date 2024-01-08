@@ -9,7 +9,7 @@ use mozjs::jsval::JSVal;
 
 use crate::{Context, Error, ErrorKind, Local, Object, Result, Value};
 use crate::conversions::FromValue;
-use crate::functions::{Opt, Rest};
+use crate::function::{Opt, Rest};
 
 /// Represents Arguments to a [JavaScript Function](crate::Function).
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.

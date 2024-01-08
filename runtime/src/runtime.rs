@@ -11,14 +11,14 @@ use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue, SetPromiseReject
 
 use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
-use ion::objects::default_new_global;
+use ion::object::default_new_global;
 
 use crate::event_loop::{EventLoop, promise_rejection_tracker_callback};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::{JOB_QUEUE_TRAPS, MicrotaskQueue};
 use crate::globals::{init_globals, init_microtasks, init_timers};
-use crate::modules::StandardModules;
+use crate::module::StandardModules;
 
 #[derive(Default)]
 pub struct ContextPrivate {

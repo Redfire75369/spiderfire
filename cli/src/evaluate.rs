@@ -23,7 +23,7 @@ use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
 use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
-use runtime::modules::Loader;
+use runtime::module::Loader;
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);

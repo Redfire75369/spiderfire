@@ -15,7 +15,7 @@ use ion::module::Module;
 use modules::Assert;
 use runtime::{Runtime, RuntimeBuilder};
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::modules::Loader;
+use runtime::module::Loader;
 
 const OK: (&str, &str) = ("ok", include_str!("scripts/assert/ok.js"));
 const EQUALS: (&str, &str) = ("equals", include_str!("scripts/assert/equals.js"));

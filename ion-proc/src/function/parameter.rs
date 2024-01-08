@@ -72,7 +72,7 @@ impl Parameter {
 		};
 
 		parse2(quote_spanned!(span =>
-			let #pat_ty = #ion::functions::FromArgument::from_argument(&mut __accessor, #convert)?;
+			let #pat_ty = #ion::function::FromArgument::from_argument(&mut __accessor, #convert)?;
 		))
 	}
 }

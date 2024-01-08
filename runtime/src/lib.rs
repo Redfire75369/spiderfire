@@ -15,7 +15,7 @@ pub mod cache;
 pub mod config;
 pub mod event_loop;
 pub mod globals;
-pub mod modules;
+pub mod module;
 pub mod promise;
 mod runtime;
 pub mod typescript;

@@ -189,7 +189,7 @@ fn class_definition(
 			Self::__ion_native_class()
 		}
 
-		fn constructor() -> (#ion::functions::NativeFunction, ::core::primitive::u32) {
+		fn constructor() -> (#ion::function::NativeFunction, ::core::primitive::u32) {
 			(Self::__ion_bindings_constructor, #constructor_nargs)
 		}
 

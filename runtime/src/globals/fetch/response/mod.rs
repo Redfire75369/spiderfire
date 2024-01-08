@@ -13,6 +13,7 @@ use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
+use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
 pub use options::*;
 
@@ -95,7 +96,7 @@ impl Response {
 #[js_class]
 impl Response {
 	#[ion(constructor)]
-	pub fn constructor(cx: &Context, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
+	pub fn constructor(cx: &Context, Opt(body): Opt<FetchBody>, Opt(init): Opt<ResponseInit>) -> Result<Response> {
 		let init = init.unwrap_or_default();
 
 		let mut response = Response {

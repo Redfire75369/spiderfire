@@ -16,8 +16,8 @@ use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Error, ErrorKind, Object, ResultExc, ThrowException, Value};
 use crate::conversions::ToValue;
-use crate::functions::__handle_native_function_result;
-use crate::objects::class_reserved_slots;
+use crate::function::__handle_native_function_result;
+use crate::object::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 

@@ -9,6 +9,7 @@ use mozjs::jsapi::{Heap, JSObject};
 use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, OwnedKey, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
+use ion::function::Opt;
 use ion::symbol::WellKnownSymbolCode;
 
 use crate::globals::url::URL;
@@ -68,7 +69,7 @@ impl URLSearchParams {
 #[js_class]
 impl URLSearchParams {
 	#[ion(constructor)]
-	pub fn constructor(init: Option<URLSearchParamsInit>) -> URLSearchParams {
+	pub fn constructor(Opt(init): Opt<URLSearchParamsInit>) -> URLSearchParams {
 		let pairs = init.map(|init| init.0).unwrap_or_default();
 		URLSearchParams {
 			reflector: Reflector::default(),
@@ -99,7 +100,7 @@ impl URLSearchParams {
 		self.update();
 	}
 
-	pub fn delete(&mut self, name: String, value: Option<String>) {
+	pub fn delete(&mut self, name: String, Opt(value): Opt<String>) {
 		if let Some(value) = value {
 			self.pairs.retain(|(k, v)| k != &name && v != &value)
 		} else {
@@ -117,7 +118,7 @@ impl URLSearchParams {
 		self.pairs.iter().filter(|(k, _)| k == &key).map(|(_, v)| v.clone()).collect()
 	}
 
-	pub fn has(&self, key: String, value: Option<String>) -> bool {
+	pub fn has(&self, key: String, Opt(value): Opt<String>) -> bool {
 		if let Some(value) = value {
 			self.pairs.iter().any(|(k, v)| k == &key && v == &value)
 		} else {

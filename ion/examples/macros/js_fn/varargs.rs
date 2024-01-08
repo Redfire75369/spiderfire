@@ -1,6 +1,6 @@
 use ion::{js_fn, Object};
 use ion::conversions::ConversionBehavior;
-use ion::functions::Rest;
+use ion::function::Rest;
 
 #[js_fn]
 pub fn varargs(Rest(_strings): Rest<String>) {}

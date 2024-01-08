@@ -8,11 +8,12 @@ use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{ClassDefinition, Context, Object, Result};
+use ion::function::Opt;
 use runtime::globals::url::{URL, URLSearchParams};
-use runtime::modules::NativeModule;
+use runtime::module::NativeModule;
 
 #[js_fn]
-fn domainToASCII(domain: String, strict: Option<bool>) -> Result<String> {
+fn domainToASCII(domain: String, Opt(strict): Opt<bool>) -> Result<String> {
 	let strict = strict.unwrap_or(false);
 	let domain = if !strict {
 		domain_to_ascii(&domain)

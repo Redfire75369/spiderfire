@@ -25,6 +25,7 @@ use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
 use ion::{ClassDefinition, JSIterator};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
+use ion::function::Opt;
 use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
 
@@ -179,7 +180,7 @@ impl Headers {
 #[js_class]
 impl Headers {
 	#[ion(constructor)]
-	pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
+	pub fn constructor(Opt(init): Opt<HeadersInit>) -> Result<Headers> {
 		init.unwrap_or_default().into_headers(HeaderMap::default(), HeadersKind::None)
 	}
 

@@ -4,7 +4,7 @@ use mozjs::rust::{JSEngine, Runtime};
 use ion::{Context, Object, OwnedKey, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
-use ion::objects::default_new_global;
+use ion::object::default_new_global;
 
 #[test]
 fn object() {

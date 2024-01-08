@@ -13,7 +13,7 @@ use mozjs::jsval::{JSVal, ObjectValue};
 use crate::{Context, Local, Object, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::objects::object::ObjectKeysIter;
+use crate::object::object::ObjectKeysIter;
 
 /// Represents an [Array] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.

@@ -15,7 +15,7 @@ use tokio_stream::wrappers::ReadDirStream;
 use ion::{Context, Error, Object, Promise, Result};
 use ion::flags::PropertyFlags;
 use ion::typedarray::Uint8ArrayWrapper;
-use runtime::modules::NativeModule;
+use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
 
 fn check_exists(path: &Path) -> Result<()> {

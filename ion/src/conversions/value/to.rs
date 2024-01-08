@@ -19,7 +19,7 @@ use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, mayb
 use mozjs::typedarray as jsta;
 
 use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
-use crate::objects::RegExp;
+use crate::object::RegExp;
 use crate::string::byte::{BytePredicate, ByteStr, ByteString};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 

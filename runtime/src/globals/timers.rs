@@ -10,7 +10,7 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, Function, Object, Result};
-use ion::functions::Rest;
+use ion::function::{Opt, Rest};
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
@@ -53,25 +53,25 @@ fn clear_timer(cx: &Context, id: Option<u32>) -> Result<()> {
 
 #[js_fn]
 fn setTimeout(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, Rest(arguments): Rest<JSVal>,
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] Opt(duration): Opt<i32>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, false)
 }
 
 #[js_fn]
 fn setInterval(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>, Rest(arguments): Rest<JSVal>,
+	cx: &Context, callback: Function, #[ion(convert = Clamp)] Opt(duration): Opt<i32>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, true)
 }
 
 #[js_fn]
-fn clearTimeout(cx: &Context, #[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearTimeout(cx: &Context, #[ion(convert = EnforceRange)] Opt(id): Opt<u32>) -> Result<()> {
 	clear_timer(cx, id)
 }
 
 #[js_fn]
-fn clearInterval(cx: &Context, #[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearInterval(cx: &Context, #[ion(convert = EnforceRange)] Opt(id): Opt<u32>) -> Result<()> {
 	clear_timer(cx, id)
 }
 

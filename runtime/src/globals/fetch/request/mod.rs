@@ -12,6 +12,7 @@ use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
+use ion::function::Opt;
 pub use options::*;
 
 use crate::globals::abort::AbortSignal;
@@ -65,7 +66,7 @@ pub struct Request {
 #[js_class]
 impl Request {
 	#[ion(constructor)]
-	pub fn constructor(cx: &Context, info: RequestInfo, init: Option<RequestInit>) -> Result<Request> {
+	pub fn constructor(cx: &Context, info: RequestInfo, Opt(init): Opt<RequestInit>) -> Result<Request> {
 		let mut fallback_cors = false;
 
 		let mut request = match info {

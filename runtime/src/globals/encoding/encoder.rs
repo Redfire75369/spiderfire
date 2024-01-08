@@ -9,6 +9,7 @@ use encoding_rs::{Encoder, UTF_8};
 use ion::{Context, Object, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
+use ion::function::Opt;
 use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
 
 pub struct EncodeResult {
@@ -42,7 +43,7 @@ impl TextEncoder {
 		}
 	}
 
-	pub fn encode(&mut self, input: Option<String>) -> Uint8ArrayWrapper {
+	pub fn encode(&mut self, Opt(input): Opt<String>) -> Uint8ArrayWrapper {
 		let input = input.unwrap_or_default();
 		let buf_len = self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap();
 		let mut buf = Vec::with_capacity(buf_len);

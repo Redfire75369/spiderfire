@@ -38,7 +38,7 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 			wrapper(cx, args, &mut this)
 		}));
 
-		#ion::functions::__handle_native_constructor_result(cx, result, &this, &mut args.rval())
+		#ion::function::__handle_native_constructor_result(cx, result, &this, &mut args.rval())
 	});
 	constructor.block = body;
 	constructor.sig.ident = format_ident!("__ion_bindings_constructor", span = constructor.sig.ident.span());

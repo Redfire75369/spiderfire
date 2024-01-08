@@ -23,7 +23,7 @@ use mozjs::rust::IdVector;
 use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::functions::NativeFunction;
+use crate::function::NativeFunction;
 
 /// Represents an [Object] in the JS Runtime.
 ///
