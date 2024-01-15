@@ -189,7 +189,7 @@ fn class_definition(
 			Self::__ion_native_class()
 		}
 
-		fn parent_class_info<'cx>(cx: &'cx #ion::Context) -> Option<(&'static #ion::class::NativeClass, #ion::Local<'cx, *mut ::mozjs::jsapi::JSObject>)> {
+		fn parent_class_info(cx: &#ion::Context) -> Option<(&'static #ion::class::NativeClass, #ion::Local<*mut ::mozjs::jsapi::JSObject>)> {
 			Self::__ion_parent_class_info(cx)
 		}
 

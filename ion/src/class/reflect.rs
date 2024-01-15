@@ -78,9 +78,9 @@ impl Reflector {
 	}
 
 	#[doc(hidden)]
-	pub const fn __ion_self_as_parent_class_info<'cx>(
-		_cx: &'cx crate::Context,
-	) -> Option<(&'static NativeClass, crate::Local<'cx, *mut JSObject>)> {
+	pub const fn __ion_self_as_parent_class_info(
+		_cx: &crate::Context,
+	) -> Option<(&'static NativeClass, crate::Local<*mut JSObject>)> {
 		None
 	}
 }
