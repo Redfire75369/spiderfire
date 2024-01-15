@@ -82,11 +82,19 @@ impl<'pd> PropertyDescriptor<'pd> {
 	}
 
 	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.handle().hasGetter_().then(|| Object::from(cx.root_object(self.handle().getter_)))
+		if self.handle().hasGetter_() && !self.handle().getter_.is_null() {
+			Some(Object::from(cx.root_object(self.handle().getter_)))
+		} else {
+			None
+		}
 	}
 
 	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.handle().hasSetter_().then(|| Object::from(cx.root_object(self.handle().setter_)))
+		if self.handle().hasSetter_() && !self.handle().setter_.is_null() {
+			Some(Object::from(cx.root_object(self.handle().setter_)))
+		} else {
+			None
+		}
 	}
 
 	pub fn value<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {
