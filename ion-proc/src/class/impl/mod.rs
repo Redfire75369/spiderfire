@@ -16,7 +16,7 @@ use crate::attribute::ParseAttribute;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
-use crate::class::property::Property;
+use crate::class::property::{Property, PropertyType};
 use crate::class::r#impl::spec::PrototypeSpecs;
 
 mod spec;
@@ -71,6 +71,13 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 			_ => (),
 		}
 	}
+	specs.properties.0.push(Property {
+		ty: PropertyType::String,
+		ident: parse_quote!(__ION_TO_STRING_TAG),
+		names: vec![Name::Symbol(
+			parse_quote!(#ion::symbol::WellKnownSymbolCode::ToStringTag),
+		)],
+	});
 
 	let constructor = match constructor {
 		Some(constructor) => constructor,

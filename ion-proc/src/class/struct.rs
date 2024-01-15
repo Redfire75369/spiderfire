@@ -5,11 +5,13 @@
  */
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
+use syn::{Error, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
+use crate::attribute::class::ClassAttribute;
 use crate::attribute::krate::crate_from_attributes;
+use crate::attribute::ParseAttribute;
 use crate::utils::{new_token, path_ends_with};
 
 pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 6]> {
@@ -40,6 +42,8 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 		r#struct.attrs.push(parse_quote!(#[derive(#ion::Traceable)]));
 	}
 
+	let attribute = ClassAttribute::from_attributes_mut("ion", &mut r#struct.attrs)?;
+
 	if !r#struct.generics.params.is_empty() {
 		return Err(Error::new(
 			r#struct.generics.span(),
@@ -47,32 +51,23 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 		));
 	}
 
+	let name = if let Some(name) = attribute.name {
+		name.value()
+	} else {
+		r#struct.ident.to_string()
+	};
+
 	let ident = &r#struct.ident;
 	let r#type: Type = parse2(quote_spanned!(ident.span() => #ident))?;
-	let super_field;
-	let super_type;
 
-	let err = Err(Error::new(
-		r#struct.span(),
-		"Native Class Structs must have at least a reflector field.",
-	));
-	match &r#struct.fields {
-		Fields::Named(fields) => match fields.named.first() {
-			Some(field) => {
-				super_field = Member::Named(field.ident.as_ref().unwrap().clone());
-				super_type = field.ty.clone();
-			}
-			None => return err,
-		},
-		Fields::Unnamed(fields) => match fields.unnamed.first() {
-			Some(field) => {
-				super_field = parse_quote!(0);
-				super_type = field.ty.clone()
-			}
-			None => return err,
-		},
-		Fields::Unit => return err,
-	}
+	let (super_field, super_type) = if let Some(field) = r#struct.fields.iter().next() {
+		(Member::Named(field.ident.as_ref().unwrap().clone()), field.ty.clone())
+	} else {
+		return Err(Error::new(
+			r#struct.span(),
+			"Native Class Structs must have at least a reflector field.",
+		));
+	};
 
 	if let Type::Path(ty) = &super_type {
 		if ty.path.segments.iter().any(|segment| !segment.arguments.is_empty()) {
@@ -82,14 +77,7 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 		return Err(Error::new(super_type.span(), "Superclass Type must be a path."));
 	}
 
-	class_impls(
-		ion,
-		r#struct.span(),
-		&ident.to_string(),
-		&r#type,
-		&super_field,
-		&super_type,
-	)
+	class_impls(ion, r#struct.span(), &name, &r#type, &super_field, &super_type)
 }
 
 fn class_impls(
@@ -113,7 +101,7 @@ fn class_impls(
 	let operations = class_operations(span)?;
 	let name = format!("{}\0", name);
 
-	let mut operations_native_class: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
+	let mut class_impl: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		#(#operations)*
 
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
@@ -149,8 +137,10 @@ fn class_impls(
 
 			&ION_NATIVE_CLASS
 		}
+
+		pub const __ION_TO_STRING_TAG: &'static str = #name;
 	}))?;
-	operations_native_class.attrs.push(parse_quote!(#[doc(hidden)]));
+	class_impl.attrs.push(parse_quote!(#[doc(hidden)]));
 
 	Ok([
 		from_value,
@@ -158,7 +148,7 @@ fn class_impls(
 		derived_from,
 		castable,
 		native_object,
-		operations_native_class,
+		class_impl,
 	])
 }
 
@@ -181,7 +171,7 @@ fn impl_from_value(ion: &TokenStream, span: Span, r#type: &Type, mutable: bool) 
 	)
 }
 
-fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {
+fn class_operations(span: Span) -> Result<[ImplItemFn; 2]> {
 	let finalise = parse2(
 		quote_spanned!(span => unsafe extern "C" fn __ion_finalise_operation(_: *mut ::mozjs::jsapi::GCContext, this: *mut ::mozjs::jsapi::JSObject) {
 				let mut value = ::mozjs::jsval::NullValue();
@@ -212,5 +202,5 @@ fn class_operations(span: Span) -> Result<Vec<ImplItemFn>> {
 		),
 	)?;
 
-	Ok(vec![finalise, trace])
+	Ok([finalise, trace])
 }

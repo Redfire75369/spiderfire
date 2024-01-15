@@ -182,7 +182,7 @@ impl Parameters {
 					Err(e) => return Some(Err(e)),
 				};
 				if let Type::Path(ty) = &*param.pat_ty.ty {
-					if !path_ends_with(&ty.path, "Opt") {
+					if !path_ends_with(&ty.path, "Opt") && !path_ends_with(&ty.path, "Rest") {
 						nargs += 1;
 					}
 				}
