@@ -4,8 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::mem::MaybeUninit;
 use std::path::{Component, Path, PathBuf};
 use std::slice;
+use std::slice::Iter;
 
 /// Normalises a [Path] by removing all `./` and resolving all `../` simplistically.
 /// This function does not follow symlinks and may result in unexpected behaviour.
@@ -47,5 +49,69 @@ impl<T> BoxExt<T> for Box<[T]> {
 			let slice = slice::from_raw_parts_mut(ptr, len);
 			Box::from_raw(slice)
 		}
+	}
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ArrayVec<const CAP: usize, T: Copy> {
+	elements: [MaybeUninit<T>; CAP],
+	len: usize,
+}
+
+impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
+	pub const fn new() -> ArrayVec<CAP, T> {
+		ArrayVec {
+			elements: unsafe { MaybeUninit::uninit().assume_init() },
+			len: 0,
+		}
+	}
+
+	pub const fn len(&self) -> usize {
+		self.len
+	}
+
+	pub const fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
+	pub const fn is_full(&self) -> bool {
+		self.len() == CAP
+	}
+
+	pub const fn push(mut self, element: T) -> ArrayVec<CAP, T> {
+		if self.len == CAP {
+			panic!("Exceeded capacity of ArrayVec.");
+		}
+		self.elements[self.len] = MaybeUninit::new(element);
+		self.len += 1;
+		self
+	}
+
+	pub const fn pop(mut self) -> (ArrayVec<CAP, T>, Option<T>) {
+		if self.len == 0 {
+			return (self, None);
+		}
+		let element = unsafe { self.elements[self.len].assume_init() };
+		self.len -= 1;
+		(self, Some(element))
+	}
+
+	pub const fn get(&self, index: usize) -> Option<&T> {
+		if self.is_empty() || index >= self.len() {
+			return None;
+		}
+		Some(unsafe { self.elements[index].assume_init_ref() })
+	}
+
+	pub const fn truncate(mut self, new_len: usize) -> ArrayVec<CAP, T> {
+		if new_len >= self.len {
+			return self;
+		}
+		self.len = new_len;
+		self
+	}
+
+	pub fn iter(&self) -> Iter<'_, T> {
+		unsafe { slice::from_raw_parts(self.elements.as_ptr().cast(), self.len()).iter() }
 	}
 }

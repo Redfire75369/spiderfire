@@ -91,7 +91,7 @@ jobs:
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Upload Executables as Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spiderfire-${{ github.sha }}-${{ matrix.id }}
           path: target/${{ matrix.target }}/release/spiderfire${{ matrix.id == 'windows' && '.exe' || '' }}

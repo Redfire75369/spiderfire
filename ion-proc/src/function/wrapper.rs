@@ -81,9 +81,9 @@ pub(crate) fn impl_wrapper_fn(
 
 	let this_ident = parameters.get_this_ident();
 	let inner_call = if this_ident.is_some() && this_ident.unwrap() == "self" {
-		quote!(#call(self_, #(#idents),*))
+		quote!(#call(self_, #(#idents,)*))
 	} else {
-		quote!(#call(#(#idents),*))
+		quote!(#call(#(#idents,)*))
 	};
 
 	let body = parse2(quote_spanned!(function.span() => {

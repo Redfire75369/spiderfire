@@ -128,7 +128,7 @@ impl<'cx> Accessor<'_, 'cx> {
 
 	/// Returns `true` if there are no arguments remaining.
 	pub fn is_empty(&self) -> bool {
-		self.index == 0
+		self.index == self.args.len()
 	}
 
 	/// Returns the context associated with the arguments.

@@ -16,7 +16,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, NullValue};
 
 use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
-use crate::class::{NativeClass, NativeObject, Reflector, TypeIdWrapper};
+use crate::class::{NativeClass, NativeObject, PrototypeChain, Reflector, TypeIdWrapper};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
 use crate::function::NativeFunction;
@@ -171,16 +171,7 @@ static ITERATOR_CLASS: NativeClass = NativeClass {
 		ext: ptr::null_mut(),
 		oOps: ptr::null_mut(),
 	},
-	prototype_chain: [
-		Some(&TypeIdWrapper::<Iterator>::new()),
-		None,
-		None,
-		None,
-		None,
-		None,
-		None,
-		None,
-	],
+	prototype_chain: PrototypeChain::new().push(&TypeIdWrapper::<Iterator>::new()),
 };
 
 static ITERATOR_METHODS: &[JSFunctionSpec] = &[
@@ -212,24 +203,23 @@ impl NativeObject for Iterator {
 }
 
 impl ClassDefinition for Iterator {
-	const NAME: &'static str = "";
-
 	fn class() -> &'static NativeClass {
 		&ITERATOR_CLASS
 	}
 
-	fn parent_class_info(cx: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
-		Some((
-			&ITERATOR_CLASS,
-			cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }),
-		))
+	fn proto_class() -> Option<&'static NativeClass> {
+		None
+	}
+
+	fn parent_prototype(cx: &Context) -> Option<Local<*mut JSObject>> {
+		Some(cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
 	}
 
 	fn constructor() -> (NativeFunction, u32) {
 		(Iterator::constructor, 0)
 	}
 
-	fn functions() -> &'static [JSFunctionSpec] {
-		ITERATOR_METHODS
+	fn functions() -> Option<&'static [JSFunctionSpec]> {
+		Some(ITERATOR_METHODS)
 	}
 }

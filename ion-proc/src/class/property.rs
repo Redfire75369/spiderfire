@@ -81,17 +81,11 @@ impl Property {
 
 				let (key, flags) = name.to_property_spec(ion, &mut function_ident);
 
-				match self.ty {
-					PropertyType::Int32 => {
-						function_ident = format_ident!("{}_int", function_ident);
-					}
-					PropertyType::Double => {
-						function_ident = format_ident!("{}_double", function_ident);
-					}
-					PropertyType::String => {
-						function_ident = format_ident!("{}_string", function_ident);
-					}
-				}
+				function_ident = match self.ty {
+					PropertyType::Int32 => format_ident!("{}_int", function_ident),
+					PropertyType::Double => format_ident!("{}_double", function_ident),
+					PropertyType::String => format_ident!("{}_string", function_ident),
+				};
 
 				quote!(#ion::spec::#function_ident(#key, #class::#ident, #flags))
 			})

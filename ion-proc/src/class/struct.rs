@@ -4,8 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::CString;
-
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, LitStr, Member, parse2, Path, Result, Type};
 use syn::punctuated::Punctuated;
@@ -113,26 +111,14 @@ fn class_impls(
 	let none = quote!(::std::option::Option::None);
 
 	let operations = class_operations(span)?;
-	let name = String::from_utf8(CString::new(name).unwrap().into_bytes_with_nul()).unwrap();
+	let name = format!("{}\0", name);
 
 	let mut operations_native_class: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		#(#operations)*
 
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
 			const ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
-
-			let mut proto_chain = #super_type::__ion_native_prototype_chain();
-			let mut i = 0;
-			while i < #ion::class::MAX_PROTO_CHAIN_LENGTH {
-				match proto_chain[i] {
-					Some(_) => i += 1,
-					None => {
-						proto_chain[i] = Some(&ION_TYPE_ID);
-						break;
-					}
-				}
-			}
-			proto_chain
+			#super_type::__ion_native_prototype_chain().push(&ION_TYPE_ID)
 		}
 
 		pub const fn __ion_native_class() -> &'static #ion::class::NativeClass {

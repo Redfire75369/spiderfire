@@ -6,7 +6,6 @@
 
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
-use std::ffi::CString;
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
@@ -15,6 +14,7 @@ use mozjs::jsapi::{
 	JSFunctionSpec, JSObject, JSPropertySpec,
 };
 use mozjs::jsval::{PrivateValue, UndefinedValue};
+use mozjs::rust::HandleObject;
 
 use crate::{Context, Function, Local, Object};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
@@ -34,63 +34,68 @@ pub struct ClassInfo {
 }
 
 pub trait ClassDefinition: NativeObject {
-	const NAME: &'static str;
-
 	fn class() -> &'static NativeClass;
 
-	fn parent_class_info(_: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
+	fn proto_class() -> Option<&'static NativeClass> {
+		None
+	}
+
+	fn parent_prototype(_: &Context) -> Option<Local<*mut JSObject>> {
 		None
 	}
 
 	fn constructor() -> (NativeFunction, u32);
 
-	fn functions() -> &'static [JSFunctionSpec] {
-		&[JSFunctionSpec::ZERO]
+	fn functions() -> Option<&'static [JSFunctionSpec]> {
+		None
 	}
 
-	fn properties() -> &'static [JSPropertySpec] {
-		&[JSPropertySpec::ZERO]
+	fn properties() -> Option<&'static [JSPropertySpec]> {
+		None
 	}
 
-	fn static_functions() -> &'static [JSFunctionSpec] {
-		&[JSFunctionSpec::ZERO]
+	fn static_functions() -> Option<&'static [JSFunctionSpec]> {
+		None
 	}
 
-	fn static_properties() -> &'static [JSPropertySpec] {
-		&[JSPropertySpec::ZERO]
+	fn static_properties() -> Option<&'static [JSPropertySpec]> {
+		None
 	}
 
 	fn init_class<'cx>(cx: &'cx Context, object: &Object) -> (bool, &'cx ClassInfo) {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
-		let entry = infos.entry(TypeId::of::<Self>());
 
-		match entry {
+		match infos.entry(TypeId::of::<Self>()) {
 			Entry::Occupied(o) => (false, o.into_mut()),
 			Entry::Vacant(entry) => {
-				let (parent_class, parent_proto) = Self::parent_class_info(cx)
-					.map(|(class, proto)| (&class.base as *const _, Object::from(proto)))
-					.unwrap_or_else(|| (ptr::null(), Object::new(cx)));
+				let proto_class = Self::proto_class().map_or_else(ptr::null, |class| &class.base as *const _);
+				let parent_proto = Self::parent_prototype(cx).map_or_else(HandleObject::null, |proto| proto.handle());
+
 				let (constructor, nargs) = Self::constructor();
+
 				let properties = Self::properties();
 				let functions = Self::functions();
 				let static_properties = Self::static_properties();
 				let static_functions = Self::static_functions();
 
-				let name = CString::new(Self::NAME).unwrap();
+				assert!(has_zero_spec(properties));
+				assert!(has_zero_spec(functions));
+				assert!(has_zero_spec(static_properties));
+				assert!(has_zero_spec(static_functions));
 
 				let class = unsafe {
 					JS_InitClass(
 						cx.as_ptr(),
 						object.handle().into(),
-						parent_class,
-						parent_proto.handle().into(),
-						name.as_ptr().cast(),
+						proto_class,
+						parent_proto.into(),
+						Self::class().base.name,
 						Some(constructor),
 						nargs,
-						properties.as_ptr(),
-						functions.as_ptr(),
-						static_properties.as_ptr(),
-						static_functions.as_ptr(),
+						unwrap_specs(properties),
+						unwrap_specs(functions),
+						unwrap_specs(static_properties),
+						unwrap_specs(static_functions),
 					)
 				};
 				let prototype = cx.root_object(class);
@@ -164,4 +169,28 @@ pub trait ClassDefinition: NativeObject {
 			)
 		}
 	}
+}
+
+trait SpecZero {
+	fn is_zeroed(&self) -> bool;
+}
+
+impl SpecZero for JSFunctionSpec {
+	fn is_zeroed(&self) -> bool {
+		self.is_zeroed()
+	}
+}
+
+impl SpecZero for JSPropertySpec {
+	fn is_zeroed(&self) -> bool {
+		self.is_zeroed()
+	}
+}
+
+fn has_zero_spec<T: SpecZero>(specs: Option<&[T]>) -> bool {
+	specs.and_then(|s| s.last()).map_or(true, |specs| specs.is_zeroed())
+}
+
+fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
+	specs.map_or_else(ptr::null, |specs| specs.as_ptr())
 }

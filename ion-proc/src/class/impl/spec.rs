@@ -6,11 +6,9 @@
 
 use std::collections::HashMap;
 
-use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{ImplItemFn, parse2, Result, Type};
 
-use crate::attribute::name::Name;
 use crate::class::accessor::{Accessor, flatten_accessors};
 use crate::class::method::Method;
 use crate::class::property::Property;
@@ -23,23 +21,45 @@ pub(super) struct PrototypeSpecs {
 }
 
 impl PrototypeSpecs {
-	pub(super) fn to_spec_functions(&self, ion: &TokenStream, span: Span, ident: &Ident) -> Result<SpecFunctions> {
-		Ok(SpecFunctions {
-			methods: (
-				methods_to_spec_function(ion, span, ident, &self.methods.0, false)?,
-				methods_to_spec_function(ion, span, ident, &self.methods.1, true)?,
-			),
-			properties: (
-				properties_to_spec_function(ion, span, ident, &self.properties.0, &self.accessors.0, false)?,
-				properties_to_spec_function(ion, span, ident, &self.properties.1, &self.accessors.1, true)?,
-			),
-		})
+	pub(super) fn to_impl_fns(
+		&self, ion: &TokenStream, span: Span, ident: &Ident,
+	) -> Result<(Vec<ImplItemFn>, Vec<ImplItemFn>)> {
+		let mut impl_fns = Vec::with_capacity(4);
+
+		if !self.methods.0.is_empty() {
+			impl_fns.push(methods_to_impl_fn(ion, span, ident, &self.methods.0, false)?);
+		}
+		if !self.methods.1.is_empty() {
+			impl_fns.push(methods_to_impl_fn(ion, span, ident, &self.methods.1, true)?);
+		}
+
+		if !self.properties.0.is_empty() || !self.accessors.0.is_empty() {
+			impl_fns.push(properties_to_spec_function(
+				ion,
+				span,
+				ident,
+				&self.properties.0,
+				&self.accessors.0,
+				false,
+			)?);
+		}
+		if !self.properties.1.is_empty() || !self.accessors.1.is_empty() {
+			impl_fns.push(properties_to_spec_function(
+				ion,
+				span,
+				ident,
+				&self.properties.1,
+				&self.accessors.1,
+				true,
+			)?);
+		}
+
+		Ok(impl_fns.into_iter().unzip())
 	}
 
 	pub(super) fn into_functions(self) -> Vec<Method> {
-		let mut functions = Vec::with_capacity(
-			self.methods.0.len() + self.methods.1.len() + self.accessors.0.len() + self.accessors.1.len(),
-		);
+		let len = self.methods.0.len() + self.methods.1.len() + self.accessors.0.len() + self.accessors.1.len();
+		let mut functions = Vec::with_capacity(len);
 
 		functions.extend(self.methods.0);
 		functions.extend(self.methods.1);
@@ -50,99 +70,59 @@ impl PrototypeSpecs {
 	}
 }
 
-pub(super) struct SpecFunctions {
-	methods: (ImplItemFn, ImplItemFn),
-	properties: (ImplItemFn, ImplItemFn),
-}
-
-impl SpecFunctions {
-	pub(super) fn into_array(self) -> [ImplItemFn; 4] {
-		[self.methods.0, self.properties.0, self.methods.1, self.properties.1]
-	}
-}
-
-fn methods_to_spec_function(
+fn methods_to_impl_fn(
 	ion: &TokenStream, span: Span, class: &Ident, methods: &[Method], r#static: bool,
-) -> Result<ImplItemFn> {
-	let ident = if r#static {
-		parse_quote!(ION_STATIC_FUNCTIONS)
-	} else {
-		parse_quote!(ION_FUNCTIONS)
-	};
-	let function_ident = if r#static {
-		parse_quote!(__ion_static_function_specs)
-	} else {
-		parse_quote!(__ion_function_specs)
-	};
+) -> Result<(ImplItemFn, ImplItemFn)> {
+	let mut ident = parse_quote!(functions);
+	if r#static {
+		ident = format_ident!("static_{}", ident);
+	}
+	let function_ident = format_ident!("__ion_{}_specs", ident);
 
-	let mut specs: Vec<_> = methods
-		.iter()
-		.flat_map(|method| {
-			let ident = method.method.sig.ident.clone();
-			let nargs = method.nargs as u16;
-			(*method.names)
-				.iter()
-				.map(|name| match name {
-					Name::String(literal) => {
-						let mut name = literal.value();
-						if name.is_case(Case::Snake) {
-							name = name.to_case(Case::Camel)
-						}
-						quote!(#ion::function_spec!(#class::#ident, #name, #nargs, #ion::flags::PropertyFlags::CONSTANT_ENUMERATED))
-					}
-					Name::Symbol(symbol) => {
-						quote!(#ion::function_spec_symbol!(#class::#ident, #symbol, #nargs, #ion::flags::PropertyFlags::CONSTANT))
-					}
-				})
-				.collect::<Vec<_>>()
-		})
-		.collect();
-	specs.push(parse_quote!(::mozjs::jsapi::JSFunctionSpec::ZERO));
+	let specs: Vec<_> = methods.iter().flat_map(|method| method.to_specs(ion, class)).collect();
 
-	spec_function(
-		span,
-		&ident,
-		&function_ident,
-		&specs,
-		parse_quote!(::mozjs::jsapi::JSFunctionSpec),
-	)
+	let ty = parse_quote!(::mozjs::jsapi::JSFunctionSpec);
+	Ok((
+		spec_function(span, &function_ident, &specs, &ty)?,
+		def_function(span, &ident, &function_ident, &ty)?,
+	))
 }
 
 fn properties_to_spec_function(
 	ion: &TokenStream, span: Span, class: &Ident, properties: &[Property], accessors: &HashMap<String, Accessor>,
 	r#static: bool,
-) -> Result<ImplItemFn> {
-	let ident: Ident = if r#static {
-		parse_quote!(ION_STATIC_PROPERTIES)
-	} else {
-		parse_quote!(ION_PROPERTIES)
-	};
-	let function_ident: Ident = if r#static {
-		parse_quote!(__ion_static_property_specs)
-	} else {
-		parse_quote!(__ion_property_specs)
-	};
+) -> Result<(ImplItemFn, ImplItemFn)> {
+	let mut ident = parse_quote!(properties);
+	if r#static {
+		ident = format_ident!("static_{}", ident);
+	}
+	let function_ident = format_ident!("__ion_{}_specs", ident);
 
 	let mut specs: Vec<_> = properties.iter().flat_map(|property| property.to_specs(ion, class)).collect();
 	accessors.values().for_each(|accessor| specs.extend(accessor.to_specs(ion, class)));
-	specs.push(parse_quote!(::mozjs::jsapi::JSPropertySpec::ZERO));
 
-	spec_function(
-		span,
-		&ident,
-		&function_ident,
-		&specs,
-		parse_quote!(::mozjs::jsapi::JSPropertySpec),
-	)
+	let ty = parse_quote!(::mozjs::jsapi::JSPropertySpec);
+	Ok((
+		spec_function(span, &function_ident, &specs, &ty)?,
+		def_function(span, &ident, &function_ident, &ty)?,
+	))
 }
 
-fn spec_function(
-	span: Span, ident: &Ident, function_ident: &Ident, specs: &[TokenStream], ty: Type,
-) -> Result<ImplItemFn> {
+fn spec_function(span: Span, function_ident: &Ident, specs: &[TokenStream], ty: &Type) -> Result<ImplItemFn> {
+	assert!(!specs.is_empty());
 	parse2(quote_spanned!(span => fn #function_ident() -> &'static [#ty] {
-		static #ident: &[#ty] = &[
-			#(#specs),*
+		static SPECS: &[#ty] = &[
+			#(#specs,)*
+			#ty::ZERO,
 		];
-		#ident
+		SPECS
 	}))
+}
+
+fn def_function(span: Span, ident: &Ident, function_ident: &Ident, ty: &Type) -> Result<ImplItemFn> {
+	parse2(
+		quote_spanned!(span => fn #ident() -> ::std::option::Option<&'static [#ty]> {
+			::std::option::Option::Some(Self::#function_ident())
+		}),
+	)
 }

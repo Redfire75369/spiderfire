@@ -40,7 +40,7 @@ fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 				.enumerate()
 				.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
 			parse2(quote_spanned!(span => {
-				let Self { #(#idents),* } = self;
+				let Self { #(#idents,)* } = self;
 				#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 			}))
 		}
@@ -56,10 +56,10 @@ fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 						.enumerate()
 						.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
 					match &variant.fields {
-						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents),* } => {
+						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents,)* } => {
 							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 						})),
-						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents),* ) => {
+						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents,)* ) => {
 							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 						})),
 						Fields::Unit => parse2(quote_spanned!(variant.span() => Self::#ident => {})),
