@@ -90,11 +90,11 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_href(&mut self, input: String) -> Result<()> {
+	pub fn set_href(&mut self, cx: &Context, input: String) -> Result<()> {
 		match Url::parse(&input) {
 			Ok(url) => {
 				let search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
-				let search_params = URLSearchParams::get_mut_private(&search_params);
+				let search_params = URLSearchParams::get_mut_private(cx, &search_params)?;
 				search_params.set_pairs(url.query_pairs().into_owned().collect());
 				self.url = url;
 				Ok(())

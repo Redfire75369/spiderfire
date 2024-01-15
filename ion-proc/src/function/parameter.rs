@@ -135,7 +135,7 @@ impl ThisParameter {
 
 				if is_class {
 					parse2(quote!(
-						let #pat_ty = <#ty as #ion::ClassDefinition>::get_mut_private(__this);
+						let #pat_ty = <#ty as #ion::ClassDefinition>::get_mut_private(__cx, __this)?;
 					))
 				} else {
 					parse2(quote!(

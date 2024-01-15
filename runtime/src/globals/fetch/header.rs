@@ -277,7 +277,7 @@ pub struct HeadersIterator {
 impl JSIterator for HeadersIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
 		let object = private.to_object(cx);
-		let headers = Headers::get_private(&object);
+		let headers = Headers::get_private(cx, &object).unwrap();
 		let key = self.keys.next();
 		key.and_then(|key| {
 			if key == SET_COOKIE.as_str() {

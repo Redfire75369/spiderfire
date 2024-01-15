@@ -92,7 +92,13 @@ impl Iterator {
 		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
 		let this = args.this().to_object(cx);
-		let iterator = Iterator::get_mut_private(&this);
+		let iterator = match Iterator::get_mut_private(cx, &this) {
+			Ok(iterator) => iterator,
+			Err(e) => {
+				e.throw(cx);
+				return false;
+			}
+		};
 		let result = iterator.next_value(cx);
 
 		result.to_value(cx, &mut args.rval());

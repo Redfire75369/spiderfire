@@ -6,6 +6,7 @@
 
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
+use std::ffi::CStr;
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
@@ -16,7 +17,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::{PrivateValue, UndefinedValue};
 use mozjs::rust::HandleObject;
 
-use crate::{Context, Function, Local, Object};
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::function::NativeFunction;
@@ -135,7 +136,7 @@ pub trait ClassDefinition: NativeObject {
 		object
 	}
 
-	fn get_private<'a>(object: &Object<'a>) -> &'a Self {
+	unsafe fn get_private_unchecked<'a>(object: &Object<'a>) -> &'a Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
@@ -143,12 +144,29 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
+	fn get_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a Self> {
+		if Self::instance_of(cx, object) {
+			Ok(unsafe { Self::get_private_unchecked(object) })
+		} else {
+			Err(private_error(Self::class()))
+		}
+	}
+
 	#[allow(clippy::mut_from_ref)]
-	fn get_mut_private<'a>(object: &Object<'a>) -> &'a mut Self {
+	unsafe fn get_mut_private_unchecked<'a>(object: &Object<'a>) -> &'a mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
 			&mut *(value.to_private() as *mut Self)
+		}
+	}
+
+	#[allow(clippy::mut_from_ref)]
+	fn get_mut_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a mut Self> {
+		if Self::instance_of(cx, object) {
+			Ok(unsafe { Self::get_mut_private_unchecked(object) })
+		} else {
+			Err(private_error(Self::class()))
 		}
 	}
 
@@ -193,4 +211,12 @@ fn has_zero_spec<T: SpecZero>(specs: Option<&[T]>) -> bool {
 
 fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
 	specs.map_or_else(ptr::null, |specs| specs.as_ptr())
+}
+
+fn private_error(class: &'static NativeClass) -> Error {
+	let name = unsafe { CStr::from_ptr(class.base.name).to_str().unwrap() };
+	Error::new(
+		&format!("Object does not implement interface {}", name),
+		ErrorKind::Type,
+	)
 }

@@ -68,14 +68,14 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 	};
 
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
-	let signal = AbortSignal::get_private(&signal);
+	let signal = AbortSignal::get_private(cx, &signal).unwrap();
 	if let Some(reason) = signal.get_reason() {
 		promise.reject(cx, &cx.root_value(reason).into());
 		return Some(promise);
 	}
 
 	let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-	let headers = Headers::get_mut_private(&headers);
+	let headers = Headers::get_mut_private(cx, &headers).unwrap();
 	if !headers.headers.contains_key(ACCEPT) {
 		headers.headers.append(ACCEPT, HeaderValue::from_static("*/*"));
 	}
@@ -104,9 +104,9 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 }
 
 async fn fetch_internal<'o>(cx: &Context, request: &Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
-	let request = Request::get_mut_private(request);
+	let request = Request::get_mut_private(cx, request)?;
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
-	let signal = AbortSignal::get_private(&signal).signal.clone().poll();
+	let signal = AbortSignal::get_private(cx, &signal)?.signal.clone().poll();
 	let send = Box::pin(main_fetch(cx, request, client, 0));
 	let response = match select(send, signal).await {
 		Either::Left((response, _)) => Ok(response),
@@ -252,7 +252,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 	response.url.get_or_insert(request.url.clone());
 
 	let headers = Object::from(unsafe { Local::from_heap(&response.headers) });
-	let headers = Headers::get_mut_private(&headers);
+	let headers = Headers::get_mut_private(cx, &headers).unwrap();
 
 	if !opaque_redirect
 		&& taint == ResponseTaint::Opaque
@@ -421,7 +421,7 @@ async fn http_fetch(
 #[async_recursion(?Send)]
 async fn http_network_fetch(cx: &Context, request: &Request, client: Client, is_new: bool) -> Response {
 	let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-	let mut headers = Headers::get_mut_private(&headers).headers.clone();
+	let mut headers = Headers::get_mut_private(cx, &headers).unwrap().headers.clone();
 
 	let length = request
 		.body
@@ -526,7 +526,7 @@ async fn http_redirect_fetch(
 	cx: &Context, request: &mut Request, response: Response, client: Client, taint: ResponseTaint, redirections: u8,
 ) -> Response {
 	let headers = Object::from(unsafe { Local::from_heap(&response.headers) });
-	let headers = Headers::get_private(&headers);
+	let headers = Headers::get_private(cx, &headers).unwrap();
 	let mut location = headers.headers.get_all(LOCATION).into_iter();
 	let location = match location.size_hint().1 {
 		Some(0) => return response,
@@ -571,7 +571,7 @@ async fn http_redirect_fetch(
 		request.method = Method::GET;
 		request.body = FetchBody::default();
 		let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
-		let headers = Headers::get_mut_private(&headers);
+		let headers = Headers::get_mut_private(cx, &headers).unwrap();
 		remove_all_header_entries(&mut headers.headers, &CONTENT_ENCODING);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LANGUAGE);
 		remove_all_header_entries(&mut headers.headers, &CONTENT_LOCATION);

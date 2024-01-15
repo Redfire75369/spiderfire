@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, LitStr, Member, parse2, Path, Result, Type};
+use syn::{Error, Fields, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -95,8 +95,8 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 fn class_impls(
 	ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type,
 ) -> Result<[ItemImpl; 6]> {
-	let from_value = impl_from_value(ion, span, name, r#type, false)?;
-	let from_value_mut = impl_from_value(ion, span, name, r#type, true)?;
+	let from_value = impl_from_value(ion, span, r#type, false)?;
+	let from_value_mut = impl_from_value(ion, span, r#type, true)?;
 
 	let derived_from = quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {});
 	let derived_from = parse2(derived_from)?;
@@ -162,8 +162,7 @@ fn class_impls(
 	])
 }
 
-fn impl_from_value(ion: &TokenStream, span: Span, name: &str, r#type: &Type, mutable: bool) -> Result<ItemImpl> {
-	let from_value_error = LitStr::new(&format!("Expected {}", name), span);
+fn impl_from_value(ion: &TokenStream, span: Span, r#type: &Type, mutable: bool) -> Result<ItemImpl> {
 	let (function, mutable) = if mutable {
 		(quote!(get_mut_private), Some(new_token![mut]))
 	} else {
@@ -176,11 +175,7 @@ fn impl_from_value(ion: &TokenStream, span: Span, name: &str, r#type: &Type, mut
 
 			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: ::core::primitive::bool, _: ()) -> #ion::Result<&'cx #mutable #r#type> {
 				let object = #ion::Object::from_value(cx, value, strict, ())?;
-				if <#r#type as #ion::class::ClassDefinition>::instance_of(cx, &object) {
-					Ok(<#r#type as #ion::class::ClassDefinition>::#function(&object))
-				} else {
-					Err(#ion::Error::new(#from_value_error, #ion::ErrorKind::Type))
-				}
+				<#r#type as #ion::class::ClassDefinition>::#function(cx, &object)
 			}
 		}),
 	)

@@ -196,7 +196,7 @@ impl<'cx> FromValue<'cx> for AbortSignal {
 		if AbortSignal::instance_of(cx, &object) {
 			Ok(AbortSignal {
 				reflector: Reflector::default(),
-				signal: AbortSignal::get_private(&object).signal.clone(),
+				signal: AbortSignal::get_private(cx, &object)?.signal.clone(),
 			})
 		} else {
 			Err(Error::new("Expected AbortSignal", ErrorKind::Type))

@@ -165,7 +165,7 @@ impl URLSearchParams {
 	fn update(&mut self) {
 		if let Some(url) = &self.url {
 			let url = Object::from(unsafe { Local::from_heap(url) });
-			let url = URL::get_mut_private(&url);
+			let url = unsafe { URL::get_mut_private_unchecked(&url) };
 			if self.pairs.is_empty() {
 				url.url.set_query(None);
 			} else {
@@ -187,7 +187,7 @@ pub struct SearchParamsIterator(usize);
 impl JSIterator for SearchParamsIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
 		let object = private.to_object(cx);
-		let search_params = URLSearchParams::get_private(&object);
+		let search_params = URLSearchParams::get_private(cx, &object).unwrap();
 		let pair = search_params.pairs.get(self.0);
 		pair.map(move |(k, v)| {
 			self.0 += 1;
