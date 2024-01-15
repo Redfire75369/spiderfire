@@ -14,7 +14,7 @@ use crate::{Context, OwnedKey};
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
-/// Formats the [key of an object](OwnedKey) as a string with the given [configuration](Config),
+/// Formats the [key of an object](OwnedKey) with the given [configuration](Config).
 pub fn format_key<'cx>(cx: &'cx Context, cfg: Config, key: &'cx OwnedKey<'cx>) -> KeyDisplay<'cx> {
 	KeyDisplay { cx, cfg, key }
 }

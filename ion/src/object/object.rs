@@ -14,13 +14,13 @@ use mozjs::jsapi::{
 	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
 	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
 	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
-	JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
+	JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox, JS_GetPropertyDescriptorById,
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
 use mozjs::rust::IdVector;
 
-use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
+use crate::{Context, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::function::NativeFunction;
@@ -104,6 +104,36 @@ impl<'o> Object<'o> {
 		&self, cx: &'cx Context, key: K, strict: bool, config: T::Config,
 	) -> Option<T> {
 		self.get(cx, key).and_then(|val| T::from_value(cx, &val, strict, config).ok())
+	}
+
+	/// Gets the descriptor at the given key of the [Object].
+	/// Returns [None] if the object does not contain the key.
+	pub fn get_descriptor<'cx, K: ToPropertyKey<'cx>>(
+		&self, cx: &'cx Context, key: K,
+	) -> Option<PropertyDescriptor<'cx>> {
+		let key = key.to_key(cx).unwrap();
+		if self.has(cx, &key) {
+			let mut desc = PropertyDescriptor::empty(cx);
+			let mut holder = Object::null(cx);
+			let mut is_none = true;
+			unsafe {
+				JS_GetPropertyDescriptorById(
+					cx.as_ptr(),
+					self.handle().into(),
+					key.handle().into(),
+					desc.handle_mut().into(),
+					holder.handle_mut().into(),
+					&mut is_none,
+				)
+			};
+			if is_none {
+				None
+			} else {
+				Some(desc)
+			}
+		} else {
+			None
+		}
 	}
 
 	/// Sets the [Value] at the given key of the [Object].

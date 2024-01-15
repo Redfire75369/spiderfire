@@ -18,8 +18,12 @@ pub struct PropertyDescriptor<'pd> {
 }
 
 impl<'pd> PropertyDescriptor<'pd> {
+	pub fn empty(cx: &'pd Context) -> PropertyDescriptor<'pd> {
+		PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()))
+	}
+
 	pub fn new(cx: &'pd Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
 		desc
 	}
@@ -29,7 +33,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	) -> PropertyDescriptor<'pd> {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		unsafe {
 			SetAccessorPropertyDescriptor(
 				desc.handle_mut().into(),
@@ -42,7 +46,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	}
 
 	pub fn from_object(cx: &'pd Context, object: &Object) -> Option<PropertyDescriptor<'pd>> {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		let desc_value = Value::object(cx, object);
 		unsafe {
 			ObjectToCompletePropertyDescriptor(

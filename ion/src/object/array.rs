@@ -10,7 +10,7 @@ use std::ops::{Deref, DerefMut};
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
 
-use crate::{Context, Local, Object, Value};
+use crate::{Context, Local, Object, PropertyDescriptor, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::object::object::ObjectKeysIter;
@@ -109,6 +109,12 @@ impl<'a> Array<'a> {
 		&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config,
 	) -> Option<T> {
 		self.arr.get_as(cx, index, strict, config)
+	}
+
+	/// Gets the descriptor at the given index of the [Array].
+	/// Returns [None] if there is no value at the given index.
+	pub fn get_descriptor<'cx>(&self, cx: &'cx Context, index: u32) -> Option<PropertyDescriptor<'cx>> {
+		self.arr.get_descriptor(cx, index)
 	}
 
 	/// Sets the [Value] at the given index of the [Array].

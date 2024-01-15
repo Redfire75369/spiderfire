@@ -18,6 +18,7 @@ pub mod boxed;
 pub mod class;
 mod config;
 pub mod date;
+pub mod descriptor;
 pub mod function;
 pub mod key;
 pub mod object;
