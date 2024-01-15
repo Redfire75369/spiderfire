@@ -76,6 +76,13 @@ impl Reflector {
 	pub const fn __ion_native_prototype_chain() -> PrototypeChain {
 		[None; 8]
 	}
+
+	#[doc(hidden)]
+	pub const fn __ion_self_as_parent_class_info<'cx>(
+		_cx: &'cx crate::Context,
+	) -> Option<(&'static NativeClass, crate::Local<'cx, *mut JSObject>)> {
+		None
+	}
 }
 
 unsafe impl Traceable for Reflector {

@@ -118,6 +118,18 @@ fn class_impls(
 	let mut operations_native_class: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		#(#operations)*
 
+		pub fn __ion_self_as_parent_class_info<'cx>(
+			cx: &'cx #ion::Context,
+		) -> Option<(&'static #ion::class::NativeClass, #ion::Local<'cx, *mut ::mozjs::jsapi::JSObject>)> {
+			let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
+			let info = infos.get(&::core::any::TypeId::of::<Self>()).expect("Uninitialised Class");
+			Some((info.class, cx.root_object(info.prototype)))
+		}
+
+		pub fn __ion_parent_class_info<'cx>(cx: &'cx #ion::Context) -> Option<(&'static #ion::class::NativeClass, #ion::Local<'cx, *mut ::mozjs::jsapi::JSObject>)> {
+			#super_type::__ion_self_as_parent_class_info(cx)
+		}
+
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
 			const ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
 

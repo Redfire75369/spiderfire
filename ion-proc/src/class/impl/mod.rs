@@ -189,6 +189,10 @@ fn class_definition(
 			Self::__ion_native_class()
 		}
 
+		fn parent_class_info<'cx>(cx: &'cx #ion::Context) -> Option<(&'static #ion::class::NativeClass, #ion::Local<'cx, *mut ::mozjs::jsapi::JSObject>)> {
+			Self::__ion_parent_class_info(cx)
+		}
+
 		fn constructor() -> (#ion::functions::NativeFunction, ::core::primitive::u32) {
 			(Self::__ion_bindings_constructor, #constructor_nargs)
 		}
