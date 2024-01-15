@@ -34,20 +34,20 @@ impl Display for PrimitiveDisplay<'_> {
 
 		let value = self.value.handle();
 		if value.is_boolean() {
-			write!(f, "{}", value.to_boolean().to_string().color(colours.boolean))
+			value.to_boolean().to_string().color(colours.boolean).fmt(f)
 		} else if value.is_int32() {
 			let int = value.to_int32();
 			let mut buffer = Buffer::new();
-			write!(f, "{}", buffer.format(int).color(colours.number))
+			buffer.format(int).color(colours.number).fmt(f)
 		} else if value.is_double() {
 			let number = value.to_double();
 
 			if number == f64::INFINITY {
-				write!(f, "{}", "Infinity".color(colours.number))
+				"Infinity".color(colours.number).fmt(f)
 			} else if number == f64::NEG_INFINITY {
-				write!(f, "{}", "-Infinity".color(colours.number))
+				"-Infinity".color(colours.number).fmt(f)
 			} else {
-				write!(f, "{}", number.to_string().color(colours.number))
+				number.to_string().color(colours.number).fmt(f)
 			}
 		} else if value.is_string() {
 			let str = crate::String::from_value(self.cx, self.value, true, ()).unwrap().to_owned(self.cx);
@@ -57,22 +57,18 @@ impl Display for PrimitiveDisplay<'_> {
 				f.write_str(&str)
 			}
 		} else if value.is_null() {
-			write!(f, "{}", "null".color(colours.null))
+			"null".color(colours.null).fmt(f)
 		} else if value.is_undefined() {
-			write!(f, "{}", "undefined".color(colours.undefined))
+			"undefined".color(colours.undefined).fmt(f)
 		} else if value.is_bigint() {
 			let bi = BigInt::from(self.cx.root_bigint(value.to_bigint()));
-			write!(
-				f,
-				"{}{}",
-				bi.to_string(self.cx, 10).unwrap().to_owned(self.cx).color(colours.bigint),
-				"n".color(colours.bigint)
-			)
+			bi.to_string(self.cx, 10).unwrap().to_owned(self.cx).color(colours.bigint).fmt(f)?;
+			"n".color(colours.bigint).fmt(f)
 		} else if value.is_symbol() {
 			let symbol = Symbol::from(self.cx.root_symbol(value.to_symbol()));
-			write!(f, "{}", format_symbol(self.cx, self.cfg, &symbol))
+			format_symbol(self.cx, self.cfg, &symbol).fmt(f)
 		} else if value.is_magic() {
-			write!(f, "{}", "<magic>".color(colours.boolean))
+			"<magic>".color(colours.boolean).fmt(f)
 		} else {
 			unreachable!("Expected Primitive")
 		}

@@ -100,7 +100,7 @@ impl Display for ObjectDisplay<'_> {
 					}
 				}
 
-				write!(f, "{}", format_class_object(cx, cfg, &self.object))
+				format_class_object(cx, cfg, &self.object).fmt(f)
 			}
 			_ => {
 				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
@@ -131,9 +131,9 @@ impl Display for PlainObjectDisplay<'_> {
 			let length = keys.len();
 
 			if length == 0 {
-				write!(f, "{}", "{}".color(colour))
+				"{}".color(colour).fmt(f)
 			} else {
-				write!(f, "{}", "{".color(colour))?;
+				"{".color(colour).fmt(f)?;
 
 				if self.cfg.multiline {
 					f.write_str(NEWLINE)?;
@@ -143,7 +143,7 @@ impl Display for PlainObjectDisplay<'_> {
 						f.write_str(&inner)?;
 						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
 						write_key_descriptor(f, self.cx, self.cfg, &key, &desc)?;
-						write!(f, "{}", ",".color(colour))?;
+						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
 					}
 
@@ -157,7 +157,7 @@ impl Display for PlainObjectDisplay<'_> {
 						write_key_descriptor(f, self.cx, self.cfg, &key, &desc)?;
 
 						if i != len - 1 {
-							write!(f, "{}", ",".color(colour))?;
+							",".color(colour).fmt(f)?;
 							f.write_char(' ')?;
 						}
 					}
@@ -166,10 +166,10 @@ impl Display for PlainObjectDisplay<'_> {
 					write_remaining(f, remaining, None, colour)?;
 				}
 
-				write!(f, "{}", "}".color(colour))
+				"}".color(colour).fmt(f)
 			}
 		} else {
-			write!(f, "{}", "[Object]".color(colour))
+			"[Object]".color(colour).fmt(f)
 		}
 	}
 }

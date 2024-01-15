@@ -5,9 +5,11 @@
  */
 
 use std::fmt::{Display, Formatter};
+
 use colored::Colorize;
-use crate::format::{Config, format_value};
+
 use crate::{Context, PropertyDescriptor};
+use crate::format::{Config, format_value};
 
 /// Formats a [descriptor](PropertyDescriptor) with the given [configuration](Config).
 pub fn format_descriptor<'cx>(

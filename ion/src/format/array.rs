@@ -33,9 +33,9 @@ impl Display for ArrayDisplay<'_> {
 			let length = self.array.len(self.cx);
 
 			if length == 0 {
-				write!(f, "{}", "[]".color(colour))
+				"[]".color(colour).fmt(f)
 			} else {
-				write!(f, "{}", "[".color(colour))?;
+				"[".color(colour).fmt(f)?;
 
 				let (remaining, inner) = if self.cfg.multiline {
 					f.write_str(NEWLINE)?;
@@ -75,10 +75,10 @@ impl Display for ArrayDisplay<'_> {
 					f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth) as usize))?;
 				}
 
-				write!(f, "{}", "]".color(colour))
+				"]".color(colour).fmt(f)
 			}
 		} else {
-			write!(f, "{}", "[Array]".color(colour))
+			"[Array]".color(colour).fmt(f)
 		}
 	}
 }

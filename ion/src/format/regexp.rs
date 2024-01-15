@@ -26,6 +26,6 @@ pub struct RegExpDisplay<'cx> {
 
 impl Display for RegExpDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.regexp.to_string(self.cx).color(self.cfg.colours.regexp))
+		self.regexp.to_string(self.cx).color(self.cfg.colours.regexp).fmt(f)
 	}
 }

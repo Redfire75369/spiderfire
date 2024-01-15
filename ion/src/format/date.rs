@@ -26,7 +26,7 @@ pub struct DateDisplay<'cx> {
 impl Display for DateDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		if let Some(date) = self.date.to_date(self.cx) {
-			write!(f, "{}", date.to_string().color(self.cfg.colours.date))
+			date.to_string().color(self.cfg.colours.date).fmt(f)
 		} else {
 			panic!("Failed to unbox Date");
 		}

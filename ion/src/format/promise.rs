@@ -34,12 +34,12 @@ impl Display for PromiseDisplay<'_> {
 		let state = self.promise.state();
 
 		let state = match state {
-			PromiseState::Pending => return write!(f, "{}", "Promise { <pending> }".color(colour)),
+			PromiseState::Pending => return "Promise { <pending> }".color(colour).fmt(f),
 			PromiseState::Fulfilled => "<fulfilled>".color(colour),
 			PromiseState::Rejected => "<rejected>".color(colour),
 		};
 
-		write!(f, "{}", "Promise {".color(colour))?;
+		"Promise {".color(colour).fmt(f)?;
 		let result = self.promise.result(self.cx);
 
 		if self.cfg.multiline {
@@ -47,18 +47,18 @@ impl Display for PromiseDisplay<'_> {
 
 			f.write_char('\n')?;
 			f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize))?;
-			write!(f, "{}", state)?;
+			state.fmt(f)?;
 			f.write_char(' ')?;
-			write!(f, "{}", result)?;
-			write!(f, "{}", "\n}".color(colour))
+			result.fmt(f)?;
+			"\n}".color(colour).fmt(f)
 		} else {
 			let result = format_value(self.cx, self.cfg, &result);
 
 			f.write_char(' ')?;
-			write!(f, "{}", state)?;
+			state.fmt(f)?;
 			f.write_char(' ')?;
-			write!(f, "{}", result)?;
-			write!(f, "{}", " }".color(colour))
+			result.fmt(f)?;
+			" }".color(colour).fmt(f)
 		}
 	}
 }

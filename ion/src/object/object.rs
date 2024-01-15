@@ -13,8 +13,8 @@ use std::slice;
 use mozjs::jsapi::{
 	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
 	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
-	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
-	JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox, JS_GetPropertyDescriptorById,
+	JS_GetPropertyDescriptorById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById,
+	JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;

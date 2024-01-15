@@ -45,9 +45,9 @@ pub struct ValueDisplay<'cx> {
 impl Display for ValueDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		if self.value.handle().is_object() {
-			write!(f, "{}", format_object(self.cx, self.cfg, self.value.to_object(self.cx)))
+			format_object(self.cx, self.cfg, self.value.to_object(self.cx)).fmt(f)
 		} else {
-			write!(f, "{}", format_primitive(self.cx, self.cfg, self.value))
+			format_primitive(self.cx, self.cfg, self.value).fmt(f)
 		}
 	}
 }

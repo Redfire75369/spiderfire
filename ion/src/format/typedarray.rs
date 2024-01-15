@@ -25,7 +25,7 @@ pub struct ArrayBufferDisplay<'cx> {
 impl Display for ArrayBufferDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let colour = self.cfg.colours.object;
-		write!(f, "{}", "ArrayBuffer {".color(colour))?;
+		"ArrayBuffer {".color(colour).fmt(f)?;
 
 		let vec;
 		let bytes = if self.buffer.is_shared() {
@@ -60,7 +60,7 @@ impl Display for ArrayBufferDisplay<'_> {
 		}
 
 		f.write_char('>')?;
-		write!(f, "{}", ",".color(colour))?;
+		",".color(colour).fmt(f)?;
 		if bytes.len() < 8 {
 			f.write_char(' ')?;
 		} else {
@@ -75,7 +75,7 @@ impl Display for ArrayBufferDisplay<'_> {
 			f.write_str(NEWLINE)?;
 		}
 
-		write!(f, "{}", "}".color(colour))?;
+		"}".color(colour).fmt(f)?;
 
 		Ok(())
 	}
@@ -128,8 +128,8 @@ where
 		f.write_str(&indent)?;
 
 		for (i, element) in elements.iter().enumerate() {
-			write!(f, "{}", element.to_string().color(self.cfg.colours.number))?;
-			write!(f, "{}", ",".color(colour))?;
+			element.to_string().color(self.cfg.colours.number).fmt(f)?;
+			",".color(colour).fmt(f)?;
 
 			if i != elements.len() - 1 {
 				f.write_char(' ')?;
@@ -141,7 +141,7 @@ where
 		}
 
 		f.write_str(NEWLINE)?;
-		write!(f, "{}", "}".color(colour))?;
+		"}".color(colour).fmt(f)?;
 
 		Ok(())
 	}

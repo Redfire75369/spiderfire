@@ -30,8 +30,8 @@ impl Display for ClassObjectDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let class = unsafe { get_object_class(self.object.handle().get()) };
 		let name = unsafe { CStr::from_ptr((*class).name) }.to_str().unwrap();
-
-		let string = format_plain_object(self.cx, self.cfg, self.object);
-		write!(f, "{} {}", name.color(self.cfg.colours.object), string)
+		name.color(self.cfg.colours.object).fmt(f)?;
+		f.write_str(" ")?;
+		format_plain_object(self.cx, self.cfg, self.object).fmt(f)
 	}
 }

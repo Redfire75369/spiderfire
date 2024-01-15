@@ -26,7 +26,7 @@ pub struct BoxedDisplay<'cx> {
 impl Display for BoxedDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		if let Some(primitive) = self.object.unbox_primitive(self.cx) {
-			write!(f, "{}", format_primitive(self.cx, self.cfg, &primitive))
+			format_primitive(self.cx, self.cfg, &primitive).fmt(f)
 		} else {
 			unreachable!("Object is not boxed")
 		}
