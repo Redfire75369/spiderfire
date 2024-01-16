@@ -5,7 +5,7 @@
  */
 
 use std::{fmt, ptr};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use std::mem::MaybeUninit;
 
 use mozjs::conversions::jsstr_to_string;
@@ -68,11 +68,11 @@ impl StackRecord {
 impl Display for StackRecord {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.write_str(self.function.as_deref().unwrap_or(""))?;
-		f.write_str("@")?;
+		f.write_char('@')?;
 		f.write_str(&self.location.file)?;
-		f.write_str(":")?;
+		f.write_char(':')?;
 		f.write_str(&self.location.lineno.to_string())?;
-		f.write_str(":")?;
+		f.write_char(':')?;
 		f.write_str(&self.location.column.to_string())?;
 		Ok(())
 	}

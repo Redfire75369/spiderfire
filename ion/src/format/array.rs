@@ -8,12 +8,13 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
+use mozjs::jsapi::JSProtoKey;
 
 use crate::{Array, Context};
 use crate::format::{indent_str, NEWLINE};
 use crate::format::Config;
 use crate::format::descriptor::format_descriptor;
-use crate::format::object::write_remaining;
+use crate::format::object::{write_prefix, write_remaining};
 
 /// Formats an [JavaScript Array](Array) using the given [configuration](Config).
 pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array<'cx>) -> ArrayDisplay<'cx> {
@@ -30,6 +31,16 @@ pub struct ArrayDisplay<'cx> {
 impl Display for ArrayDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let colour = self.cfg.colours.array;
+
+		write_prefix(
+			f,
+			self.cx,
+			self.cfg,
+			self.array.as_object(),
+			"Array",
+			JSProtoKey::JSProto_Array,
+		)?;
+
 		if self.cfg.depth < 5 {
 			let length = self.array.len(self.cx);
 

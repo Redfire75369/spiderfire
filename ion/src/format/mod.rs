@@ -17,7 +17,6 @@ use crate::format::primitive::format_primitive;
 
 pub mod array;
 pub mod boxed;
-pub mod class;
 mod config;
 pub mod date;
 pub mod descriptor;

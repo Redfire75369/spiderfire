@@ -10,14 +10,15 @@ use std::fmt::{Display, Formatter, Write};
 
 use colored::{Color, Colorize};
 use itoa::Buffer;
-use mozjs::jsapi::{ESClass, Type};
+use mozjs::jsapi::{
+	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
+};
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp};
 use crate::conversions::ToValue;
 use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
-use crate::format::boxed::format_boxed;
-use crate::format::class::format_class_object;
+use crate::format::boxed::format_boxed_primitive;
 use crate::format::Config;
 use crate::format::date::format_date;
 use crate::format::descriptor::format_descriptor;
@@ -26,6 +27,7 @@ use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
 use crate::format::typedarray::{format_array_buffer, format_typed_array};
+use crate::symbol::WellKnownSymbolCode;
 use crate::typedarray::{
 	ArrayBuffer, ArrayBufferView, ClampedUint8Array, Float32Array, Float64Array, Int16Array, Int32Array, Int8Array,
 	Uint16Array, Uint32Array, Uint8Array,
@@ -55,7 +57,9 @@ impl Display for ObjectDisplay<'_> {
 		let class = self.object.get_builtin_class(cx);
 
 		match class {
-			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &self.object).fmt(f),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => {
+				format_boxed_primitive(cx, cfg, &self.object).fmt(f)
+			}
 			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()).fmt(f),
 			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()).fmt(f),
 			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()).fmt(f),
@@ -66,7 +70,7 @@ impl Display for ObjectDisplay<'_> {
 				Exception::Error(error) => error.format().fmt(f),
 				_ => unreachable!("Expected Error"),
 			},
-			ESC::Object => format_plain_object(cx, cfg, &self.object).fmt(f),
+			ESC::Object => format_raw_object(cx, cfg, &self.object).fmt(f),
 			ESC::Other => {
 				if let Some(view) = ArrayBufferView::from(cx.root_object(object.handle().get())) {
 					'view: {
@@ -101,29 +105,30 @@ impl Display for ObjectDisplay<'_> {
 					}
 				}
 
-				format_class_object(cx, cfg, &self.object).fmt(f)
+				format_raw_object(cx, cfg, &self.object).fmt(f)
 			}
 			_ => self.object.as_value(cx).to_source(cx).to_owned(cx).fmt(f),
 		}
 	}
 }
 
-/// Formats a [JavaScript Object](Object) using the given [configuration](Config).
-/// Disregards the class of the object.
-pub fn format_plain_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> PlainObjectDisplay<'cx> {
-	PlainObjectDisplay { cx, object, cfg }
+/// Formats an [object](Object) using the given [configuration](Config).
+pub fn format_raw_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> RawObjectDisplay<'cx> {
+	RawObjectDisplay { cx, object, cfg }
 }
 
 #[must_use]
-pub struct PlainObjectDisplay<'cx> {
+pub struct RawObjectDisplay<'cx> {
 	cx: &'cx Context,
 	object: &'cx Object<'cx>,
 	cfg: Config,
 }
 
-impl Display for PlainObjectDisplay<'_> {
+impl Display for RawObjectDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let colour = self.cfg.colours.object;
+
+		write_prefix(f, self.cx, self.cfg, self.object, "Object", JSProtoKey::JSProto_Object)?;
 
 		if self.cfg.depth < 4 {
 			let keys = self.object.keys(self.cx, Some(self.cfg.iteration));
@@ -141,7 +146,7 @@ impl Display for PlainObjectDisplay<'_> {
 					for key in keys {
 						inner.fmt(f)?;
 						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
-						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, Some(self.object))?;
 						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
 					}
@@ -153,7 +158,7 @@ impl Display for PlainObjectDisplay<'_> {
 
 					for (i, key) in keys.enumerate() {
 						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
-						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, Some(self.object))?;
 
 						if i != len - 1 {
 							",".color(colour).fmt(f)?;
@@ -173,12 +178,86 @@ impl Display for PlainObjectDisplay<'_> {
 	}
 }
 
+pub(crate) fn write_prefix(
+	f: &mut Formatter, cx: &Context, cfg: Config, object: &Object, fallback: &str, standard: JSProtoKey,
+) -> fmt::Result {
+	fn get_constructor_name(cx: &Context, object: &Object, proto: &mut Object) -> Option<String> {
+		let value = object.as_value(cx);
+		let constructor = unsafe {
+			JS_GetPrototype(cx.as_ptr(), object.handle().into(), proto.handle_mut().into());
+			if proto.handle().get().is_null() {
+				return None;
+			} else {
+				cx.root_object(JS_GetConstructor(cx.as_ptr(), proto.handle().into()))
+			}
+		};
+
+		Function::from_object(cx, &constructor)
+			.and_then(|constructor_fn| constructor_fn.name(cx))
+			.and_then(|name| {
+				let mut has_instance = false;
+				(unsafe {
+					JS_HasInstance(
+						cx.as_ptr(),
+						constructor.handle().into(),
+						value.handle().into(),
+						&mut has_instance,
+					)
+				} && has_instance)
+					.then_some(name)
+			})
+	}
+
+	fn get_tag(cx: &Context, object: &Object) -> Option<String> {
+		if object.has_own(cx, WellKnownSymbolCode::ToStringTag) {
+			if let Some(tag) = object.get_as::<_, String>(cx, WellKnownSymbolCode::ToStringTag, true, ()) {
+				return (!tag.is_empty()).then_some(tag);
+			}
+		}
+		None
+	}
+
+	fn write_tag(f: &mut Formatter, colour: Color, tag: Option<&str>, fallback: &str) -> fmt::Result {
+		if let Some(tag) = tag {
+			if tag != fallback {
+				"[".color(colour).fmt(f)?;
+				tag.color(colour).fmt(f)?;
+				"] ".color(colour).fmt(f)?;
+			}
+		}
+		Ok(())
+	}
+
+	let mut proto = Object::null(cx);
+	let constructor_name = get_constructor_name(cx, object, &mut proto);
+	let tag = get_tag(cx, object);
+
+	let colour = cfg.colours.object;
+	let mut fallback = fallback;
+	if let Some(name) = &constructor_name {
+		let proto = unsafe { IdentifyStandardPrototype(proto.handle().get()) };
+		if proto != standard {
+			name.color(colour).fmt(f)?;
+			f.write_char(' ')?;
+			fallback = &name;
+		} else if tag.is_some() {
+			fallback.color(colour).fmt(f)?;
+			f.write_char(' ')?;
+		}
+	} else {
+		"[".color(colour).fmt(f)?;
+		fallback.color(colour).fmt(f)?;
+		": null prototype] ".color(colour).fmt(f)?;
+	}
+	write_tag(f, colour, tag.as_deref(), fallback)
+}
+
 fn write_key_descriptor(
-	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor, object: &Object,
+	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor, object: Option<&Object>,
 ) -> fmt::Result {
 	format_key(cx, cfg, &key.to_owned_key(cx)).fmt(f)?;
 	": ".color(cfg.colours.object).fmt(f)?;
-	format_descriptor(cx, cfg, desc, Some(object)).fmt(f)
+	format_descriptor(cx, cfg, desc, object).fmt(f)
 }
 
 pub(crate) fn write_remaining(f: &mut Formatter, remaining: usize, inner: Option<&str>, colour: Color) -> fmt::Result {

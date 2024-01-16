@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
 
@@ -37,22 +37,25 @@ impl Display for DescriptorDisplay<'_> {
 			if self.desc.setter(self.cx).is_some() {
 				"/Setter".color(color).fmt(f)?;
 			}
+
 			return if let Some(object) = self.object {
 				let value = match getter.call(self.cx, object, &[]) {
 					Ok(value) => value,
 					Err(report) => {
-						f.write_str("<inspection threw ")?;
+						f.write_str(" <Inspection threw (")?;
 						match report {
 							Some(mut report) => {
 								report.stack = None;
 								report.format(self.cx).fmt(f)?;
+								f.write_char(')')?;
 							}
 							None => f.write_str("unknown error")?,
 						}
-						f.write_str(">")?;
+						f.write_char('>')?;
 						return "]".color(color).fmt(f);
 					}
 				};
+
 				if value.handle().is_object() {
 					"] ".color(color).fmt(f)?;
 					format_object(

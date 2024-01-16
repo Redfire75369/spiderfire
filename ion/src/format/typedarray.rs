@@ -50,7 +50,7 @@ impl Display for ArrayBufferDisplay<'_> {
 			"[Uint8Contents]".color(self.cfg.colours.symbol),
 			":".color(colour)
 		)?;
-		f.write_str("<")?;
+		f.write_char('<')?;
 
 		for (i, byte) in bytes.iter().enumerate() {
 			write!(f, "{:02x}", byte)?;
