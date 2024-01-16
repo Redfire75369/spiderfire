@@ -19,6 +19,7 @@ pub fn format_key<'cx>(cx: &'cx Context, cfg: Config, key: &'cx OwnedKey<'cx>) -
 	KeyDisplay { cx, cfg, key }
 }
 
+#[must_use]
 pub struct KeyDisplay<'cx> {
 	cx: &'cx Context,
 	cfg: Config,

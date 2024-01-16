@@ -14,7 +14,7 @@ use mozjs::jsapi::{ESClass, Type};
 
 use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp};
 use crate::conversions::ToValue;
-use crate::format::{INDENT, NEWLINE};
+use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
 use crate::format::class::format_class_object;
@@ -31,12 +31,13 @@ use crate::typedarray::{
 	Uint16Array, Uint32Array, Uint8Array,
 };
 
-/// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
+/// Formats a [JavaScript Object](Object), depending on its class, using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
 pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> ObjectDisplay<'cx> {
 	ObjectDisplay { cx, object, cfg }
 }
 
+#[must_use]
 pub struct ObjectDisplay<'cx> {
 	cx: &'cx Context,
 	object: Object<'cx>,
@@ -62,10 +63,10 @@ impl Display for ObjectDisplay<'_> {
 			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap()).fmt(f),
 			ESC::ArrayBuffer => format_array_buffer(cfg, &ArrayBuffer::from(object.into_local()).unwrap()).fmt(f),
 			ESC::Error => match Exception::from_object(cx, &self.object) {
-				Exception::Error(error) => f.write_str(&error.format()),
+				Exception::Error(error) => error.format().fmt(f),
 				_ => unreachable!("Expected Error"),
 			},
-			ESC::Object => format_plain_object(cx, cfg, &Object::from(object.into_local())).fmt(f),
+			ESC::Object => format_plain_object(cx, cfg, &self.object).fmt(f),
 			ESC::Other => {
 				if let Some(view) = ArrayBufferView::from(cx.root_object(object.handle().get())) {
 					'view: {
@@ -102,20 +103,18 @@ impl Display for ObjectDisplay<'_> {
 
 				format_class_object(cx, cfg, &self.object).fmt(f)
 			}
-			_ => {
-				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
-				f.write_str(&source)
-			}
+			_ => self.object.as_value(cx).to_source(cx).to_owned(cx).fmt(f),
 		}
 	}
 }
 
-/// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
+/// Formats a [JavaScript Object](Object) using the given [configuration](Config).
 /// Disregards the class of the object.
 pub fn format_plain_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> PlainObjectDisplay<'cx> {
 	PlainObjectDisplay { cx, object, cfg }
 }
 
+#[must_use]
 pub struct PlainObjectDisplay<'cx> {
 	cx: &'cx Context,
 	object: &'cx Object<'cx>,
@@ -137,24 +136,24 @@ impl Display for PlainObjectDisplay<'_> {
 
 				if self.cfg.multiline {
 					f.write_str(NEWLINE)?;
-					let inner = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+					let inner = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 
 					for key in keys {
-						f.write_str(&inner)?;
+						inner.fmt(f)?;
 						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
-						write_key_descriptor(f, self.cx, self.cfg, &key, &desc)?;
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
 						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
 					}
 
-					f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth) as usize))?;
+					indent_str((self.cfg.indentation + self.cfg.depth) as usize).fmt(f)?;
 				} else {
 					f.write_char(' ')?;
 					let len = length.clamp(0, 3);
 
 					for (i, key) in keys.enumerate() {
 						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
-						write_key_descriptor(f, self.cx, self.cfg, &key, &desc)?;
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
 
 						if i != len - 1 {
 							",".color(colour).fmt(f)?;
@@ -175,11 +174,11 @@ impl Display for PlainObjectDisplay<'_> {
 }
 
 fn write_key_descriptor(
-	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor,
+	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor, object: &Object,
 ) -> fmt::Result {
 	format_key(cx, cfg, &key.to_owned_key(cx)).fmt(f)?;
 	": ".color(cfg.colours.object).fmt(f)?;
-	format_descriptor(cx, cfg, desc).fmt(f)
+	format_descriptor(cx, cfg, desc, Some(object)).fmt(f)
 }
 
 pub(crate) fn write_remaining(f: &mut Formatter, remaining: usize, inner: Option<&str>, colour: Color) -> fmt::Result {

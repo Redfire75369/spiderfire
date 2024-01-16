@@ -7,7 +7,7 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
-use mozjs::jsapi::{FromPropertyDescriptor, ObjectToCompletePropertyDescriptor};
+use mozjs::jsapi::{FromPropertyDescriptor, JS_GetObjectFunction, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
 
 use crate::{Context, Function, Local, Object, Value};
@@ -81,17 +81,21 @@ impl<'pd> PropertyDescriptor<'pd> {
 		self.handle().resolving_()
 	}
 
-	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
 		if self.handle().hasGetter_() && !self.handle().getter_.is_null() {
-			Some(Object::from(cx.root_object(self.handle().getter_)))
+			Some(Function::from(
+				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().getter_) }),
+			))
 		} else {
 			None
 		}
 	}
 
-	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
 		if self.handle().hasSetter_() && !self.handle().setter_.is_null() {
-			Some(Object::from(cx.root_object(self.handle().setter_)))
+			Some(Function::from(
+				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().setter_) }),
+			))
 		} else {
 			None
 		}

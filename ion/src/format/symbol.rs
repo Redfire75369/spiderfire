@@ -24,6 +24,7 @@ pub fn format_symbol<'cx>(cx: &'cx Context, cfg: Config, symbol: &'cx Symbol<'cx
 	SymbolDisplay { cx, symbol, cfg }
 }
 
+#[must_use]
 pub struct SymbolDisplay<'cx> {
 	cx: &'cx Context,
 	symbol: &'cx Symbol<'cx>,

@@ -16,12 +16,13 @@ use crate::conversions::FromValue;
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
-/// Formats a primitive value as a string using the given [configuration](Config).
+/// Formats a primitive value using the given [configuration](Config).
 /// The supported types are `boolean`, `number`, `string`, `symbol`, `null` and `undefined`.
 pub fn format_primitive<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value<'cx>) -> PrimitiveDisplay<'cx> {
 	PrimitiveDisplay { cx, value, cfg }
 }
 
+#[must_use]
 pub struct PrimitiveDisplay<'cx> {
 	cx: &'cx Context,
 	value: &'cx Value<'cx>,
@@ -54,7 +55,7 @@ impl Display for PrimitiveDisplay<'_> {
 			if self.cfg.quoted {
 				write!(f, "{0}{1}{0}", r#"""#.color(colours.string), str.color(colours.string))
 			} else {
-				f.write_str(&str)
+				str.fmt(f)
 			}
 		} else if value.is_null() {
 			"null".color(colours.null).fmt(f)

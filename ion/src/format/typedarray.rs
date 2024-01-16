@@ -10,13 +10,14 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 use itoa::Buffer;
 
-use crate::format::{Config, INDENT, NEWLINE};
+use crate::format::{Config, indent_str, NEWLINE};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 pub fn format_array_buffer<'cx>(cfg: Config, buffer: &'cx ArrayBuffer<'cx>) -> ArrayBufferDisplay<'cx> {
 	ArrayBufferDisplay { buffer, cfg }
 }
 
+#[must_use]
 pub struct ArrayBufferDisplay<'cx> {
 	buffer: &'cx ArrayBuffer<'cx>,
 	cfg: Config,
@@ -35,12 +36,12 @@ impl Display for ArrayBufferDisplay<'_> {
 			unsafe { self.buffer.as_slice() }
 		};
 
-		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+		let indent = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		if bytes.len() < 8 {
 			f.write_char(' ')?;
 		} else {
 			f.write_str(NEWLINE)?;
-			f.write_str(&indent)?;
+			indent.fmt(f)?;
 		}
 
 		write!(
@@ -65,7 +66,7 @@ impl Display for ArrayBufferDisplay<'_> {
 			f.write_char(' ')?;
 		} else {
 			f.write_str(NEWLINE)?;
-			f.write_str(&indent)?;
+			indent.fmt(f)?;
 		}
 
 		write!(f, "byteLength: {}", bytes.len())?;
@@ -123,9 +124,9 @@ where
 			") [".color(colour)
 		)?;
 
-		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+		let indent = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		f.write_str(NEWLINE)?;
-		f.write_str(&indent)?;
+		indent.fmt(f)?;
 
 		for (i, element) in elements.iter().enumerate() {
 			element.to_string().color(self.cfg.colours.number).fmt(f)?;
@@ -135,7 +136,7 @@ where
 				f.write_char(' ')?;
 				if (i + 1) % 16 == 0 {
 					f.write_str(NEWLINE)?;
-					f.write_str(&indent)?;
+					indent.fmt(f)?;
 				}
 			}
 		}

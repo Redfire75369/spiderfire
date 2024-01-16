@@ -10,16 +10,17 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 
 use crate::{Array, Context};
-use crate::format::{INDENT, NEWLINE};
+use crate::format::{indent_str, NEWLINE};
 use crate::format::Config;
 use crate::format::descriptor::format_descriptor;
 use crate::format::object::write_remaining;
 
-/// Formats an [JavaScript Array](Array) as a string using the given [configuration](Config).
+/// Formats an [JavaScript Array](Array) using the given [configuration](Config).
 pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array<'cx>) -> ArrayDisplay<'cx> {
 	ArrayDisplay { cx, array, cfg }
 }
 
+#[must_use]
 pub struct ArrayDisplay<'cx> {
 	cx: &'cx Context,
 	array: &'cx Array<'cx>,
@@ -41,12 +42,12 @@ impl Display for ArrayDisplay<'_> {
 					f.write_str(NEWLINE)?;
 					let len = length.clamp(0, 100);
 
-					let inner = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+					let inner = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 
 					for index in 0..len {
-						f.write_str(&inner)?;
+						inner.fmt(f)?;
 						let desc = self.array.get_descriptor(self.cx, index).unwrap();
-						format_descriptor(self.cx, self.cfg, &desc).fmt(f)?;
+						format_descriptor(self.cx, self.cfg, &desc, Some(self.array.as_object())).fmt(f)?;
 						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
 					}
@@ -58,7 +59,7 @@ impl Display for ArrayDisplay<'_> {
 
 					for index in 0..len {
 						let desc = self.array.get_descriptor(self.cx, index).unwrap();
-						format_descriptor(self.cx, self.cfg, &desc).fmt(f)?;
+						format_descriptor(self.cx, self.cfg, &desc, Some(self.array.as_object())).fmt(f)?;
 
 						if index != len - 1 {
 							",".color(colour).fmt(f)?;
@@ -72,7 +73,7 @@ impl Display for ArrayDisplay<'_> {
 				write_remaining(f, remaining as usize, inner.as_deref(), colour)?;
 
 				if self.cfg.multiline {
-					f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth) as usize))?;
+					indent_str((self.cfg.indentation + self.cfg.depth) as usize).fmt(f)?;
 				}
 
 				"]".color(colour).fmt(f)

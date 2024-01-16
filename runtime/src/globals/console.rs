@@ -18,7 +18,7 @@ use term_table::table_cell::{Alignment, TableCell};
 use ion::{Context, Object, OwnedKey, Stack, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
-use ion::format::{format_value, INDENT};
+use ion::format::{format_value, indent_str};
 use ion::format::Config as FormatConfig;
 use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
@@ -40,11 +40,11 @@ thread_local! {
 }
 
 fn print_indent(is_stderr: bool) {
-	let indents = INDENTS.get();
+	let indentation = INDENTS.get() as usize;
 	if !is_stderr {
-		print!("{}", INDENT.repeat(indents as usize));
+		print!("{}", indent_str(indentation));
 	} else {
-		eprint!("{}", INDENT.repeat(indents as usize));
+		eprint!("{}", indent_str(indentation));
 	}
 }
 

@@ -4,8 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::str;
 
 pub use config::Config;
 
@@ -31,11 +33,27 @@ pub mod typedarray;
 pub const INDENT: &str = "  ";
 pub const NEWLINE: &str = "\n";
 
-/// Formats a [JavaScript Value](Value) as a string with the given [configuration](Config).
+#[must_use]
+pub fn indent_str(indentation: usize) -> Cow<'static, str> {
+	const MAX_INDENTS: usize = 128;
+	static INDENTS: &str = match str::from_utf8(&[b' '; MAX_INDENTS * 2]) {
+		Ok(indents) => indents,
+		_ => unreachable!(),
+	};
+
+	if indentation <= 128 {
+		Cow::Borrowed(&INDENTS[0..indentation * INDENT.len()])
+	} else {
+		Cow::Owned(INDENT.repeat(indentation))
+	}
+}
+
+/// Formats a [JavaScript Value](Value) with the given [configuration](Config).
 pub fn format_value<'cx>(cx: &'cx Context, cfg: Config, value: &'cx Value<'cx>) -> ValueDisplay<'cx> {
 	ValueDisplay { cx, value, cfg }
 }
 
+#[must_use]
 pub struct ValueDisplay<'cx> {
 	cx: &'cx Context,
 	value: &'cx Value<'cx>,

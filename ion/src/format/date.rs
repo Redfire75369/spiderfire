@@ -12,11 +12,12 @@ use colored::Colorize;
 use crate::{Context, Date};
 use crate::format::Config;
 
-/// Formats a [JavaScript Date](Date) as a string using the given [configuration](Config).
+/// Formats a [JavaScript Date](Date) using the given [configuration](Config).
 pub fn format_date<'cx>(cx: &'cx Context, cfg: Config, date: &'cx Date<'cx>) -> DateDisplay<'cx> {
 	DateDisplay { cx, date, cfg }
 }
 
+#[must_use]
 pub struct DateDisplay<'cx> {
 	cx: &'cx Context,
 	date: &'cx Date<'cx>,

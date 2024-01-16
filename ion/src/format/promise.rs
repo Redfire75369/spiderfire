@@ -11,9 +11,9 @@ use colored::Colorize;
 use mozjs::jsapi::PromiseState;
 
 use crate::{Context, Promise};
-use crate::format::{Config, format_value, INDENT};
+use crate::format::{Config, format_value, indent_str};
 
-/// Formats a [Promise] as a string with the given [configuration](Config).
+/// Formats a [Promise] with the given [configuration](Config).
 /// ### Format
 /// ```js
 /// Promise { <#state> <#result> }
@@ -22,6 +22,7 @@ pub fn format_promise<'cx>(cx: &'cx Context, cfg: Config, promise: &'cx Promise)
 	PromiseDisplay { cx, promise, cfg }
 }
 
+#[must_use]
 pub struct PromiseDisplay<'cx> {
 	cx: &'cx Context,
 	promise: &'cx Promise<'cx>,
@@ -46,7 +47,7 @@ impl Display for PromiseDisplay<'_> {
 			let result = format_value(self.cx, self.cfg.depth(self.cfg.depth + 1), &result);
 
 			f.write_char('\n')?;
-			f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize))?;
+			indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize).fmt(f)?;
 			state.fmt(f)?;
 			f.write_char(' ')?;
 			result.fmt(f)?;

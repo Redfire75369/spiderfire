@@ -173,6 +173,10 @@ impl<'a> Array<'a> {
 		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
 	}
 
+	pub fn as_object(&self) -> &Object<'a> {
+		&self.arr
+	}
+
 	pub fn into_local(self) -> Local<'a, *mut JSObject> {
 		self.arr.into_local()
 	}
