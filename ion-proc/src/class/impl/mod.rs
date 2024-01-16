@@ -16,7 +16,7 @@ use crate::attribute::ParseAttribute;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
 use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
-use crate::class::property::Property;
+use crate::class::property::{Property, PropertyType};
 use crate::class::r#impl::spec::PrototypeSpecs;
 
 mod spec;
@@ -71,6 +71,13 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 			_ => (),
 		}
 	}
+	specs.properties.0.push(Property {
+		ty: PropertyType::String,
+		ident: parse_quote!(__ION_TO_STRING_TAG),
+		names: vec![Name::Symbol(
+			parse_quote!(#ion::symbol::WellKnownSymbolCode::ToStringTag),
+		)],
+	});
 
 	let constructor = match constructor {
 		Some(constructor) => constructor,
@@ -170,21 +177,19 @@ fn parse_class_method(
 fn class_definition(
 	ion: &TokenStream, span: Span, r#type: &Type, ident: &Ident, constructor: Method, specs: PrototypeSpecs,
 ) -> Result<[ItemImpl; 2]> {
-	let spec_functions = specs.to_spec_functions(ion, span, ident)?.into_array();
+	let (spec_fns, def_fns) = specs.to_impl_fns(ion, span, ident)?;
 	let constructor_function = constructor.method;
 	let functions = specs.into_functions().into_iter().map(|method| method.method);
 
 	let mut spec_impls: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		#constructor_function
 		#(#functions)*
-		#(#spec_functions)*
+		#(#spec_fns)*
 	}))?;
 	spec_impls.attrs.push(parse_quote!(#[doc(hidden)]));
 
 	let constructor_nargs = constructor.nargs as u32;
 	let class_definition = parse2(quote_spanned!(span => impl #ion::ClassDefinition for #r#type {
-		const NAME: &'static str = ::std::stringify!(#ident);
-
 		fn class() -> &'static #ion::class::NativeClass {
 			Self::__ion_native_class()
 		}
@@ -193,25 +198,12 @@ fn class_definition(
 			Self::__ion_parent_class_info(cx)
 		}
 
-		fn constructor() -> (#ion::functions::NativeFunction, ::core::primitive::u32) {
+		fn constructor() -> (#ion::function::NativeFunction, ::core::primitive::u32) {
 			(Self::__ion_bindings_constructor, #constructor_nargs)
 		}
 
-		fn functions() -> &'static [::mozjs::jsapi::JSFunctionSpec] {
-			Self::__ion_function_specs()
-		}
-
-		fn properties() -> &'static [::mozjs::jsapi::JSPropertySpec] {
-			Self::__ion_property_specs()
-		}
-
-		fn static_functions() -> &'static [::mozjs::jsapi::JSFunctionSpec] {
-			Self::__ion_static_function_specs()
-		}
-
-		fn static_properties() -> &'static [::mozjs::jsapi::JSPropertySpec] {
-			Self::__ion_static_property_specs()
-		}
+		#(#def_fns)*
 	}))?;
+
 	Ok([spec_impls, class_definition])
 }

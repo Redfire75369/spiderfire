@@ -3,14 +3,14 @@ use std::sync::atomic::AtomicU64;
 
 use ion::{Context, FromValue, Object, Result, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
+use ion::function::{Enforce, Strict};
 
 #[derive(FromValue)]
 pub struct Complex<'cx> {
 	#[ion(inherit)]
 	pub raw: Object<'cx>,
 	pub truth: bool,
-	#[ion(convert = ConversionBehavior::EnforceRange, strict)]
-	pub mode: u32,
+	pub mode: Strict<Enforce<u32>>,
 	#[ion(default)]
 	pub new: bool,
 	#[ion(default = String::from("string"))]

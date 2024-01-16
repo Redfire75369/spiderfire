@@ -12,14 +12,15 @@ use colored::{Color, Colorize};
 use itoa::Buffer;
 use mozjs::jsapi::{ESClass, Type};
 
-use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyKey, RegExp, Value};
+use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp};
 use crate::conversions::ToValue;
-use crate::format::{format_value, INDENT, NEWLINE};
+use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed;
 use crate::format::class::format_class_object;
 use crate::format::Config;
 use crate::format::date::format_date;
+use crate::format::descriptor::format_descriptor;
 use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
@@ -30,12 +31,13 @@ use crate::typedarray::{
 	Uint16Array, Uint32Array, Uint8Array,
 };
 
-/// Formats a [JavaScript Object](Object), depending on its class, as a string using the given [configuration](Config).
+/// Formats a [JavaScript Object](Object), depending on its class, using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
 pub fn format_object<'cx>(cx: &'cx Context, cfg: Config, object: Object<'cx>) -> ObjectDisplay<'cx> {
 	ObjectDisplay { cx, object, cfg }
 }
 
+#[must_use]
 pub struct ObjectDisplay<'cx> {
 	cx: &'cx Context,
 	object: Object<'cx>,
@@ -53,120 +55,66 @@ impl Display for ObjectDisplay<'_> {
 		let class = self.object.get_builtin_class(cx);
 
 		match class {
-			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => {
-				write!(f, "{}", format_boxed(cx, cfg, &self.object))
-			}
-			ESC::Array => write!(
-				f,
-				"{}",
-				format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap())
-			),
-			ESC::Date => write!(
-				f,
-				"{}",
-				format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap())
-			),
-			ESC::Promise => write!(
-				f,
-				"{}",
-				format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap())
-			),
-			ESC::RegExp => write!(
-				f,
-				"{}",
-				format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap())
-			),
-			ESC::Function => write!(
-				f,
-				"{}",
-				format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap())
-			),
-			ESC::ArrayBuffer => write!(
-				f,
-				"{}",
-				format_array_buffer(cfg, &ArrayBuffer::from(object.into_local()).unwrap())
-			),
+			ESC::Boolean | ESC::Number | ESC::String | ESC::BigInt => format_boxed(cx, cfg, &self.object).fmt(f),
+			ESC::Array => format_array(cx, cfg, &Array::from(cx, object.into_local()).unwrap()).fmt(f),
+			ESC::Date => format_date(cx, cfg, &Date::from(cx, object.into_local()).unwrap()).fmt(f),
+			ESC::Promise => format_promise(cx, cfg, &Promise::from(object.into_local()).unwrap()).fmt(f),
+			ESC::RegExp => format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap()).fmt(f),
+			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap()).fmt(f),
+			ESC::ArrayBuffer => format_array_buffer(cfg, &ArrayBuffer::from(object.into_local()).unwrap()).fmt(f),
 			ESC::Error => match Exception::from_object(cx, &self.object) {
-				Exception::Error(error) => f.write_str(&error.format()),
+				Exception::Error(error) => error.format().fmt(f),
 				_ => unreachable!("Expected Error"),
 			},
-			ESC::Object => {
-				write!(
-					f,
-					"{}",
-					format_plain_object(cx, cfg, &Object::from(object.into_local()))
-				)
-			}
+			ESC::Object => format_plain_object(cx, cfg, &self.object).fmt(f),
 			ESC::Other => {
 				if let Some(view) = ArrayBufferView::from(cx.root_object(object.handle().get())) {
 					'view: {
 						return match view.view_type() {
-							Type::Int8 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Int8Array::from(view.into_local()).unwrap())
-							),
-							Type::Uint8 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Uint8Array::from(view.into_local()).unwrap())
-							),
-							Type::Int16 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Int16Array::from(view.into_local()).unwrap())
-							),
-							Type::Uint16 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Uint16Array::from(view.into_local()).unwrap())
-							),
-							Type::Int32 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Int32Array::from(view.into_local()).unwrap())
-							),
-							Type::Uint32 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Uint32Array::from(view.into_local()).unwrap())
-							),
-							Type::Float32 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Float32Array::from(view.into_local()).unwrap())
-							),
-							Type::Float64 => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &Float64Array::from(view.into_local()).unwrap())
-							),
-							Type::Uint8Clamped => write!(
-								f,
-								"{}",
-								format_typed_array(cfg, &ClampedUint8Array::from(view.into_local()).unwrap())
-							),
+							Type::Int8 => format_typed_array(cfg, &Int8Array::from(view.into_local()).unwrap()).fmt(f),
+							Type::Uint8 => {
+								format_typed_array(cfg, &Uint8Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Int16 => {
+								format_typed_array(cfg, &Int16Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Uint16 => {
+								format_typed_array(cfg, &Uint16Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Int32 => {
+								format_typed_array(cfg, &Int32Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Uint32 => {
+								format_typed_array(cfg, &Uint32Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Float32 => {
+								format_typed_array(cfg, &Float32Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Float64 => {
+								format_typed_array(cfg, &Float64Array::from(view.into_local()).unwrap()).fmt(f)
+							}
+							Type::Uint8Clamped => {
+								format_typed_array(cfg, &ClampedUint8Array::from(view.into_local()).unwrap()).fmt(f)
+							}
 							_ => break 'view,
 						};
 					}
 				}
 
-				write!(f, "{}", format_class_object(cx, cfg, &self.object))
+				format_class_object(cx, cfg, &self.object).fmt(f)
 			}
-			_ => {
-				let source = self.object.as_value(cx).to_source(cx).to_owned(cx);
-				f.write_str(&source)
-			}
+			_ => self.object.as_value(cx).to_source(cx).to_owned(cx).fmt(f),
 		}
 	}
 }
 
-/// Formats a [JavaScript Object](Object) as a string using the given [configuration](Config).
+/// Formats a [JavaScript Object](Object) using the given [configuration](Config).
 /// Disregards the class of the object.
 pub fn format_plain_object<'cx>(cx: &'cx Context, cfg: Config, object: &'cx Object<'cx>) -> PlainObjectDisplay<'cx> {
 	PlainObjectDisplay { cx, object, cfg }
 }
 
+#[must_use]
 pub struct PlainObjectDisplay<'cx> {
 	cx: &'cx Context,
 	object: &'cx Object<'cx>,
@@ -182,33 +130,33 @@ impl Display for PlainObjectDisplay<'_> {
 			let length = keys.len();
 
 			if length == 0 {
-				write!(f, "{}", "{}".color(colour))
+				"{}".color(colour).fmt(f)
 			} else {
-				write!(f, "{}", "{".color(colour))?;
+				"{".color(colour).fmt(f)?;
 
 				if self.cfg.multiline {
 					f.write_str(NEWLINE)?;
-					let inner = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+					let inner = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 
 					for key in keys {
-						f.write_str(&inner)?;
-						let value = self.object.get(self.cx, &key).unwrap();
-						write_key_value(f, self.cx, self.cfg, &key, &value)?;
-						write!(f, "{}", ",".color(colour))?;
+						inner.fmt(f)?;
+						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
+						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
 					}
 
-					f.write_str(&INDENT.repeat((self.cfg.indentation + self.cfg.depth) as usize))?;
+					indent_str((self.cfg.indentation + self.cfg.depth) as usize).fmt(f)?;
 				} else {
 					f.write_char(' ')?;
 					let len = length.clamp(0, 3);
 
 					for (i, key) in keys.enumerate() {
-						let value = self.object.get(self.cx, &key).unwrap();
-						write_key_value(f, self.cx, self.cfg, &key, &value)?;
+						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
+						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, self.object)?;
 
 						if i != len - 1 {
-							write!(f, "{}", ",".color(colour))?;
+							",".color(colour).fmt(f)?;
 							f.write_char(' ')?;
 						}
 					}
@@ -217,32 +165,30 @@ impl Display for PlainObjectDisplay<'_> {
 					write_remaining(f, remaining, None, colour)?;
 				}
 
-				write!(f, "{}", "}".color(colour))
+				"}".color(colour).fmt(f)
 			}
 		} else {
-			write!(f, "{}", "[Object]".color(colour))
+			"[Object]".color(colour).fmt(f)
 		}
 	}
 }
 
-fn write_key_value(f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, value: &Value) -> fmt::Result {
-	write!(
-		f,
-		"{}{} {}",
-		format_key(cx, cfg, &key.to_owned_key(cx)),
-		":".color(cfg.colours.object),
-		format_value(cx, cfg.depth(cfg.depth + 1).quoted(true), value)
-	)
+fn write_key_descriptor(
+	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor, object: &Object,
+) -> fmt::Result {
+	format_key(cx, cfg, &key.to_owned_key(cx)).fmt(f)?;
+	": ".color(cfg.colours.object).fmt(f)?;
+	format_descriptor(cx, cfg, desc, Some(object)).fmt(f)
 }
 
 pub(crate) fn write_remaining(f: &mut Formatter, remaining: usize, inner: Option<&str>, colour: Color) -> fmt::Result {
 	if remaining > 0 {
 		if let Some(inner) = inner {
-			write!(f, "{}", inner)?;
+			f.write_str(inner)?;
 		}
 
 		match remaining.cmp(&1) {
-			Ordering::Equal => write!(f, "{}", "... 1 more item".color(colour))?,
+			Ordering::Equal => "... 1 more item".color(colour).fmt(f)?,
 			Ordering::Greater => {
 				let mut buffer = Buffer::new();
 				write!(
@@ -256,7 +202,7 @@ pub(crate) fn write_remaining(f: &mut Formatter, remaining: usize, inner: Option
 			_ => (),
 		}
 		if inner.is_some() {
-			write!(f, "{}", ",".color(colour))?;
+			",".color(colour).fmt(f)?;
 		} else {
 			f.write_char(' ')?;
 		}

@@ -25,6 +25,7 @@ use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
 use ion::{ClassDefinition, JSIterator};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
+use ion::function::Opt;
 use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
 
@@ -70,7 +71,7 @@ impl<'cx> FromValue<'cx> for HeaderEntry {
 
 impl ToValue<'_> for HeaderEntry {
 	fn to_value(&self, cx: &Context, value: &mut Value) {
-		let mut array = Array::new(cx);
+		let array = Array::new(cx);
 		array.set_as(cx, 0, &self.name);
 		array.set_as(cx, 1, &self.value);
 		array.to_value(cx, value);
@@ -179,7 +180,7 @@ impl Headers {
 #[js_class]
 impl Headers {
 	#[ion(constructor)]
-	pub fn constructor(init: Option<HeadersInit>) -> Result<Headers> {
+	pub fn constructor(Opt(init): Opt<HeadersInit>) -> Result<Headers> {
 		init.unwrap_or_default().into_headers(HeaderMap::default(), HeadersKind::None)
 	}
 
@@ -276,7 +277,7 @@ pub struct HeadersIterator {
 impl JSIterator for HeadersIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>> {
 		let object = private.to_object(cx);
-		let headers = Headers::get_private(&object);
+		let headers = Headers::get_private(cx, &object).unwrap();
 		let key = self.keys.next();
 		key.and_then(|key| {
 			if key == SET_COOKIE.as_str() {

@@ -16,8 +16,8 @@ use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 
 use crate::{Arguments, Context, Error, ErrorKind, Object, ResultExc, ThrowException, Value};
 use crate::conversions::ToValue;
-use crate::functions::__handle_native_function_result;
-use crate::objects::class_reserved_slots;
+use crate::function::__handle_native_function_result;
+use crate::object::class_reserved_slots;
 
 const CLOSURE_SLOT: u32 = 0;
 
@@ -69,7 +69,7 @@ pub(crate) unsafe extern "C" fn call_closure_once(cx: *mut JSContext, argc: u32,
 
 	if let Some(closure) = closure.take() {
 		let result = catch_unwind(AssertUnwindSafe(|| {
-			closure(args).map(|result| result.to_value(cx, args.rval()))
+			closure(args).map(|result| result.to_value(cx, &mut args.rval()))
 		}));
 		__handle_native_function_result(cx, result)
 	} else {
@@ -87,7 +87,7 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
 
 	let result = catch_unwind(AssertUnwindSafe(|| {
-		closure(args).map(|result| result.to_value(cx, args.rval()))
+		closure(args).map(|result| result.to_value(cx, &mut args.rval()))
 	}));
 	__handle_native_function_result(cx, result)
 }

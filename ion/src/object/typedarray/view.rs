@@ -194,7 +194,8 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 	/// Returns a mutable slice to the contents of the [TypedArray].
 	///
 	/// The slice may be invalidated if the underlying [ArrayBuffer] is detached.
-	pub unsafe fn as_mut_slice(&mut self) -> &mut [T::Element] {
+	#[allow(clippy::mut_from_ref)]
+	pub unsafe fn as_mut_slice(&self) -> &mut [T::Element] {
 		let (ptr, len) = self.data();
 		unsafe { slice::from_raw_parts_mut(ptr, len) }
 	}

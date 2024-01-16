@@ -5,11 +5,11 @@
  */
 
 use chrono::Duration;
-use mozjs::conversions::ConversionBehavior::{Clamp, EnforceRange};
 use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 
 use ion::{Context, Error, Function, Object, Result};
+use ion::function::{Clamp, Enforce, Opt, Rest};
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
@@ -18,7 +18,7 @@ const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;
 
 fn set_timer(
-	cx: &Context, callback: Function, duration: Option<i32>, arguments: Vec<JSVal>, repeat: bool,
+	cx: &Context, callback: Function, duration: Option<Clamp<i32>>, arguments: Box<[JSVal]>, repeat: bool,
 ) -> Result<u32> {
 	let event_loop = unsafe { &mut cx.get_private().event_loop };
 	if let Some(queue) = &mut event_loop.macrotasks {
@@ -28,7 +28,7 @@ fn set_timer(
 			MINIMUM_DELAY
 		};
 
-		let duration = duration.map(|t| t.max(minimum)).unwrap_or(minimum);
+		let duration = duration.map(|t| t.0.max(minimum)).unwrap_or(minimum);
 		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
 		Ok(queue.enqueue(Macrotask::Timer(timer), None))
 	} else {
@@ -36,11 +36,11 @@ fn set_timer(
 	}
 }
 
-fn clear_timer(cx: &Context, id: Option<u32>) -> Result<()> {
+fn clear_timer(cx: &Context, id: Option<Enforce<u32>>) -> Result<()> {
 	if let Some(id) = id {
 		let event_loop = unsafe { &mut cx.get_private().event_loop };
 		if let Some(queue) = &mut event_loop.macrotasks {
-			queue.remove(id);
+			queue.remove(id.0);
 			Ok(())
 		} else {
 			Err(Error::new("Macrotask Queue has not been initialised.", None))
@@ -52,27 +52,25 @@ fn clear_timer(cx: &Context, id: Option<u32>) -> Result<()> {
 
 #[js_fn]
 fn setTimeout(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
-	#[ion(varargs)] arguments: Vec<JSVal>,
+	cx: &Context, callback: Function, Opt(duration): Opt<Clamp<i32>>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, false)
 }
 
 #[js_fn]
 fn setInterval(
-	cx: &Context, callback: Function, #[ion(convert = Clamp)] duration: Option<i32>,
-	#[ion(varargs)] arguments: Vec<JSVal>,
+	cx: &Context, callback: Function, Opt(duration): Opt<Clamp<i32>>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, true)
 }
 
 #[js_fn]
-fn clearTimeout(cx: &Context, #[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearTimeout(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
 	clear_timer(cx, id)
 }
 
 #[js_fn]
-fn clearInterval(cx: &Context, #[ion(convert = EnforceRange)] id: Option<u32>) -> Result<()> {
+fn clearInterval(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
 	clear_timer(cx, id)
 }
 
@@ -96,6 +94,6 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	unsafe { global.define_methods(cx, FUNCTIONS) }
 }

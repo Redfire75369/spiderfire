@@ -9,6 +9,8 @@ use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
 use form_urlencoded::Serializer;
+use http::{HeaderMap, HeaderValue};
+use http::header::CONTENT_TYPE;
 use hyper::Body;
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;
@@ -78,6 +80,14 @@ impl FetchBody {
 		match &self.body {
 			FetchBodyInner::None => Body::empty(),
 			FetchBodyInner::Bytes(bytes) => Body::from(bytes.clone()),
+		}
+	}
+
+	pub(crate) fn add_content_type_header(&self, headers: &mut HeaderMap) {
+		if let Some(kind) = &self.kind {
+			if !headers.contains_key(CONTENT_TYPE) {
+				headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
+			}
 		}
 	}
 }

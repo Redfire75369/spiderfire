@@ -10,9 +10,10 @@ use syn::punctuated::Punctuated;
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::function::wrapper::impl_wrapper_fn;
+use crate::utils::new_token;
 
 pub(crate) mod inner;
-pub(crate) mod parameters;
+pub(crate) mod parameter;
 pub(crate) mod wrapper;
 
 // TODO: Partially Remove Error Handling in Infallible Functions
@@ -41,7 +42,7 @@ pub(crate) fn check_abi(function: &mut ItemFn) -> Result<()> {
 }
 
 pub(crate) fn set_signature(function: &mut ItemFn) -> Result<()> {
-	function.sig.unsafety = Some(<Token![unsafe]>::default());
+	function.sig.unsafety = Some(new_token![unsafe]);
 	let params: [FnArg; 3] = [
 		parse_quote!(cx: *mut ::mozjs::jsapi::JSContext),
 		parse_quote!(argc: ::core::primitive::u32),
@@ -60,6 +61,6 @@ pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Box<Bl
 
 		#wrapper
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
-		#ion::functions::__handle_native_function_result(cx, result)
+		#ion::function::__handle_native_function_result(cx, result)
 	}))
 }

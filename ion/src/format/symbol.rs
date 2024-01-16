@@ -24,6 +24,7 @@ pub fn format_symbol<'cx>(cx: &'cx Context, cfg: Config, symbol: &'cx Symbol<'cx
 	SymbolDisplay { cx, symbol, cfg }
 }
 
+#[must_use]
 pub struct SymbolDisplay<'cx> {
 	cx: &'cx Context,
 	symbol: &'cx Symbol<'cx>,
@@ -36,7 +37,10 @@ impl Display for SymbolDisplay<'_> {
 		let code = self.symbol.code();
 
 		match code {
-			SymbolCode::WellKnown(code) => write!(f, "{}{}", "Symbol.".color(colour), code.identifier().color(colour)),
+			SymbolCode::WellKnown(code) => {
+				"Symbol.".color(colour).fmt(f)?;
+				code.identifier().color(colour).fmt(f)
+			}
 			code => {
 				let description = self
 					.symbol
@@ -45,14 +49,14 @@ impl Display for SymbolDisplay<'_> {
 					.color(colour);
 
 				match code {
-					SymbolCode::PrivateNameSymbol => return write!(f, "{}", description),
-					SymbolCode::InSymbolRegistry => write!(f, "{}", "Symbol.for(".color(colour),)?,
-					SymbolCode::UniqueSymbol => write!(f, "{}", "Symbol(".color(colour),)?,
+					SymbolCode::PrivateNameSymbol => return description.fmt(f),
+					SymbolCode::InSymbolRegistry => "Symbol.for(".color(colour).fmt(f)?,
+					SymbolCode::UniqueSymbol => "Symbol(".color(colour).fmt(f)?,
 					_ => unreachable!(),
 				}
 
-				write!(f, "{}", description)?;
-				write!(f, "{}", ")".color(colour))
+				description.fmt(f)?;
+				")".color(colour).fmt(f)
 			}
 		}
 	}

@@ -10,7 +10,6 @@ use sourcemap::SourceMap;
 
 pub use cache::*;
 
-#[allow(clippy::module_inception)]
 mod cache;
 pub mod map;
 

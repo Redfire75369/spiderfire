@@ -4,15 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{Error, FnArg, GenericParam, ItemFn, parse2, Result, ReturnType, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::function::inner::impl_inner_fn;
-use crate::function::parameters::Parameters;
-use crate::utils::path_ends_with;
+use crate::function::parameter::Parameters;
+use crate::utils::{new_token, path_ends_with};
 
 pub(crate) fn impl_wrapper_fn(
 	ion: &TokenStream, mut function: ItemFn, class_ty: Option<&Type>, is_constructor: bool,
@@ -25,8 +25,7 @@ pub(crate) fn impl_wrapper_fn(
 	}
 
 	let parameters = Parameters::parse(&function.sig.inputs, class_ty)?;
-	let idents = parameters.to_idents();
-	let statements = parameters.to_statements(ion)?;
+	let (statements, idents) = parameters.to_statements(ion)?;
 
 	let inner = impl_inner_fn(function.clone(), &parameters, class_ty.is_none());
 
@@ -36,7 +35,7 @@ pub(crate) fn impl_wrapper_fn(
 		parse_quote!(__args: &'a mut #ion::Arguments<'cx>),
 	];
 
-	let argument_checker = argument_checker(ion, &function.sig.ident, parameters.nargs.0);
+	let nargs = parameters.nargs;
 
 	let mut this_statements = parameters.to_this_statement(ion, class_ty.is_some())?.map(ToTokens::into_token_stream);
 	if is_constructor {
@@ -44,7 +43,7 @@ pub(crate) fn impl_wrapper_fn(
 	} else {
 		this_statements = this_statements.map(|statement| {
 			quote!(
-				let __this = &mut __accessor.this_mut().to_object(__cx);
+				let __this = &mut __accessor.this().to_object(__cx);
 				#statement
 			)
 		});
@@ -66,7 +65,7 @@ pub(crate) fn impl_wrapper_fn(
 	};
 	let result = quote!(#result.map(Box::new));
 	let result = if !is_constructor {
-		quote!(#result.map(|__result| #ion::conversions::IntoValue::into_value(__result, __cx, __args.rval())))
+		quote!(#result.map(|__result| #ion::conversions::IntoValue::into_value(__result, __cx, &mut __args.rval())))
 	} else {
 		quote!(#result.map(|__result| #ion::ClassDefinition::set_private(__this.handle().get(), __result)))
 	};
@@ -80,14 +79,15 @@ pub(crate) fn impl_wrapper_fn(
 		quote!(inner)
 	};
 
-	let inner_call = if parameters.get_this_ident() == Some(<Token![self]>::default().into()) {
-		quote!(#call(self_, #(#idents),*))
+	let this_ident = parameters.get_this_ident();
+	let inner_call = if this_ident.is_some() && this_ident.unwrap() == "self" {
+		quote!(#call(self_, #(#idents,)*))
 	} else {
-		quote!(#call(#(#idents),*))
+		quote!(#call(#(#idents,)*))
 	};
 
 	let body = parse2(quote_spanned!(function.span() => {
-		#argument_checker
+		__args.check_args(__cx, #nargs)?;
 
 		let mut __accessor = __args.access();
 		#this_statements
@@ -100,28 +100,14 @@ pub(crate) fn impl_wrapper_fn(
 		#result
 	}))?;
 
+	function.sig.unsafety = Some(new_token![unsafe]);
 	function.sig.ident = format_ident!("wrapper", span = function.sig.ident.span());
 	function.sig.inputs = Punctuated::from_iter(wrapper_args);
 	function.sig.generics.params = Punctuated::from_iter(wrapper_generics);
 	function.sig.output = parse_quote!(-> #ion::ResultExc<()>);
-	function.sig.unsafety = Some(<Token![unsafe]>::default());
 
 	function.attrs.clear();
 	function.block = body;
 
 	Ok((function, parameters))
-}
-
-pub(crate) fn argument_checker(ion: &TokenStream, ident: &Ident, nargs: usize) -> TokenStream {
-	if nargs != 0 {
-		let plural = if nargs == 1 { "" } else { "s" };
-		let error = format!("{}() requires at least {} argument{}", ident, nargs, plural);
-		quote!(
-			if __args.len() < #nargs {
-				return ::std::result::Result::Err(#ion::Error::new(#error, ::std::option::Option::None).into());
-			}
-		)
-	} else {
-		TokenStream::new()
-	}
 }

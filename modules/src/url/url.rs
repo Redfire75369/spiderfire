@@ -8,11 +8,12 @@ use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{ClassDefinition, Context, Object, Result};
+use ion::function::Opt;
 use runtime::globals::url::{URL, URLSearchParams};
-use runtime::modules::NativeModule;
+use runtime::module::NativeModule;
 
 #[js_fn]
-fn domainToASCII(domain: String, strict: Option<bool>) -> Result<String> {
+fn domainToASCII(domain: String, Opt(strict): Opt<bool>) -> Result<String> {
 	let strict = strict.unwrap_or(false);
 	let domain = if !strict {
 		domain_to_ascii(&domain)
@@ -41,20 +42,20 @@ impl NativeModule for UrlM {
 	const SOURCE: &'static str = include_str!("url.js");
 
 	fn module(cx: &Context) -> Option<Object> {
-		let mut url = Object::new(cx);
+		let url = Object::new(cx);
 		let global = Object::global(cx);
 
 		if unsafe { url.define_methods(cx, FUNCTIONS) } {
-			if let Some(global_url) = global.get(cx, stringify!(URL)) {
-				url.set(cx, stringify!(URL), &global_url);
+			if let Some(global_url) = global.get(cx, "URL") {
+				url.set(cx, "URL", &global_url);
 			} else {
-				URL::init_class(cx, &mut url);
+				URL::init_class(cx, &url);
 			}
 
-			if let Some(url_search_params) = global.get(cx, stringify!(URLSearchParams)) {
-				url.set(cx, stringify!(URLSearchParams), &url_search_params);
+			if let Some(url_search_params) = global.get(cx, "URLSearchParams") {
+				url.set(cx, "URLSearchParams", &url_search_params);
 			} else {
-				URLSearchParams::init_class(cx, &mut url);
+				URLSearchParams::init_class(cx, &url);
 			}
 
 			return Some(url);

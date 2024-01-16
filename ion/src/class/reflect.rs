@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{Heap, JSObject, JSTracer};
@@ -26,13 +26,15 @@ pub trait Castable: NativeObject {
 		T: NativeObject,
 	{
 		let class = unsafe { get_object_class(self.reflector().get()) };
-		let native_class = class.cast::<NativeClass>();
-		let mut proto_chain = unsafe { (*native_class).prototype_chain.iter() };
-		let mut is = false;
-		while let Some(Some(proto)) = proto_chain.next() {
-			is |= proto.type_id() == TypeId::of::<T>()
+		if class.is_null() {
+			return false;
 		}
-		is
+		unsafe {
+			(*class.cast::<NativeClass>())
+				.prototype_chain
+				.iter()
+				.any(|proto| proto.type_id() == TypeId::of::<T>())
+		}
 	}
 
 	fn upcast<T: Castable>(&self) -> &T
@@ -74,7 +76,7 @@ impl Reflector {
 
 	#[doc(hidden)]
 	pub const fn __ion_native_prototype_chain() -> PrototypeChain {
-		[None; 8]
+		PrototypeChain::new()
 	}
 
 	#[doc(hidden)]

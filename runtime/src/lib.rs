@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::missing_safety_doc, clippy::module_inception)]
 
 #[macro_use]
 extern crate ion;
@@ -15,7 +15,7 @@ pub mod cache;
 pub mod config;
 pub mod event_loop;
 pub mod globals;
-pub mod modules;
+pub mod module;
 pub mod promise;
 mod runtime;
 pub mod typescript;

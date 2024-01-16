@@ -6,14 +6,13 @@
 
 use std::str::FromStr;
 
-use http::{HeaderMap, HeaderValue};
-use http::header::CONTENT_TYPE;
-use hyper::{Body, Method, Uri};
+use http::{HeaderMap, Method};
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
+use ion::function::Opt;
 pub use options::*;
 
 use crate::globals::abort::AbortSignal;
@@ -35,12 +34,12 @@ pub enum RequestInfo<'cx> {
 pub struct Request {
 	reflector: Reflector,
 
-	#[trace(no_trace)]
-	pub(crate) request: hyper::Request<Body>,
 	pub(crate) headers: Box<Heap<*mut JSObject>>,
 	pub(crate) body: FetchBody,
 	pub(crate) body_used: bool,
 
+	#[trace(no_trace)]
+	pub(crate) method: Method,
 	#[trace(no_trace)]
 	pub(crate) url: Url,
 	#[trace(no_trace)]
@@ -67,29 +66,27 @@ pub struct Request {
 #[js_class]
 impl Request {
 	#[ion(constructor)]
-	pub fn constructor(cx: &Context, info: RequestInfo, init: Option<RequestInit>) -> Result<Request> {
+	pub fn constructor(cx: &Context, info: RequestInfo, Opt(init): Opt<RequestInit>) -> Result<Request> {
 		let mut fallback_cors = false;
 
 		let mut request = match info {
 			RequestInfo::Request(request) => request.clone(),
 			RequestInfo::String(url) => {
-				let uri = Uri::from_str(&url)?;
 				let url = Url::from_str(&url)?;
 				if url.username() != "" || url.password().is_some() {
 					return Err(Error::new("Received URL with embedded credentials", ErrorKind::Type));
 				}
-				let request = hyper::Request::builder().uri(uri).body(Body::empty())?;
 
 				fallback_cors = true;
 
 				Request {
 					reflector: Reflector::default(),
 
-					request,
 					headers: Box::default(),
 					body: FetchBody::default(),
 					body_used: false,
 
+					method: Method::GET,
 					url: url.clone(),
 					locations: vec![url],
 
@@ -169,7 +166,7 @@ impl Request {
 				if method == Method::CONNECT || method == Method::TRACE {
 					return Err(Error::new("Received invalid request method", ErrorKind::Type));
 				}
-				*request.request.method_mut() = method;
+				request.method = method;
 			}
 
 			headers = init.headers;
@@ -183,11 +180,8 @@ impl Request {
 			));
 		}
 
-		if request.mode == RequestMode::NoCors {
-			let method = request.request.method();
-			if method != Method::GET && method != Method::HEAD && method != Method::POST {
-				return Err(Error::new("Invalid request method", ErrorKind::Type));
-			}
+		if request.mode == RequestMode::NoCors && !matches!(request.method, Method::GET | Method::HEAD | Method::POST) {
+			return Err(Error::new("Invalid request method", ErrorKind::Type));
 		}
 
 		let kind = if request.mode == RequestMode::NoCors {
@@ -207,12 +201,7 @@ impl Request {
 		};
 
 		if let Some(body) = body {
-			if let Some(kind) = &body.kind {
-				if !headers.headers.contains_key(CONTENT_TYPE) {
-					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
-				}
-			}
-
+			body.add_content_type_header(&mut headers.headers);
 			request.body = body;
 		}
 		request.headers.set(Headers::new_object(cx, Box::new(headers)));
@@ -222,12 +211,12 @@ impl Request {
 
 	#[ion(get)]
 	pub fn get_method(&self) -> String {
-		self.request.method().to_string()
+		self.method.to_string()
 	}
 
 	#[ion(get)]
 	pub fn get_url(&self) -> String {
-		self.request.uri().to_string()
+		self.url.to_string()
 	}
 
 	#[ion(get)]
@@ -303,21 +292,16 @@ impl Request {
 
 impl Clone for Request {
 	fn clone(&self) -> Request {
-		let method = self.request.method().clone();
-		let uri = self.request.uri().clone();
-
-		let request = hyper::Request::builder().method(method).uri(uri);
-		let request = request.body(Body::empty()).unwrap();
 		let url = self.locations.last().unwrap().clone();
 
 		Request {
 			reflector: Reflector::default(),
 
-			request,
 			headers: Box::default(),
 			body: self.body.clone(),
 			body_used: self.body_used,
 
+			method: self.method.clone(),
 			url: url.clone(),
 			locations: vec![url],
 

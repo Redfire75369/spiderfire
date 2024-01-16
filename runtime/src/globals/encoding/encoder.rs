@@ -9,6 +9,7 @@ use encoding_rs::{Encoder, UTF_8};
 use ion::{Context, Object, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
+use ion::function::Opt;
 use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
 
 pub struct EncodeResult {
@@ -18,7 +19,7 @@ pub struct EncodeResult {
 
 impl<'cx> ToValue<'cx> for EncodeResult {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		let mut object = Object::new(cx);
+		let object = Object::new(cx);
 		object.set_as(cx, "read", &self.read);
 		object.set_as(cx, "written", &self.written);
 		object.to_value(cx, value);
@@ -42,7 +43,7 @@ impl TextEncoder {
 		}
 	}
 
-	pub fn encode(&mut self, input: Option<String>) -> Uint8ArrayWrapper {
+	pub fn encode(&mut self, Opt(input): Opt<String>) -> Uint8ArrayWrapper {
 		let input = input.unwrap_or_default();
 		let buf_len = self.encoder.max_buffer_length_from_utf8_if_no_unmappables(input.len()).unwrap();
 		let mut buf = Vec::with_capacity(buf_len);
@@ -52,7 +53,6 @@ impl TextEncoder {
 
 	#[ion(name = "encodeInto")]
 	pub fn encode_into(&mut self, input: String, destination: Uint8Array) -> EncodeResult {
-		let mut destination = destination;
 		let (_, read, written, _) = self.encoder.encode_from_utf8(&input, unsafe { destination.as_mut_slice() }, true);
 		EncodeResult {
 			read: read as u64,

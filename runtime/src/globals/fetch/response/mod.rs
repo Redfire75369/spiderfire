@@ -4,37 +4,34 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use bytes::{Buf, BufMut, Bytes};
-use http::{HeaderMap, HeaderValue};
-use http::header::CONTENT_TYPE;
+use bytes::Bytes;
+use http::HeaderMap;
 use hyper::{Body, StatusCode};
-use hyper::body::HttpBody;
 use hyper::ext::ReasonPhrase;
 use mozjs::jsapi::{Heap, JSObject};
-use mozjs::rust::IntoHandle;
 use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result};
 use ion::class::{NativeObject, Reflector};
+use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
 pub use options::*;
 
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersKind;
 use crate::globals::fetch::Headers;
+use crate::globals::fetch::response::body::ResponseBody;
 use crate::promise::future_to_promise;
 
+mod body;
 mod options;
 
 #[js_class]
 pub struct Response {
 	reflector: Reflector,
 
-	#[trace(no_trace)]
-	pub(crate) response: Option<hyper::Response<Body>>,
 	pub(crate) headers: Box<Heap<*mut JSObject>>,
-	pub(crate) body: Option<FetchBody>,
-	pub(crate) body_used: bool,
+	pub(crate) body: Option<ResponseBody>,
 
 	pub(crate) kind: ResponseKind,
 	#[trace(no_trace)]
@@ -49,42 +46,40 @@ pub struct Response {
 }
 
 impl Response {
-	pub fn new(response: hyper::Response<Body>, url: Url) -> Response {
-		let status = response.status();
-		let status_text = if let Some(reason) = response.extensions().get::<ReasonPhrase>() {
+	pub fn from_hyper(response: hyper::Response<Body>, url: Url) -> (HeaderMap, Response) {
+		let (parts, body) = response.into_parts();
+
+		let status_text = if let Some(reason) = parts.extensions.get::<ReasonPhrase>() {
 			Some(String::from_utf8(reason.as_bytes().to_vec()).unwrap())
 		} else {
-			status.canonical_reason().map(String::from)
+			parts.status.canonical_reason().map(String::from)
 		};
 
-		Response {
+		let response = Response {
 			reflector: Reflector::default(),
 
-			response: Some(response),
 			headers: Box::default(),
-			body: None,
-			body_used: false,
+			body: Some(ResponseBody::Hyper(body)),
 
 			kind: ResponseKind::default(),
 			url: Some(url),
 			redirected: false,
 
-			status: Some(status),
+			status: Some(parts.status),
 			status_text,
 
 			range_requested: false,
-		}
+		};
+
+		(parts.headers, response)
 	}
 
 	pub fn new_from_bytes(bytes: Bytes, url: Url) -> Response {
-		let response = hyper::Response::builder().body(Body::from(bytes)).unwrap();
 		Response {
 			reflector: Reflector::default(),
 
-			response: Some(response),
 			headers: Box::default(),
-			body: None,
-			body_used: false,
+			body: Some(ResponseBody::Hyper(Body::from(bytes))),
 
 			kind: ResponseKind::Basic,
 			url: Some(url),
@@ -101,17 +96,14 @@ impl Response {
 #[js_class]
 impl Response {
 	#[ion(constructor)]
-	pub fn constructor(cx: &Context, body: Option<FetchBody>, init: Option<ResponseInit>) -> Result<Response> {
+	pub fn constructor(cx: &Context, Opt(body): Opt<FetchBody>, Opt(init): Opt<ResponseInit>) -> Result<Response> {
 		let init = init.unwrap_or_default();
 
-		let response = hyper::Response::builder().status(init.status).body(Body::empty())?;
 		let mut response = Response {
 			reflector: Reflector::default(),
 
-			response: Some(response),
 			headers: Box::default(),
-			body: None,
-			body_used: false,
+			body: Some(ResponseBody::Hyper(Body::empty())),
 
 			kind: ResponseKind::default(),
 			url: None,
@@ -136,12 +128,8 @@ impl Response {
 				));
 			}
 
-			if let Some(kind) = &body.kind {
-				if !headers.headers.contains_key(CONTENT_TYPE) {
-					headers.headers.append(CONTENT_TYPE, HeaderValue::from_str(&kind.to_string()).unwrap());
-				}
-			}
-			response.body = Some(body);
+			body.add_content_type_header(&mut headers.headers);
+			response.body = Some(ResponseBody::Fetch(body));
 		}
 
 		response.headers.set(Headers::new_object(cx, Box::new(headers)));
@@ -186,54 +174,24 @@ impl Response {
 
 	#[ion(get)]
 	pub fn get_body_used(&self) -> bool {
-		self.body_used
+		self.body.is_none()
 	}
 
 	async fn read_to_bytes(&mut self) -> Result<Vec<u8>> {
-		if self.body_used {
+		if self.body.is_none() {
 			return Err(Error::new("Response body has already been used.", None));
 		}
-		self.body_used = true;
-
-		match &mut self.response {
-			None => Err(Error::new("Response is a network error and cannot be read.", None)),
-			Some(response) => {
-				let body = response.body_mut();
-
-				let first = if let Some(buf) = body.data().await {
-					buf?
-				} else {
-					return Ok(Vec::new());
-				};
-
-				let second = if let Some(buf) = body.data().await {
-					buf?
-				} else {
-					return Ok(first.to_vec());
-				};
-
-				let cap = first.remaining() + second.remaining() + body.size_hint().lower() as usize;
-				let mut vec = Vec::with_capacity(cap);
-				vec.put(first);
-				vec.put(second);
-
-				while let Some(buf) = body.data().await {
-					vec.put(buf?);
-				}
-
-				Ok(vec)
-			}
-		}
+		self.body.take().unwrap().read_to_bytes().await
 	}
 
 	#[ion(name = "arrayBuffer")]
 	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let this = cx.root_persistent_object(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-		let this = this.handle().into_handle();
+		let this = this.handle().into();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&cx2, &response)?;
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
 			Ok(ArrayBufferWrapper::from(bytes))
@@ -243,10 +201,10 @@ impl Response {
 	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let this = cx.root_persistent_object(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-		let this = this.handle().into_handle();
+		let this = this.handle().into();
 		future_to_promise::<_, _, Error>(cx, async move {
-			let mut response = Object::from(unsafe { Local::from_raw_handle(this) });
-			let response = Response::get_mut_private(&mut response);
+			let response = Object::from(unsafe { Local::from_raw_handle(this) });
+			let response = Response::get_mut_private(&cx2, &response)?;
 			let bytes = response.read_to_bytes().await?;
 			cx2.unroot_persistent_object(this.get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
@@ -258,10 +216,8 @@ pub fn network_error() -> Response {
 	Response {
 		reflector: Reflector::default(),
 
-		response: None,
 		headers: Box::default(),
 		body: None,
-		body_used: false,
 
 		kind: ResponseKind::Error,
 		url: None,

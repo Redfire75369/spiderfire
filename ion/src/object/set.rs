@@ -62,18 +62,18 @@ impl<'s> Set<'s> {
 	}
 
 	/// Adds the key to the [Set].
-	pub fn add(&mut self, cx: &Context, key: &Value) -> bool {
+	pub fn add(&self, cx: &Context, key: &Value) -> bool {
 		unsafe { SetAdd(cx.as_ptr(), self.handle().into(), key.handle().into()) }
 	}
 
 	/// Deletes the key from the [Set].
-	pub fn delete(&mut self, cx: &Context, key: &Value) -> bool {
+	pub fn delete(&self, cx: &Context, key: &Value) -> bool {
 		let mut rval = false;
 		unsafe { SetDelete(cx.as_ptr(), self.handle().into(), key.handle().into(), &mut rval) && rval }
 	}
 
 	/// Clears the contents of the [Set].
-	pub fn clear(&mut self, cx: &Context) -> bool {
+	pub fn clear(&self, cx: &Context) -> bool {
 		unsafe { SetClear(cx.as_ptr(), self.handle().into()) }
 	}
 

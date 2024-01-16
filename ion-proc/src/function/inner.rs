@@ -7,7 +7,7 @@
 use syn::ItemFn;
 use syn::punctuated::Punctuated;
 
-use crate::function::parameters::Parameters;
+use crate::function::parameter::Parameters;
 
 pub(crate) fn impl_inner_fn(mut function: ItemFn, parameters: &Parameters, keep_inner: bool) -> ItemFn {
 	function.sig.inputs = Punctuated::from_iter(parameters.to_args());

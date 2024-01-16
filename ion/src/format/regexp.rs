@@ -11,13 +11,14 @@ use colored::Colorize;
 
 use crate::Context;
 use crate::format::Config;
-use crate::objects::RegExp;
+use crate::object::RegExp;
 
-/// Formats a [RegExp object](RegExp) as a string using the given [configuration](Config).
+/// Formats a [RegExp object](RegExp) using the given [configuration](Config).
 pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp<'cx>) -> RegExpDisplay<'cx> {
 	RegExpDisplay { cx, regexp, cfg }
 }
 
+#[must_use]
 pub struct RegExpDisplay<'cx> {
 	cx: &'cx Context,
 	regexp: &'cx RegExp<'cx>,
@@ -26,6 +27,6 @@ pub struct RegExpDisplay<'cx> {
 
 impl Display for RegExpDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.regexp.to_string(self.cx).color(self.cfg.colours.regexp))
+		self.regexp.to_string(self.cx).color(self.cfg.colours.regexp).fmt(f)
 	}
 }

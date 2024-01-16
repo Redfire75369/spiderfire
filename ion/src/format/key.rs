@@ -14,11 +14,12 @@ use crate::{Context, OwnedKey};
 use crate::format::Config;
 use crate::format::symbol::format_symbol;
 
-/// Formats the [key of an object](OwnedKey) as a string with the given [configuration](Config),
+/// Formats the [key of an object](OwnedKey) with the given [configuration](Config).
 pub fn format_key<'cx>(cx: &'cx Context, cfg: Config, key: &'cx OwnedKey<'cx>) -> KeyDisplay<'cx> {
 	KeyDisplay { cx, cfg, key }
 }
 
+#[must_use]
 pub struct KeyDisplay<'cx> {
 	cx: &'cx Context,
 	cfg: Config,
@@ -31,13 +32,13 @@ impl Display for KeyDisplay<'_> {
 		match self.key {
 			OwnedKey::Int(i) => {
 				let mut buffer = Buffer::new();
-				write!(f, "{}", buffer.format(*i).color(colours.number))
+				buffer.format(*i).color(colours.number).fmt(f)
 			}
 			OwnedKey::String(str) => write!(f, "{0}{1}{0}", r#"""#.color(colours.string), str.color(colours.string)),
 			OwnedKey::Symbol(sym) => {
-				write!(f, "{}", "[".color(colours.symbol))?;
-				write!(f, "{}", format_symbol(self.cx, self.cfg, sym))?;
-				write!(f, "{}", "]".color(colours.symbol))
+				"[".color(colours.symbol).fmt(f)?;
+				format_symbol(self.cx, self.cfg, sym).fmt(f)?;
+				"]".color(colours.symbol).fmt(f)
 			}
 			OwnedKey::Void => unreachable!("Property key <void> cannot be formatted."),
 		}

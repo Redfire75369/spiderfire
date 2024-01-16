@@ -6,58 +6,21 @@
 
 use syn::{LitStr, Result};
 use syn::meta::ParseNestedMeta;
-use syn::parse::{Parse, ParseStream};
 
 use crate::attribute::{ArgumentError, ParseArgument, ParseArgumentWith, ParseAttribute};
 use crate::attribute::name::Name;
 use crate::class::method::MethodKind;
 
-mod keywords {
-	custom_keyword!(name);
-	custom_keyword!(class);
-}
-
-#[allow(dead_code)]
-pub(crate) struct ClassNameAttribute {
-	_kw: keywords::name,
-	_eq: Token![=],
-	pub(crate) name: LitStr,
-}
-
-impl Parse for ClassNameAttribute {
-	fn parse(input: ParseStream) -> Result<ClassNameAttribute> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(ClassNameAttribute {
-				_kw: input.parse()?,
-				_eq: input.parse()?,
-				name: input.parse()?,
-			})
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
 // TODO: Add `inspectable` to provide `toString` and `toJSON`
-#[allow(dead_code)]
-pub(crate) enum ClassAttribute {
-	Name(ClassNameAttribute),
-	Class(keywords::class),
+#[derive(Default)]
+pub(crate) struct ClassAttribute {
+	pub(crate) name: Option<LitStr>,
 }
 
-impl Parse for ClassAttribute {
-	fn parse(input: ParseStream) -> Result<ClassAttribute> {
-		use ClassAttribute as CA;
-
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::name) {
-			Ok(CA::Name(input.parse()?))
-		} else if lookahead.peek(keywords::class) {
-			Ok(CA::Class(input.parse()?))
-		} else {
-			Err(lookahead.error())
-		}
+impl ParseAttribute for ClassAttribute {
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.name.parse_argument(meta, "name", "Class")?;
+		Ok(())
 	}
 }
 

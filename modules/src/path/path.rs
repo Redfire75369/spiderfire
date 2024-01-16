@@ -10,8 +10,9 @@ use mozjs::jsapi::{JSFunctionSpec, JSPropertySpec};
 
 use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
+use ion::function::Rest;
 use ion::spec::create_property_spec_string;
-use runtime::modules::NativeModule;
+use runtime::module::NativeModule;
 
 #[cfg(windows)]
 const SEPARATOR: &str = "\\\0";
@@ -24,9 +25,9 @@ const DELIMITER: &str = ";\0";
 const DELIMITER: &str = ":\0";
 
 #[js_fn]
-fn join(#[ion(varargs)] segments: Vec<String>) -> String {
+fn join(Rest(segments): Rest<String>) -> String {
 	let mut path = PathBuf::new();
-	path.extend(segments);
+	path.extend(segments.into_vec());
 	String::from(path.to_str().unwrap())
 }
 
@@ -133,7 +134,7 @@ impl NativeModule for PathM {
 	const SOURCE: &'static str = include_str!("path.js");
 
 	fn module(cx: &Context) -> Option<Object> {
-		let mut path = Object::new(cx);
+		let path = Object::new(cx);
 		if unsafe { path.define_methods(cx, FUNCTIONS) && path.define_properties(cx, PROPERTIES) } {
 			return Some(path);
 		}

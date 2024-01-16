@@ -13,7 +13,7 @@ use indent::indent_by;
 use crate::{Context, Function};
 use crate::format::Config;
 
-/// Formats a [JavaScript Function](Function) as a string, using the given [configuration](Config).
+/// Formats a [function](Function), using the given [configuration](Config).
 ///
 /// ### Format
 /// ```js
@@ -25,6 +25,7 @@ pub fn format_function<'cx>(cx: &'cx Context, cfg: Config, function: &'cx Functi
 	FunctionDisplay { cx, function, cfg }
 }
 
+#[must_use]
 pub struct FunctionDisplay<'cx> {
 	cx: &'cx Context,
 	function: &'cx Function<'cx>,

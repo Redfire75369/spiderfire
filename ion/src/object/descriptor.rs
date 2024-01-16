@@ -7,7 +7,7 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
-use mozjs::jsapi::{FromPropertyDescriptor, ObjectToCompletePropertyDescriptor};
+use mozjs::jsapi::{FromPropertyDescriptor, JS_GetObjectFunction, ObjectToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
 
 use crate::{Context, Function, Local, Object, Value};
@@ -18,8 +18,12 @@ pub struct PropertyDescriptor<'pd> {
 }
 
 impl<'pd> PropertyDescriptor<'pd> {
+	pub fn empty(cx: &'pd Context) -> PropertyDescriptor<'pd> {
+		PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()))
+	}
+
 	pub fn new(cx: &'pd Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
 		desc
 	}
@@ -29,7 +33,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	) -> PropertyDescriptor<'pd> {
 		let getter = getter.to_object(cx);
 		let setter = setter.to_object(cx);
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		unsafe {
 			SetAccessorPropertyDescriptor(
 				desc.handle_mut().into(),
@@ -42,7 +46,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	}
 
 	pub fn from_object(cx: &'pd Context, object: &Object) -> Option<PropertyDescriptor<'pd>> {
-		let mut desc = PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()));
+		let mut desc = PropertyDescriptor::empty(cx);
 		let desc_value = Value::object(cx, object);
 		unsafe {
 			ObjectToCompletePropertyDescriptor(
@@ -77,12 +81,24 @@ impl<'pd> PropertyDescriptor<'pd> {
 		self.handle().resolving_()
 	}
 
-	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.handle().hasGetter_().then(|| Object::from(cx.root_object(self.handle().getter_)))
+	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
+		if self.handle().hasGetter_() && !self.handle().getter_.is_null() {
+			Some(Function::from(
+				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().getter_) }),
+			))
+		} else {
+			None
+		}
 	}
 
-	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
-		self.handle().hasSetter_().then(|| Object::from(cx.root_object(self.handle().setter_)))
+	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
+		if self.handle().hasSetter_() && !self.handle().setter_.is_null() {
+			Some(Function::from(
+				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().setter_) }),
+			))
+		} else {
+			None
+		}
 	}
 
 	pub fn value<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {

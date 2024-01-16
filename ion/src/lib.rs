@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::missing_safety_doc, clippy::module_inception)]
 
 #[macro_use]
 extern crate mozjs;
@@ -15,12 +15,12 @@ pub use class::ClassDefinition;
 pub use context::{Context, ContextInner};
 pub use error::{Error, ErrorKind};
 pub use exception::{ErrorReport, Exception, ThrowException};
-pub use functions::{Arguments, Function};
+pub use function::{Arguments, Function};
 pub use future::PromiseFuture;
 #[cfg(feature = "macros")]
 pub use ion_proc::*;
 pub use local::Local;
-pub use objects::*;
+pub use object::*;
 pub use stack::{Stack, StackRecord};
 pub use string::{String, StringRef};
 pub use symbol::Symbol;
@@ -34,11 +34,11 @@ mod error;
 pub mod exception;
 pub mod flags;
 pub mod format;
-pub mod functions;
+pub mod function;
 mod future;
 pub mod local;
 pub mod module;
-pub mod objects;
+pub mod object;
 pub mod script;
 pub mod spec;
 pub mod stack;

@@ -7,7 +7,8 @@
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::{Context, Error, Function, Object, Result, Value};
-use runtime::modules::NativeModule;
+use ion::function::Opt;
+use runtime::module::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {
 	let error = match message {
@@ -18,7 +19,7 @@ fn assert_internal(message: Option<String>) -> Result<()> {
 }
 
 #[js_fn]
-fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
+fn ok(Opt(assertion): Opt<bool>, Opt(message): Opt<String>) -> Result<()> {
 	if let Some(true) = assertion {
 		Ok(())
 	} else {
@@ -27,7 +28,7 @@ fn ok(assertion: Option<bool>, message: Option<String>) -> Result<()> {
 }
 
 #[js_fn]
-fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>) -> Result<()> {
+fn equals(cx: &Context, actual: Value, expected: Value, Opt(message): Opt<String>) -> Result<()> {
 	if actual.is_same(cx, &expected) {
 		Ok(())
 	} else {
@@ -36,7 +37,7 @@ fn equals(cx: &Context, actual: Value, expected: Value, message: Option<String>)
 }
 
 #[js_fn]
-fn throws(cx: &Context, func: Function, message: Option<String>) -> Result<()> {
+fn throws(cx: &Context, func: Function, Opt(message): Opt<String>) -> Result<()> {
 	if func.call(cx, &Object::global(cx), &[]).is_err() {
 		assert_internal(message)
 	} else {
@@ -45,7 +46,7 @@ fn throws(cx: &Context, func: Function, message: Option<String>) -> Result<()> {
 }
 
 #[js_fn]
-fn fail(message: Option<String>) -> Result<()> {
+fn fail(Opt(message): Opt<String>) -> Result<()> {
 	assert_internal(message)
 }
 
@@ -65,7 +66,7 @@ impl NativeModule for Assert {
 	const SOURCE: &'static str = include_str!("assert.js");
 
 	fn module(cx: &Context) -> Option<Object> {
-		let mut assert = Object::new(cx);
+		let assert = Object::new(cx);
 		unsafe { assert.define_methods(cx, FUNCTIONS).then_some(assert) }
 	}
 }

@@ -16,11 +16,11 @@ use mozjs::jsapi::{
 use mozjs::jsval::{JSVal, NullValue};
 
 use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
-use crate::class::{NativeClass, NativeObject, Reflector, TypeIdWrapper};
+use crate::class::{NativeClass, NativeObject, PrototypeChain, Reflector, TypeIdWrapper};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
-use crate::functions::NativeFunction;
-use crate::objects::class_reserved_slots;
+use crate::function::NativeFunction;
+use crate::object::class_reserved_slots;
 use crate::spec::{create_function_spec, create_function_spec_symbol};
 use crate::symbol::WellKnownSymbolCode;
 
@@ -48,7 +48,7 @@ pub struct IteratorResult<'cx> {
 
 impl<'cx> ToValue<'cx> for IteratorResult<'cx> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		let mut object = Object::new(cx);
+		let object = Object::new(cx);
 		object.set_as(cx, "value", &self.value);
 		object.set_as(cx, "done", &self.done);
 		object.to_value(cx, value);
@@ -91,11 +91,17 @@ impl Iterator {
 		let cx = &unsafe { Context::new_unchecked(cx) };
 		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
 
-		let mut this = args.this().to_object(cx);
-		let iterator = Iterator::get_mut_private(&mut this);
+		let this = args.this().to_object(cx);
+		let iterator = match Iterator::get_mut_private(cx, &this) {
+			Ok(iterator) => iterator,
+			Err(e) => {
+				e.throw(cx);
+				return false;
+			}
+		};
 		let result = iterator.next_value(cx);
 
-		result.to_value(cx, args.rval());
+		result.to_value(cx, &mut args.rval());
 		true
 	}
 
@@ -171,16 +177,7 @@ static ITERATOR_CLASS: NativeClass = NativeClass {
 		ext: ptr::null_mut(),
 		oOps: ptr::null_mut(),
 	},
-	prototype_chain: [
-		Some(&TypeIdWrapper::<Iterator>::new()),
-		None,
-		None,
-		None,
-		None,
-		None,
-		None,
-		None,
-	],
+	prototype_chain: PrototypeChain::new().push(&TypeIdWrapper::<Iterator>::new()),
 };
 
 static ITERATOR_METHODS: &[JSFunctionSpec] = &[
@@ -212,24 +209,23 @@ impl NativeObject for Iterator {
 }
 
 impl ClassDefinition for Iterator {
-	const NAME: &'static str = "";
-
 	fn class() -> &'static NativeClass {
 		&ITERATOR_CLASS
 	}
 
-	fn parent_class_info(cx: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
-		Some((
-			&ITERATOR_CLASS,
-			cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }),
-		))
+	fn proto_class() -> Option<&'static NativeClass> {
+		None
+	}
+
+	fn parent_prototype(cx: &Context) -> Option<Local<*mut JSObject>> {
+		Some(cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
 	}
 
 	fn constructor() -> (NativeFunction, u32) {
 		(Iterator::constructor, 0)
 	}
 
-	fn functions() -> &'static [JSFunctionSpec] {
-		ITERATOR_METHODS
+	fn functions() -> Option<&'static [JSFunctionSpec]> {
+		Some(ITERATOR_METHODS)
 	}
 }

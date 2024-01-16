@@ -18,7 +18,8 @@ use tokio::sync::watch::{channel, Receiver, Sender};
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 use ion::class::Reflector;
-use ion::conversions::{ConversionBehavior, FromValue, ToValue};
+use ion::conversions::{FromValue, ToValue};
+use ion::function::{Enforce, Opt};
 
 use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
@@ -103,7 +104,7 @@ impl AbortController {
 		)
 	}
 
-	pub fn abort<'cx>(&self, cx: &'cx Context, reason: Option<Value<'cx>>) {
+	pub fn abort<'cx>(&self, cx: &'cx Context, Opt(reason): Opt<Value<'cx>>) {
 		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
 		self.sender.send_replace(Some(reason.get()));
 	}
@@ -147,7 +148,7 @@ impl AbortSignal {
 		}
 	}
 
-	pub fn abort<'cx>(cx: &'cx Context, reason: Option<Value<'cx>>) -> *mut JSObject {
+	pub fn abort<'cx>(cx: &'cx Context, Opt(reason): Opt<Value<'cx>>) -> *mut JSObject {
 		let reason = reason.unwrap_or_else(|| Error::new("AbortError", None).as_value(cx));
 		AbortSignal::new_object(
 			cx,
@@ -158,7 +159,7 @@ impl AbortSignal {
 		)
 	}
 
-	pub fn timeout(cx: &Context, #[ion(convert = ConversionBehavior::EnforceRange)] time: u64) -> *mut JSObject {
+	pub fn timeout(cx: &Context, Enforce(time): Enforce<u64>) -> *mut JSObject {
 		let (sender, receiver) = channel(None);
 		let terminate = Arc::new(AtomicBool::new(false));
 		let terminate2 = terminate.clone();
@@ -192,10 +193,10 @@ impl<'cx> FromValue<'cx> for AbortSignal {
 	type Config = ();
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<AbortSignal> {
 		let object = Object::from_value(cx, value, strict, ())?;
-		if AbortSignal::instance_of(cx, &object, None) {
+		if AbortSignal::instance_of(cx, &object) {
 			Ok(AbortSignal {
 				reflector: Reflector::default(),
-				signal: AbortSignal::get_private(&object).signal.clone(),
+				signal: AbortSignal::get_private(cx, &object)?.signal.clone(),
 			})
 		} else {
 			Err(Error::new("Expected AbortSignal", ErrorKind::Type))
@@ -203,6 +204,6 @@ impl<'cx> FromValue<'cx> for AbortSignal {
 	}
 }
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	AbortController::init_class(cx, global).0 && AbortSignal::init_class(cx, global).0
 }

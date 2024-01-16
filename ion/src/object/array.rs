@@ -10,10 +10,10 @@ use std::ops::{Deref, DerefMut};
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
 
-use crate::{Context, Local, Object, Value};
+use crate::{Context, Local, Object, PropertyDescriptor, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::objects::object::ObjectKeysIter;
+use crate::object::object::ObjectKeysIter;
 
 /// Represents an [Array] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) for more details.
@@ -111,35 +111,41 @@ impl<'a> Array<'a> {
 		self.arr.get_as(cx, index, strict, config)
 	}
 
+	/// Gets the descriptor at the given index of the [Array].
+	/// Returns [None] if there is no value at the given index.
+	pub fn get_descriptor<'cx>(&self, cx: &'cx Context, index: u32) -> Option<PropertyDescriptor<'cx>> {
+		self.arr.get_descriptor(cx, index)
+	}
+
 	/// Sets the [Value] at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set(&mut self, cx: &Context, index: u32, value: &Value) -> bool {
+	pub fn set(&self, cx: &Context, index: u32, value: &Value) -> bool {
 		self.arr.set(cx, index, value)
 	}
 
 	/// Sets the Rust type at the given index of the [Array].
 	/// Returns `false` if the element cannot be set.
-	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&mut self, cx: &'cx Context, index: u32, value: &T) -> bool {
+	pub fn set_as<'cx, T: ToValue<'cx> + ?Sized>(&self, cx: &'cx Context, index: u32, value: &T) -> bool {
 		self.arr.set_as(cx, index, value)
 	}
 
 	/// Defines the [Value] at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
-	pub fn define(&mut self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
+	pub fn define(&self, cx: &Context, index: u32, value: &Value, attrs: PropertyFlags) -> bool {
 		self.arr.define(cx, index, value, attrs)
 	}
 
 	/// Defines the Rust type at the given index of the [Array] with the given attributes.
 	/// Returns `false` if the element cannot be defined.
 	pub fn define_as<'cx, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
+		&self, cx: &'cx Context, index: u32, value: &T, attrs: PropertyFlags,
 	) -> bool {
 		self.arr.define_as(cx, index, value, attrs)
 	}
 
 	/// Deletes the [JSVal] at the given index.
 	/// Returns `false` if the element cannot be deleted.
-	pub fn delete(&mut self, cx: &Context, index: u32) -> bool {
+	pub fn delete(&self, cx: &Context, index: u32) -> bool {
 		self.arr.delete(cx, index)
 	}
 
@@ -165,6 +171,10 @@ impl<'a> Array<'a> {
 	pub fn is_array(cx: &Context, object: &Local<*mut JSObject>) -> bool {
 		let mut is_array = false;
 		unsafe { IsArray(cx.as_ptr(), object.handle().into(), &mut is_array) && is_array }
+	}
+
+	pub fn as_object(&self) -> &Object<'a> {
+		&self.arr
 	}
 
 	pub fn into_local(self) -> Local<'a, *mut JSObject> {

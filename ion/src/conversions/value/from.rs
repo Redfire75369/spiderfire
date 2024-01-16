@@ -19,7 +19,7 @@ use mozjs::typedarray::JSObjectStorage;
 use crate::{
 	Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value,
 };
-use crate::objects::RegExp;
+use crate::object::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 

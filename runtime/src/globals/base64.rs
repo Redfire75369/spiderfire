@@ -28,6 +28,6 @@ fn atob(data: ByteString) -> Result<ByteString> {
 
 const FUNCTIONS: &[JSFunctionSpec] = &[function_spec!(btoa, 1), function_spec!(atob, 1), JSFunctionSpec::ZERO];
 
-pub fn define(cx: &Context, global: &mut Object) -> bool {
+pub fn define(cx: &Context, global: &Object) -> bool {
 	unsafe { global.define_methods(cx, FUNCTIONS) }
 }

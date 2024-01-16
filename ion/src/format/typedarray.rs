@@ -10,13 +10,14 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 use itoa::Buffer;
 
-use crate::format::{Config, INDENT, NEWLINE};
+use crate::format::{Config, indent_str, NEWLINE};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 pub fn format_array_buffer<'cx>(cfg: Config, buffer: &'cx ArrayBuffer<'cx>) -> ArrayBufferDisplay<'cx> {
 	ArrayBufferDisplay { buffer, cfg }
 }
 
+#[must_use]
 pub struct ArrayBufferDisplay<'cx> {
 	buffer: &'cx ArrayBuffer<'cx>,
 	cfg: Config,
@@ -25,7 +26,7 @@ pub struct ArrayBufferDisplay<'cx> {
 impl Display for ArrayBufferDisplay<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let colour = self.cfg.colours.object;
-		write!(f, "{}", "ArrayBuffer {".color(colour))?;
+		"ArrayBuffer {".color(colour).fmt(f)?;
 
 		let vec;
 		let bytes = if self.buffer.is_shared() {
@@ -35,12 +36,12 @@ impl Display for ArrayBufferDisplay<'_> {
 			unsafe { self.buffer.as_slice() }
 		};
 
-		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+		let indent = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		if bytes.len() < 8 {
 			f.write_char(' ')?;
 		} else {
 			f.write_str(NEWLINE)?;
-			f.write_str(&indent)?;
+			indent.fmt(f)?;
 		}
 
 		write!(
@@ -60,12 +61,12 @@ impl Display for ArrayBufferDisplay<'_> {
 		}
 
 		f.write_char('>')?;
-		write!(f, "{}", ",".color(colour))?;
+		",".color(colour).fmt(f)?;
 		if bytes.len() < 8 {
 			f.write_char(' ')?;
 		} else {
 			f.write_str(NEWLINE)?;
-			f.write_str(&indent)?;
+			indent.fmt(f)?;
 		}
 
 		write!(f, "byteLength: {}", bytes.len())?;
@@ -75,7 +76,7 @@ impl Display for ArrayBufferDisplay<'_> {
 			f.write_str(NEWLINE)?;
 		}
 
-		write!(f, "{}", "}".color(colour))?;
+		"}".color(colour).fmt(f)?;
 
 		Ok(())
 	}
@@ -123,25 +124,25 @@ where
 			") [".color(colour)
 		)?;
 
-		let indent = INDENT.repeat((self.cfg.indentation + self.cfg.depth + 1) as usize);
+		let indent = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		f.write_str(NEWLINE)?;
-		f.write_str(&indent)?;
+		indent.fmt(f)?;
 
 		for (i, element) in elements.iter().enumerate() {
-			write!(f, "{}", element.to_string().color(self.cfg.colours.number))?;
-			write!(f, "{}", ",".color(colour))?;
+			element.to_string().color(self.cfg.colours.number).fmt(f)?;
+			",".color(colour).fmt(f)?;
 
 			if i != elements.len() - 1 {
 				f.write_char(' ')?;
 				if (i + 1) % 16 == 0 {
 					f.write_str(NEWLINE)?;
-					f.write_str(&indent)?;
+					indent.fmt(f)?;
 				}
 			}
 		}
 
 		f.write_str(NEWLINE)?;
-		write!(f, "{}", "}".color(colour))?;
+		"}".color(colour).fmt(f)?;
 
 		Ok(())
 	}

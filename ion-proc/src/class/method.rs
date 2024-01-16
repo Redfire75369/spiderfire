@@ -4,12 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use proc_macro2::TokenStream;
+use convert_case::{Case, Casing};
+use proc_macro2::{Ident, TokenStream};
 use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::name::Name;
 use crate::function::{check_abi, impl_fn_body, set_signature};
-use crate::function::parameters::Parameters;
+use crate::function::parameter::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -31,6 +32,29 @@ pub(super) struct Method {
 	pub(super) method: ItemFn,
 	pub(super) nargs: usize,
 	pub(super) names: Vec<Name>,
+}
+
+impl Method {
+	pub(super) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
+		let ident = &self.method.sig.ident;
+		let nargs = self.nargs as u16;
+
+		self.names
+			.iter()
+			.map(|name| match name {
+				Name::String(literal) => {
+					let mut name = literal.value();
+					if name.is_case(Case::Snake) {
+						name = name.to_case(Case::Camel)
+					}
+					quote!(#ion::function_spec!(#class::#ident, #name, #nargs, #ion::flags::PropertyFlags::CONSTANT_ENUMERATED))
+				}
+				Name::Symbol(symbol) => {
+					quote!(#ion::function_spec_symbol!(#class::#ident, #symbol, #nargs, #ion::flags::PropertyFlags::CONSTANT))
+				}
+			})
+			.collect()
+	}
 }
 
 pub(super) fn impl_method<F>(
@@ -57,7 +81,7 @@ where
 				MethodReceiver::Static
 			},
 			method,
-			nargs: parameters.nargs.0,
+			nargs: parameters.nargs,
 			names: vec![],
 		};
 		Ok((method, parameters))

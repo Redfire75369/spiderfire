@@ -51,19 +51,10 @@ pub(crate) fn format_type(ty: &Type) -> String {
 	String::from(ty.trim())
 }
 
-pub(crate) fn format_pat(pat: &Pat) -> Option<String> {
-	let ident = match pat {
-		Pat::Ident(ident) => ident.ident.clone(),
-		_ => return None,
-	};
-	let pat = unparse(
-		&parse2(quote!(
-			const #ident: () = ();
-		))
-		.unwrap(),
-	);
-	let mut pat = String::from(pat.trim());
-	pat.drain((pat.len() - 10)..(pat.len()));
-	pat.drain(0..5);
-	Some(String::from(pat.trim()))
+macro_rules! new_token {
+    [$i:tt] => {
+		<Token![$i]>::default()
+    };
 }
+
+pub(crate) use new_token;

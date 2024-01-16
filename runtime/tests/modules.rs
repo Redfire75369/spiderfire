@@ -11,7 +11,7 @@ use mozjs::rust::{JSEngine, Runtime};
 use ion::Context;
 use ion::module::Module;
 use runtime::config::{Config, CONFIG, LogLevel};
-use runtime::modules::Loader;
+use runtime::module::Loader;
 use runtime::RuntimeBuilder;
 
 const FILE_NAME: &str = "module-import.js";

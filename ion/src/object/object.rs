@@ -13,17 +13,17 @@ use std::slice;
 use mozjs::jsapi::{
 	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
 	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
-	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, JSFunctionSpec,
-	JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
+	JS_GetPropertyDescriptorById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById,
+	JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
 };
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
 use mozjs::rust::IdVector;
 
-use crate::{Context, Exception, Function, Local, OwnedKey, PropertyKey, Value};
+use crate::{Context, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
-use crate::functions::NativeFunction;
+use crate::function::NativeFunction;
 
 /// Represents an [Object] in the JS Runtime.
 ///
@@ -106,10 +106,40 @@ impl<'o> Object<'o> {
 		self.get(cx, key).and_then(|val| T::from_value(cx, &val, strict, config).ok())
 	}
 
+	/// Gets the descriptor at the given key of the [Object].
+	/// Returns [None] if the object does not contain the key.
+	pub fn get_descriptor<'cx, K: ToPropertyKey<'cx>>(
+		&self, cx: &'cx Context, key: K,
+	) -> Option<PropertyDescriptor<'cx>> {
+		let key = key.to_key(cx).unwrap();
+		if self.has(cx, &key) {
+			let mut desc = PropertyDescriptor::empty(cx);
+			let mut holder = Object::null(cx);
+			let mut is_none = true;
+			unsafe {
+				JS_GetPropertyDescriptorById(
+					cx.as_ptr(),
+					self.handle().into(),
+					key.handle().into(),
+					desc.handle_mut().into(),
+					holder.handle_mut().into(),
+					&mut is_none,
+				)
+			};
+			if is_none {
+				None
+			} else {
+				Some(desc)
+			}
+		} else {
+			None
+		}
+	}
+
 	/// Sets the [Value] at the given key of the [Object].
 	///
 	/// Returns `false` if the property cannot be set.
-	pub fn set<'cx, K: ToPropertyKey<'cx>>(&mut self, cx: &'cx Context, key: K, value: &Value) -> bool {
+	pub fn set<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K, value: &Value) -> bool {
 		let key = key.to_key(cx).unwrap();
 		unsafe {
 			JS_SetPropertyById(
@@ -125,7 +155,7 @@ impl<'o> Object<'o> {
 	///
 	/// Returns `false` if the property cannot be set.
 	pub fn set_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, key: K, value: &T,
+		&self, cx: &'cx Context, key: K, value: &T,
 	) -> bool {
 		self.set(cx, key, &value.as_value(cx))
 	}
@@ -134,7 +164,7 @@ impl<'o> Object<'o> {
 	///
 	/// Returns `false` if the property cannot be defined.
 	pub fn define<'cx, K: ToPropertyKey<'cx>>(
-		&mut self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags,
+		&self, cx: &'cx Context, key: K, value: &Value, attrs: PropertyFlags,
 	) -> bool {
 		let key = key.to_key(cx).unwrap();
 		unsafe {
@@ -152,7 +182,7 @@ impl<'o> Object<'o> {
 	///
 	/// Returns `false` if the property cannot be defined.
 	pub fn define_as<'cx, K: ToPropertyKey<'cx>, T: ToValue<'cx> + ?Sized>(
-		&mut self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags,
+		&self, cx: &'cx Context, key: K, value: &T, attrs: PropertyFlags,
 	) -> bool {
 		self.define(cx, key, &value.as_value(cx), attrs)
 	}
@@ -161,7 +191,7 @@ impl<'o> Object<'o> {
 	///
 	/// Parameters are similar to [create_function_spec](crate::spec::create_function_spec).
 	pub fn define_method<'cx, K: ToPropertyKey<'cx>>(
-		&mut self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
+		&self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
 	) -> Function<'cx> {
 		let key = key.to_key(cx).unwrap();
 		cx.root_function(unsafe {
@@ -184,21 +214,21 @@ impl<'o> Object<'o> {
 		feature = "macros",
 		doc = "\nThey can be created through [function_spec](crate::function_spec)."
 	)]
-	pub unsafe fn define_methods(&mut self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
+	pub unsafe fn define_methods(&self, cx: &Context, methods: &[JSFunctionSpec]) -> bool {
 		unsafe { JS_DefineFunctions(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Defines methods on the objects using the given [specs](JSFunctionSpecWithHelp), with help.
 	///
 	/// The final element of the `methods` slice must be `JSFunctionSpecWithHelp::ZERO`.
-	pub unsafe fn define_methods_with_help(&mut self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
+	pub unsafe fn define_methods_with_help(&self, cx: &Context, methods: &[JSFunctionSpecWithHelp]) -> bool {
 		unsafe { JS_DefineFunctionsWithHelp(cx.as_ptr(), self.handle().into(), methods.as_ptr()) }
 	}
 
 	/// Defines properties on the object using the given [specs](JSPropertySpec).
 	///
 	/// The final element of the `properties` slice must be `JSPropertySpec::ZERO`.
-	pub unsafe fn define_properties(&mut self, cx: &Context, properties: &[JSPropertySpec]) -> bool {
+	pub unsafe fn define_properties(&self, cx: &Context, properties: &[JSPropertySpec]) -> bool {
 		unsafe { JS_DefineProperties(cx.as_ptr(), self.handle().into(), properties.as_ptr()) }
 	}
 
@@ -301,8 +331,8 @@ impl<'o> DerefMut for Object<'o> {
 
 pub struct ObjectKeysIter<'cx> {
 	cx: &'cx Context,
-	keys: IdVector,
 	slice: &'static [JSPropertyKey],
+	keys: IdVector,
 	index: usize,
 	count: usize,
 }
@@ -314,24 +344,18 @@ impl<'cx> ObjectKeysIter<'cx> {
 		let keys_slice = unsafe { slice::from_raw_parts(keys_slice.as_ptr(), count) };
 		ObjectKeysIter {
 			cx,
-			keys,
 			slice: keys_slice,
+			keys,
 			index: 0,
 			count,
 		}
 	}
 }
 
-impl Drop for ObjectKeysIter<'_> {
-	fn drop(&mut self) {
-		self.slice = &[];
-	}
-}
-
 impl<'cx> Iterator for ObjectKeysIter<'cx> {
 	type Item = PropertyKey<'cx>;
 
-	fn next(&mut self) -> Option<PropertyKey<'cx>> {
+	fn next(&mut self) -> Option<Self::Item> {
 		if self.index < self.count {
 			let key = &self.slice[self.index];
 			self.index += 1;
@@ -347,7 +371,7 @@ impl<'cx> Iterator for ObjectKeysIter<'cx> {
 }
 
 impl<'cx> DoubleEndedIterator for ObjectKeysIter<'cx> {
-	fn next_back(&mut self) -> Option<PropertyKey<'cx>> {
+	fn next_back(&mut self) -> Option<Self::Item> {
 		if self.index < self.count {
 			self.count -= 1;
 			let key = &self.keys[self.count];

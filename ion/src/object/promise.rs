@@ -10,8 +10,8 @@ use std::ops::{Deref, DerefMut};
 use futures::executor::block_on;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
-	AddPromiseReactions, GetPromiseID, GetPromiseState, IsPromiseObject, JSObject, NewPromiseObject, PromiseState,
-	RejectPromise, ResolvePromise,
+	AddPromiseReactions, CallOriginalPromiseReject, CallOriginalPromiseResolve, GetPromiseID, GetPromiseState,
+	IsPromiseObject, JSObject, NewPromiseObject, PromiseState, RejectPromise, ResolvePromise,
 };
 use mozjs::rust::HandleObject;
 
@@ -37,7 +37,7 @@ impl<'p> Promise<'p> {
 	/// Creates a new [Promise] with an executor.
 	/// The executor is a function that takes in two functions, `resolve` and `reject`.
 	/// `resolve` and `reject` can be called with a [Value] to resolve or reject the promise with the given value.
-	pub fn new_with_executor<F>(cx: &'p Context, executor: F) -> Option<Promise<'p>>
+	pub fn with_executor<F>(cx: &'p Context, executor: F) -> Option<Promise<'p>>
 	where
 		F: for<'cx> FnOnce(&'cx Context, Function<'cx>, Function<'cx>) -> crate::Result<()> + 'static,
 	{
@@ -81,7 +81,7 @@ impl<'p> Promise<'p> {
 		Output: for<'cx> ToValue<'cx> + 'static,
 		Error: for<'cx> ToValue<'cx> + 'static,
 	{
-		Promise::new_with_executor(cx, move |cx, resolve, reject| {
+		Promise::with_executor(cx, move |cx, resolve, reject| {
 			let null = Object::null(cx);
 			block_on(async move {
 				match future.await {
@@ -101,6 +101,22 @@ impl<'p> Promise<'p> {
 			});
 			Ok(())
 		})
+	}
+
+	/// Creates a new [Promise], that is resolved to the given value.
+	/// Similar to `Promise.resolve`
+	pub fn resolved(cx: &'p Context, value: &Value) -> Promise<'p> {
+		Promise {
+			promise: cx.root_object(unsafe { CallOriginalPromiseResolve(cx.as_ptr(), value.handle().into()) }),
+		}
+	}
+
+	/// Creates a new [Promise], that is rejected to the given value.
+	/// Similar to `Promise.reject`
+	pub fn rejected(cx: &'p Context, value: &Value) -> Promise<'p> {
+		Promise {
+			promise: cx.root_object(unsafe { CallOriginalPromiseReject(cx.as_ptr(), value.handle().into()) }),
+		}
 	}
 
 	/// Creates a [Promise] from an object.

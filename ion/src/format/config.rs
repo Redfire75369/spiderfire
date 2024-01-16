@@ -69,6 +69,7 @@ impl ColourConfig {
 
 /// Represents configuration for formatting
 #[derive(Clone, Copy, Debug)]
+#[must_use]
 pub struct Config {
 	pub colours: ColourConfig,
 	pub iteration: IteratorFlags,

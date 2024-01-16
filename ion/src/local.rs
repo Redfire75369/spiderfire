@@ -28,13 +28,10 @@ where
 
 impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	/// Forms a [Handle] to the [Local] which can be passed to SpiderMonkey APIs.
-	pub fn handle<'a>(&'a self) -> Handle<'a, T>
-	where
-		'local: 'a,
-	{
+	pub fn handle(&self) -> Handle<'local, T> {
 		match self {
 			Self::Rooted(root) => unsafe { Handle::from_marked_location(&root.ptr) },
-			Self::Mutable(handle) => handle.handle(),
+			Self::Mutable(handle) => unsafe { Handle::from_marked_location(&handle.get()) },
 			Self::Handle(handle) => *handle,
 		}
 	}
@@ -43,10 +40,7 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	///
 	/// ### Panics
 	/// Panics when a [`Local::Handle`] is passed.
-	pub fn handle_mut<'a>(&'a mut self) -> MutableHandle<'a, T>
-	where
-		'local: 'a,
-	{
+	pub fn handle_mut(&mut self) -> MutableHandle<'local, T> {
 		match self {
 			Local::Rooted(root) => unsafe { MutableHandle::from_marked_location(&mut root.ptr) },
 			Local::Mutable(handle) => *handle,

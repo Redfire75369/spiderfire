@@ -102,7 +102,8 @@ impl<'ab> ArrayBuffer<'ab> {
 	/// Returns a mutable slice to the contents of the [ArrayBuffer].
 	///
 	/// The slice may be invalidated if the [ArrayBuffer] is detached.
-	pub unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
+	#[allow(clippy::mut_from_ref)]
+	pub unsafe fn as_mut_slice(&self) -> &mut [u8] {
 		let (ptr, len, _) = self.data();
 		unsafe { slice::from_raw_parts_mut(ptr, len) }
 	}
@@ -134,11 +135,11 @@ impl<'ab> ArrayBuffer<'ab> {
 		}
 	}
 
-	pub fn detach(&mut self, cx: &Context) -> bool {
+	pub fn detach(&self, cx: &Context) -> bool {
 		unsafe { DetachArrayBuffer(cx.as_ptr(), self.handle().into()) }
 	}
 
-	pub fn transfer<'cx>(&mut self, cx: &'cx Context) -> Result<ArrayBuffer<'cx>> {
+	pub fn transfer<'cx>(&self, cx: &'cx Context) -> Result<ArrayBuffer<'cx>> {
 		let len = self.data().1;
 		let data = unsafe { StealArrayBufferContents(cx.as_ptr(), self.handle().into()) };
 		if data.is_null() {

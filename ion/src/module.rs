@@ -35,7 +35,7 @@ impl ModuleData {
 
 	/// Converts [ModuleData] to an [Object] for storage.
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Object<'cx> {
-		let mut object = Object::new(cx);
+		let object = Object::new(cx);
 		object.set_as(cx, "path", &self.path);
 		object
 	}
@@ -178,7 +178,7 @@ pub trait ModuleLoader {
 	fn register(&mut self, cx: &Context, module: *mut JSObject, request: &ModuleRequest) -> *mut JSObject;
 
 	/// Returns metadata of a module, used to populate `import.meta`.
-	fn metadata(&self, cx: &Context, private: &Value, meta: &mut Object) -> bool;
+	fn metadata(&self, cx: &Context, private: &Value, meta: &Object) -> bool;
 }
 
 impl ModuleLoader for () {
@@ -190,7 +190,7 @@ impl ModuleLoader for () {
 		ptr::null_mut()
 	}
 
-	fn metadata(&self, _: &Context, _: &Value, _: &mut Object) -> bool {
+	fn metadata(&self, _: &Context, _: &Value, _: &Object) -> bool {
 		true
 	}
 }
@@ -223,8 +223,8 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 			.as_mut()
 			.map(|loader| {
 				let private = Value::from(unsafe { Local::from_raw_handle(private_data) });
-				let mut metadata = Object::from(unsafe { Local::from_raw_handle(metadata) });
-				loader.metadata(&cx, &private, &mut metadata)
+				let metadata = Object::from(unsafe { Local::from_raw_handle(metadata) });
+				loader.metadata(&cx, &private, &metadata)
 			})
 			.unwrap_or_else(|| true)
 	}

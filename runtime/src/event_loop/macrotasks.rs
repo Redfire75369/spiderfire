@@ -44,7 +44,7 @@ impl Debug for SignalMacrotask {
 #[derive(Debug)]
 pub struct TimerMacrotask {
 	callback: *mut JSFunction,
-	arguments: Vec<JSVal>,
+	arguments: Box<[JSVal]>,
 	repeat: bool,
 	scheduled: DateTime<Utc>,
 	duration: Duration,
@@ -52,7 +52,7 @@ pub struct TimerMacrotask {
 }
 
 impl TimerMacrotask {
-	pub fn new(callback: Function, arguments: Vec<JSVal>, repeat: bool, duration: Duration) -> TimerMacrotask {
+	pub fn new(callback: Function, arguments: Box<[JSVal]>, repeat: bool, duration: Duration) -> TimerMacrotask {
 		TimerMacrotask {
 			callback: callback.get(),
 			arguments,
@@ -109,14 +109,14 @@ impl Macrotask {
 		}
 		let (callback, args) = match &self {
 			Macrotask::Timer(timer) => (timer.callback, timer.arguments.clone()),
-			Macrotask::User(user) => (user.callback, Vec::new()),
+			Macrotask::User(user) => (user.callback, Box::default()),
 			_ => unreachable!(),
 		};
 
 		let callback = Function::from(cx.root_function(callback));
-		let args: Vec<_> = args.into_iter().map(|value| Value::from(cx.root_value(value))).collect();
+		let args: Vec<_> = args.into_vec().into_iter().map(|value| Value::from(cx.root_value(value))).collect();
 
-		callback.call(cx, &Object::global(cx), args.as_slice()).map(|_| (Some(self)))
+		callback.call(cx, &Object::global(cx), args.as_slice()).map(|_| Some(self))
 	}
 
 	fn terminate(&self) -> bool {
