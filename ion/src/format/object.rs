@@ -14,7 +14,7 @@ use mozjs::jsapi::{
 	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
 };
 
-use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp};
+use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result};
 use crate::conversions::ToValue;
 use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
@@ -66,7 +66,7 @@ impl Display for ObjectDisplay<'_> {
 			ESC::RegExp => format_regexp(cx, cfg, &RegExp::from(cx, object.into_local()).unwrap()).fmt(f),
 			ESC::Function => format_function(cx, cfg, &Function::from_object(cx, &self.object).unwrap()).fmt(f),
 			ESC::ArrayBuffer => format_array_buffer(cfg, &ArrayBuffer::from(object.into_local()).unwrap()).fmt(f),
-			ESC::Error => match Exception::from_object(cx, &self.object) {
+			ESC::Error => match Exception::from_object(cx, &self.object)? {
 				Exception::Error(error) => error.format().fmt(f),
 				_ => unreachable!("Expected Error"),
 			},
@@ -145,7 +145,7 @@ impl Display for RawObjectDisplay<'_> {
 
 					for key in keys {
 						inner.fmt(f)?;
-						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
+						let desc = self.object.get_descriptor(self.cx, &key)?.unwrap();
 						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, Some(self.object))?;
 						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
@@ -157,7 +157,7 @@ impl Display for RawObjectDisplay<'_> {
 					let len = length.clamp(0, 3);
 
 					for (i, key) in keys.enumerate() {
-						let desc = self.object.get_descriptor(self.cx, &key).unwrap();
+						let desc = self.object.get_descriptor(self.cx, &key)?.unwrap();
 						write_key_descriptor(f, self.cx, self.cfg, &key, &desc, Some(self.object))?;
 
 						if i != len - 1 {
@@ -208,13 +208,13 @@ pub(crate) fn write_prefix(
 			})
 	}
 
-	fn get_tag(cx: &Context, object: &Object) -> Option<String> {
+	fn get_tag(cx: &Context, object: &Object) -> Result<Option<String>> {
 		if object.has_own(cx, WellKnownSymbolCode::ToStringTag) {
-			if let Some(tag) = object.get_as::<_, String>(cx, WellKnownSymbolCode::ToStringTag, true, ()) {
-				return (!tag.is_empty()).then_some(tag);
+			if let Some(tag) = object.get_as::<_, String>(cx, WellKnownSymbolCode::ToStringTag, true, ())? {
+				return Ok((!tag.is_empty()).then_some(tag));
 			}
 		}
-		None
+		Ok(None)
 	}
 
 	fn write_tag(f: &mut Formatter, colour: Color, tag: Option<&str>, fallback: &str) -> fmt::Result {
@@ -230,7 +230,7 @@ pub(crate) fn write_prefix(
 
 	let mut proto = Object::null(cx);
 	let constructor_name = get_constructor_name(cx, object, &mut proto);
-	let tag = get_tag(cx, object);
+	let tag = get_tag(cx, object)?;
 
 	let colour = cfg.colours.object;
 	let mut fallback = fallback;

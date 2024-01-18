@@ -36,7 +36,7 @@ impl<'cx> FromValue<'cx> for URLSearchParamsInit {
 			let vec = object
 				.iter(cx, None)
 				.map(|(key, value)| {
-					let value = String::from_value(cx, &value, strict, ())?;
+					let value = String::from_value(cx, &value?, strict, ())?;
 					match key.to_owned_key(cx) {
 						OwnedKey::Int(i) => Ok((i.to_string(), value)),
 						OwnedKey::String(key) => Ok((key, value)),

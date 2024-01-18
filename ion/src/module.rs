@@ -28,7 +28,7 @@ impl ModuleData {
 	pub fn from_private(cx: &Context, private: &Value) -> Option<ModuleData> {
 		private.handle().is_object().then(|| {
 			let private = private.to_object(cx);
-			let path: Option<String> = private.get_as(cx, "path", true, ());
+			let path: Option<String> = private.get_as(cx, "path", true, ()).unwrap();
 			ModuleData { path }
 		})
 	}
@@ -142,7 +142,7 @@ impl<'cx> Module<'cx> {
 			}
 		} else {
 			Err(ModuleError::new(
-				ErrorReport::new(cx).unwrap(),
+				ErrorReport::new(cx).unwrap().unwrap(),
 				ModuleErrorKind::Compilation,
 			))
 		}
@@ -153,7 +153,7 @@ impl<'cx> Module<'cx> {
 		if unsafe { ModuleLink(cx.as_ptr(), self.0.handle().into()) } {
 			Ok(())
 		} else {
-			Err(ErrorReport::new(cx).unwrap())
+			Err(ErrorReport::new(cx)?.unwrap())
 		}
 	}
 
@@ -163,7 +163,7 @@ impl<'cx> Module<'cx> {
 		if unsafe { ModuleEvaluate(cx.as_ptr(), self.0.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval)
 		} else {
-			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx)?.unwrap())
 		}
 	}
 }

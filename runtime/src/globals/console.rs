@@ -15,7 +15,7 @@ use term_table::{Table, TableStyle};
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-use ion::{Context, Object, OwnedKey, Stack, Value};
+use ion::{Context, Object, OwnedKey, Result, Stack, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::{format_value, indent_str};
@@ -285,7 +285,7 @@ fn timeEnd(Opt(label): Opt<String>) {
 }
 
 #[js_fn]
-fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
+fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()> {
 	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
@@ -331,7 +331,7 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
 			let mut has_values = false;
 
 			for row in &rows {
-				let value = object.get(cx, row).unwrap();
+				let value = object.get(cx, row)?.unwrap();
 				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 					let obj_keys = object.keys(cx, None).map(|key| key.to_owned_key(cx));
 					keys.extend(obj_keys);
@@ -360,7 +360,7 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
 		table.add_row(Row::new(header_row));
 
 		for row in rows.iter() {
-			let value = object.get(cx, row).unwrap();
+			let value = object.get(cx, row)?.unwrap();
 			let mut table_row = vec![TableCell::new_with_alignment(
 				format_key(cx, FormatConfig::default(), row),
 				1,
@@ -369,7 +369,7 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
 
 			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 				for column in &columns {
-					if let Some(value) = object.get(cx, column) {
+					if let Some(value) = object.get(cx, column)? {
 						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
 						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))
 					} else {
@@ -400,6 +400,8 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) {
 			format_value(cx, FormatConfig::default().indentation(indents), &data)
 		);
 	}
+
+	Ok(())
 }
 
 const METHODS: &[JSFunctionSpec] = &[

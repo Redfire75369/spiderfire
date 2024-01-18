@@ -29,7 +29,7 @@ impl<'s> Script<'s> {
 		if !script.is_null() {
 			Ok(Script { script: cx.root_script(script) })
 		} else {
-			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx)?.unwrap())
 		}
 	}
 
@@ -41,7 +41,7 @@ impl<'s> Script<'s> {
 		if unsafe { JS_ExecuteScript(cx.as_ptr(), self.script.handle().into(), rval.handle_mut().into()) } {
 			Ok(rval)
 		} else {
-			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
+			Err(ErrorReport::new_with_exception_stack(cx)?.unwrap())
 		}
 	}
 

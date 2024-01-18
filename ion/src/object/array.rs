@@ -10,7 +10,7 @@ use std::ops::{Deref, DerefMut};
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
 
-use crate::{Context, Local, Object, PropertyDescriptor, Value};
+use crate::{Context, Local, Object, PropertyDescriptor, Result, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::object::object::ObjectKeysIter;
@@ -99,7 +99,7 @@ impl<'a> Array<'a> {
 
 	/// Gets the [Value] at the given index of the [Array].
 	/// Returns [None] if there is no value at the given index.
-	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Option<Value<'cx>> {
+	pub fn get<'cx>(&self, cx: &'cx Context, index: u32) -> Result<Option<Value<'cx>>> {
 		self.arr.get(cx, index)
 	}
 
@@ -107,13 +107,13 @@ impl<'a> Array<'a> {
 	/// Returns [None] if there is no value at the given index or conversion to the Rust type fails.
 	pub fn get_as<'cx, T: FromValue<'cx>>(
 		&self, cx: &'cx Context, index: u32, strict: bool, config: T::Config,
-	) -> Option<T> {
+	) -> Result<Option<T>> {
 		self.arr.get_as(cx, index, strict, config)
 	}
 
 	/// Gets the descriptor at the given index of the [Array].
 	/// Returns [None] if there is no value at the given index.
-	pub fn get_descriptor<'cx>(&self, cx: &'cx Context, index: u32) -> Option<PropertyDescriptor<'cx>> {
+	pub fn get_descriptor<'cx>(&self, cx: &'cx Context, index: u32) -> Result<Option<PropertyDescriptor<'cx>>> {
 		self.arr.get_descriptor(cx, index)
 	}
 
@@ -243,11 +243,11 @@ impl<'cx, 'a> ArrayIter<'cx, 'a> {
 }
 
 impl<'cx> Iterator for ArrayIter<'cx, '_> {
-	type Item = (u32, Value<'cx>);
+	type Item = (u32, Result<Value<'cx>>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.indices.next().map(|index| {
-			let value = self.array.get(self.cx, index).unwrap();
+			let value = self.array.get(self.cx, index).transpose().unwrap();
 			(index, value)
 		})
 	}
@@ -260,7 +260,7 @@ impl<'cx> Iterator for ArrayIter<'cx, '_> {
 impl DoubleEndedIterator for ArrayIter<'_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.indices.next_back().map(|index| {
-			let value = self.array.get(self.cx, index).unwrap();
+			let value = self.array.get(self.cx, index).transpose().unwrap();
 			(index, value)
 		})
 	}

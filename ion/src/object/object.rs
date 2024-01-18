@@ -20,7 +20,7 @@ use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsval::NullValue;
 use mozjs::rust::IdVector;
 
-use crate::{Context, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Value};
+use crate::{Context, Error, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Result, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::function::NativeFunction;
@@ -80,11 +80,11 @@ impl<'o> Object<'o> {
 	/// Gets the [Value] at the given key of the [Object].
 	///
 	/// Returns [None] if there is no value at the given key.
-	pub fn get<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> Option<Value<'cx>> {
+	pub fn get<'cx, K: ToPropertyKey<'cx>>(&self, cx: &'cx Context, key: K) -> Result<Option<Value<'cx>>> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
 			let mut rval = Value::undefined(cx);
-			unsafe {
+			let res = unsafe {
 				JS_GetPropertyById(
 					cx.as_ptr(),
 					self.handle().into(),
@@ -92,9 +92,14 @@ impl<'o> Object<'o> {
 					rval.handle_mut().into(),
 				)
 			};
-			Some(rval)
+
+			if res {
+				Ok(Some(rval))
+			} else {
+				Err(Error::none())
+			}
 		} else {
-			None
+			Ok(None)
 		}
 	}
 
@@ -102,21 +107,21 @@ impl<'o> Object<'o> {
 	/// Returns [None] if the object does not contain the key or conversion to the Rust type fails.
 	pub fn get_as<'cx, K: ToPropertyKey<'cx>, T: FromValue<'cx>>(
 		&self, cx: &'cx Context, key: K, strict: bool, config: T::Config,
-	) -> Option<T> {
-		self.get(cx, key).and_then(|val| T::from_value(cx, &val, strict, config).ok())
+	) -> Result<Option<T>> {
+		self.get(cx, key)?.map(|val| T::from_value(cx, &val, strict, config)).transpose()
 	}
 
 	/// Gets the descriptor at the given key of the [Object].
 	/// Returns [None] if the object does not contain the key.
 	pub fn get_descriptor<'cx, K: ToPropertyKey<'cx>>(
 		&self, cx: &'cx Context, key: K,
-	) -> Option<PropertyDescriptor<'cx>> {
+	) -> Result<Option<PropertyDescriptor<'cx>>> {
 		let key = key.to_key(cx).unwrap();
 		if self.has(cx, &key) {
 			let mut desc = PropertyDescriptor::empty(cx);
 			let mut holder = Object::null(cx);
 			let mut is_none = true;
-			unsafe {
+			let res = unsafe {
 				JS_GetPropertyDescriptorById(
 					cx.as_ptr(),
 					self.handle().into(),
@@ -126,13 +131,16 @@ impl<'o> Object<'o> {
 					&mut is_none,
 				)
 			};
-			if is_none {
-				None
+
+			if !res {
+				Err(Error::none())
+			} else if is_none {
+				Ok(None)
 			} else {
-				Some(desc)
+				Ok(Some(desc))
 			}
 		} else {
-			None
+			Ok(None)
 		}
 	}
 
@@ -297,11 +305,13 @@ impl<'o> Object<'o> {
 		ObjectIter::new(cx, self, self.keys(cx, flags))
 	}
 
-	pub fn to_hashmap<'cx>(&self, cx: &'cx Context, flags: Option<IteratorFlags>) -> HashMap<OwnedKey<'cx>, Value<'cx>>
+	pub fn to_hashmap<'cx>(
+		&self, cx: &'cx Context, flags: Option<IteratorFlags>,
+	) -> Result<HashMap<OwnedKey<'cx>, Value<'cx>>>
 	where
 		'o: 'cx,
 	{
-		self.iter(cx, flags).map(|(k, v)| (k.to_owned_key(cx), v)).collect()
+		self.iter(cx, flags).map(|(k, v)| Ok((k.to_owned_key(cx), v?))).collect()
 	}
 
 	pub fn into_local(self) -> Local<'o, *mut JSObject> {
@@ -403,11 +413,11 @@ impl<'cx, 'o> ObjectIter<'cx, 'o> {
 }
 
 impl<'cx> Iterator for ObjectIter<'cx, '_> {
-	type Item = (PropertyKey<'cx>, Value<'cx>);
+	type Item = (PropertyKey<'cx>, Result<Value<'cx>>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.keys.next().map(|key| {
-			let value = self.object.get(self.cx, &key).unwrap();
+			let value = self.object.get(self.cx, &key).transpose().unwrap();
 			(key, value)
 		})
 	}
@@ -420,7 +430,7 @@ impl<'cx> Iterator for ObjectIter<'cx, '_> {
 impl DoubleEndedIterator for ObjectIter<'_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.keys.next_back().map(|key| {
-			let value = self.object.get(self.cx, &key).unwrap();
+			let value = self.object.get(self.cx, &key).transpose().unwrap();
 			(key, value)
 		})
 	}

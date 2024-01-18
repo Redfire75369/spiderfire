@@ -43,7 +43,7 @@ impl<'b> BigInt<'b> {
 		if !bi.is_null() {
 			Ok(BigInt::from(cx.root_bigint(bi)))
 		} else {
-			Err(Exception::new(cx).unwrap())
+			Err(Exception::new(cx)?.unwrap())
 		}
 	}
 
@@ -74,7 +74,7 @@ impl<'b> BigInt<'b> {
 		if !bi.is_null() {
 			Ok(BigInt::from(cx.root_bigint(bi)))
 		} else {
-			Err(Exception::new(cx))
+			Err(Exception::new(cx).map_err(|e| Some(Exception::Error(e)))?)
 		}
 	}
 

@@ -61,10 +61,10 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 
 	assert!(rt.run_event_loop().await.is_ok());
 
-	let exception = rt.global().get(rt.cx(), EXCEPTION_STRING).unwrap();
-	let exception = Exception::from_value(cx, &exception);
-	match exception {
-		Exception::Error(Error { ref message, .. }) => {
+	let exception = rt.global().get(rt.cx(), EXCEPTION_STRING).unwrap().unwrap();
+	let exception = Exception::from_value(cx, &exception).unwrap();
+	match &exception {
+		Exception::Error(Error { message, .. }) => {
 			assert_eq!(message, &error, "{}: {:#?}", filename, exception);
 		}
 		_ => {

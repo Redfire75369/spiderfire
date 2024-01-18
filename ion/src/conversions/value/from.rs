@@ -66,7 +66,7 @@ macro_rules! impl_from_value_for_integer {
 
 				match unsafe { <$ty>::from_jsval(cx.as_ptr(), value, config) } {
 					Ok(ConversionResult::Success(number)) => Ok(number),
-					Err(_) => Err(Exception::new(cx).unwrap().to_error()),
+					Err(_) => Err(Exception::new(cx)?.unwrap().to_error()),
 					_ => unreachable!(),
 				}
 			}

@@ -16,7 +16,7 @@ fn main() {
 	let _realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
 	let _native = global.define_method(cx, "native", native, 1, PropertyFlags::all());
-	let native: Function = global.get_as(cx, "native", true, ()).unwrap();
+	let native: Function = global.get_as(cx, "native", true, ()).unwrap().unwrap();
 
 	let args = vec![Value::null(cx), Value::bool(cx, true), Value::string(cx, "Old String")];
 	let result = native.call(cx, &Object::null(cx), args.as_slice());

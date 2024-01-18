@@ -46,13 +46,13 @@ impl NativeModule for UrlM {
 		let global = Object::global(cx);
 
 		if unsafe { url.define_methods(cx, FUNCTIONS) } {
-			if let Some(global_url) = global.get(cx, "URL") {
+			if let Some(global_url) = global.get(cx, "URL").unwrap() {
 				url.set(cx, "URL", &global_url);
 			} else {
 				URL::init_class(cx, &url);
 			}
 
-			if let Some(url_search_params) = global.get(cx, "URLSearchParams") {
+			if let Some(url_search_params) = global.get(cx, "URLSearchParams").unwrap() {
 				url.set(cx, "URLSearchParams", &url_search_params);
 			} else {
 				URLSearchParams::init_class(cx, &url);

@@ -181,7 +181,7 @@ impl<'f> Function<'f> {
 		} {
 			Ok(rval)
 		} else {
-			Err(ErrorReport::new_with_exception_stack(cx))
+			Err(ErrorReport::new_with_exception_stack(cx).unwrap())
 		}
 	}
 

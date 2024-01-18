@@ -57,7 +57,7 @@ impl Display for ArrayDisplay<'_> {
 
 					for index in 0..len {
 						inner.fmt(f)?;
-						let desc = self.array.get_descriptor(self.cx, index).unwrap();
+						let desc = self.array.get_descriptor(self.cx, index)?.unwrap();
 						format_descriptor(self.cx, self.cfg, &desc, Some(self.array.as_object())).fmt(f)?;
 						",".color(colour).fmt(f)?;
 						f.write_str(NEWLINE)?;
@@ -69,7 +69,7 @@ impl Display for ArrayDisplay<'_> {
 					let len = length.clamp(0, 3);
 
 					for index in 0..len {
-						let desc = self.array.get_descriptor(self.cx, index).unwrap();
+						let desc = self.array.get_descriptor(self.cx, index)?.unwrap();
 						format_descriptor(self.cx, self.cfg, &desc, Some(self.array.as_object())).fmt(f)?;
 
 						if index != len - 1 {

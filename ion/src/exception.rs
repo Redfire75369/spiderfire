@@ -14,7 +14,7 @@ use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Object, Stack, Value};
+use crate::{Context, Error, ErrorKind, Object, Stack, Result, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::format::{Config, format_value, NEWLINE};
 use crate::stack::Location;
@@ -34,43 +34,43 @@ pub enum Exception {
 impl Exception {
 	/// Gets an [Exception] from the runtime and clears the pending exception.
 	/// Returns [None] if there is no pending exception.
-	pub fn new(cx: &Context) -> Option<Exception> {
+	pub fn new(cx: &Context) -> Result<Option<Exception>> {
 		unsafe {
 			if JS_IsExceptionPending(cx.as_ptr()) {
 				let mut exception = Value::undefined(cx);
 				if JS_GetPendingException(cx.as_ptr(), exception.handle_mut().into()) {
-					let exception = Exception::from_value(cx, &exception);
+					let exception = Exception::from_value(cx, &exception)?;
 					Exception::clear(cx);
-					Some(exception)
+					Ok(Some(exception))
 				} else {
-					None
+					Ok(None)
 				}
 			} else {
-				None
+				Ok(None)
 			}
 		}
 	}
 
 	/// Converts a [Value] into an [Exception].
-	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Exception {
+	pub fn from_value<'cx>(cx: &'cx Context, value: &Value<'cx>) -> Result<Exception> {
 		if value.handle().is_object() {
 			let object = value.to_object(cx);
 			Exception::from_object(cx, &object)
 		} else {
-			Exception::Other(value.get())
+			Ok(Exception::Other(value.get()))
 		}
 	}
 
 	/// Converts an [Object] into an [Exception].
 	/// If the object is an error object, it is parsed as an [Error].
-	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Exception {
+	pub fn from_object<'cx>(cx: &'cx Context, exception: &Object<'cx>) -> Result<Exception> {
 		unsafe {
 			let handle = exception.handle();
 			if exception.get_builtin_class(cx) == ESClass::Error {
-				let message = String::from_value(cx, &exception.get(cx, "message").unwrap(), true, ()).unwrap();
-				let file: String = exception.get_as(cx, "fileName", true, ()).unwrap();
-				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp).unwrap();
-				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp).unwrap();
+				let message = String::from_value(cx, &exception.get(cx, "message")?.unwrap(), true, ()).unwrap();
+				let file: String = exception.get_as(cx, "fileName", true, ())?.unwrap();
+				let lineno: u32 = exception.get_as(cx, "lineNumber", true, ConversionBehavior::Clamp)?.unwrap();
+				let column: u32 = exception.get_as(cx, "columnNumber", true, ConversionBehavior::Clamp)?.unwrap();
 
 				let location = Location { file, lineno, column };
 				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(handle.get()));
@@ -80,9 +80,9 @@ impl Exception {
 					location: Some(location),
 					object: Some(handle.get()),
 				};
-				Exception::Error(error)
+				Ok(Exception::Error(error))
 			} else {
-				Exception::Other(ObjectValue(handle.get()))
+				Ok(Exception::Other(ObjectValue(handle.get())))
 			}
 		}
 	}
@@ -181,36 +181,37 @@ pub struct ErrorReport {
 impl ErrorReport {
 	/// Creates a new [ErrorReport] with an [Exception] from the runtime and clears the pending exception.
 	/// Returns [None] if there is no pending exception.
-	pub fn new(cx: &Context) -> Option<ErrorReport> {
-		Exception::new(cx).map(|exception| ErrorReport { exception, stack: None })
+	pub fn new(cx: &Context) -> Result<Option<ErrorReport>> {
+		Ok(Exception::new(cx)?.map(|exception| ErrorReport { exception, stack: None }))
 	}
 
 	/// Creates a new [ErrorReport] with an [Exception] and [Error]'s exception stack.
 	/// Returns [None] if there is no pending exception.
-	pub fn new_with_error_stack(cx: &Context) -> Option<ErrorReport> {
-		ErrorReport::new(cx).map(|report| ErrorReport::from_exception_with_error_stack(cx, report.exception))
+	pub fn new_with_error_stack(cx: &Context) -> Result<Option<ErrorReport>> {
+		Ok(ErrorReport::new(cx)?.map(|report| ErrorReport::from_exception_with_error_stack(cx, report.exception)))
 	}
 
 	/// Creates a new [ErrorReport] with an [Exception] and exception stack from the runtime.
 	/// Returns [None] if there is no pending exception.
-	pub fn new_with_exception_stack(cx: &Context) -> Option<ErrorReport> {
+	pub fn new_with_exception_stack(cx: &Context) -> Result<Option<ErrorReport>> {
 		unsafe {
 			if JS_IsExceptionPending(cx.as_ptr()) {
 				let mut exception_stack = ExceptionStack {
 					exception_: Rooted::new_unrooted(),
 					stack_: Rooted::new_unrooted(),
 				};
+
 				if GetPendingExceptionStack(cx.as_ptr(), &mut exception_stack) {
 					let exception = Value::from(cx.root_value(exception_stack.exception_.ptr));
-					let exception = Exception::from_value(cx, &exception);
+					let exception = Exception::from_value(cx, &exception)?;
 					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
 					Exception::clear(cx);
-					Some(ErrorReport { exception, stack })
+					Ok(Some(ErrorReport { exception, stack }))
 				} else {
-					None
+					Ok(None)
 				}
 			} else {
-				None
+				Ok(None)
 			}
 		}
 	}

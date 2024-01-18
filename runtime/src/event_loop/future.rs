@@ -52,7 +52,7 @@ impl FutureQueue {
 			};
 
 			if !result {
-				return Err(ErrorReport::new_with_exception_stack(cx));
+				return Err(ErrorReport::new_with_exception_stack(cx).unwrap());
 			}
 		}
 

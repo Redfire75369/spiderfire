@@ -19,8 +19,8 @@ fn array() {
 	array.set(cx, 0, &Value::null(cx));
 	array.define(cx, 2, &Value::undefined(cx), PropertyFlags::all());
 
-	let value1 = array.get(cx, 0).unwrap();
-	let value2 = array.get(cx, 2).unwrap();
+	let value1 = array.get(cx, 0).unwrap().unwrap();
+	let value2 = array.get(cx, 2).unwrap().unwrap();
 	assert_eq!(
 		String::from("null"),
 		String::from_value(cx, &value1, false, ()).unwrap()
@@ -32,6 +32,6 @@ fn array() {
 
 	assert!(array.delete(cx, 0));
 	assert!(array.delete(cx, 2));
-	assert!(array.get(cx, 0).is_none());
-	assert!(array.get(cx, 2).is_some());
+	assert!(array.get(cx, 0).unwrap().is_none());
+	assert!(array.get(cx, 2).unwrap().is_some());
 }

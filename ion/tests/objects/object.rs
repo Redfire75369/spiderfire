@@ -19,8 +19,8 @@ fn object() {
 	object.set(cx, "key1", &Value::null(cx));
 	object.define(cx, "key2", &Value::undefined(cx), PropertyFlags::all());
 
-	let value1 = object.get(cx, "key1").unwrap();
-	let value2 = object.get(cx, "key2").unwrap();
+	let value1 = object.get(cx, "key1").unwrap().unwrap();
+	let value2 = object.get(cx, "key2").unwrap().unwrap();
 	assert_eq!(
 		String::from("null"),
 		String::from_value(cx, &value1, false, ()).unwrap()
@@ -38,6 +38,6 @@ fn object() {
 
 	assert!(object.delete(cx, "key1"));
 	assert!(object.delete(cx, "key2"));
-	assert!(object.get(cx, "key1").is_none());
-	assert!(object.get(cx, "key2").is_some());
+	assert!(object.get(cx, "key1").unwrap().is_none());
+	assert!(object.get(cx, "key2").unwrap().is_some());
 }

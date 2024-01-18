@@ -461,7 +461,7 @@ fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object) -> Resu
 		};
 
 		let name = HeaderName::from_str(&key.to_lowercase())?;
-		let value = obj.get(cx, &key).unwrap();
+		let value = obj.get(cx, &key)?.unwrap();
 		if let Ok(array) = Array::from_value(cx, &value, false, ()) {
 			let vec: Vec<_> = array
 				.to_vec(cx)
