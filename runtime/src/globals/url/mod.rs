@@ -11,7 +11,7 @@ use url::Url;
 
 use ion::{ClassDefinition, Context, Error, Local, Object, Result};
 use ion::class::Reflector;
-use ion::function::{Enforce, Opt};
+use ion::function::Opt;
 pub use search_params::URLSearchParams;
 
 mod search_params;
@@ -114,52 +114,46 @@ impl URL {
 	}
 
 	#[ion(get)]
-	pub fn get_host(&self) -> Option<String> {
-		self.url.host_str().map(|host| {
-			if let Some(port) = self.url.port() {
-				format!("{}:{}", host, port)
-			} else {
-				String::from(host)
-			}
-		})
+	pub fn get_host(&self) -> String {
+		self.url
+			.host_str()
+			.map(|host| {
+				if let Some(port) = self.url.port() {
+					format!("{}:{}", host, port)
+				} else {
+					String::from(host)
+				}
+			})
+			.unwrap_or_default()
 	}
 
 	#[ion(set)]
-	pub fn set_host(&mut self, Opt(host): Opt<String>) -> Result<()> {
-		if let Some(host) = host {
-			let segments: Vec<&str> = host.split(':').collect();
-			let (host, port) = match segments.len().cmp(&2) {
-				Ordering::Less => Ok((segments[0], None)),
-				Ordering::Greater => Err(Error::new("Invalid Host", None)),
-				Ordering::Equal => {
-					let port = match segments[1].parse::<u16>() {
-						Ok(port) => Ok(port),
-						Err(error) => Err(Error::new(&error.to_string(), None)),
-					}?;
-					Ok((segments[0], Some(port)))
-				}
-			}?;
+	pub fn set_host(&mut self, host: String) -> Result<()> {
+		let segments: Vec<&str> = host.split(':').collect();
+		let (host, port) = match segments.len().cmp(&2) {
+			Ordering::Less => Ok((segments[0], None)),
+			Ordering::Greater => Err(Error::new("Invalid Host", None)),
+			Ordering::Equal => {
+				let port = match segments[1].parse::<u16>() {
+					Ok(port) => Ok(port),
+					Err(error) => Err(Error::new(&error.to_string(), None)),
+				}?;
+				Ok((segments[0], Some(port)))
+			}
+		}?;
 
-			self.url.set_host(Some(host))?;
-
-			self.url.set_port(port).map_err(|_| Error::new("Invalid Url", None))?;
-		} else {
-			self.url.set_host(None)?;
-			self.url.set_port(None).map_err(|_| Error::new("Invalid Url", None))?;
-		}
-		Ok(())
+		self.url.set_host(Some(host))?;
+		self.url.set_port(port).map_err(|_| Error::new("Invalid Url", None))
 	}
 
 	#[ion(get)]
-	pub fn get_hostname(&self) -> Option<String> {
-		self.url.host_str().map(String::from)
+	pub fn get_hostname(&self) -> String {
+		self.url.host_str().map(String::from).unwrap_or_default()
 	}
 
 	#[ion(set)]
-	pub fn set_hostname(&mut self, Opt(hostname): Opt<String>) -> Result<()> {
-		self.url
-			.set_host(hostname.as_deref())
-			.map_err(|error| Error::new(&error.to_string(), None))
+	pub fn set_hostname(&mut self, hostname: String) -> Result<()> {
+		self.url.set_host(Some(&hostname)).map_err(|error| Error::new(&error.to_string(), None))
 	}
 
 	#[ion(get)]
@@ -168,13 +162,14 @@ impl URL {
 	}
 
 	#[ion(get)]
-	pub fn get_port(&self) -> Option<u16> {
-		self.url.port_or_known_default()
+	pub fn get_port(&self) -> String {
+		self.url.port_or_known_default().map(|port| port.to_string()).unwrap_or_default()
 	}
 
 	#[ion(set)]
-	pub fn set_port(&mut self, Opt(port): Opt<Enforce<u16>>) -> Result<()> {
-		self.url.set_port(port.map(|p| p.0)).map_err(|_| Error::new("Invalid Port", None))
+	pub fn set_port(&mut self, port: String) -> Result<()> {
+		let port = if port.is_empty() { None } else { Some(port.parse()?) };
+		self.url.set_port(port).map_err(|_| Error::new("Invalid Port", None))
 	}
 
 	#[ion(get)]
@@ -204,28 +199,37 @@ impl URL {
 	}
 
 	#[ion(set)]
-	pub fn set_password(&mut self, Opt(password): Opt<String>) -> Result<()> {
-		self.url.set_password(password.as_deref()).map_err(|_| Error::new("Invalid Url", None))
+	pub fn set_password(&mut self, password: String) -> Result<()> {
+		self.url.set_password(Some(&password)).map_err(|_| Error::new("Invalid Url", None))
 	}
 
 	#[ion(get)]
-	pub fn get_search(&self) -> Option<String> {
-		self.url.query().map(String::from)
+	pub fn get_search(&self) -> String {
+		self.url.query().map(|search| format!("?{}", search)).unwrap_or_default()
 	}
 
 	#[ion(set)]
-	pub fn set_search(&mut self, Opt(search): Opt<String>) {
-		self.url.set_query(search.as_deref());
+	pub fn set_search(&mut self, cx: &Context, search: String) {
+		if search.is_empty() {
+			self.url.set_query(None);
+		} else {
+			self.url.set_query(Some(&search));
+		}
+
+		let search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
+		if let Ok(search_params) = URLSearchParams::get_mut_private(cx, &search_params) {
+			search_params.set_pairs(self.url.query_pairs().into_owned().collect());
+		}
 	}
 
 	#[ion(get)]
-	pub fn get_hash(&self) -> Option<String> {
-		self.url.fragment().map(String::from)
+	pub fn get_hash(&self) -> String {
+		self.url.fragment().map(|hash| format!("#{}", hash)).unwrap_or_default()
 	}
 
 	#[ion(set)]
-	pub fn set_hash(&mut self, Opt(hash): Opt<String>) {
-		self.url.set_fragment(hash.as_deref());
+	pub fn set_hash(&mut self, hash: String) {
+		self.url.set_fragment(Some(&*hash).filter(|hash| !hash.is_empty()));
 	}
 
 	#[ion(get)]

@@ -14,7 +14,7 @@ use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Object, Stack, Result, Value};
+use crate::{Context, Error, ErrorKind, Object, Result, Stack, Value};
 use crate::conversions::{FromValue, ToValue};
 use crate::format::{Config, format_value, NEWLINE};
 use crate::stack::Location;

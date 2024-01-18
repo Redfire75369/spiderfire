@@ -46,6 +46,7 @@ impl<'cx> FromValue<'cx> for URLSearchParamsInit {
 				.collect::<Result<_>>()?;
 			Ok(URLSearchParamsInit(vec))
 		} else if let Ok(string) = String::from_value(cx, value, strict, ()) {
+			let string = string.strip_prefix('?').unwrap_or(&string);
 			Ok(URLSearchParamsInit(parse(string.as_bytes()).into_owned().collect()))
 		} else {
 			Err(Error::new("Invalid Search Params Initialiser", ErrorKind::Type))
@@ -63,6 +64,10 @@ pub struct URLSearchParams {
 impl URLSearchParams {
 	pub fn pairs(&self) -> &[(String, String)] {
 		&self.pairs
+	}
+
+	pub(super) fn set_pairs(&mut self, pairs: Vec<(String, String)>) {
+		self.pairs = pairs;
 	}
 }
 
@@ -86,10 +91,6 @@ impl URLSearchParams {
 		}
 	}
 
-	pub(super) fn set_pairs(&mut self, pairs: Vec<(String, String)>) {
-		self.pairs = pairs;
-	}
-
 	#[ion(get)]
 	pub fn get_size(&self) -> i32 {
 		self.pairs.len() as i32
@@ -102,7 +103,7 @@ impl URLSearchParams {
 
 	pub fn delete(&mut self, name: String, Opt(value): Opt<String>) {
 		if let Some(value) = value {
-			self.pairs.retain(|(k, v)| k != &name && v != &value)
+			self.pairs.retain(|(k, v)| k != &name || v != &value)
 		} else {
 			self.pairs.retain(|(k, _)| k != &name)
 		}
