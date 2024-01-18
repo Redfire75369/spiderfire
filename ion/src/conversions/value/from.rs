@@ -114,7 +114,13 @@ impl<'cx> FromValue<'cx> for *mut JSString {
 		if strict && !value.is_string() {
 			return Err(Error::new("Expected String in Strict Conversion", ErrorKind::Type));
 		}
-		Ok(unsafe { ToString(cx.as_ptr(), value) })
+
+		let str = unsafe { ToString(cx.as_ptr(), value) };
+		if str.is_null() {
+			Err(Error::new("Failed to convert value to String", ErrorKind::Type))
+		} else {
+			Ok(str)
+		}
 	}
 }
 
