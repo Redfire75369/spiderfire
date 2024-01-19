@@ -12,7 +12,7 @@ pub mod console;
 pub mod encoding;
 #[cfg(feature = "fetch")]
 pub mod fetch;
-mod file;
+pub mod file;
 pub mod microtasks;
 pub mod timers;
 pub mod url;

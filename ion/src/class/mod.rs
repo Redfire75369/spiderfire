@@ -29,13 +29,17 @@ mod reflect;
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ClassInfo {
-	class: &'static NativeClass,
-	constructor: *mut JSFunction,
-	prototype: *mut JSObject,
+	pub class: &'static NativeClass,
+	pub constructor: *mut JSFunction,
+	pub prototype: *mut JSObject,
 }
 
 pub trait ClassDefinition: NativeObject {
 	fn class() -> &'static NativeClass;
+
+	fn parent_class_info(_: &Context) -> Option<(&'static NativeClass, Local<*mut JSObject>)> {
+		None
+	}
 
 	fn proto_class() -> Option<&'static NativeClass> {
 		None
