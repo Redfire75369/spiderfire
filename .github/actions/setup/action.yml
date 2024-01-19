@@ -27,7 +27,9 @@ runs:
     - name: Install Dependencies on MacOS
       if: inputs.os == 'macos'
       shell: bash
-      run: brew install --overwrite python autoconf@2.13 llvm yasm
+      run: |
+        brew list -1 | grep python | while read formula; do brew unlink $formula; brew link --overwrite $formula; done
+        brew install llvm yasm
 
     - name: Install Dependencies on Linux
       if: inputs.os == 'linux'
