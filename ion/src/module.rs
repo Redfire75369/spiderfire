@@ -14,7 +14,7 @@ use mozjs::jsapi::{
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
-use crate::{Context, ErrorReport, Local, Object, Promise, Value};
+use crate::{Context, Error, ErrorReport, Local, Object, Promise, ThrowException, Value};
 use crate::conversions::{FromValue, ToValue};
 
 /// Represents private module data
@@ -103,12 +103,10 @@ pub struct Module<'m>(pub Object<'m>);
 
 impl<'cx> Module<'cx> {
 	/// Compiles a [Module] with the given source and filename.
-	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
-	/// The promise is a byproduct of enabling top-level await.
 	#[allow(clippy::result_large_err)]
 	pub fn compile(
 		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
-	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
+	) -> Result<Module<'cx>, ModuleError> {
 		let script: Vec<u16> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
@@ -128,23 +126,34 @@ impl<'cx> Module<'cx> {
 				SetModulePrivate(module.0.handle().get(), &*private.handle());
 			}
 
-			if let Err(error) = module.instantiate(cx) {
-				return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));
-			}
-
-			let eval_result = module.evaluate(cx);
-			match eval_result {
-				Ok(val) => {
-					let promise = Promise::from_value(cx, &val, true, ()).ok();
-					Ok((module, promise))
-				}
-				Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
-			}
+			Ok(module)
 		} else {
 			Err(ModuleError::new(
 				ErrorReport::new(cx).unwrap().unwrap(),
 				ModuleErrorKind::Compilation,
 			))
+		}
+	}
+
+	/// Compiles and evaluates a [Module] with the given source and filename.
+	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
+	/// The promise is a byproduct of enabling top-level await.
+	#[allow(clippy::result_large_err)]
+	pub fn compile_and_evaluate(
+		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
+	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
+		let module = Module::compile(cx, filename, path, script)?;
+
+		if let Err(error) = module.instantiate(cx) {
+			return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));
+		}
+
+		match module.evaluate(cx) {
+			Ok(val) => {
+				let promise = Promise::from_value(cx, &val, true, ()).ok();
+				Ok((module, promise))
+			}
+			Err(error) => Err(ModuleError::new(error, ModuleErrorKind::Evaluation)),
 		}
 	}
 
@@ -172,26 +181,28 @@ impl<'cx> Module<'cx> {
 pub trait ModuleLoader {
 	/// Given a request and private data of a module, resolves the request into a compiled module object.
 	/// Should return the same module object for a given request.
-	fn resolve(&mut self, cx: &Context, private: &Value, request: &ModuleRequest) -> *mut JSObject;
+	fn resolve<'cx>(
+		&mut self, cx: &'cx Context, private: &Value, request: &ModuleRequest,
+	) -> crate::Result<Module<'cx>>;
 
 	/// Registers a new module in the module registry. Useful for native modules.
-	fn register(&mut self, cx: &Context, module: *mut JSObject, request: &ModuleRequest) -> *mut JSObject;
+	fn register(&mut self, cx: &Context, module: *mut JSObject, request: &ModuleRequest) -> crate::Result<()>;
 
 	/// Returns metadata of a module, used to populate `import.meta`.
-	fn metadata(&self, cx: &Context, private: &Value, meta: &Object) -> bool;
+	fn metadata(&self, cx: &Context, private: &Value, meta: &Object) -> crate::Result<()>;
 }
 
 impl ModuleLoader for () {
-	fn resolve(&mut self, _: &Context, _: &Value, _: &ModuleRequest) -> *mut JSObject {
-		ptr::null_mut()
+	fn resolve<'cx>(&mut self, _: &'cx Context, _: &Value, _: &ModuleRequest) -> crate::Result<Module<'cx>> {
+		Err(Error::new("Modules are unsupported by this loader.", None))
 	}
 
-	fn register(&mut self, _: &Context, _: *mut JSObject, _: &ModuleRequest) -> *mut JSObject {
-		ptr::null_mut()
+	fn register(&mut self, _: &Context, _: *mut JSObject, _: &ModuleRequest) -> crate::Result<()> {
+		Ok(())
 	}
 
-	fn metadata(&self, _: &Context, _: &Value, _: &Object) -> bool {
-		true
+	fn metadata(&self, _: &Context, _: &Value, _: &Object) -> crate::Result<()> {
+		Ok(())
 	}
 }
 
@@ -200,15 +211,21 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn resolve(
 		cx: *mut JSContext, private: Handle<JSVal>, request: Handle<*mut JSObject>,
 	) -> *mut JSObject {
-		let cx = unsafe { Context::new_unchecked(cx) };
+		let cx = &unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
 			.as_mut()
-			.map(|loader| {
+			.and_then(|loader| {
 				let private = unsafe { Value::from(Local::from_raw_handle(private)) };
 				let request = unsafe { ModuleRequest::from_raw_request(request) };
-				loader.resolve(&cx, &private, &request)
+				match loader.resolve(cx, &private, &request) {
+					Ok(module) => Some(module.0.handle().get()),
+					Err(e) => {
+						e.throw(cx);
+						None
+					}
+				}
 			})
 			.unwrap_or_else(ptr::null_mut)
 	}
@@ -216,7 +233,7 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 	unsafe extern "C" fn metadata(
 		cx: *mut JSContext, private_data: Handle<JSVal>, metadata: Handle<*mut JSObject>,
 	) -> bool {
-		let cx = unsafe { Context::new_unchecked(cx) };
+		let cx = &unsafe { Context::new_unchecked(cx) };
 
 		let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 		loader
@@ -224,7 +241,13 @@ pub fn init_module_loader<ML: ModuleLoader + 'static>(cx: &Context, loader: ML) 
 			.map(|loader| {
 				let private = Value::from(unsafe { Local::from_raw_handle(private_data) });
 				let metadata = Object::from(unsafe { Local::from_raw_handle(metadata) });
-				loader.metadata(&cx, &private, &metadata)
+				match loader.metadata(cx, &private, &metadata) {
+					Ok(_) => true,
+					Err(e) => {
+						e.throw(cx);
+						false
+					}
+				}
 			})
 			.unwrap_or_else(|| true)
 	}

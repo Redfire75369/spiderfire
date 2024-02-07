@@ -50,7 +50,7 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 	let path = format!("./tests/scripts/assert/{}.js", test);
 	let error = format!("Assertion Failed: assert.{}", test);
 
-	let result = Module::compile(cx, &filename, Some(Path::new(&path)), script);
+	let result = Module::compile_and_evaluate(cx, &filename, Some(Path::new(&path)), script);
 	assert!(result.is_ok(), "Exception was thrown in: {}", filename);
 
 	let (_, promise) = result.unwrap();

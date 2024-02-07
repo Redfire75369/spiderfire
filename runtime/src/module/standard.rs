@@ -49,12 +49,11 @@ pub fn init_module<M: NativeModule>(cx: &Context, global: &Object) -> bool {
 
 	if let Some(module) = module {
 		if global.define_as(cx, internal, &module, PropertyFlags::CONSTANT) {
-			let (module, _) = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
+			let module = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
 			let loader = unsafe { &mut (*cx.get_inner_data().as_ptr()).module_loader };
 			return loader.as_mut().is_some_and(|loader| {
 				let request = ModuleRequest::new(cx, M::NAME);
-				loader.register(cx, module.0.handle().get(), &request);
-				true
+				loader.register(cx, module.0.handle().get(), &request).is_ok()
 			});
 		}
 	}
