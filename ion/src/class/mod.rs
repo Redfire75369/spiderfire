@@ -8,13 +8,14 @@ use std::any::TypeId;
 use std::collections::hash_map::Entry;
 use std::ffi::CStr;
 use std::ptr;
+use mozjs::gc::Traceable;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot, JSFunction,
-	JSFunctionSpec, JSObject, JSPropertySpec,
+	GCContext, Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
+	JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
 };
-use mozjs::jsval::{PrivateValue, UndefinedValue};
+use mozjs::jsval::{NullValue, PrivateValue, UndefinedValue};
 use mozjs::rust::HandleObject;
 
 use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
@@ -219,4 +220,30 @@ fn private_error(class: &'static NativeClass) -> Error {
 		&format!("Object does not implement interface {}", name),
 		ErrorKind::Type,
 	)
+}
+
+#[doc(hidden)]
+pub unsafe extern "C" fn finalise_native_object_operation<T>(_: *mut GCContext, this: *mut JSObject) {
+	let mut value = NullValue();
+	unsafe {
+		JS_GetReservedSlot(this, 0, &mut value);
+	}
+	if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
+		let private = value.to_private().cast_mut().cast::<T>();
+		let _ = unsafe { Box::from_raw(private) };
+	}
+}
+
+#[doc(hidden)]
+pub unsafe extern "C" fn trace_native_object_operation<T: Traceable>(trc: *mut JSTracer, this: *mut JSObject) {
+	let mut value = NullValue();
+	unsafe {
+		JS_GetReservedSlot(this, 0, &mut value);
+	}
+	if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
+		unsafe {
+			let private = &*(value.to_private().cast::<T>());
+			private.trace(trc);
+		}
+	}
 }

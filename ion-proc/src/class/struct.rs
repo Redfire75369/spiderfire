@@ -5,7 +5,7 @@
  */
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Error, ImplItemFn, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
+use syn::{Error, ItemImpl, ItemStruct, Member, parse2, Path, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
@@ -86,8 +86,8 @@ fn class_impls(
 	let from_value = impl_from_value(ion, span, r#type, false)?;
 	let from_value_mut = impl_from_value(ion, span, r#type, true)?;
 
-	let derived_from = quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {});
-	let derived_from = parse2(derived_from)?;
+	let derived_from =
+		parse2(quote_spanned!(span => unsafe impl #ion::class::DerivedFrom<#super_type> for #r#type {}))?;
 	let castable = parse2(quote_spanned!(span => impl #ion::class::Castable for #r#type {}))?;
 
 	let native_object = parse2(quote_spanned!(span => impl #ion::class::NativeObject for #r#type {
@@ -97,13 +97,9 @@ fn class_impls(
 	}))?;
 
 	let none = quote!(::std::option::Option::None);
-
-	let operations = class_operations(span)?;
 	let name = format!("{}\0", name);
 
 	let mut class_impl: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
-		#(#operations)*
-
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {
 			const ION_TYPE_ID: #ion::class::TypeIdWrapper<#r#type> = #ion::class::TypeIdWrapper::new();
 			#super_type::__ion_native_prototype_chain().push(&ION_TYPE_ID)
@@ -117,10 +113,10 @@ fn class_impls(
 				newEnumerate: #none,
 				resolve: #none,
 				mayResolve: #none,
-				finalize: ::std::option::Option::Some(#r#type::__ion_finalise_operation),
+				finalize: ::std::option::Option::Some(#ion::class::finalise_native_object_operation::<#r#type>),
 				call: #none,
 				construct: #none,
-				trace: ::std::option::Option::Some(#r#type::__ion_trace_operation),
+				trace: ::std::option::Option::Some(#ion::class::trace_native_object_operation::<#r#type>),
 			};
 
 			const ION_NATIVE_CLASS: #ion::class::NativeClass = #ion::class::NativeClass {
@@ -169,38 +165,4 @@ fn impl_from_value(ion: &TokenStream, span: Span, r#type: &Type, mutable: bool) 
 			}
 		}),
 	)
-}
-
-fn class_operations(span: Span) -> Result<[ImplItemFn; 2]> {
-	let finalise = parse2(
-		quote_spanned!(span => unsafe extern "C" fn __ion_finalise_operation(_: *mut ::mozjs::jsapi::GCContext, this: *mut ::mozjs::jsapi::JSObject) {
-				let mut value = ::mozjs::jsval::NullValue();
-				unsafe {
-					::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
-				}
-				if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-					let private = value.to_private().cast_mut() as *mut Self;
-					let _ = unsafe { ::std::boxed::Box::from_raw(private) };
-				}
-			}
-		),
-	)?;
-
-	let trace = parse2(
-		quote_spanned!(span => unsafe extern "C" fn __ion_trace_operation(trc: *mut ::mozjs::jsapi::JSTracer, this: *mut ::mozjs::jsapi::JSObject) {
-				let mut value = ::mozjs::jsval::NullValue();
-				unsafe {
-					::mozjs::glue::JS_GetReservedSlot(this, 0, &mut value);
-				}
-				if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-					unsafe {
-						let private = &*(value.to_private() as *const Self);
-						::mozjs::gc::Traceable::trace(private, trc);
-					}
-				}
-			}
-		),
-	)?;
-
-	Ok([finalise, trace])
 }

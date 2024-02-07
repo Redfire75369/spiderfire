@@ -191,7 +191,8 @@ fn class_definition(
 	let constructor_nargs = constructor.nargs as u32;
 	let class_definition = parse2(quote_spanned!(span => impl #ion::ClassDefinition for #r#type {
 		fn class() -> &'static #ion::class::NativeClass {
-			Self::__ion_native_class()
+			static __ION_NATIVE_CLASS: &#ion::class::NativeClass = #r#type::__ion_native_class();
+			__ION_NATIVE_CLASS
 		}
 
 		fn constructor() -> (#ion::function::NativeFunction, ::core::primitive::u32) {

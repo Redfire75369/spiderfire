@@ -29,6 +29,7 @@ pub trait Castable: NativeObject {
 		if class.is_null() {
 			return false;
 		}
+
 		unsafe {
 			(*class.cast::<NativeClass>())
 				.prototype_chain
