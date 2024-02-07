@@ -41,7 +41,7 @@ impl<'cx> Arguments<'cx> {
 			let func = crate::String::from(unsafe {
 				Local::from_marked(&JS_GetFunctionId(JS_GetObjectFunction(self.callee.handle().get())))
 			})
-			.to_owned(cx);
+			.to_owned(cx)?;
 
 			return Err(Error::new(
 				&format!(

@@ -286,19 +286,22 @@ fn timeEnd(Opt(label): Opt<String>) {
 
 #[js_fn]
 fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()> {
-	fn sort_keys<'cx, I: IntoIterator<Item = OwnedKey<'cx>>>(cx: &'cx Context, unsorted: I) -> IndexSet<OwnedKey<'cx>> {
+	fn sort_keys<'cx, I: IntoIterator<Item = Result<OwnedKey<'cx>>>>(
+		cx: &'cx Context, unsorted: I,
+	) -> Result<IndexSet<OwnedKey<'cx>>> {
 		let mut indexes = IndexSet::<i32>::new();
 		let mut headers = IndexSet::<String>::new();
 
 		for key in unsorted {
 			match key {
-				OwnedKey::Int(index) => indexes.insert(index),
-				OwnedKey::String(header) => headers.insert(header),
+				Ok(OwnedKey::Int(index)) => indexes.insert(index),
+				Ok(OwnedKey::String(header)) => headers.insert(header),
+				Err(e) => return Err(e),
 				_ => false,
 			};
 		}
 
-		combine_keys(cx, indexes, headers)
+		Ok(combine_keys(cx, indexes, headers))
 	}
 
 	fn combine_keys(_: &Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<OwnedKey> {
@@ -312,10 +315,11 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()
 
 	let indents = INDENTS.get();
 	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
-		let (rows, columns, has_values) = if let Some(columns) = columns {
-			let rows = object.keys(cx, None).map(|key| key.to_owned_key(cx));
-			let mut keys = IndexSet::<OwnedKey>::new();
+		let rows = object.keys(cx, None).map(|key| key.to_owned_key(cx));
+		let mut has_values = false;
 
+		let (rows, columns) = if let Some(columns) = columns {
+			let mut keys = IndexSet::new();
 			for column in columns.into_iter() {
 				let key = match column.parse::<i32>() {
 					Ok(int) => OwnedKey::Int(int),
@@ -324,23 +328,26 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()
 				keys.insert(key);
 			}
 
-			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter()), false)
+			(sort_keys(cx, rows)?, sort_keys(cx, keys.into_iter().map(Ok))?)
 		} else {
-			let rows: Vec<_> = object.keys(cx, None).map(|key| key.to_owned_key(cx)).collect();
-			let mut keys = IndexSet::<OwnedKey>::new();
-			let mut has_values = false;
+			let rows: Vec<_> = rows.collect();
+			let mut keys = IndexSet::new();
 
 			for row in &rows {
+				let row = row.as_ref().map_err(|e| e.clone())?;
 				let value = object.get(cx, row)?.unwrap();
 				if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 					let obj_keys = object.keys(cx, None).map(|key| key.to_owned_key(cx));
-					keys.extend(obj_keys);
+					keys.reserve(obj_keys.len());
+					for key in obj_keys {
+						keys.insert(key?);
+					}
 				} else {
 					has_values = true;
 				}
 			}
 
-			(sort_keys(cx, rows), sort_keys(cx, keys.into_iter()), has_values)
+			(sort_keys(cx, rows)?, sort_keys(cx, keys.into_iter().map(Ok))?)
 		};
 
 		let mut table = Table::new();

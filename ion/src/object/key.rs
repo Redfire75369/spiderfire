@@ -12,7 +12,7 @@ use mozjs::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey, ProtoKeyToId};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsid::{IntId, VoidId};
 
-use crate::{Context, Local, String, Symbol, Value};
+use crate::{Context, Local, String, Symbol, Value, Result};
 use crate::conversions::ToPropertyKey;
 
 pub struct PropertyKey<'k> {
@@ -51,15 +51,17 @@ impl<'k> PropertyKey<'k> {
 		(proto_key != JSProtoKey::JSProto_Null).then_some(proto_key)
 	}
 
-	pub fn to_owned_key<'cx>(&self, cx: &'cx Context) -> OwnedKey<'cx> {
+	pub fn to_owned_key<'cx>(&self, cx: &'cx Context) -> Result<OwnedKey<'cx>> {
 		if self.handle().is_int() {
-			OwnedKey::Int(self.handle().to_int())
+			Ok(OwnedKey::Int(self.handle().to_int()))
 		} else if self.handle().is_string() {
-			OwnedKey::String(String::from(cx.root_string(self.handle().to_string())).to_owned(cx))
+			Ok(OwnedKey::String(
+				String::from(cx.root_string(self.handle().to_string())).to_owned(cx)?,
+			))
 		} else if self.handle().is_symbol() {
-			OwnedKey::Symbol(cx.root_symbol(self.handle().to_symbol()).into())
+			Ok(OwnedKey::Symbol(cx.root_symbol(self.handle().to_symbol()).into()))
 		} else {
-			OwnedKey::Void
+			Ok(OwnedKey::Void)
 		}
 	}
 

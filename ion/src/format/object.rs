@@ -26,6 +26,7 @@ use crate::format::function::format_function;
 use crate::format::key::format_key;
 use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
+use crate::format::string::format_string;
 use crate::format::typedarray::{format_array_buffer, format_typed_array};
 use crate::symbol::WellKnownSymbolCode;
 use crate::typedarray::{
@@ -107,7 +108,7 @@ impl Display for ObjectDisplay<'_> {
 
 				format_raw_object(cx, cfg, &self.object).fmt(f)
 			}
-			_ => self.object.as_value(cx).to_source(cx).to_owned(cx).fmt(f),
+			_ => format_string(cx, cfg, &self.object.as_value(cx).to_source(cx)).fmt(f),
 		}
 	}
 }
@@ -255,7 +256,7 @@ pub(crate) fn write_prefix(
 fn write_key_descriptor(
 	f: &mut Formatter, cx: &Context, cfg: Config, key: &PropertyKey, desc: &PropertyDescriptor, object: Option<&Object>,
 ) -> fmt::Result {
-	format_key(cx, cfg, &key.to_owned_key(cx)).fmt(f)?;
+	format_key(cx, cfg, &key.to_owned_key(cx)?).fmt(f)?;
 	": ".color(cfg.colours.object).fmt(f)?;
 	format_descriptor(cx, cfg, desc, object).fmt(f)
 }

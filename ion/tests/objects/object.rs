@@ -33,7 +33,7 @@ fn object() {
 	let keys = object.keys(cx, None);
 	for (i, key) in keys.enumerate() {
 		let expected = format!("key{}", i + 1);
-		assert_eq!(key.to_owned_key(cx), OwnedKey::String(expected));
+		assert_eq!(key.to_owned_key(cx).unwrap(), OwnedKey::String(expected));
 	}
 
 	assert!(object.delete(cx, "key1"));

@@ -26,6 +26,7 @@ pub mod object;
 pub mod primitive;
 pub mod promise;
 pub mod regexp;
+mod string;
 pub mod symbol;
 pub mod typedarray;
 

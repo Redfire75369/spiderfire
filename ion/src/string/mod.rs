@@ -20,7 +20,7 @@ use mozjs::jsapi::{
 use mozjs::jsapi::mozilla::MallocSizeOf;
 use utf16string::{WStr, WString};
 
-use crate::{Context, Local};
+use crate::{Context, Error, ErrorKind, Local};
 use crate::string::byte::{ByteStr, Latin1};
 use crate::utils::BoxExt;
 
@@ -175,7 +175,7 @@ impl<'s> String<'s> {
 
 	/// Converts the [String] into a [WStr].
 	/// Returns [None] if the string contains only Latin-1 characters.
-	pub fn as_wstr(&self, cx: &Context) -> Option<&'s WStr<NativeEndian>> {
+	pub fn as_wstr(&self, cx: &Context) -> crate::Result<Option<&'s WStr<NativeEndian>>> {
 		self.is_utf16()
 			.then(|| unsafe {
 				let mut length = 0;
@@ -183,7 +183,19 @@ impl<'s> String<'s> {
 				let slice = slice::from_raw_parts(chars, length);
 				cast_slice(slice)
 			})
-			.map(|bytes| WStr::from_utf16(bytes).unwrap())
+			.map(|bytes| {
+				WStr::from_utf16(bytes)
+					.map_err(|_| Error::new("String contains invalid UTF-16 codepoints", ErrorKind::Type))
+			})
+			.transpose()
+	}
+
+	pub fn as_wtf16(&self, cx: &Context) -> Option<&'s [u16]> {
+		self.is_utf16().then(|| unsafe {
+			let mut length = 0;
+			let chars = JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length);
+			slice::from_raw_parts(chars, length)
+		})
 	}
 
 	pub fn as_ref(&self, cx: &Context) -> StringRef<'s> {
@@ -200,14 +212,14 @@ impl<'s> String<'s> {
 	}
 
 	/// Converts a [String] to an owned [String](RustString).
-	pub fn to_owned(&self, cx: &Context) -> RustString {
+	pub fn to_owned(&self, cx: &Context) -> crate::Result<RustString> {
 		if let Some(chars) = self.as_latin1(cx) {
 			let mut string = RustString::with_capacity(chars.len());
 			string.extend(chars.iter().map(|c| *c as char));
-			string
+			Ok(string)
 		} else {
-			let string = self.as_wstr(cx).unwrap();
-			string.to_utf8()
+			let string = self.as_wstr(cx)?.unwrap();
+			Ok(string.to_utf8())
 		}
 	}
 }

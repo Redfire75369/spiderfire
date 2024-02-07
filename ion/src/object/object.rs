@@ -311,7 +311,7 @@ impl<'o> Object<'o> {
 	where
 		'o: 'cx,
 	{
-		self.iter(cx, flags).map(|(k, v)| Ok((k.to_owned_key(cx), v?))).collect()
+		self.iter(cx, flags).map(|(k, v)| Ok((k.to_owned_key(cx)?, v?))).collect()
 	}
 
 	pub fn into_local(self) -> Local<'o, *mut JSObject> {

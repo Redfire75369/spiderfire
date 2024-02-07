@@ -901,6 +901,7 @@ dependencies = [
  "byteorder",
  "chrono",
  "colored",
+ "encoding_rs",
  "futures",
  "indent",
  "ion-proc",

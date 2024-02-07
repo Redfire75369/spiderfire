@@ -35,12 +35,16 @@ impl<'cx> FromValue<'cx> for URLSearchParamsInit {
 		} else if let Ok(object) = Object::from_value(cx, value, strict, ()) {
 			let vec = object
 				.iter(cx, None)
-				.map(|(key, value)| {
-					let value = String::from_value(cx, &value?, strict, ())?;
+				.filter_map(|(key, value)| {
+					let value = match value.and_then(|v| String::from_value(cx, &v, strict, ())) {
+						Ok(v) => v,
+						Err(e) => return Some(Err(e)),
+					};
 					match key.to_owned_key(cx) {
-						OwnedKey::Int(i) => Ok((i.to_string(), value)),
-						OwnedKey::String(key) => Ok((key, value)),
-						_ => unreachable!(),
+						Ok(OwnedKey::Int(i)) => Some(Ok((i.to_string(), value))),
+						Ok(OwnedKey::String(key)) => Some(Ok((key, value))),
+						Err(e) => Some(Err(e)),
+						_ => None,
 					}
 				})
 				.collect::<Result<_>>()?;

@@ -60,8 +60,8 @@ impl<'r> RegExp<'r> {
 		flags.into()
 	}
 
-	pub fn to_string(&self, cx: &Context) -> String {
-		format!("/{}/{}", self.source(cx).to_owned(cx), self.flags(cx))
+	pub fn to_string(&self, cx: &Context) -> crate::Result<String> {
+		Ok(format!("/{}/{}", self.source(cx).to_owned(cx)?, self.flags(cx)))
 	}
 
 	pub fn execute_test(&self, cx: &Context, string: &str, index: &mut usize) -> bool {

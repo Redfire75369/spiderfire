@@ -14,6 +14,7 @@ use crate::{Context, Symbol, Value};
 use crate::bigint::BigInt;
 use crate::conversions::FromValue;
 use crate::format::Config;
+use crate::format::string::format_string;
 use crate::format::symbol::format_symbol;
 
 /// Formats a primitive value using the given [configuration](Config).
@@ -51,19 +52,15 @@ impl Display for PrimitiveDisplay<'_> {
 				number.to_string().color(colours.number).fmt(f)
 			}
 		} else if value.is_string() {
-			let str = crate::String::from_value(self.cx, self.value, true, ()).unwrap().to_owned(self.cx);
-			if self.cfg.quoted {
-				write!(f, "{0}{1}{0}", r#"""#.color(colours.string), str.color(colours.string))
-			} else {
-				str.fmt(f)
-			}
+			let str = crate::String::from_value(self.cx, self.value, true, ()).unwrap();
+			format_string(self.cx, self.cfg, &str).fmt(f)
 		} else if value.is_null() {
 			"null".color(colours.null).fmt(f)
 		} else if value.is_undefined() {
 			"undefined".color(colours.undefined).fmt(f)
 		} else if value.is_bigint() {
 			let bi = BigInt::from(self.cx.root_bigint(value.to_bigint()));
-			bi.to_string(self.cx, 10).unwrap().to_owned(self.cx).color(colours.bigint).fmt(f)?;
+			bi.to_string(self.cx, 10).unwrap().to_owned(self.cx)?.color(colours.bigint).fmt(f)?;
 			"n".color(colours.bigint).fmt(f)
 		} else if value.is_symbol() {
 			let symbol = Symbol::from(self.cx.root_symbol(value.to_symbol()));

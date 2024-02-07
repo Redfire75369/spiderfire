@@ -455,8 +455,8 @@ fn remove_privileged_no_cors_headers(headers: &mut HeaderMap, kind: HeadersKind)
 fn append_to_headers(cx: &Context, headers: &mut HeaderMap, obj: Object) -> Result<()> {
 	for key in obj.keys(cx, None).map(|key| key.to_owned_key(cx)) {
 		let key = match key {
-			OwnedKey::Int(i) => i.to_string(),
-			OwnedKey::String(s) => s,
+			Ok(OwnedKey::Int(i)) => i.to_string(),
+			Ok(OwnedKey::String(s)) => s,
 			_ => continue,
 		};
 

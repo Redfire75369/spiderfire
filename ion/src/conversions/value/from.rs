@@ -169,7 +169,7 @@ impl<'cx> FromValue<'cx> for String {
 	type Config = ();
 
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<String> {
-		crate::String::from_value(cx, value, strict, config).map(|s| s.to_owned(cx))
+		crate::String::from_value(cx, value, strict, config).and_then(|s| s.to_owned(cx))
 	}
 }
 
