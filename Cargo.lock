@@ -907,7 +907,6 @@ dependencies = [
  "ion-proc",
  "itoa",
  "mozjs",
- "mozjs_sys",
  "sourcemap",
  "typed-arena",
  "utf16string",

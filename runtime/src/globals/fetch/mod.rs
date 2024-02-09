@@ -20,7 +20,6 @@ use http::header::{
 	IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use mozjs::jsapi::JSObject;
-use mozjs::rust::IntoHandle;
 use sys_locale::get_locales;
 use tokio::fs::read;
 use uri_url::url_to_uri;
@@ -70,7 +69,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(cx, &signal).unwrap();
 	if let Some(reason) = signal.get_reason() {
-		promise.reject(cx, &cx.root_value(reason).into());
+		promise.reject(cx, &cx.root(reason).into());
 		return Some(promise);
 	}
 
@@ -92,13 +91,12 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 		headers.headers.append(ACCEPT_LANGUAGE, HeaderValue::from_str(&locale_string).unwrap());
 	}
 
-	let request = cx.root_persistent_object(Request::new_object(cx, Box::new(request)));
+	let request = cx.root_persistent(Request::new_object(cx, Box::new(request)));
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
-	let request = request.handle().into_handle();
 	future_to_promise(cx, async move {
-		let request = Object::from(unsafe { Local::from_raw_handle(request) });
+		let request = Object::from(request);
 		let res = fetch_internal(&cx2, &request, GLOBAL_CLIENT.get().unwrap().clone()).await;
-		cx2.unroot_persistent_object(request.handle().get());
+		cx2.unroot_persistent(request.handle().get());
 		res
 	})
 }

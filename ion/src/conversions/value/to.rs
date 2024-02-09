@@ -128,7 +128,7 @@ impl<'cx, T: ToOwned + ToValue<'cx>> ToValue<'cx> for Cow<'_, T> {
 
 impl<'cx, T: BytePredicate> ToValue<'cx> for ByteStr<T> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
-		unsafe { JS_NewStringCopyN(cx.as_ptr(), self.as_ptr() as *const _, self.len()).to_value(cx, value) }
+		unsafe { JS_NewStringCopyN(cx.as_ptr(), self.as_ptr().cast(), self.len()).to_value(cx, value) }
 	}
 }
 

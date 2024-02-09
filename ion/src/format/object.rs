@@ -14,7 +14,9 @@ use mozjs::jsapi::{
 	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
 };
 
-use crate::{Array, Context, Date, Exception, Function, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result};
+use crate::{
+	Array, Context, Date, Exception, Function, Local, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result,
+};
 use crate::conversions::ToValue;
 use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
@@ -53,7 +55,7 @@ impl Display for ObjectDisplay<'_> {
 
 		let cx = self.cx;
 		let cfg = self.cfg;
-		let object = Object::from(cx.root_object(self.object.handle().get()));
+		let object = Object::from(Local::from_handle(self.object.handle()));
 
 		let class = self.object.get_builtin_class(cx);
 
@@ -73,7 +75,7 @@ impl Display for ObjectDisplay<'_> {
 			},
 			ESC::Object => format_raw_object(cx, cfg, &self.object).fmt(f),
 			ESC::Other => {
-				if let Some(view) = ArrayBufferView::from(cx.root_object(object.handle().get())) {
+				if let Some(view) = ArrayBufferView::from(cx.root(object.handle().get())) {
 					'view: {
 						return match view.view_type() {
 							Type::Int8 => format_typed_array(cfg, &Int8Array::from(view.into_local()).unwrap()).fmt(f),
@@ -189,7 +191,7 @@ pub(crate) fn write_prefix(
 			if proto.handle().get().is_null() {
 				return None;
 			} else {
-				cx.root_object(JS_GetConstructor(cx.as_ptr(), proto.handle().into()))
+				cx.root(JS_GetConstructor(cx.as_ptr(), proto.handle().into()))
 			}
 		};
 

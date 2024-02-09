@@ -22,7 +22,7 @@ impl<'m> Map<'m> {
 	/// Creates a new empty [Map].
 	pub fn new(cx: &'m Context) -> Map<'m> {
 		Map {
-			map: cx.root_object(unsafe { NewMapObject(cx.as_ptr()) }),
+			map: cx.root(unsafe { NewMapObject(cx.as_ptr()) }),
 		}
 	}
 

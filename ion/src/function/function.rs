@@ -40,14 +40,14 @@ impl<'f> Function<'f> {
 		let name = CString::new(name).unwrap();
 		Function {
 			function: cx
-				.root_function(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, flags.bits() as u32, name.as_ptr()) }),
+				.root(unsafe { JS_NewFunction(cx.as_ptr(), func, nargs, u32::from(flags.bits()), name.as_ptr()) }),
 		}
 	}
 
 	/// Creates a new [Function] with the given [`spec`](JSFunctionSpec).
 	pub fn from_spec(cx: &'f Context, spec: &JSFunctionSpec) -> Function<'f> {
 		Function {
-			function: cx.root_function(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
+			function: cx.root(unsafe { NewFunctionFromSpec1(cx.as_ptr(), spec) }),
 		}
 	}
 
@@ -59,11 +59,11 @@ impl<'f> Function<'f> {
 	) -> Function<'f> {
 		unsafe {
 			let function = Function {
-				function: cx.root_function(NewFunctionWithReserved(
+				function: cx.root(NewFunctionWithReserved(
 					cx.as_ptr(),
 					Some(call_closure_once),
 					nargs,
-					flags.bits() as u32,
+					u32::from(flags.bits()),
 					name.as_ptr().cast(),
 				)),
 			};
@@ -83,11 +83,11 @@ impl<'f> Function<'f> {
 	) -> Function<'f> {
 		unsafe {
 			let function = Function {
-				function: cx.root_function(NewFunctionWithReserved(
+				function: cx.root(NewFunctionWithReserved(
 					cx.as_ptr(),
 					Some(call_closure),
 					nargs,
-					flags.bits() as u32,
+					u32::from(flags.bits()),
 					name.as_ptr().cast(),
 				)),
 			};
@@ -106,7 +106,7 @@ impl<'f> Function<'f> {
 	pub fn from_object(cx: &'f Context, obj: &Local<'_, *mut JSObject>) -> Option<Function<'f>> {
 		if unsafe { Function::is_function_raw(obj.get()) } {
 			Some(Function {
-				function: cx.root_function(unsafe { JS_GetObjectFunction(obj.get()) }),
+				function: cx.root(unsafe { JS_GetObjectFunction(obj.get()) }),
 			})
 		} else {
 			None
@@ -115,7 +115,7 @@ impl<'f> Function<'f> {
 
 	/// Converts the [Function] into an [Object].
 	pub fn to_object(&self, cx: &'f Context) -> Object<'f> {
-		cx.root_object(unsafe { JS_GetFunctionObject(self.get()) }).into()
+		cx.root(unsafe { JS_GetFunctionObject(self.get()) }).into()
 	}
 
 	/// Converts the [Function] into a [String] in the form of its definition/source.

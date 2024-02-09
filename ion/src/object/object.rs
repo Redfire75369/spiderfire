@@ -36,19 +36,19 @@ pub struct Object<'o> {
 impl<'o> Object<'o> {
 	/// Creates a plain empty [Object].
 	pub fn new(cx: &'o Context) -> Object<'o> {
-		Object::from(cx.root_object(unsafe { JS_NewPlainObject(cx.as_ptr()) }))
+		Object::from(cx.root(unsafe { JS_NewPlainObject(cx.as_ptr()) }))
 	}
 
 	/// Creates a `null` "Object".
 	///
 	/// Most operations on this will result in an error, so be wary of where it is used.
 	pub fn null(cx: &'o Context) -> Object<'o> {
-		Object::from(cx.root_object(NullValue().to_object_or_null()))
+		Object::from(cx.root(NullValue().to_object_or_null()))
 	}
 
 	/// Returns the current global object or `null` if one has not been initialised yet.
 	pub fn global(cx: &'o Context) -> Object<'o> {
-		Object::from(cx.root_object(unsafe { CurrentGlobalOrNull(cx.as_ptr()) }))
+		Object::from(cx.root(unsafe { CurrentGlobalOrNull(cx.as_ptr()) }))
 	}
 
 	/// Checks if the [Object] has a value at the given key.
@@ -181,7 +181,7 @@ impl<'o> Object<'o> {
 				self.handle().into(),
 				key.handle().into(),
 				value.handle().into(),
-				attrs.bits() as u32,
+				u32::from(attrs.bits()),
 			)
 		}
 	}
@@ -202,14 +202,14 @@ impl<'o> Object<'o> {
 		&self, cx: &'cx Context, key: K, method: NativeFunction, nargs: u32, attrs: PropertyFlags,
 	) -> Function<'cx> {
 		let key = key.to_key(cx).unwrap();
-		cx.root_function(unsafe {
+		cx.root(unsafe {
 			JS_DefineFunctionById(
 				cx.as_ptr(),
 				self.handle().into(),
 				key.handle().into(),
 				Some(method),
 				nargs,
-				attrs.bits() as u32,
+				u32::from(attrs.bits()),
 			)
 		})
 		.into()
@@ -369,7 +369,7 @@ impl<'cx> Iterator for ObjectKeysIter<'cx> {
 		if self.index < self.count {
 			let key = &self.slice[self.index];
 			self.index += 1;
-			Some(self.cx.root_property_key(*key).into())
+			Some(self.cx.root(*key).into())
 		} else {
 			None
 		}
@@ -385,7 +385,7 @@ impl<'cx> DoubleEndedIterator for ObjectKeysIter<'cx> {
 		if self.index < self.count {
 			self.count -= 1;
 			let key = &self.keys[self.count];
-			Some(self.cx.root_property_key(*key).into())
+			Some(self.cx.root(*key).into())
 		} else {
 			None
 		}

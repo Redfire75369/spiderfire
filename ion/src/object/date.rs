@@ -28,7 +28,7 @@ impl<'d> Date<'d> {
 	/// Creates a new [Date] with the given time.
 	pub fn from_date(cx: &'d Context, time: DateTime<Utc>) -> Date<'d> {
 		let date = unsafe { NewDateObject(cx.as_ptr(), ClippedTime { t: time.timestamp_millis() as f64 }) };
-		Date { date: cx.root_object(date) }
+		Date { date: cx.root(date) }
 	}
 
 	/// Creates a [Date] from an object.

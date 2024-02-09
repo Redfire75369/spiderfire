@@ -27,7 +27,7 @@ impl<'s> Set<'s> {
 	/// Creates a new empty [Set].
 	pub fn new(cx: &'s Context) -> Set<'s> {
 		Set {
-			set: cx.root_object(unsafe { NewSetObject(cx.as_ptr()) }),
+			set: cx.root(unsafe { NewSetObject(cx.as_ptr()) }),
 		}
 	}
 

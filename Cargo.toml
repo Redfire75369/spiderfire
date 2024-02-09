@@ -26,7 +26,6 @@ encoding_rs = "0.8.33"
 futures = "0.3.29"
 indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-mozjs_sys = { package = "mozjs_sys", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
 url = "2.5.0"
 
@@ -41,6 +40,12 @@ default-features = false
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "forbid"
+
+[workspace.lints.clippy]
+cast_lossless = "forbid"
+clone_on_ref_ptr = "forbid"
+ptr_as_ptr = "forbid"
+ptr_cast_constness = "forbid"
 
 [profile.release]
 lto = "fat"

@@ -20,7 +20,6 @@ chrono.workspace = true
 encoding_rs.workspace = true
 indent.workspace = true
 mozjs.workspace = true
-mozjs_sys.workspace = true
 
 [dependencies.futures]
 workspace = true

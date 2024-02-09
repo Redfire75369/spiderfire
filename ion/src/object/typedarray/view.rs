@@ -137,7 +137,7 @@ impl<'bv, T: TypedArrayElementCreator> TypedArray<'bv, T> {
 			return None;
 		}
 
-		let buffer = ArrayBuffer::from(cx.root_object(buffer)).unwrap();
+		let buffer = ArrayBuffer::from(cx.root(buffer)).unwrap();
 		TypedArray::with_array_buffer(cx, &buffer, 0, len)
 	}
 
@@ -151,7 +151,7 @@ impl<'bv, T: TypedArrayElementCreator> TypedArray<'bv, T> {
 			None
 		} else {
 			Some(TypedArray {
-				view: cx.root_object(view),
+				view: cx.root(view),
 				_phantom: PhantomData,
 			})
 		}
@@ -224,7 +224,7 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 	pub fn buffer<'ab>(&self, cx: &'ab Context) -> ArrayBuffer<'ab> {
 		let mut shared = false;
 		ArrayBuffer::from(
-			cx.root_object(unsafe { JS_GetArrayBufferViewBuffer(cx.as_ptr(), self.handle().into(), &mut shared) }),
+			cx.root(unsafe { JS_GetArrayBufferViewBuffer(cx.as_ptr(), self.handle().into(), &mut shared) }),
 		)
 		.unwrap()
 	}

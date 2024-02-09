@@ -33,7 +33,7 @@ impl Toggle {
 
 	#[ion(get, alias = ["switch"])]
 	pub fn get_toggle(&self) -> i32 {
-		self.toggled * self.toggle as i32
+		self.toggled * i32::from(self.toggle)
 	}
 
 	#[ion(set)]
@@ -42,7 +42,7 @@ impl Toggle {
 		if !self.reset() {
 			return false;
 		}
-		self.toggled = toggled + toggle as i32;
+		self.toggled = toggled + i32::from(toggle);
 		self.toggle = toggle;
 		toggle
 	}

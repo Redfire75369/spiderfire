@@ -131,25 +131,25 @@ impl<'s> Symbol<'s> {
 	/// Creates a new unique symbol with a given description.
 	pub fn new<'cx>(cx: &'cx Context, description: &str) -> Symbol<'cx> {
 		let description = description.as_value(cx);
-		let description = cx.root_string(description.handle().to_string());
+		let description = cx.root(description.handle().to_string());
 
 		let symbol = unsafe { NewSymbol(cx.as_ptr(), description.handle().into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Gets a [Symbol] from the symbol registry with the given key.
 	pub fn for_key<'cx>(cx: &'cx Context, key: &str) -> Symbol<'cx> {
 		let key = key.as_value(cx);
-		let key = cx.root_string(key.handle().to_string());
+		let key = cx.root(key.handle().to_string());
 
 		let symbol = unsafe { GetSymbolFor(cx.as_ptr(), key.handle().into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Creates a well-known symbol with its corresponding code.
 	pub fn well_known(cx: &Context, code: WellKnownSymbolCode) -> Symbol {
 		let symbol = unsafe { GetWellKnownSymbol(cx.as_ptr(), code.into()) };
-		Symbol { sym: cx.root_symbol(symbol) }
+		Symbol { sym: cx.root(symbol) }
 	}
 
 	/// Returns the identifying code of a [Symbol].

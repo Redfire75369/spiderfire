@@ -7,11 +7,10 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
-use mozjs::gc::{GCMethods, Handle, MutableHandle};
+use mozjs::gc::{GCMethods, Handle, MutableHandle, RootKind};
 use mozjs::jsapi::{Heap, Rooted};
 use mozjs::jsapi::Handle as RawHandle;
 use mozjs::jsapi::MutableHandle as RawMutableHandle;
-use mozjs_sys::jsgc::RootKind;
 
 use crate::Context;
 
@@ -68,14 +67,14 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 		Local::Rooted(root)
 	}
 
-	/// Creates a [Local] from a [MutableHandle].
-	pub fn from_handle_mut(handle: MutableHandle<'local, T>) -> Local<'local, T> {
-		Local::Mutable(handle)
-	}
-
 	/// Creates a [Local] from a [Handle].
 	pub fn from_handle(handle: Handle<'local, T>) -> Local<'local, T> {
 		Local::Handle(handle)
+	}
+
+	/// Creates a [Local] from a [MutableHandle].
+	pub fn from_handle_mut(handle: MutableHandle<'local, T>) -> Local<'local, T> {
+		Local::Mutable(handle)
 	}
 
 	/// Creates a [Local] from a marked (pointer).

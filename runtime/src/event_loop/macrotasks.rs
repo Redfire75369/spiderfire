@@ -116,8 +116,8 @@ impl Macrotask {
 			_ => unreachable!(),
 		};
 
-		let callback = Function::from(cx.root_function(callback));
-		let args: Vec<_> = args.into_vec().into_iter().map(|value| Value::from(cx.root_value(value))).collect();
+		let callback = Function::from(cx.root(callback));
+		let args: Vec<_> = args.into_vec().into_iter().map(|value| Value::from(cx.root(value))).collect();
 
 		callback.call(cx, &Object::global(cx), args.as_slice())?;
 		Ok(())

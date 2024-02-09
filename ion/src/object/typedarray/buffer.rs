@@ -64,7 +64,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		if buffer.is_null() {
 			None
 		} else {
-			Some(ArrayBuffer { buffer: cx.root_object(buffer) })
+			Some(ArrayBuffer { buffer: cx.root(buffer) })
 		}
 	}
 
@@ -114,7 +114,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		if buffer.is_null() {
 			None
 		} else {
-			Some(ArrayBuffer { buffer: cx.root_object(buffer) })
+			Some(ArrayBuffer { buffer: cx.root(buffer) })
 		}
 	}
 
@@ -145,7 +145,7 @@ impl<'ab> ArrayBuffer<'ab> {
 		if data.is_null() {
 			return Err(Error::new("ArrayBuffer transfer failed", ErrorKind::Normal));
 		}
-		let buffer = cx.root_object(unsafe { NewArrayBufferWithContents(cx.as_ptr(), len, data) });
+		let buffer = cx.root(unsafe { NewArrayBufferWithContents(cx.as_ptr(), len, data) });
 		if buffer.handle().is_null() {
 			return Err(Error::new("ArrayBuffer transfer failed", ErrorKind::Normal));
 		}

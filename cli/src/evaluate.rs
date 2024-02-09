@@ -81,7 +81,7 @@ pub(crate) async fn eval_module(path: &Path) {
 		if let Some(sourcemap) = sourcemap {
 			save_sourcemap(path, sourcemap);
 		}
-		let result = Module::compile(rt.cx(), &filename, Some(path), &script);
+		let result = Module::compile_and_evaluate(rt.cx(), &filename, Some(path), &script);
 
 		if let Err(mut error) = result {
 			transform_error_report_with_sourcemaps(&mut error.report);

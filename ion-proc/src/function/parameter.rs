@@ -35,7 +35,7 @@ pub(crate) struct ThisParameter {
 pub(crate) struct Parameters {
 	pub(crate) parameters: Vec<Parameter>,
 	pub(crate) this: Option<(ThisParameter, Ident, usize)>,
-	pub(crate) nargs: usize,
+	pub(crate) nargs: u16,
 }
 
 impl Parameter {
@@ -151,7 +151,7 @@ impl ThisParameter {
 
 impl Parameters {
 	pub(crate) fn parse(parameters: &Punctuated<FnArg, Token![,]>, ty: Option<&Type>) -> Result<Parameters> {
-		let mut nargs = 0;
+		let mut nargs: u16 = 0;
 		let mut this: Option<(ThisParameter, Ident, usize)> = None;
 
 		let parameters: Vec<_> = parameters
@@ -183,7 +183,10 @@ impl Parameters {
 				};
 				if let Type::Path(ty) = &*param.pat_ty.ty {
 					if !path_ends_with(&ty.path, "Opt") && !path_ends_with(&ty.path, "Rest") {
-						nargs += 1;
+						nargs = match nargs.checked_add(1) {
+							Some(nargs) => nargs,
+							None => return Some(Err(Error::new(arg.span(), "Function has too many arguments"))),
+						}
 					}
 				}
 				Some(Ok(param))
@@ -220,7 +223,7 @@ impl Parameters {
 	}
 
 	pub(crate) fn to_args(&self) -> Vec<FnArg> {
-		let mut args = Vec::with_capacity(self.parameters.len() + self.this.is_some() as usize);
+		let mut args = Vec::with_capacity(self.parameters.len() + usize::from(self.this.is_some()));
 
 		args.extend(
 			self.parameters

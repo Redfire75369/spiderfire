@@ -43,13 +43,13 @@ impl_to_key_for_integer!(u32);
 
 impl<'cx> ToPropertyKey<'cx> for *mut JSString {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		String::from(cx.root_string(*self)).to_key(cx)
+		String::from(cx.root(*self)).to_key(cx)
 	}
 }
 
 impl<'cx> ToPropertyKey<'cx> for String<'cx> {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
+		let mut key = PropertyKey::from(cx.root(VoidId()));
 		(unsafe { JS_StringToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 }
@@ -68,7 +68,7 @@ impl<'cx> ToPropertyKey<'cx> for &str {
 
 impl<'cx> ToPropertyKey<'cx> for *mut JSSymbol {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		Some(cx.root_property_key(SymbolId(*self)).into())
+		Some(cx.root(SymbolId(*self)).into())
 	}
 }
 
@@ -86,20 +86,20 @@ impl<'cx> ToPropertyKey<'cx> for WellKnownSymbolCode {
 
 impl<'cx> ToPropertyKey<'cx> for JSVal {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		Value::from(cx.root_value(*self)).to_key(cx)
+		Value::from(cx.root(*self)).to_key(cx)
 	}
 }
 
 impl<'cx> ToPropertyKey<'cx> for Value<'cx> {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
+		let mut key = PropertyKey::from(cx.root(VoidId()));
 		(unsafe { JS_ValueToId(cx.as_ptr(), self.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 }
 
 impl<'cx> ToPropertyKey<'cx> for JSPropertyKey {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-		Some(cx.root_property_key(*self).into())
+		Some(cx.root(*self).into())
 	}
 }
 
@@ -115,7 +115,7 @@ impl<'cx> ToPropertyKey<'cx> for OwnedKey<'cx> {
 			OwnedKey::Int(i) => i.to_key(cx),
 			OwnedKey::String(str) => str.to_key(cx),
 			OwnedKey::Symbol(symbol) => symbol.to_key(cx),
-			OwnedKey::Void => Some(cx.root_property_key(VoidId()).into()),
+			OwnedKey::Void => Some(cx.root(VoidId()).into()),
 		}
 	}
 }

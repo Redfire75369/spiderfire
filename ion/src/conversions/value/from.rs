@@ -128,7 +128,7 @@ impl<'cx> FromValue<'cx> for crate::String<'cx> {
 	type Config = ();
 
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: ()) -> Result<crate::String<'cx>> {
-		<*mut JSString>::from_value(cx, value, strict, config).map(|str| crate::String::from(cx.root_string(str)))
+		<*mut JSString>::from_value(cx, value, strict, config).map(|str| crate::String::from(cx.root(str)))
 	}
 }
 
@@ -293,7 +293,7 @@ impl<'cx, T: jsta::TypedArrayElement, S: JSObjectStorage> FromValue<'cx> for jst
 		let value = value.handle();
 		if value.is_object() {
 			let object = value.to_object();
-			cx.root_object(object);
+			cx.root(object);
 			jsta::TypedArray::from(object).map_err(|_| Error::new("Expected Typed Array", ErrorKind::Type))
 		} else {
 			Err(Error::new("Expected Object", ErrorKind::Type))
@@ -386,7 +386,7 @@ impl<'cx> FromValue<'cx> for Symbol<'cx> {
 	type Config = ();
 
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, config: Self::Config) -> Result<Symbol<'cx>> {
-		<*mut JSSymbol>::from_value(cx, value, strict, config).map(|s| cx.root_symbol(s).into())
+		<*mut JSSymbol>::from_value(cx, value, strict, config).map(|s| cx.root(s).into())
 	}
 }
 
@@ -410,7 +410,7 @@ impl<'cx> FromValue<'cx> for Value<'cx> {
 		unsafe {
 			AssertSameCompartment1(cx.as_ptr(), value.into());
 		}
-		Ok(cx.root_value(value.get()).into())
+		Ok(cx.root(value.get()).into())
 	}
 }
 
@@ -433,7 +433,7 @@ struct ForOfIteratorGuard<'a> {
 
 impl<'a> ForOfIteratorGuard<'a> {
 	fn new(cx: &Context, root: &'a mut ForOfIterator) -> Self {
-		cx.root_object(root.iterator.ptr);
+		cx.root(root.iterator.ptr);
 		ForOfIteratorGuard { root }
 	}
 }

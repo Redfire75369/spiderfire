@@ -19,12 +19,12 @@ pub struct PropertyDescriptor<'pd> {
 
 impl<'pd> PropertyDescriptor<'pd> {
 	pub fn empty(cx: &'pd Context) -> PropertyDescriptor<'pd> {
-		PropertyDescriptor::from(cx.root_property_descriptor(JSPropertyDescriptor::default()))
+		PropertyDescriptor::from(cx.root(JSPropertyDescriptor::default()))
 	}
 
 	pub fn new(cx: &'pd Context, value: &Value, attrs: PropertyFlags) -> PropertyDescriptor<'pd> {
 		let mut desc = PropertyDescriptor::empty(cx);
-		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), attrs.bits() as u32) };
+		unsafe { SetDataPropertyDescriptor(desc.handle_mut().into(), value.handle().into(), u32::from(attrs.bits())) };
 		desc
 	}
 
@@ -39,7 +39,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 				desc.handle_mut().into(),
 				getter.handle().into(),
 				setter.handle().into(),
-				attrs.bits() as u32,
+				u32::from(attrs.bits()),
 			)
 		};
 		desc
@@ -84,7 +84,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	pub fn getter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
 		if self.handle().hasGetter_() && !self.handle().getter_.is_null() {
 			Some(Function::from(
-				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().getter_) }),
+				cx.root(unsafe { JS_GetObjectFunction(self.handle().getter_) }),
 			))
 		} else {
 			None
@@ -94,7 +94,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	pub fn setter<'cx>(&self, cx: &'cx Context) -> Option<Function<'cx>> {
 		if self.handle().hasSetter_() && !self.handle().setter_.is_null() {
 			Some(Function::from(
-				cx.root_function(unsafe { JS_GetObjectFunction(self.handle().setter_) }),
+				cx.root(unsafe { JS_GetObjectFunction(self.handle().setter_) }),
 			))
 		} else {
 			None
@@ -102,7 +102,7 @@ impl<'pd> PropertyDescriptor<'pd> {
 	}
 
 	pub fn value<'cx>(&self, cx: &'cx Context) -> Option<Value<'cx>> {
-		self.handle().hasValue_().then(|| Value::from(cx.root_value(self.handle().value_)))
+		self.handle().hasValue_().then(|| Value::from(cx.root(self.handle().value_)))
 	}
 
 	pub fn into_local(self) -> Local<'pd, JSPropertyDescriptor> {

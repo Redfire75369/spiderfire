@@ -31,13 +31,13 @@ impl Microtask {
 	pub fn run(&self, cx: &Context) -> Result<(), Option<ErrorReport>> {
 		match self {
 			Microtask::Promise(job) => {
-				let object = cx.root_object(*job);
+				let object = cx.root(*job);
 				let function = Function::from_object(cx, &object).unwrap();
 
 				function.call(cx, &Object::null(cx), &[]).map(|_| ())
 			}
 			Microtask::User(callback) => {
-				let callback = Function::from(cx.root_function(*callback));
+				let callback = Function::from(cx.root(*callback));
 				callback.call(cx, &Object::global(cx), &[]).map(|_| ())
 			}
 			Microtask::None => Ok(()),

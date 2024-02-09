@@ -162,7 +162,7 @@ impl AbortSignal {
 	pub fn timeout(cx: &Context, Enforce(time): Enforce<u64>) -> *mut JSObject {
 		let (sender, receiver) = channel(None);
 		let terminate = Arc::new(AtomicBool::new(false));
-		let terminate2 = terminate.clone();
+		let terminate2 = Arc::clone(&terminate);
 
 		let error = Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx).get();
 		let callback = Box::new(move || {

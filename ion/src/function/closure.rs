@@ -26,7 +26,7 @@ pub type Closure = dyn for<'cx> FnMut(&mut Arguments<'cx>) -> ResultExc<Value<'c
 
 pub(crate) fn create_closure_once_object(cx: &Context, closure: Box<ClosureOnce>) -> Object {
 	unsafe {
-		let object = Object::from(cx.root_object(JS_NewObject(cx.as_ptr(), &CLOSURE_ONCE_CLASS)));
+		let object = Object::from(cx.root(JS_NewObject(cx.as_ptr(), &CLOSURE_ONCE_CLASS)));
 		JS_SetReservedSlot(
 			object.handle().get(),
 			CLOSURE_SLOT,
@@ -38,7 +38,7 @@ pub(crate) fn create_closure_once_object(cx: &Context, closure: Box<ClosureOnce>
 
 pub(crate) fn create_closure_object(cx: &Context, closure: Box<Closure>) -> Object {
 	unsafe {
-		let object = Object::from(cx.root_object(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
+		let object = Object::from(cx.root(JS_NewObject(cx.as_ptr(), &CLOSURE_CLASS)));
 		JS_SetReservedSlot(
 			object.handle().get(),
 			CLOSURE_SLOT,
@@ -50,7 +50,7 @@ pub(crate) fn create_closure_object(cx: &Context, closure: Box<Closure>) -> Obje
 
 fn get_function_reserved<'cx>(cx: &'cx Context, args: &Arguments) -> Value<'cx> {
 	let callee = args.callee();
-	Value::from(cx.root_value(unsafe { *GetFunctionNativeReserved(callee.handle().get(), 0) }))
+	Value::from(cx.root(unsafe { *GetFunctionNativeReserved(callee.handle().get(), 0) }))
 }
 
 fn get_reserved(object: *mut JSObject, slot: u32) -> JSVal {

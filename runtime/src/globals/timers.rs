@@ -29,7 +29,7 @@ fn set_timer(
 		};
 
 		let duration = duration.map(|t| t.0.max(minimum)).unwrap_or(minimum);
-		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration as i64));
+		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration.into()));
 		Ok(queue.enqueue(Macrotask::Timer(timer), None))
 	} else {
 		Err(Error::new("Macrotask Queue has not been initialised.", None))

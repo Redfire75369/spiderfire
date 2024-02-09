@@ -188,7 +188,7 @@ fn class_definition(
 	}))?;
 	spec_impls.attrs.push(parse_quote!(#[doc(hidden)]));
 
-	let constructor_nargs = constructor.nargs as u32;
+	let constructor_nargs = u32::from(constructor.nargs);
 	let class_definition = parse2(quote_spanned!(span => impl #ion::ClassDefinition for #r#type {
 		fn class() -> &'static #ion::class::NativeClass {
 			static __ION_NATIVE_CLASS: &#ion::class::NativeClass = #r#type::__ion_native_class();

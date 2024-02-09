@@ -142,7 +142,7 @@ impl Iterator {
 
 impl IntoValue<'_> for Iterator {
 	fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
-		let object = cx.root_object(Iterator::new_object(cx, self));
+		let object = cx.root(Iterator::new_object(cx, self));
 		object.handle().get().to_value(cx, value);
 	}
 }
@@ -218,7 +218,7 @@ impl ClassDefinition for Iterator {
 	}
 
 	fn parent_prototype(cx: &Context) -> Option<Local<*mut JSObject>> {
-		Some(cx.root_object(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
+		Some(cx.root(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
 	}
 
 	fn constructor() -> (NativeFunction, u32) {

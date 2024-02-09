@@ -36,11 +36,11 @@ pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, Sourc
 	let input = StringInput::from(&*file);
 
 	let comments = SingleThreadedComments::default();
-	let (handler, mut parser) = initialise_parser(source_map.clone(), &comments, input);
+	let (handler, mut parser) = initialise_parser(Lrc::clone(&source_map), &comments, input);
 
 	let mut buffer = Vec::new();
 	let mut mappings = Vec::new();
-	let mut emitter = initialise_emitter(source_map.clone(), &comments, &mut buffer, &mut mappings);
+	let mut emitter = initialise_emitter(Lrc::clone(&source_map), &comments, &mut buffer, &mut mappings);
 
 	let mut program = if Config::global().script {
 		Program::Script(parser.parse_script().map_err(|e| {
@@ -102,7 +102,7 @@ fn initialise_emitter<'a>(
 ) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
 		cfg: CodegenConfig::default().with_target(EsVersion::Es2022),
-		cm: source_map.clone(),
+		cm: Lrc::clone(&source_map),
 		comments: Some(comments),
 		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),
 	}

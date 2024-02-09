@@ -122,7 +122,7 @@ impl<ML: ModuleLoader + 'static, Std: StandardModules + 'static> RuntimeBuilder<
 					cx.as_ptr(),
 					CreateJobQueue(
 						&JOB_QUEUE_TRAPS,
-						private.event_loop.microtasks.as_ref().unwrap() as *const _ as *const _,
+						(private.event_loop.microtasks.as_ref().unwrap() as *const MicrotaskQueue).cast(),
 					),
 				);
 				SetPromiseRejectionTrackerCallback(

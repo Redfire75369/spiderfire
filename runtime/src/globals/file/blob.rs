@@ -56,7 +56,7 @@ impl<'cx> FromValue<'cx> for BufferSource<'cx> {
 	type Config = bool;
 	fn from_value(cx: &'cx Context, value: &Value, strict: bool, allow_shared: bool) -> Result<BufferSource<'cx>> {
 		let obj = Object::from_value(cx, value, strict, ())?;
-		if let Some(buffer) = ArrayBuffer::from(cx.root_object(obj.handle().get())) {
+		if let Some(buffer) = ArrayBuffer::from(cx.root(obj.handle().get())) {
 			if buffer.is_shared() && !allow_shared {
 				return Err(Error::new("Buffer Source cannot be shared", ErrorKind::Type));
 			}

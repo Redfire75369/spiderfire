@@ -49,10 +49,7 @@ impl<'r> ModuleRequest<'r> {
 	/// Creates a new [ModuleRequest] with a given specifier.
 	pub fn new<S: AsRef<str>>(cx: &'r Context, specifier: S) -> ModuleRequest<'r> {
 		let specifier = crate::String::copy_from_str(cx, specifier.as_ref()).unwrap();
-		ModuleRequest(
-			cx.root_object(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) })
-				.into(),
-		)
+		ModuleRequest(cx.root(unsafe { CreateModuleRequest(cx.as_ptr(), specifier.handle().into()) }).into())
 	}
 
 	/// Creates a new [ModuleRequest] from a raw handle.
@@ -65,8 +62,7 @@ impl<'r> ModuleRequest<'r> {
 
 	/// Returns the specifier of the request.
 	pub fn specifier<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
-		cx.root_string(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) })
-			.into()
+		cx.root(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) }).into()
 	}
 }
 
@@ -115,7 +111,7 @@ impl<'cx> Module<'cx> {
 		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const().cast(), &mut source) };
 
 		if !module.is_null() {
-			let module = Module(Object::from(cx.root_object(module)));
+			let module = Module(Object::from(cx.root(module)));
 
 			let data = ModuleData {
 				path: path.and_then(Path::to_str).map(String::from),

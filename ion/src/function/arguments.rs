@@ -15,7 +15,7 @@ use crate::function::{Opt, Rest};
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.
 pub struct Arguments<'cx> {
 	cx: &'cx Context,
-	args: usize,
+	args: u16,
 	callee: Object<'cx>,
 	call_args: CallArgs,
 }
@@ -24,11 +24,11 @@ impl<'cx> Arguments<'cx> {
 	pub unsafe fn new(cx: &'cx Context, argc: u32, vp: *mut JSVal) -> Arguments<'cx> {
 		unsafe {
 			let call_args = CallArgs::from_vp(vp, argc);
-			let callee = cx.root_object(call_args.callee()).into();
+			let callee = cx.root(call_args.callee()).into();
 
 			Arguments {
 				cx,
-				args: argc as usize,
+				args: u16::try_from(argc).unwrap(),
 				callee,
 				call_args,
 			}
@@ -36,7 +36,7 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Checks if the expected minimum number of arguments were passed.
-	pub fn check_args(&self, cx: &Context, min: usize) -> Result<()> {
+	pub fn check_args(&self, cx: &Context, min: u16) -> Result<()> {
 		if self.args < min {
 			let func = crate::String::from(unsafe {
 				Local::from_marked(&JS_GetFunctionId(JS_GetObjectFunction(self.callee.handle().get())))
@@ -55,7 +55,7 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns the number of arguments.
-	pub fn len(&self) -> usize {
+	pub fn len(&self) -> u16 {
 		self.args
 	}
 
@@ -87,10 +87,10 @@ impl<'cx> Arguments<'cx> {
 	}
 
 	/// Returns the argument at a given index.
-	pub fn value(&self, index: usize) -> Option<Value<'cx>> {
+	pub fn value(&self, index: u16) -> Option<Value<'cx>> {
 		if index < self.len() {
 			return Some(Value::from(unsafe {
-				Local::from_raw_handle(self.call_args.get(index as u32))
+				Local::from_raw_handle(self.call_args.get(u32::from(index)))
 			}));
 		}
 		None
@@ -117,12 +117,12 @@ impl<'cx> Arguments<'cx> {
 
 pub struct Accessor<'a, 'cx> {
 	args: &'a mut Arguments<'cx>,
-	index: usize,
+	index: u16,
 }
 
 impl<'cx> Accessor<'_, 'cx> {
 	/// Returns the number of arguments remaining.
-	pub fn len(&self) -> usize {
+	pub fn len(&self) -> u16 {
 		self.args.len() - self.index
 	}
 

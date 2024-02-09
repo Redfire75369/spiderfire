@@ -124,7 +124,7 @@ impl Exception {
 			Exception::Other(value) => {
 				format!(
 					"Uncaught Exception - {}",
-					format_value(cx, Config::default(), &cx.root_value(*value).into())
+					format_value(cx, Config::default(), &cx.root(*value).into())
 				)
 			}
 		}
@@ -136,7 +136,7 @@ impl ThrowException for Exception {
 		match self {
 			Exception::Error(error) => {
 				if let Error { object: Some(object), .. } = error {
-					let exception = Value::from(cx.root_value(ObjectValue(*object)));
+					let exception = Value::from(cx.root(ObjectValue(*object)));
 					unsafe {
 						JS_SetPendingException(
 							cx.as_ptr(),
@@ -149,7 +149,7 @@ impl ThrowException for Exception {
 				}
 			}
 			Exception::Other(value) => {
-				let value = Value::from(cx.root_value(*value));
+				let value = Value::from(cx.root(*value));
 				unsafe { JS_SetPendingException(cx.as_ptr(), value.handle().into(), ExceptionStackBehavior::Capture) }
 			}
 		}
@@ -202,7 +202,7 @@ impl ErrorReport {
 				};
 
 				if GetPendingExceptionStack(cx.as_ptr(), &mut exception_stack) {
-					let exception = Value::from(cx.root_value(exception_stack.exception_.ptr));
+					let exception = Value::from(cx.root(exception_stack.exception_.ptr));
 					let exception = Exception::from_value(cx, &exception)?;
 					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
 					Exception::clear(cx);

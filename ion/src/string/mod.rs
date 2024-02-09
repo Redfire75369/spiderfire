@@ -67,7 +67,7 @@ pub struct String<'s> {
 impl<'s> String<'s> {
 	/// Creates an empty [String].
 	pub fn new(cx: &Context) -> String {
-		String::from(cx.root_string(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
+		String::from(cx.root(unsafe { JS_GetEmptyString(cx.as_ptr()) }))
 	}
 
 	/// Creates a new [String] with a given string, by copying it to the JS Runtime.
@@ -77,7 +77,7 @@ impl<'s> String<'s> {
 		if jsstr.is_null() {
 			None
 		} else {
-			Some(String::from(cx.root_string(jsstr)))
+			Some(String::from(cx.root(jsstr)))
 		}
 	}
 
@@ -112,7 +112,7 @@ impl<'s> String<'s> {
 				let vec = Vec::from(boxed);
 				Err(WString::from_utf16_unchecked(vec))
 			} else {
-				Ok(String::from(cx.root_string(jsstr)))
+				Ok(String::from(cx.root(jsstr)))
 			}
 		}
 	}
@@ -120,15 +120,13 @@ impl<'s> String<'s> {
 	/// Returns a slice of a [String] as a new [String].
 	pub fn slice<'cx>(&self, cx: &'cx Context, range: Range<usize>) -> String<'cx> {
 		let Range { start, end } = range;
-		String::from(cx.root_string(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), start, end) }))
+		String::from(cx.root(unsafe { JS_NewDependentString(cx.as_ptr(), self.handle().into(), start, end) }))
 	}
 
 	/// Concatenates two [String]s into a new [String].
 	/// The resultant [String] is not linear.
 	pub fn concat<'cx>(&self, cx: &'cx Context, other: &String) -> String<'cx> {
-		String::from(
-			cx.root_string(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }),
-		)
+		String::from(cx.root(unsafe { JS_ConcatStrings(cx.as_ptr(), self.handle().into(), other.handle().into()) }))
 	}
 
 	/// Compares two [String]s.

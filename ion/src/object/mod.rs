@@ -56,7 +56,7 @@ pub fn new_global<'cx>(
 			&*realm_options,
 		)
 	};
-	Object::from(cx.root_object(global))
+	Object::from(cx.root(global))
 }
 
 pub fn default_new_global(cx: &Context) -> Object {

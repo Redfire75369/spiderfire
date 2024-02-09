@@ -30,14 +30,14 @@ pub(super) enum MethodReceiver {
 pub(super) struct Method {
 	pub(super) receiver: MethodReceiver,
 	pub(super) method: ItemFn,
-	pub(super) nargs: usize,
+	pub(super) nargs: u16,
 	pub(super) names: Vec<Name>,
 }
 
 impl Method {
 	pub(super) fn to_specs(&self, ion: &TokenStream, class: &Ident) -> Vec<TokenStream> {
 		let ident = &self.method.sig.ident;
-		let nargs = self.nargs as u16;
+		let nargs = self.nargs;
 
 		self.names
 			.iter()

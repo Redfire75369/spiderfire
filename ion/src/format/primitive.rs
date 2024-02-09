@@ -59,11 +59,11 @@ impl Display for PrimitiveDisplay<'_> {
 		} else if value.is_undefined() {
 			"undefined".color(colours.undefined).fmt(f)
 		} else if value.is_bigint() {
-			let bi = BigInt::from(self.cx.root_bigint(value.to_bigint()));
+			let bi = BigInt::from(self.cx.root(value.to_bigint()));
 			bi.to_string(self.cx, 10).unwrap().to_owned(self.cx)?.color(colours.bigint).fmt(f)?;
 			"n".color(colours.bigint).fmt(f)
 		} else if value.is_symbol() {
-			let symbol = Symbol::from(self.cx.root_symbol(value.to_symbol()));
+			let symbol = Symbol::from(self.cx.root(value.to_symbol()));
 			format_symbol(self.cx, self.cfg, &symbol).fmt(f)
 		} else if value.is_magic() {
 			"<magic>".color(colours.boolean).fmt(f)

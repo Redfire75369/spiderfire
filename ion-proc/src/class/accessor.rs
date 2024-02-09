@@ -83,7 +83,7 @@ pub(super) fn get_accessor_name(mut name: String, is_setter: bool) -> String {
 pub(super) fn impl_accessor(
 	ion: &TokenStream, method: ItemFn, ty: &Type, is_setter: bool,
 ) -> Result<(Method, Parameters)> {
-	let expected_args = is_setter as i32;
+	let expected_args = i32::from(is_setter);
 	let error_message = if is_setter {
 		format!("Expected Setter to have {} argument", expected_args)
 	} else {
@@ -101,7 +101,7 @@ pub(super) fn impl_accessor(
 		let nargs: i32 = parameters
 			.parameters
 			.iter()
-			.map(|param| matches!(&*param.pat_ty.ty, Type::Path(_)) as i32)
+			.map(|param| i32::from(matches!(&*param.pat_ty.ty, Type::Path(_))))
 			.sum();
 		(nargs == expected_args).then_some(()).ok_or(error)
 	})?;

@@ -6,9 +6,11 @@
 
 use std::fmt;
 use std::fmt::{Display, Formatter};
+
 use colored::Colorize;
 use encoding_rs::UTF_8;
-use mozjs_sys::jsval::StringValue;
+use mozjs::jsval::StringValue;
+
 use crate::{Context, Local, Value};
 use crate::format::Config;
 

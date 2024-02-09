@@ -135,7 +135,7 @@ impl Error {
 
 	pub fn to_object<'cx>(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		if let Some(object) = self.object {
-			return Some(cx.root_object(object).into());
+			return Some(cx.root(object).into());
 		}
 		if self.kind != ErrorKind::None {
 			unsafe {
@@ -149,17 +149,17 @@ impl Error {
 					.map(|location| (&*location.file, location.lineno, location.column))
 					.unwrap_or_default();
 
-				let stack = Object::from(cx.root_object(stack.object.unwrap()));
+				let stack = Object::from(cx.root(stack.object.unwrap()));
 
 				let file = file.as_value(cx);
 
-				let file_name = cx.root_string(file.handle().to_string());
+				let file_name = cx.root(file.handle().to_string());
 
 				let message = (!self.message.is_empty()).then(|| {
 					let value = self.message.as_value(cx);
-					crate::String::from(cx.root_string(value.handle().to_string()))
+					crate::String::from(cx.root(value.handle().to_string()))
 				});
-				let message = message.unwrap_or_else(|| crate::String::from(cx.root_string(ptr::null_mut())));
+				let message = message.unwrap_or_else(|| crate::String::from(cx.root(ptr::null_mut())));
 
 				let mut error = Value::undefined(cx);
 

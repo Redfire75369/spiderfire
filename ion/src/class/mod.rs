@@ -8,15 +8,15 @@ use std::any::TypeId;
 use std::collections::hash_map::Entry;
 use std::ffi::CStr;
 use std::ptr;
-use mozjs::gc::Traceable;
 
+use mozjs::gc::HandleObject;
+use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
 	GCContext, Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
 	JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
 };
 use mozjs::jsval::{NullValue, PrivateValue, UndefinedValue};
-use mozjs::rust::HandleObject;
 
 use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
@@ -70,7 +70,7 @@ pub trait ClassDefinition: NativeObject {
 		match infos.entry(TypeId::of::<Self>()) {
 			Entry::Occupied(o) => (false, o.into_mut()),
 			Entry::Vacant(entry) => {
-				let proto_class = Self::proto_class().map_or_else(ptr::null, |class| &class.base as *const _);
+				let proto_class = Self::proto_class().map_or_else(ptr::null, |class| &class.base);
 				let parent_proto = Self::parent_prototype(cx).map_or_else(HandleObject::null, |proto| proto.handle());
 
 				let (constructor, nargs) = Self::constructor();
@@ -100,10 +100,10 @@ pub trait ClassDefinition: NativeObject {
 						unwrap_specs(static_functions),
 					)
 				};
-				let prototype = cx.root_object(class);
+				let prototype = cx.root(class);
 
 				let constructor = unsafe { JS_GetConstructor(cx.as_ptr(), prototype.handle().into()) };
-				let constructor = Object::from(cx.root_object(constructor));
+				let constructor = Object::from(cx.root(constructor));
 				let constructor = Function::from_object(cx, &constructor).unwrap();
 
 				let class_info = ClassInfo {
@@ -141,7 +141,7 @@ pub trait ClassDefinition: NativeObject {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
-			&*(value.to_private() as *const Self)
+			&*(value.to_private().cast::<Self>())
 		}
 	}
 

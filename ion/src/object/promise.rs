@@ -8,12 +8,12 @@ use std::future::Future;
 use std::ops::{Deref, DerefMut};
 
 use futures::executor::block_on;
+use mozjs::gc::HandleObject;
 use mozjs::glue::JS_GetPromiseResult;
 use mozjs::jsapi::{
 	AddPromiseReactions, CallOriginalPromiseReject, CallOriginalPromiseResolve, GetPromiseID, GetPromiseState,
 	IsPromiseObject, JSObject, NewPromiseObject, PromiseState, RejectPromise, ResolvePromise,
 };
-use mozjs::rust::HandleObject;
 
 use crate::{Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
@@ -30,7 +30,7 @@ impl<'p> Promise<'p> {
 	/// Creates a new [Promise] which never resolves.
 	pub fn new(cx: &'p Context) -> Promise<'p> {
 		Promise {
-			promise: cx.root_object(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
+			promise: cx.root(unsafe { NewPromiseObject(cx.as_ptr(), HandleObject::null().into()) }),
 		}
 	}
 
@@ -64,7 +64,7 @@ impl<'p> Promise<'p> {
 			let promise = NewPromiseObject(cx.as_ptr(), executor.handle().into());
 
 			if !promise.is_null() {
-				Some(Promise { promise: cx.root_object(promise) })
+				Some(Promise { promise: cx.root(promise) })
 			} else {
 				None
 			}
@@ -107,7 +107,7 @@ impl<'p> Promise<'p> {
 	/// Similar to `Promise.resolve`
 	pub fn resolved(cx: &'p Context, value: &Value) -> Promise<'p> {
 		Promise {
-			promise: cx.root_object(unsafe { CallOriginalPromiseResolve(cx.as_ptr(), value.handle().into()) }),
+			promise: cx.root(unsafe { CallOriginalPromiseResolve(cx.as_ptr(), value.handle().into()) }),
 		}
 	}
 
@@ -115,7 +115,7 @@ impl<'p> Promise<'p> {
 	/// Similar to `Promise.reject`
 	pub fn rejected(cx: &'p Context, value: &Value) -> Promise<'p> {
 		Promise {
-			promise: cx.root_object(unsafe { CallOriginalPromiseReject(cx.as_ptr(), value.handle().into()) }),
+			promise: cx.root(unsafe { CallOriginalPromiseReject(cx.as_ptr(), value.handle().into()) }),
 		}
 	}
 

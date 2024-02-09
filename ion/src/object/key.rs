@@ -12,7 +12,7 @@ use mozjs::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey, ProtoKeyToId};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsid::{IntId, VoidId};
 
-use crate::{Context, Local, String, Symbol, Value, Result};
+use crate::{Context, Local, Result, String, Symbol, Value};
 use crate::conversions::ToPropertyKey;
 
 pub struct PropertyKey<'k> {
@@ -22,7 +22,7 @@ pub struct PropertyKey<'k> {
 impl<'k> PropertyKey<'k> {
 	/// Creates a [PropertyKey] from an integer.
 	pub fn with_int(cx: &'k Context, int: i32) -> PropertyKey<'k> {
-		PropertyKey::from(cx.root_property_key(IntId(int)))
+		PropertyKey::from(cx.root(IntId(int)))
 	}
 
 	/// Creates a [PropertyKey] from a string.
@@ -36,13 +36,13 @@ impl<'k> PropertyKey<'k> {
 	}
 
 	pub fn from_proto_key(cx: &'k Context, proto_key: JSProtoKey) -> PropertyKey<'k> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
+		let mut key = PropertyKey::from(cx.root(VoidId()));
 		unsafe { ProtoKeyToId(cx.as_ptr(), proto_key, key.handle_mut().into()) }
 		key
 	}
 
 	pub fn from_value(cx: &'k Context, value: &Value) -> Option<PropertyKey<'k>> {
-		let mut key = PropertyKey::from(cx.root_property_key(VoidId()));
+		let mut key = PropertyKey::from(cx.root(VoidId()));
 		(unsafe { JS_ValueToId(cx.as_ptr(), value.handle().into(), key.handle_mut().into()) }).then_some(key)
 	}
 
@@ -56,10 +56,10 @@ impl<'k> PropertyKey<'k> {
 			Ok(OwnedKey::Int(self.handle().to_int()))
 		} else if self.handle().is_string() {
 			Ok(OwnedKey::String(
-				String::from(cx.root_string(self.handle().to_string())).to_owned(cx)?,
+				String::from(cx.root(self.handle().to_string())).to_owned(cx)?,
 			))
 		} else if self.handle().is_symbol() {
-			Ok(OwnedKey::Symbol(cx.root_symbol(self.handle().to_symbol()).into()))
+			Ok(OwnedKey::Symbol(cx.root(self.handle().to_symbol()).into()))
 		} else {
 			Ok(OwnedKey::Void)
 		}
@@ -104,7 +104,7 @@ impl<'k> OwnedKey<'k> {
 		match self {
 			OwnedKey::Int(i) => OwnedKey::Int(*i),
 			OwnedKey::String(str) => OwnedKey::String(str.clone()),
-			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root_symbol(symbol.get()).into()),
+			OwnedKey::Symbol(symbol) => OwnedKey::Symbol(cx.root(symbol.get()).into()),
 			OwnedKey::Void => OwnedKey::Void,
 		}
 	}
