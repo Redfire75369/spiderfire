@@ -18,7 +18,7 @@ mozjs.workspace = true
 sourcemap.workspace = true
 
 [dependencies.clap]
-version = "4.4.11"
+version = "4.5.0"
 features = ["derive"]
 
 [dependencies.runtime]

@@ -8,12 +8,12 @@ authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
 convert_case = "0.6.0"
-quote = "1.0.33"
-prettyplease = "0.2.15"
-proc-macro2 = "1.0.71"
+quote = "1.0.35"
+prettyplease = "0.2.16"
+proc-macro2 = "1.0.78"
 
 [dependencies.syn]
-version = "2.0.45"
+version = "2.0.48"
 features = ["visit-mut"]
 
 [lints]

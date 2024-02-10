@@ -5,8 +5,7 @@
  */
 
 use bytes::Bytes;
-use http::HeaderMap;
-use hyper::{Body, StatusCode};
+use http::{HeaderMap, StatusCode};
 use hyper::ext::ReasonPhrase;
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
@@ -17,7 +16,7 @@ use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
 pub use options::*;
 
-use crate::globals::fetch::body::FetchBody;
+use crate::globals::fetch::body::{FetchBody, Body};
 use crate::globals::fetch::header::HeadersKind;
 use crate::globals::fetch::Headers;
 use crate::globals::fetch::response::body::ResponseBody;
@@ -103,7 +102,7 @@ impl Response {
 			reflector: Reflector::default(),
 
 			headers: Box::default(),
-			body: Some(ResponseBody::Hyper(Body::empty())),
+			body: Some(ResponseBody::Hyper(Body::Empty)),
 
 			kind: ResponseKind::default(),
 			url: None,

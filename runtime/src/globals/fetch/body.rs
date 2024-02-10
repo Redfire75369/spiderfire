@@ -4,18 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::fmt;
+use std::{fmt, task};
 use std::fmt::{Display, Formatter};
+use std::pin::Pin;
+use std::task::Poll;
 
 use bytes::Bytes;
 use form_urlencoded::Serializer;
 use http::{HeaderMap, HeaderValue};
 use http::header::CONTENT_TYPE;
-use hyper::Body;
+use http_body_util::Full;
+use hyper::body::{Frame, Incoming, SizeHint};
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;
+use pin_project::pin_project;
 
-use ion::{Context, Error, ErrorKind, Result, Value};
+use ion::{Context, Error, ErrorKind, Value};
 use ion::conversions::FromValue;
 
 use crate::globals::file::{Blob, BufferSource};
@@ -72,13 +76,13 @@ impl FetchBody {
 		}
 	}
 
-	pub fn is_not_stream(&self) -> bool {
-		matches!(&self.body, FetchBodyInner::None | FetchBodyInner::Bytes(_))
+	pub fn is_stream(&self) -> bool {
+		!matches!(&self.body, FetchBodyInner::None | FetchBodyInner::Bytes(_))
 	}
 
 	pub fn to_http_body(&self) -> Body {
 		match &self.body {
-			FetchBodyInner::None => Body::empty(),
+			FetchBodyInner::None => Body::Empty,
 			FetchBodyInner::Bytes(bytes) => Body::from(bytes.clone()),
 		}
 	}
@@ -114,7 +118,7 @@ impl Default for FetchBody {
 
 impl<'cx> FromValue<'cx> for FetchBody {
 	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<FetchBody> {
+	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> ion::Result<FetchBody> {
 		if value.handle().is_string() {
 			return Ok(FetchBody {
 				body: FetchBodyInner::Bytes(Bytes::from(String::from_value(cx, value, strict, ()).unwrap())),
@@ -145,5 +149,51 @@ impl<'cx> FromValue<'cx> for FetchBody {
 			}
 		}
 		Err(Error::new("Expected Valid Body", ErrorKind::Type))
+	}
+}
+
+#[pin_project(project = BodyProject)]
+#[derive(Default)]
+pub enum Body {
+	#[default]
+	Empty,
+	Once(#[pin] Full<Bytes>),
+	Incoming(#[pin] Incoming),
+}
+
+impl hyper::body::Body for Body {
+	type Data = Bytes;
+	type Error = hyper::Error;
+
+	fn poll_frame(
+		self: Pin<&mut Self>, cx: &mut task::Context<'_>,
+	) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+		match self.project() {
+			BodyProject::Empty => Poll::Ready(None),
+			BodyProject::Once(full) => full.poll_frame(cx).map_err(|e| match e {}),
+			BodyProject::Incoming(incoming) => incoming.poll_frame(cx),
+		}
+	}
+
+	fn is_end_stream(&self) -> bool {
+		match self {
+			Body::Empty => true,
+			Body::Once(full) => full.is_end_stream(),
+			Body::Incoming(incoming) => incoming.is_end_stream(),
+		}
+	}
+
+	fn size_hint(&self) -> SizeHint {
+		match self {
+			Body::Empty => SizeHint::with_exact(0),
+			Body::Once(full) => full.size_hint(),
+			Body::Incoming(incoming) => incoming.size_hint(),
+		}
+	}
+}
+
+impl From<Bytes> for Body {
+	fn from(bytes: Bytes) -> Body {
+		Body::Once(Full::new(bytes))
 	}
 }

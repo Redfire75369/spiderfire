@@ -23,19 +23,19 @@ bytes = "1.5.0"
 colored = "2.1.0"
 dunce = "1.0.4"
 encoding_rs = "0.8.33"
-futures = "0.3.29"
+futures = "0.3.30"
 indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
 sourcemap = "6.4.1"
 url = "2.5.0"
 
 [workspace.dependencies.chrono]
-version = "0.4.31"
+version = "0.4.33"
 default-features = false
 features = ["clock", "std"]
 
 [workspace.dependencies.tokio]
-version = "1.35.1"
+version = "1.36.0"
 default-features = false
 
 [workspace.lints.rust]

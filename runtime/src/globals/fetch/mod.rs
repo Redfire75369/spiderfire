@@ -25,7 +25,10 @@ use tokio::fs::read;
 use uri_url::url_to_uri;
 use url::Url;
 
+use body::FetchBody;
 pub use client::{default_client, GLOBAL_CLIENT};
+use client::Client;
+use header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
 pub use header::Headers;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc};
 use ion::class::Reflector;
@@ -33,16 +36,12 @@ use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
 pub use request::{Request, RequestInfo, RequestInit};
+use request::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect};
+use response::{network_error, ResponseKind, ResponseTaint};
 pub use response::Response;
 
 use crate::globals::abort::AbortSignal;
-use crate::globals::fetch::body::FetchBody;
-use crate::globals::fetch::client::Client;
-use crate::globals::fetch::header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
-use crate::globals::fetch::request::{
-	Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect,
-};
-use crate::globals::fetch::response::{network_error, ResponseKind, ResponseTaint};
+use crate::globals::fetch::body::Body;
 use crate::promise::future_to_promise;
 use crate::VERSION;
 
@@ -494,6 +493,7 @@ async fn http_network_fetch(cx: &Context, request: &Request, client: Client, is_
 
 	let mut response = match client.request(req).await {
 		Ok(response) => {
+			let response = response.map(Body::Incoming);
 			let (headers, response) = Response::from_hyper(response, request.url.clone());
 
 			let headers = Headers {
@@ -513,7 +513,7 @@ async fn http_network_fetch(cx: &Context, request: &Request, client: Client, is_
 		return network_error();
 	}
 
-	if response.status == Some(StatusCode::MISDIRECTED_REQUEST) && !is_new && request.body.is_not_stream() {
+	if response.status == Some(StatusCode::MISDIRECTED_REQUEST) && !is_new && !request.body.is_stream() {
 		return http_network_fetch(cx, request, client, true).await;
 	}
 
@@ -558,7 +558,7 @@ async fn http_redirect_fetch(
 		return network_error();
 	}
 
-	if response.status != Some(StatusCode::SEE_OTHER) && !request.body.is_none() && !request.body.is_not_stream() {
+	if response.status != Some(StatusCode::SEE_OTHER) && !request.body.is_none() && request.body.is_stream() {
 		return network_error();
 	}
 

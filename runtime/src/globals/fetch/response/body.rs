@@ -4,11 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use hyper::{Body, body};
-
+use http_body_util::BodyExt;
 use ion::Result;
 
-use crate::globals::fetch::body::FetchBody;
+use crate::globals::fetch::body::{Body, FetchBody};
 
 #[derive(Traceable)]
 pub enum ResponseBody {
@@ -23,9 +22,6 @@ impl ResponseBody {
 			ResponseBody::Hyper(body) => body,
 		};
 
-		match body::to_bytes(body).await {
-			Ok(bytes) => Ok(bytes.to_vec()),
-			Err(error) => Err(error.into()),
-		}
+		Ok(body.collect().await?.to_bytes().to_vec())
 	}
 }
