@@ -7,6 +7,7 @@
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ptr;
 use std::ptr::NonNull;
 
 use mozjs::gc::{GCMethods, RootedTraceableSet, Traceable};
@@ -85,7 +86,7 @@ impl Context {
 	pub fn from_runtime(rt: &Runtime) -> Context {
 		let cx = rt.cx();
 
-		let private = NonNull::new(unsafe { JS_GetContextPrivate(cx).cast() }).unwrap_or_else(|| {
+		let private = NonNull::new(unsafe { JS_GetContextPrivate(cx).cast::<ContextInner>() }).unwrap_or_else(|| {
 			let private = Box::<ContextInner>::default();
 			let private = Box::into_raw(private);
 			unsafe {
@@ -107,7 +108,7 @@ impl Context {
 			context: unsafe { NonNull::new_unchecked(cx) },
 			rooted: RootedArena::default(),
 			order: RefCell::new(Vec::new()),
-			private: unsafe { NonNull::new_unchecked(JS_GetContextPrivate(cx).cast()) },
+			private: unsafe { NonNull::new_unchecked(JS_GetContextPrivate(cx).cast::<ContextInner>()) },
 		}
 	}
 
@@ -121,7 +122,7 @@ impl Context {
 
 	pub fn get_raw_private(&self) -> *mut dyn Any {
 		let inner = self.get_inner_data();
-		unsafe { (*inner.as_ptr()).private.as_deref_mut().unwrap() as *mut _ }
+		ptr::from_mut(unsafe { (*inner.as_ptr()).private.as_deref_mut().unwrap() })
 	}
 
 	pub fn set_private(&self, private: Box<dyn Any>) {

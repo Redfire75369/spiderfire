@@ -242,7 +242,7 @@ pub(crate) fn write_prefix(
 		if proto != standard {
 			name.color(colour).fmt(f)?;
 			f.write_char(' ')?;
-			fallback = &name;
+			fallback = name;
 		} else if tag.is_some() {
 			fallback.color(colour).fmt(f)?;
 			f.write_char(' ')?;

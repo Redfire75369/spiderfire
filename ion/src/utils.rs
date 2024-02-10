@@ -41,7 +41,7 @@ pub trait BoxExt<T> {
 impl<T> BoxExt<T> for Box<[T]> {
 	unsafe fn into_raw_parts(self) -> (*mut T, usize) {
 		let len = self.len();
-		(Box::into_raw(self).cast(), len)
+		(Box::into_raw(self).cast::<T>(), len)
 	}
 
 	unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
@@ -112,6 +112,6 @@ impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
 	}
 
 	pub fn iter(&self) -> Iter<'_, T> {
-		unsafe { slice::from_raw_parts(self.elements.as_ptr().cast(), self.len()).iter() }
+		unsafe { slice::from_raw_parts(self.elements.as_ptr().cast::<T>(), self.len()).iter() }
 	}
 }

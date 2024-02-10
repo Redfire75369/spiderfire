@@ -6,12 +6,17 @@
 
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::ptr;
 
 #[derive(Debug)]
 pub enum VisibleAscii {}
 
 #[derive(Debug)]
 pub enum Latin1 {}
+
+pub trait BytePredicate: private::Sealed {}
+
+impl<T: private::Sealed> BytePredicate for T {}
 
 mod private {
 	use crate::string::byte::{Latin1, VisibleAscii};
@@ -31,10 +36,6 @@ mod private {
 	impl Sealed for Latin1 {}
 }
 
-pub trait BytePredicate: private::Sealed {}
-
-impl<T: private::Sealed> BytePredicate for T {}
-
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct ByteStr<T: BytePredicate> {
@@ -48,7 +49,7 @@ impl<T: BytePredicate> ByteStr<T> {
 	}
 
 	pub unsafe fn from_unchecked(bytes: &[u8]) -> &ByteStr<T> {
-		unsafe { &*(bytes as *const [u8] as *const ByteStr<T>) }
+		unsafe { &*(ptr::from_ref(bytes) as *const ByteStr<T>) }
 	}
 
 	pub fn as_bytes(&self) -> &[u8] {

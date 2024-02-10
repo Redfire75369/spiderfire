@@ -39,7 +39,7 @@ version = "1.36.0"
 default-features = false
 
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "forbid"
+unsafe_op_in_unsafe_fn = "deny" # Expansion of thread_local has a #[deny]
 
 [workspace.lints.clippy]
 cast_lossless = "forbid"

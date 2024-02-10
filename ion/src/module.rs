@@ -108,7 +108,7 @@ impl<'cx> Module<'cx> {
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
 		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), filename, 1) };
 
-		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const().cast(), &mut source) };
+		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const(), &mut source) };
 
 		if !module.is_null() {
 			let module = Module(Object::from(cx.root(module)));

@@ -36,7 +36,7 @@ thread_local! {
 	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
 	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
 
-	static INDENTS: Cell<u16> = Cell::new(0);
+	static INDENTS: Cell<u16> = const { Cell::new(0) };
 }
 
 fn print_indent(is_stderr: bool) {

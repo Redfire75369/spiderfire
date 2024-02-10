@@ -24,6 +24,9 @@ const CLOSURE_SLOT: u32 = 0;
 pub type ClosureOnce = dyn for<'cx> FnOnce(&mut Arguments<'cx>) -> ResultExc<Value<'cx>> + 'static;
 pub type Closure = dyn for<'cx> FnMut(&mut Arguments<'cx>) -> ResultExc<Value<'cx>> + 'static;
 
+type ClosurePrivate = Box<Closure>;
+type ClosureOncePrivate = Option<Box<ClosureOnce>>;
+
 pub(crate) fn create_closure_once_object(cx: &Context, closure: Box<ClosureOnce>) -> Object {
 	unsafe {
 		let object = Object::from(cx.root(JS_NewObject(cx.as_ptr(), &CLOSURE_ONCE_CLASS)));
@@ -65,7 +68,7 @@ pub(crate) unsafe extern "C" fn call_closure_once(cx: *mut JSContext, argc: u32,
 
 	let reserved = get_function_reserved(cx, args);
 	let value = get_reserved(reserved.handle().to_object(), CLOSURE_SLOT);
-	let closure = unsafe { &mut *(value.to_private() as *mut Option<Box<ClosureOnce>>) };
+	let closure = unsafe { &mut *(value.to_private().cast::<ClosureOncePrivate>().cast_mut()) };
 
 	if let Some(closure) = closure.take() {
 		let result = catch_unwind(AssertUnwindSafe(|| {
@@ -84,7 +87,7 @@ pub(crate) unsafe extern "C" fn call_closure(cx: *mut JSContext, argc: u32, vp: 
 
 	let reserved = get_function_reserved(cx, args);
 	let value = get_reserved(reserved.handle().to_object(), CLOSURE_SLOT);
-	let closure = unsafe { &mut *(value.to_private() as *mut Box<Closure>) };
+	let closure = unsafe { &mut *(value.to_private().cast::<ClosurePrivate>().cast_mut()) };
 
 	let result = catch_unwind(AssertUnwindSafe(|| {
 		closure(args).map(|result| result.to_value(cx, &mut args.rval()))
@@ -96,7 +99,7 @@ unsafe extern "C" fn finalise_closure_once(_: *mut GCContext, object: *mut JSObj
 	let mut value = UndefinedValue();
 	unsafe {
 		JS_GetReservedSlot(object, CLOSURE_SLOT, &mut value);
-		let _ = Box::from_raw(value.to_private() as *mut Option<Box<Closure>>);
+		let _ = Box::from_raw(value.to_private().cast::<ClosureOncePrivate>().cast_mut());
 	}
 }
 
@@ -104,7 +107,7 @@ unsafe extern "C" fn finalise_closure(_: *mut GCContext, object: *mut JSObject) 
 	let mut value = UndefinedValue();
 	unsafe {
 		JS_GetReservedSlot(object, CLOSURE_SLOT, &mut value);
-		let _ = Box::from_raw(value.to_private() as *mut Box<Closure>);
+		let _ = Box::from_raw(value.to_private().cast::<ClosurePrivate>().cast_mut());
 	}
 }
 

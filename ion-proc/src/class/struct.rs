@@ -123,7 +123,7 @@ fn class_impls(
 				base: ::mozjs::jsapi::JSClass {
 					name: #name.as_ptr().cast(),
 					flags: #ion::object::class_reserved_slots(1) | ::mozjs::jsapi::JSCLASS_BACKGROUND_FINALIZE,
-					cOps: &ION_CLASS_OPERATIONS as *const _,
+					cOps: ::std::ptr::from_ref(&ION_CLASS_OPERATIONS),
 					spec: ::std::ptr::null_mut(),
 					ext: ::std::ptr::null_mut(),
 					oOps: ::std::ptr::null_mut(),

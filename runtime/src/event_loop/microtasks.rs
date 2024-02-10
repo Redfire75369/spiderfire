@@ -93,7 +93,7 @@ unsafe extern "C" fn enqueue_promise_job(
 }
 
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
-	let queue: &MicrotaskQueue = unsafe { &*extra.cast() };
+	let queue = unsafe { &*extra.cast::<MicrotaskQueue>() };
 	queue.queue.is_empty()
 }
 

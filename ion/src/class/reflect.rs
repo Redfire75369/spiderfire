@@ -5,6 +5,7 @@
  */
 
 use std::any::{Any, TypeId};
+use std::ptr;
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{Heap, JSObject, JSTracer};
@@ -42,14 +43,14 @@ pub trait Castable: NativeObject {
 	where
 		Self: DerivedFrom<T>,
 	{
-		unsafe { &*(self as *const Self).cast::<T>() }
+		unsafe { &*ptr::from_ref(self).cast::<T>() }
 	}
 
 	fn downcast<T>(&self) -> Option<&T>
 	where
 		T: DerivedFrom<Self> + NativeObject,
 	{
-		self.is::<T>().then(|| unsafe { &*(self as *const Self).cast::<T>() })
+		self.is::<T>().then(|| unsafe { &*ptr::from_ref(self).cast::<T>() })
 	}
 }
 

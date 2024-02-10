@@ -8,15 +8,17 @@ use std::iter;
 use std::ptr;
 
 use mozjs::gc::Traceable;
-use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext,
-	JSFunctionSpec, JSNativeWrapper, JSObject, JSTracer,
+	GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec,
+	JSNativeWrapper, JSObject, JSTracer,
 };
-use mozjs::jsval::{JSVal, NullValue};
+use mozjs::jsval::JSVal;
 
 use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
-use crate::class::{NativeClass, NativeObject, PrototypeChain, Reflector, TypeIdWrapper};
+use crate::class::{
+	finalise_native_object_operation, NativeClass, NativeObject, PrototypeChain, Reflector,
+	trace_native_object_operation, TypeIdWrapper,
+};
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
 use crate::function::NativeFunction;
@@ -114,30 +116,6 @@ impl Iterator {
 
 		true
 	}
-
-	unsafe extern "C" fn finalise(_: *mut GCContext, this: *mut JSObject) {
-		let mut value = NullValue();
-		unsafe {
-			JS_GetReservedSlot(this, 0, &mut value);
-		}
-		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-			let private = unsafe { &mut *(value.to_private() as *mut Option<Iterator>) };
-			let _ = private.take();
-		}
-	}
-
-	unsafe extern "C" fn trace(trc: *mut JSTracer, this: *mut JSObject) {
-		let mut value = NullValue();
-		unsafe {
-			JS_GetReservedSlot(this, 0, &mut value);
-		}
-		if value.is_double() && value.asBits_ & 0xFFFF000000000000 == 0 {
-			let private = unsafe { &*(value.to_private() as *mut Option<Iterator>) };
-			unsafe {
-				private.trace(trc);
-			}
-		}
-	}
 }
 
 impl IntoValue<'_> for Iterator {
@@ -162,10 +140,10 @@ static ITERATOR_CLASS_OPS: JSClassOps = JSClassOps {
 	newEnumerate: None,
 	resolve: None,
 	mayResolve: None,
-	finalize: Some(Iterator::finalise),
+	finalize: Some(finalise_native_object_operation::<Iterator>),
 	call: None,
 	construct: None,
-	trace: Some(Iterator::trace),
+	trace: Some(trace_native_object_operation::<Iterator>),
 };
 
 static ITERATOR_CLASS: NativeClass = NativeClass {

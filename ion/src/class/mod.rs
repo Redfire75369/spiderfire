@@ -158,7 +158,7 @@ pub trait ClassDefinition: NativeObject {
 		unsafe {
 			let mut value = UndefinedValue();
 			JS_GetReservedSlot(object.handle().get(), 0, &mut value);
-			&mut *(value.to_private() as *mut Self)
+			&mut *(value.to_private().cast_mut().cast::<Self>())
 		}
 	}
 
