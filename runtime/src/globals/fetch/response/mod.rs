@@ -10,13 +10,13 @@ use hyper::ext::ReasonPhrase;
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, TracedHeap};
 use ion::class::{NativeObject, Reflector};
 use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
 pub use options::*;
 
-use crate::globals::fetch::body::{FetchBody, Body};
+use crate::globals::fetch::body::{Body, FetchBody};
 use crate::globals::fetch::header::HeadersKind;
 use crate::globals::fetch::Headers;
 use crate::globals::fetch::response::body::ResponseBody;
@@ -185,25 +185,23 @@ impl Response {
 
 	#[ion(name = "arrayBuffer")]
 	pub fn array_buffer<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		future_to_promise::<_, _, Error>(cx, async move {
-			let response = Object::from(this);
+			let response = Object::from(this.to_local());
 			let response = Response::get_mut_private(&cx2, &response)?;
 			let bytes = response.read_to_bytes().await?;
-			cx2.unroot_persistent(response.reflector().get());
 			Ok(ArrayBufferWrapper::from(bytes))
 		})
 	}
 
 	pub fn text<'cx>(&mut self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 		future_to_promise::<_, _, Error>(cx, async move {
-			let response = Object::from(this);
+			let response = Object::from(this.to_local());
 			let response = Response::get_mut_private(&cx2, &response)?;
 			let bytes = response.read_to_bytes().await?;
-			cx2.unroot_persistent(response.reflector().get());
 			String::from_utf8(bytes).map_err(|e| Error::new(&format!("Invalid UTF-8 sequence: {}", e), None))
 		})
 	}

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::{GCMethods, RootedTraceableSet, Traceable};
+use mozjs::gc::{GCMethods, RootedTraceableSet};
 use mozjs::jsapi::{
 	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString,
 	PropertyDescriptor, PropertyKey, Rooted, Symbol,
@@ -53,15 +53,7 @@ struct RootedArena {
 #[allow(clippy::vec_box)]
 #[derive(Default)]
 pub struct Persistent {
-	values: Vec<Box<Heap<JSVal>>>,
 	objects: Vec<Box<Heap<*mut JSObject>>>,
-	strings: Vec<Box<Heap<*mut JSString>>>,
-	scripts: Vec<Box<Heap<*mut JSScript>>>,
-	property_keys: Vec<Box<Heap<PropertyKey>>>,
-	property_descriptors: Vec<Box<Heap<PropertyDescriptor>>>,
-	functions: Vec<Box<Heap<*mut JSFunction>>>,
-	big_ints: Vec<Box<Heap<*mut BigInt>>>,
-	symbols: Vec<Box<Heap<*mut Symbol>>>,
 }
 
 #[derive(Default)]
@@ -139,34 +131,6 @@ impl Context {
 		self.order.borrow_mut().push(T::GC_TYPE);
 		Local::new(self, root, value)
 	}
-
-	pub fn root_persistent<T: Rootable + 'static>(&self, value: T) -> Local<'static, T>
-	where
-		Heap<T>: Default + Traceable,
-	{
-		let persistent = T::persistent_list(unsafe { &mut (*self.get_inner_data().as_ptr()).persistent });
-		persistent.push(Heap::boxed(value));
-		let heap = &*persistent[persistent.len() - 1];
-		unsafe {
-			RootedTraceableSet::add(heap);
-			Local::from_heap(heap)
-		}
-	}
-
-	pub fn unroot_persistent<T: Rootable + PartialEq + 'static>(&self, value: T)
-	where
-		Heap<T>: Traceable,
-	{
-		let persistent = T::persistent_list(unsafe { &mut (*self.get_inner_data().as_ptr()).persistent });
-		let idx = match persistent.iter().rposition(|x| x.get() == value) {
-			Some(idx) => idx,
-			None => return,
-		};
-		unsafe {
-			RootedTraceableSet::remove(&*persistent[idx]);
-		}
-		persistent.swap_remove(idx);
-	}
 }
 
 pub trait Rootable: private::Sealed {}
@@ -175,20 +139,16 @@ impl<T: private::Sealed> Rootable for T {}
 
 mod private {
 	use mozjs::gc::{GCMethods, RootKind};
-	use mozjs::jsapi::{
-		BigInt, Heap, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol,
-	};
+	use mozjs::jsapi::{BigInt, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol};
 	use mozjs::jsval::JSVal;
 
-	use super::{GCType, Persistent, RootedArena};
+	use super::{GCType, RootedArena};
 
 	#[allow(clippy::mut_from_ref, private_interfaces)]
 	pub trait Sealed: RootKind + GCMethods + Copy + Sized {
 		const GC_TYPE: GCType;
 
 		fn alloc(arena: &RootedArena, root: Rooted<Self>) -> &mut Rooted<Self>;
-
-		fn persistent_list(persistent: &mut Persistent) -> &mut Vec<Box<Heap<Self>>>;
 	}
 
 	macro_rules! impl_rootable {
@@ -200,10 +160,6 @@ mod private {
 
 					fn alloc(arena: &RootedArena, root: Rooted<Self>) -> &mut Rooted<Self> {
 						arena.$key.alloc(root)
-					}
-
-					fn persistent_list(persistent: &mut Persistent) -> &mut Vec<Box<Heap<Self>>> {
-						&mut persistent.$key
 					}
 				}
 			)*
@@ -226,7 +182,7 @@ mod private {
 macro_rules! impl_root_methods {
 	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 		$(
-			#[deprecated]
+			#[deprecated = "Use Context::root instead."]
 			#[doc = concat!("Roots a [", stringify!($pointer), "](", stringify!($pointer), ") as a ", stringify!($gc_type), " ands returns a [Local] to it.")]
 			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
 				let root = self.rooted.$key.alloc(Rooted::new_unrooted());
@@ -238,7 +194,7 @@ macro_rules! impl_root_methods {
 	};
 	([persistent], $(($root_fn:ident, $unroot_fn:ident, $pointer:ty, $key:ident)$(,)?)*) => {
 		$(
-			#[deprecated]
+			#[deprecated = "Use TracedHeap instead."]
 			pub fn $root_fn(&self, ptr: $pointer) -> Local<$pointer> {
 				let heap = Heap::boxed(ptr);
 				let persistent = unsafe { &mut (*self.get_inner_data().as_ptr()).persistent.$key };
@@ -250,7 +206,7 @@ macro_rules! impl_root_methods {
 				}
 			}
 
-			#[deprecated]
+			#[deprecated = "Use TracedHeap instead."]
 			pub fn $unroot_fn(&self, ptr: $pointer) {
 				let persistent = unsafe { &mut (*self.get_inner_data().as_ptr()).persistent.$key };
 				let idx = match persistent.iter().rposition(|x| x.get() == ptr) {

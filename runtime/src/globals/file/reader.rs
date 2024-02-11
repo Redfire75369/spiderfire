@@ -14,7 +14,7 @@ use mime::Mime;
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::{JSVal, NullValue};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, TracedHeap};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::ToValue;
 use ion::function::Opt;
@@ -96,15 +96,14 @@ impl FileReader {
 		self.state.validate()?;
 		let bytes = blob.as_bytes().clone();
 
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 
 		future_to_promise::<_, _, Error>(cx, async move {
-			let reader = Object::from(this);
+			let reader = Object::from(this.to_local());
 			let reader = FileReader::get_private(&cx2, &reader)?;
 			let array_buffer = ArrayBufferWrapper::from(bytes.to_vec());
 			reader.result.set(array_buffer.as_value(&cx2).get());
-			cx2.unroot_persistent(reader.reflector.get());
 			Ok(())
 		});
 		Ok(())
@@ -115,15 +114,14 @@ impl FileReader {
 		self.state.validate()?;
 		let bytes = blob.as_bytes().clone();
 
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 
 		future_to_promise::<_, _, Error>(cx, async move {
-			let reader = Object::from(this);
+			let reader = Object::from(this.to_local());
 			let reader = FileReader::get_private(&cx2, &reader)?;
 			let byte_string = unsafe { ByteString::<Latin1>::from_unchecked(bytes.to_vec()) };
 			reader.result.set(byte_string.as_value(&cx2).get());
-			cx2.unroot_persistent(reader.reflector.get());
 			Ok(())
 		});
 		Ok(())
@@ -135,17 +133,16 @@ impl FileReader {
 		let bytes = blob.as_bytes().clone();
 		let mime = blob.kind();
 
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 
 		future_to_promise::<_, _, Error>(cx, async move {
 			let encoding = encoding_from_string_mime(encoding.as_deref(), mime.as_deref());
 
-			let reader = Object::from(this);
+			let reader = Object::from(this.to_local());
 			let reader = FileReader::get_private(&cx2, &reader)?;
 			let str = encoding.decode_without_bom_handling(&bytes).0;
 			reader.result.set(str.as_value(&cx2).get());
-			cx2.unroot_persistent(reader.reflector.get());
 			Ok(())
 		});
 		Ok(())
@@ -157,11 +154,11 @@ impl FileReader {
 		let bytes = blob.as_bytes().clone();
 		let mime = blob.kind();
 
-		let this = cx.root_persistent(self.reflector().get());
+		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 
 		future_to_promise::<_, _, Error>(cx, async move {
-			let reader = Object::from(this);
+			let reader = Object::from(this.to_local());
 			let reader = FileReader::get_private(&cx2, &reader)?;
 			let base64 = BASE64_STANDARD.encode(&bytes);
 			let data_url = match mime {
@@ -170,7 +167,6 @@ impl FileReader {
 			};
 
 			reader.result.set(data_url.as_value(&cx2).get());
-			cx2.unroot_persistent(reader.reflector.get());
 			Ok(())
 		});
 		Ok(())

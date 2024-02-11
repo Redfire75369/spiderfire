@@ -30,7 +30,7 @@ pub use client::{default_client, GLOBAL_CLIENT};
 use client::Client;
 use header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
 pub use header::Headers;
-use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc, TracedHeap};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
@@ -90,13 +90,11 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 		headers.headers.append(ACCEPT_LANGUAGE, HeaderValue::from_str(&locale_string).unwrap());
 	}
 
-	let request = cx.root_persistent(Request::new_object(cx, Box::new(request)));
+	let request = TracedHeap::new(Request::new_object(cx, Box::new(request)));
 	let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
 	future_to_promise(cx, async move {
-		let request = Object::from(request);
-		let res = fetch_internal(&cx2, &request, GLOBAL_CLIENT.get().unwrap().clone()).await;
-		cx2.unroot_persistent(request.handle().get());
-		res
+		let request = Object::from(request.to_local());
+		fetch_internal(&cx2, &request, GLOBAL_CLIENT.get().unwrap().clone()).await
 	})
 }
 
