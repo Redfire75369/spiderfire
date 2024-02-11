@@ -44,7 +44,7 @@ impl<'cx> Arguments<'cx> {
 			.to_owned(cx)?;
 
 			return Err(Error::new(
-				&format!(
+				format!(
 					"Error while calling `{func}()` with {} argument(s) while {min} were expected.",
 					self.args
 				),

@@ -60,10 +60,10 @@ impl ModuleLoader for Loader {
 				self.register(cx, module.0.handle().get(), &request)?;
 				Ok(module)
 			} else {
-				Err(Error::new(&format!("Unable to compile module: {}\0", specifier), None))
+				Err(Error::new(format!("Unable to compile module: {}\0", specifier), None))
 			}
 		} else {
-			Err(Error::new(&format!("Unable to read module: {}", specifier), None))
+			Err(Error::new(format!("Unable to read module: {}", specifier), None))
 		}
 	}
 

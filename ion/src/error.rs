@@ -5,6 +5,7 @@
  */
 
 use std::{error, fmt, ptr};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
@@ -109,16 +110,16 @@ impl Display for ErrorKind {
 #[derive(Clone, Debug)]
 pub struct Error {
 	pub kind: ErrorKind,
-	pub message: String,
+	pub message: Cow<'static, str>,
 	pub location: Option<Location>,
 	pub object: Option<*mut JSObject>,
 }
 
 impl Error {
-	pub fn new<T: Into<Option<ErrorKind>>>(message: &str, kind: T) -> Error {
+	pub fn new<M: Into<Cow<'static, str>>, K: Into<Option<ErrorKind>>>(message: M, kind: K) -> Error {
 		Error {
 			kind: kind.into().unwrap_or(ErrorKind::Normal),
-			message: String::from(message),
+			message: message.into(),
 			location: None,
 			object: None,
 		}
@@ -127,7 +128,7 @@ impl Error {
 	pub fn none() -> Error {
 		Error {
 			kind: ErrorKind::None,
-			message: String::from(""),
+			message: Cow::Borrowed(""),
 			location: None,
 			object: None,
 		}

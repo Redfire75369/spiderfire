@@ -45,7 +45,7 @@ impl TextDecoder {
 			match enc {
 				None => {
 					return Err(Error::new(
-						&format!("The given encoding '{}' is not supported.", label),
+						format!("The given encoding '{}' is not supported.", label),
 						ErrorKind::Range,
 					));
 				}

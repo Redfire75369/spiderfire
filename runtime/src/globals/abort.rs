@@ -164,7 +164,7 @@ impl AbortSignal {
 		let terminate = Arc::new(AtomicBool::new(false));
 		let terminate2 = Arc::clone(&terminate);
 
-		let error = Error::new(&format!("Timeout Error: {}ms", time), None).as_value(cx).get();
+		let error = Error::new(format!("Timeout Error: {}ms", time), None).as_value(cx).get();
 		let callback = Box::new(move || {
 			sender.send_replace(Some(error));
 		});

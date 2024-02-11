@@ -110,7 +110,7 @@ async fn fetch_internal<'o>(cx: &Context, request: &Object<'o>, client: Client) 
 	response.and_then(|response| {
 		if response.kind == ResponseKind::Error {
 			Err(Exception::Error(Error::new(
-				&format!("Network Error: Failed to fetch from {}", &request.url),
+				format!("Network Error: Failed to fetch from {}", &request.url),
 				ErrorKind::Type,
 			)))
 		} else {

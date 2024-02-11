@@ -21,7 +21,7 @@ use runtime::promise::future_to_promise;
 fn check_exists(path: &Path) -> Result<()> {
 	if path.exists() {
 		Err(Error::new(
-			&format!("Path {} does not exist", path.to_str().unwrap()),
+			format!("Path {} does not exist", path.to_str().unwrap()),
 			None,
 		))
 	} else {
@@ -31,7 +31,7 @@ fn check_exists(path: &Path) -> Result<()> {
 
 fn check_not_exists(path: &Path) -> Result<()> {
 	if !path.exists() {
-		Err(Error::new(&format!("Path {} exist", path.to_str().unwrap()), None))
+		Err(Error::new(format!("Path {} exist", path.to_str().unwrap()), None))
 	} else {
 		Ok(())
 	}
@@ -41,7 +41,7 @@ fn check_is_file(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_file() {
 		Err(Error::new(
-			&format!("Path {} is not a file", path.to_str().unwrap()),
+			format!("Path {} is not a file", path.to_str().unwrap()),
 			None,
 		))
 	} else {
@@ -52,7 +52,7 @@ fn check_is_file(path: &Path) -> Result<()> {
 fn check_is_not_file(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if !path.is_file() {
-		Err(Error::new(&format!("Path {} is a file", path.to_str().unwrap()), None))
+		Err(Error::new(format!("Path {} is a file", path.to_str().unwrap()), None))
 	} else {
 		Ok(())
 	}
@@ -62,7 +62,7 @@ fn check_is_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_dir() {
 		Err(Error::new(
-			&format!("Path {} is not a directory", path.to_str().unwrap()),
+			format!("Path {} is not a directory", path.to_str().unwrap()),
 			None,
 		))
 	} else {
@@ -74,7 +74,7 @@ fn check_is_not_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if !path.is_dir() {
 		Err(Error::new(
-			&format!("Path {} is a directory", path.to_str().unwrap()),
+			format!("Path {} is a directory", path.to_str().unwrap()),
 			None,
 		))
 	} else {
@@ -91,7 +91,7 @@ fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
 		if let Ok(bytes) = tokio::fs::read(&path).await {
 			Ok(Uint8ArrayWrapper::from(bytes))
 		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str), None))
+			Err(Error::new(format!("Could not read file: {}", path_str), None))
 		}
 	})
 }
@@ -104,7 +104,7 @@ fn readBinarySync(path_str: String) -> Result<Uint8ArrayWrapper> {
 	if let Ok(bytes) = fs::read(path) {
 		Ok(Uint8ArrayWrapper::from(bytes))
 	} else {
-		Err(Error::new(&format!("Could not read file: {}", path_str), None))
+		Err(Error::new(format!("Could not read file: {}", path_str), None))
 	}
 }
 
@@ -117,7 +117,7 @@ fn readString(cx: &Context, path_str: String) -> Option<Promise> {
 		if let Ok(str) = tokio::fs::read_to_string(path).await {
 			Ok(str)
 		} else {
-			Err(Error::new(&format!("Could not read file: {}", path_str), None))
+			Err(Error::new(format!("Could not read file: {}", path_str), None))
 		}
 	})
 }
@@ -130,7 +130,7 @@ fn readStringSync(path_str: String) -> Result<String> {
 	if let Ok(str) = fs::read_to_string(path) {
 		Ok(str)
 	} else {
-		Err(Error::new(&format!("Could not read file: {}", path_str), None))
+		Err(Error::new(format!("Could not read file: {}", path_str), None))
 	}
 }
 

@@ -216,10 +216,7 @@ fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
 
 fn private_error(class: &'static NativeClass) -> Error {
 	let name = unsafe { CStr::from_ptr(class.base.name).to_str().unwrap() };
-	Error::new(
-		&format!("Object does not implement interface {}", name),
-		ErrorKind::Type,
-	)
+	Error::new(format!("Object does not implement interface {}", name), ErrorKind::Type)
 }
 
 #[doc(hidden)]
