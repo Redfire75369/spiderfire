@@ -34,7 +34,7 @@ impl FromStr for Referrer {
 		if referrer.is_empty() {
 			Ok(Referrer::NoReferrer)
 		} else {
-			let url = Url::parse(referrer).map_err(|e| Error::new(&e.to_string(), ErrorKind::Type))?;
+			let url = Url::parse(referrer).map_err(|e| Error::new(e.to_string(), ErrorKind::Type))?;
 
 			if url.scheme() == "about" && url.path() == "client" {
 				Ok(Referrer::Client)

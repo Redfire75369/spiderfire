@@ -76,7 +76,7 @@ impl Exception {
 				let kind = ErrorKind::from_proto_key(IdentifyStandardInstance(handle.get()));
 				let error = Error {
 					kind,
-					message,
+					message: message.into(),
 					location: Some(location),
 					object: Some(handle.get()),
 				};

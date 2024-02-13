@@ -15,7 +15,7 @@ fn assert_internal(message: Option<String>) -> Result<()> {
 		Some(msg) => format!("Assertion Failed: {}", msg),
 		None => String::from("Assertion Failed"),
 	};
-	Err(Error::new(&error, None))
+	Err(Error::new(error, None))
 }
 
 #[js_fn]

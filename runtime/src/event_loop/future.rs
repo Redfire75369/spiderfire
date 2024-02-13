@@ -30,7 +30,7 @@ impl FutureQueue {
 			match item {
 				Ok(item) => results.push(item),
 				Err(error) => {
-					Error::new(&error.to_string(), ErrorKind::Normal).throw(cx);
+					Error::new(error.to_string(), ErrorKind::Normal).throw(cx);
 					return Err(None);
 				}
 			}

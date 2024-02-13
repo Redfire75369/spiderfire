@@ -11,6 +11,7 @@ extern crate mozjs;
 
 use std::result;
 
+pub use bigint::BigInt;
 pub use class::ClassDefinition;
 pub use context::{Context, ContextInner};
 pub use error::{Error, ErrorKind};

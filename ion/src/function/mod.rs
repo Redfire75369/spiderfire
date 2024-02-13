@@ -51,13 +51,16 @@ pub fn __handle_native_constructor_result(
 }
 
 fn handle_unwind_error(cx: &Context, unwind_error: Box<dyn Any + Send>) -> bool {
-	if let Some(unwind) = unwind_error.downcast_ref::<String>() {
-		Error::new(unwind, None).throw(cx);
-	} else if let Some(unwind) = unwind_error.downcast_ref::<&str>() {
-		Error::new(unwind, None).throw(cx);
-	} else {
-		Error::new("Unknown Panic Occurred", None).throw(cx);
-		forget(unwind_error);
+	match unwind_error.downcast::<String>() {
+		Ok(unwind) => Error::new(*unwind, None).throw(cx),
+		Err(unwind_error) => {
+			if let Some(unwind) = unwind_error.downcast_ref::<&'static str>() {
+				Error::new(*unwind, None).throw(cx);
+			} else {
+				Error::new("Unknown Panic Occurred", None).throw(cx);
+				forget(unwind_error);
+			}
+		}
 	}
 	false
 }

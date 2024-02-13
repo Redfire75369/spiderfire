@@ -42,7 +42,7 @@ impl URL {
 		let url = Url::options()
 			.base_url(base.as_ref())
 			.parse(&input)
-			.map_err(|error| Error::new(&error.to_string(), None))?;
+			.map_err(|error| Error::new(error.to_string(), None))?;
 
 		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
 		search_params.url.as_ref().unwrap().set(this.handle().get());
@@ -99,7 +99,7 @@ impl URL {
 				self.url = url;
 				Ok(())
 			}
-			Err(error) => Err(Error::new(&error.to_string(), None)),
+			Err(error) => Err(Error::new(error.to_string(), None)),
 		}
 	}
 
@@ -136,7 +136,7 @@ impl URL {
 			Ordering::Equal => {
 				let port = match segments[1].parse::<u16>() {
 					Ok(port) => Ok(port),
-					Err(error) => Err(Error::new(&error.to_string(), None)),
+					Err(error) => Err(Error::new(error.to_string(), None)),
 				}?;
 				Ok((segments[0], Some(port)))
 			}
@@ -153,7 +153,7 @@ impl URL {
 
 	#[ion(set)]
 	pub fn set_hostname(&mut self, hostname: String) -> Result<()> {
-		self.url.set_host(Some(&hostname)).map_err(|error| Error::new(&error.to_string(), None))
+		self.url.set_host(Some(&hostname)).map_err(|error| Error::new(error.to_string(), None))
 	}
 
 	#[ion(get)]

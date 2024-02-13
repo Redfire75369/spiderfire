@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+mod format;
+
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
 
@@ -26,6 +28,7 @@ use ion::function::{Opt, Rest};
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
+use crate::globals::console::format::{format_args, format_value_args, FormatArg};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";
@@ -39,23 +42,55 @@ thread_local! {
 	static INDENTS: Cell<u16> = const { Cell::new(0) };
 }
 
-fn print_indent(is_stderr: bool) {
-	let indentation = INDENTS.get() as usize;
-	if !is_stderr {
-		print!("{}", indent_str(indentation));
+fn log_args(cx: &Context, args: &[Value], log_level: LogLevel) {
+	if log_level == LogLevel::None || args.is_empty() {
+		return;
+	}
+
+	if args.len() == 1 {
+		print_args(format_value_args(cx, args.iter()), log_level);
 	} else {
-		eprint!("{}", indent_str(indentation));
+		print_args(format_args(cx, args).into_iter(), log_level);
 	}
 }
 
-fn print_args(cx: &Context, args: &[Value], stderr: bool) {
-	for value in args.iter() {
-		let string = format_value(cx, FormatConfig::default().indentation(INDENTS.get()), value);
-		if !stderr {
-			print!("{} ", string);
-		} else {
-			eprint!("{} ", string);
-		}
+fn print_args<'cx>(args: impl Iterator<Item = FormatArg<'cx>>, log_level: LogLevel) {
+	if log_level == LogLevel::None {
+		return;
+	}
+
+	let mut first = true;
+
+	let mut prev_spaced = false;
+	for arg in args {
+		let spaced = arg.spaced();
+		let to_space = !first && (prev_spaced || spaced);
+		match log_level {
+			LogLevel::Info | LogLevel::Debug => {
+				if to_space {
+					print!(" ");
+				}
+				print!("{}", arg);
+			}
+			LogLevel::Warn | LogLevel::Error => {
+				if to_space {
+					eprint!(" ");
+				}
+				eprint!("{}", arg);
+			}
+			LogLevel::None => unreachable!(),
+		};
+		first = false;
+		prev_spaced = spaced;
+	}
+}
+
+fn print_indent(log_level: LogLevel) {
+	let indentation = usize::from(INDENTS.get());
+	match log_level {
+		LogLevel::Info | LogLevel::Debug => print!("{}", indent_str(indentation)),
+		LogLevel::Warn | LogLevel::Error => eprint!("{}", indent_str(indentation)),
+		LogLevel::None => {}
 	}
 }
 
@@ -71,8 +106,8 @@ fn get_label(label: Option<String>) -> String {
 #[js_fn]
 fn log(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Info {
-		print_indent(false);
-		print_args(cx, &values, false);
+		print_indent(LogLevel::Info);
+		log_args(cx, &values, LogLevel::Info);
 		println!();
 	}
 }
@@ -80,8 +115,8 @@ fn log(cx: &Context, Rest(values): Rest<Value>) {
 #[js_fn]
 fn warn(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Warn {
-		print_indent(true);
-		print_args(cx, &values, true);
+		print_indent(LogLevel::Warn);
+		log_args(cx, &values, LogLevel::Warn);
 		println!();
 	}
 }
@@ -89,8 +124,8 @@ fn warn(cx: &Context, Rest(values): Rest<Value>) {
 #[js_fn]
 fn error(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level >= LogLevel::Error {
-		print_indent(true);
-		print_args(cx, &values, true);
+		print_indent(LogLevel::Error);
+		log_args(cx, &values, LogLevel::Error);
 		println!();
 	}
 }
@@ -98,8 +133,8 @@ fn error(cx: &Context, Rest(values): Rest<Value>) {
 #[js_fn]
 fn debug(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
-		print_indent(false);
-		print_args(cx, &values, false);
+		print_indent(LogLevel::Debug);
+		log_args(cx, &values, LogLevel::Debug);
 		println!();
 	}
 }
@@ -113,25 +148,25 @@ fn assert(cx: &Context, Opt(assertion): Opt<bool>, Rest(values): Rest<Value>) {
 			}
 
 			if values.is_empty() {
-				print_indent(true);
+				print_indent(LogLevel::Error);
 				eprintln!("Assertion Failed");
 				return;
 			}
 
 			if values[0].handle().is_string() {
-				print_indent(true);
+				print_indent(LogLevel::Error);
 				eprint!(
 					"Assertion Failed: {} ",
 					format_primitive(cx, FormatConfig::default(), &values[0])
 				);
-				print_args(cx, &values[2..], true);
+				log_args(cx, &values[2..], LogLevel::Error);
 				eprintln!();
 				return;
 			}
 
-			print_indent(true);
+			print_indent(LogLevel::Error);
 			eprint!("Assertion Failed: ");
-			print_args(cx, &values, true);
+			log_args(cx, &values, LogLevel::Error);
 			println!();
 		} else {
 			eprintln!("Assertion Failed:");
@@ -150,9 +185,9 @@ fn clear() {
 #[js_fn]
 fn trace(cx: &Context, Rest(values): Rest<Value>) {
 	if Config::global().log_level == LogLevel::Debug {
-		print_indent(false);
+		print_indent(LogLevel::Debug);
 		print!("Trace: ");
-		print_args(cx, &values, false);
+		log_args(cx, &values, LogLevel::Debug);
 		println!();
 
 		let mut stack = Stack::from_capture(cx);
@@ -177,7 +212,7 @@ fn group(cx: &Context, Rest(values): Rest<Value>) {
 	INDENTS.set(INDENTS.get().min(u16::MAX - 1) + 1);
 
 	if Config::global().log_level >= LogLevel::Info {
-		print_args(cx, &values, false);
+		log_args(cx, &values, LogLevel::Info);
 		println!();
 	}
 }
@@ -190,20 +225,14 @@ fn groupEnd() {
 #[js_fn]
 fn count(Opt(label): Opt<String>) {
 	let label = get_label(label);
-	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
-		Entry::Vacant(v) => {
-			let val = v.insert(1);
-			if Config::global().log_level >= LogLevel::Info {
-				print_indent(false);
-				println!("{}: {}", label, val);
-			}
-		}
-		Entry::Occupied(mut o) => {
-			let val = o.insert(o.get() + 1);
-			if Config::global().log_level >= LogLevel::Info {
-				print_indent(false);
-				println!("{}: {}", label, val);
-			}
+	COUNT_MAP.with_borrow_mut(|counts| {
+		let count = match counts.entry(label.clone()) {
+			Entry::Vacant(v) => *v.insert(1),
+			Entry::Occupied(mut o) => o.insert(o.get() + 1),
+		};
+		if Config::global().log_level >= LogLevel::Info {
+			print_indent(LogLevel::Info);
+			println!("{}: {}", label, count);
 		}
 	});
 }
@@ -211,15 +240,15 @@ fn count(Opt(label): Opt<String>) {
 #[js_fn]
 fn countReset(Opt(label): Opt<String>) {
 	let label = get_label(label);
-	COUNT_MAP.with_borrow_mut(|counts| match counts.entry(label.clone()) {
-		Entry::Vacant(_) => {
-			if Config::global().log_level >= LogLevel::Error {
-				print_indent(true);
+	COUNT_MAP.with_borrow_mut(|counts| match counts.get_mut(&label) {
+		Some(count) => {
+			*count = 0;
+		}
+		None => {
+			if Config::global().log_level >= LogLevel::Warn {
+				print_indent(LogLevel::Warn);
 				eprintln!("Count for {} does not exist", label);
 			}
-		}
-		Entry::Occupied(mut o) => {
-			o.insert(0);
 		}
 	});
 }
@@ -232,8 +261,8 @@ fn time(Opt(label): Opt<String>) {
 			v.insert(Utc::now());
 		}
 		Entry::Occupied(_) => {
-			if Config::global().log_level >= LogLevel::Error {
-				print_indent(true);
+			if Config::global().log_level >= LogLevel::Warn {
+				print_indent(LogLevel::Warn);
 				eprintln!("Timer {} already exists", label);
 			}
 		}
@@ -247,15 +276,15 @@ fn timeLog(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 		Some(start) => {
 			if Config::global().log_level >= LogLevel::Info {
 				let duration = Utc::now().timestamp_millis() - start.timestamp_millis();
-				print_indent(false);
+				print_indent(LogLevel::Info);
 				print!("{}: {}ms ", label, duration);
-				print_args(cx, &values, false);
+				log_args(cx, &values, LogLevel::Info);
 				println!();
 			}
 		}
 		None => {
-			if Config::global().log_level >= LogLevel::Error {
-				print_indent(true);
+			if Config::global().log_level >= LogLevel::Warn {
+				print_indent(LogLevel::Warn);
 				eprintln!("Timer {} does not exist", label);
 			}
 		}
@@ -265,20 +294,19 @@ fn timeLog(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 #[js_fn]
 fn timeEnd(Opt(label): Opt<String>) {
 	let label = get_label(label);
-	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
-		Entry::Vacant(_) => {
-			if Config::global().log_level >= LogLevel::Error {
-				print_indent(true);
-				eprintln!("Timer {} does not exist", label);
-			}
-		}
-		Entry::Occupied(o) => {
+	TIMER_MAP.with_borrow_mut(|timers| match timers.remove(&label) {
+		Some(start_time) => {
 			if Config::global().log_level >= LogLevel::Info {
-				let (_, start_time) = o.remove_entry();
 				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
-				print_indent(false);
+				print_indent(LogLevel::Info);
 				print!("{}: {}ms - Timer Ended", label, duration);
 				println!();
+			}
+		}
+		None => {
+			if Config::global().log_level >= LogLevel::Warn {
+				print_indent(LogLevel::Warn);
+				eprintln!("Timer {} does not exist", label);
 			}
 		}
 	});
@@ -401,7 +429,7 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()
 
 		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
 	} else if Config::global().log_level >= LogLevel::Info {
-		print_indent(true);
+		print_indent(LogLevel::Info);
 		println!(
 			"{}",
 			format_value(cx, FormatConfig::default().indentation(indents), &data)

@@ -222,7 +222,7 @@ impl From<Error> for ErrorReport {
 
 impl<E: error::Error> From<E> for Error {
 	fn from(error: E) -> Error {
-		Error::new(&error.to_string(), None)
+		Error::new(error.to_string(), None)
 	}
 }
 
