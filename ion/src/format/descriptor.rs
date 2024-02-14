@@ -42,10 +42,11 @@ impl Display for DescriptorDisplay<'_> {
 				let value = match getter.call(self.cx, object, &[]) {
 					Ok(value) => value,
 					Err(report) => {
-						f.write_str(" <Inspection threw (")?;
+						f.write_str(" <Inspection threw ")?;
 						match report {
 							Some(mut report) => {
 								report.stack = None;
+								f.write_char('(')?;
 								report.format(self.cx).fmt(f)?;
 								f.write_char(')')?;
 							}
