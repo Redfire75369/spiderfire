@@ -4,8 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::mem::transmute;
 use std::ops::Deref;
 
+use mozjs::jsapi::{
+	Handle, JS_NewDataView, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt16ArrayWithBuffer,
+	JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer,
+	JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, Type,
+};
 use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 use mozjs::typedarray as jsta;
 
@@ -99,3 +105,43 @@ impl_typedarray_wrapper!(
 	(Float64ArrayWrapper, Float64),
 	(ClampedUint8ArrayWrapper, ClampedU8),
 );
+
+pub type Constructor = unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, i64) -> *mut JSObject;
+
+pub fn type_to_constructor(ty: Type) -> Constructor {
+	match ty {
+		Type::Int8 => JS_NewInt8ArrayWithBuffer,
+		Type::Uint8 => JS_NewUint8ArrayWithBuffer,
+		Type::Int16 => JS_NewInt16ArrayWithBuffer,
+		Type::Uint16 => JS_NewUint16ArrayWithBuffer,
+		Type::Int32 => JS_NewInt32ArrayWithBuffer,
+		Type::Uint32 => JS_NewUint32ArrayWithBuffer,
+		Type::Float32 => JS_NewFloat32ArrayWithBuffer,
+		Type::Float64 => JS_NewFloat64ArrayWithBuffer,
+		Type::Uint8Clamped => JS_NewUint8ClampedArrayWithBuffer,
+		Type::MaxTypedArrayViewType => unsafe {
+			transmute::<unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, usize) -> *mut JSObject, _>(
+				JS_NewDataView,
+			)
+		},
+		_ => unreachable!(),
+	}
+}
+
+pub fn type_to_element_size(ty: Type) -> usize {
+	match ty {
+		Type::Int8 => 1,
+		Type::Uint8 => 1,
+		Type::Int16 => 2,
+		Type::Uint16 => 2,
+		Type::Int32 => 4,
+		Type::Uint32 => 4,
+		Type::Float32 => 4,
+		Type::Float64 => 8,
+		Type::Uint8Clamped => 1,
+		Type::BigInt64 => 8,
+		Type::BigUint64 => 8,
+		Type::MaxTypedArrayViewType => 1,
+		_ => unreachable!(),
+	}
+}

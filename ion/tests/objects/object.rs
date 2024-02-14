@@ -17,7 +17,7 @@ fn object() {
 
 	let object = Object::new(cx);
 	object.set(cx, "key1", &Value::null(cx));
-	object.define(cx, "key2", &Value::undefined(cx), PropertyFlags::all());
+	object.define(cx, "key2", &Value::undefined_handle(), PropertyFlags::all());
 
 	let value1 = object.get(cx, "key1").unwrap().unwrap();
 	let value2 = object.get(cx, "key2").unwrap().unwrap();

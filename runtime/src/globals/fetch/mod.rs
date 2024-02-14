@@ -262,6 +262,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 		let url = response.url.take().unwrap();
 		response = network_error();
 		response.url = Some(url);
+		return response;
 	}
 
 	if !opaque_redirect

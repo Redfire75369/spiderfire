@@ -14,8 +14,7 @@ use futures::channel::mpsc::Receiver;
 use futures::Stream;
 use mozjs::jsval::JSVal;
 
-use crate::{Context, Function, Promise, Value};
-use crate::flags::PropertyFlags;
+use crate::{Context, Promise, Value};
 
 pub struct PromiseFuture(Receiver<Result<JSVal, JSVal>>);
 
@@ -28,26 +27,14 @@ impl PromiseFuture {
 
 		promise.add_reactions(
 			cx,
-			Some(Function::from_closure(
-				cx,
-				"",
-				Box::new(move |args| {
-					let _ = rx1.try_send(Ok(args.value(0).unwrap().get()));
-					Ok(Value::undefined(args.cx()))
-				}),
-				1,
-				PropertyFlags::empty(),
-			)),
-			Some(Function::from_closure(
-				cx,
-				"",
-				Box::new(move |args| {
-					let _ = rx2.try_send(Err(args.value(0).unwrap().get()));
-					Ok(Value::undefined(args.cx()))
-				}),
-				1,
-				PropertyFlags::empty(),
-			)),
+			move |_, value| {
+				let _ = rx1.try_send(Ok(value.get()));
+				Ok(Value::undefined_handle())
+			},
+			move |_, value| {
+				let _ = rx2.try_send(Err(value.get()));
+				Ok(Value::undefined_handle())
+			},
 		);
 
 		PromiseFuture(tx)

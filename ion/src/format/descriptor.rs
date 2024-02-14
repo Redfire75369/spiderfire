@@ -61,10 +61,11 @@ fn format_getter(f: &mut Formatter<'_>, cx: &Context, getter: &Function, object:
 	let value = match getter.call(cx, object, &[]) {
 		Ok(value) => value,
 		Err(report) => {
-			f.write_str(" <Inspection threw (")?;
+			f.write_str(" <Inspection threw ")?;
 			match report {
 				Some(mut report) => {
 					report.stack = None;
+					f.write_char('(')?;
 					report.format(cx).fmt(f)?;
 					f.write_char(')')?;
 				}

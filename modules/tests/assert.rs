@@ -57,7 +57,7 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 	assert!(promise.is_some());
 
 	let on_rejected = Function::from_spec(cx, &ON_REJECTED);
-	promise.unwrap().add_reactions(cx, None, Some(on_rejected));
+	promise.unwrap().add_reactions_native(cx, None, Some(on_rejected));
 
 	assert!(rt.run_event_loop().await.is_ok());
 

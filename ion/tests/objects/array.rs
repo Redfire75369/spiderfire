@@ -17,7 +17,7 @@ fn array() {
 
 	let array = Array::new(cx);
 	array.set(cx, 0, &Value::null(cx));
-	array.define(cx, 2, &Value::undefined(cx), PropertyFlags::all());
+	array.define(cx, 2, &Value::undefined_handle(), PropertyFlags::all());
 
 	let value1 = array.get(cx, 0).unwrap().unwrap();
 	let value2 = array.get(cx, 2).unwrap().unwrap();

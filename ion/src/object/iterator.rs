@@ -72,12 +72,12 @@ impl Iterator {
 		}
 	}
 
-	pub fn next_value<'cx>(&mut self, cx: &'cx Context) -> IteratorResult<'cx> {
+	pub fn next_value<'cx>(&'cx mut self, cx: &'cx Context) -> IteratorResult<'cx> {
 		let private = Value::from(unsafe { Local::from_heap(&self.private) });
 		let next = self.iter.next_value(cx, &private);
 		IteratorResult {
 			done: next.is_none(),
-			value: next.unwrap_or_else(|| Value::undefined(cx)),
+			value: next.unwrap_or_else(Value::undefined_handle),
 		}
 	}
 }

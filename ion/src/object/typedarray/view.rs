@@ -38,16 +38,7 @@ pub trait TypedArrayElementCreator: jsta::TypedArrayElementCreator + TypedArrayE
 }
 
 macro_rules! typed_array_elements {
-	($(($view:ident, $element:ty)$(,)?)*) => {
-		$(
-			pub type $view<'bv> = TypedArray<'bv, $element>;
-
-			impl TypedArrayElement for $element {
-				const NAME: &'static str = stringify!($view);
-			}
-		)*
-	};
-	($(($view:ident, $element:ty, $create_with_buffer:ident)$(,)?)*) => {
+	($(($view:ident, $element:ty $(, $create_with_buffer:ident)?)$(,)?)*) => {
 		$(
 			pub type $view<'bv> = TypedArray<'bv, $element>;
 
@@ -55,15 +46,17 @@ macro_rules! typed_array_elements {
 				const NAME: &'static str = stringify!($view);
 			}
 
-			impl TypedArrayElementCreator for $element {
-				unsafe fn create_with_buffer(
-					cx: *mut JSContext, object: HandleObject, offset: usize, length: i64,
-				) -> *mut JSObject {
-					unsafe {
-						$create_with_buffer(cx, object, offset, length)
+			$(
+				impl TypedArrayElementCreator for $element {
+					unsafe fn create_with_buffer(
+						cx: *mut JSContext, object: HandleObject, offset: usize, length: i64,
+					) -> *mut JSObject {
+						unsafe {
+							$create_with_buffer(cx, object, offset, length)
+						}
 					}
 				}
-			}
+			)?
 		)*
 	};
 
@@ -71,9 +64,6 @@ macro_rules! typed_array_elements {
 
 typed_array_elements! {
 	(ArrayBufferView, ArrayBufferViewU8),
-}
-
-typed_array_elements! {
 	(Uint8Array, Uint8, JS_NewUint8ArrayWithBuffer),
 	(Uint16Array, Uint16, JS_NewUint16ArrayWithBuffer),
 	(Uint32Array, Uint32, JS_NewUint32ArrayWithBuffer),

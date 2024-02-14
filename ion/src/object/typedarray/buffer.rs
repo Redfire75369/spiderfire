@@ -122,7 +122,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	/// Copies data from one [ArrayBuffer] to another.
 	/// Returns `false` if the sizes do not match.
 	pub fn copy_data_to(
-		&self, cx: &Context, to: &mut ArrayBuffer, from_index: usize, to_index: usize, count: usize,
+		&self, cx: &Context, to: &ArrayBuffer, from_index: usize, to_index: usize, count: usize,
 	) -> bool {
 		unsafe {
 			ArrayBufferCopyData(
