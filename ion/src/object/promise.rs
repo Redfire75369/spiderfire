@@ -15,7 +15,7 @@ use mozjs::jsapi::{
 	IsPromiseObject, JSObject, NewPromiseObject, PromiseState, RejectPromise, ResolvePromise,
 };
 
-use crate::{Context, Function, Local, Object, Value};
+use crate::{Context, Error, Function, Local, Object, ResultExc, Value};
 use crate::conversions::ToValue;
 use crate::flags::PropertyFlags;
 
@@ -53,7 +53,7 @@ impl<'p> Promise<'p> {
 					let reject = Function::from_object(cx, &reject_obj).unwrap();
 
 					match executor(cx, resolve, reject) {
-						Ok(()) => Ok(Value::undefined(cx)),
+						Ok(()) => Ok(Value::undefined_handle()),
 						Err(e) => Err(e.into()),
 					}
 				}),
@@ -155,12 +155,62 @@ impl<'p> Promise<'p> {
 		value
 	}
 
+	pub fn add_reactions<'cx, T, C>(&self, cx: &'cx Context, on_resolved: T, on_rejected: C) -> bool
+	where
+		T: for<'cx2> FnOnce(&'cx2 Context, &Value<'cx2>) -> ResultExc<Value<'cx2>> + 'static,
+		C: for<'cx2> FnOnce(&'cx2 Context, &Value<'cx2>) -> ResultExc<Value<'cx2>> + 'static,
+	{
+		let on_resolved = wrap_reaction(cx, on_resolved);
+		let on_rejected = wrap_reaction(cx, on_rejected);
+
+		unsafe {
+			AddPromiseReactions(
+				cx.as_ptr(),
+				self.handle().into(),
+				on_resolved.handle().into(),
+				on_rejected.handle().into(),
+			)
+		}
+	}
+
+	pub fn then<'cx, F>(&self, cx: &'cx Context, on_resolved: F) -> bool
+	where
+		F: for<'cx2> FnOnce(&'cx2 Context, &Value<'cx2>) -> ResultExc<Value<'cx2>> + 'static,
+	{
+		let on_resolved = wrap_reaction(cx, on_resolved);
+
+		unsafe {
+			AddPromiseReactions(
+				cx.as_ptr(),
+				self.handle().into(),
+				on_resolved.handle().into(),
+				HandleObject::null().into(),
+			)
+		}
+	}
+
+	pub fn catch<'cx, F>(&self, cx: &'cx Context, on_rejected: F) -> bool
+	where
+		F: for<'cx2> FnOnce(&'cx2 Context, &Value<'cx2>) -> ResultExc<Value<'cx2>> + 'static,
+	{
+		let on_rejected = wrap_reaction(cx, on_rejected);
+
+		unsafe {
+			AddPromiseReactions(
+				cx.as_ptr(),
+				self.handle().into(),
+				HandleObject::null().into(),
+				on_rejected.handle().into(),
+			)
+		}
+	}
+
 	/// Adds Reactions to the [Promise]
 	///
 	/// `on_resolved` is similar to calling `.then()` on a promise.
 	///
 	/// `on_rejected` is similar to calling `.catch()` on a promise.
-	pub fn add_reactions(
+	pub fn add_reactions_native(
 		&self, cx: &'_ Context, on_resolved: Option<Function<'_>>, on_rejected: Option<Function<'_>>,
 	) -> bool {
 		let mut resolved = Object::null(cx);
@@ -191,6 +241,11 @@ impl<'p> Promise<'p> {
 		unsafe { RejectPromise(cx.as_ptr(), self.handle().into(), value.handle().into()) }
 	}
 
+	/// Rejects the [Promise] with the given [Error].
+	pub fn reject_with_error(&self, cx: &Context, error: &Error) -> bool {
+		self.reject(cx, &error.as_value(cx))
+	}
+
 	/// Checks if a [*mut] [JSObject] is a promise.
 	pub fn is_promise_raw(cx: &Context, object: *mut JSObject) -> bool {
 		rooted!(in(cx.as_ptr()) let object = object);
@@ -215,4 +270,21 @@ impl<'p> DerefMut for Promise<'p> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.promise
 	}
+}
+
+fn wrap_reaction<'cx, F>(cx: &'cx Context, reaction: F) -> Object<'cx>
+where
+	F: for<'cx2> FnOnce(&'cx2 Context, &Value<'cx2>) -> ResultExc<Value<'cx2>> + 'static,
+{
+	Function::from_closure_once(
+		cx,
+		"",
+		Box::new(move |args| {
+			let value = args.value(0).unwrap();
+			reaction(args.cx(), &value)
+		}),
+		1,
+		PropertyFlags::empty(),
+	)
+	.to_object(cx)
 }

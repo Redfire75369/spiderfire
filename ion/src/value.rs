@@ -6,7 +6,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::{JS_ValueToSource, SameValue};
+use mozjs::jsapi::{JS_ValueToSource, NullHandleValue, SameValue, UndefinedHandleValue};
 use mozjs::jsval::{
 	BigIntValue, BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectValue, SymbolValue, UInt32Value,
 	UndefinedValue,
@@ -77,6 +77,14 @@ impl<'v> Value<'v> {
 	/// Creates a `null` [Value].
 	pub fn null(cx: &Context) -> Value {
 		Value::from(cx.root(NullValue()))
+	}
+
+	pub fn undefined_handle() -> Value<'v> {
+		Value::from(unsafe { Local::from_raw_handle(UndefinedHandleValue) })
+	}
+
+	pub fn null_handle() -> Value<'v> {
+		Value::from(unsafe { Local::from_raw_handle(NullHandleValue) })
 	}
 
 	/// Converts a [Value] to an [Object].

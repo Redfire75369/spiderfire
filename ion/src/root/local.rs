@@ -111,7 +111,7 @@ impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 }
 
 impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
-	pub unsafe fn from_heap(heap: &Heap<T>) -> Local<'local, T> {
+	pub unsafe fn from_heap(heap: &'local Heap<T>) -> Local<'local, T> {
 		unsafe { Local::from_raw_handle(heap.handle()) }
 	}
 }
