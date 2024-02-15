@@ -92,6 +92,14 @@ impl<'ab> ArrayBuffer<'ab> {
 		(data, len, shared)
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
+	pub fn len(&self) -> usize {
+		self.data().1
+	}
+
 	/// Returns a slice to the contents of the [ArrayBuffer].
 	///
 	/// The slice may be invalidated if the [ArrayBuffer] is detached.
@@ -141,7 +149,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 
 	pub fn transfer<'cx>(&self, cx: &'cx Context) -> Result<ArrayBuffer<'cx>> {
-		let len = self.data().1;
+		let len = self.len();
 		let data = unsafe { StealArrayBufferContents(cx.as_ptr(), self.handle().into()) };
 		if data.is_null() {
 			return Err(Error::new("ArrayBuffer transfer failed", ErrorKind::Normal));

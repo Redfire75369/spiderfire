@@ -7,7 +7,7 @@
 use ion::{ClassDefinition, Context, Object};
 
 use crate::globals::streams::readable::{
-	ByobReader, ByteStreamController, DefaultController, DefaultReader, ReadableStream,
+	ByobReader, ByobRequest, ByteStreamController, DefaultController, DefaultReader, ReadableStream,
 };
 
 mod readable;
@@ -16,6 +16,7 @@ pub fn define<'cx>(cx: &'cx Context, global: &'cx Object) -> bool {
 	ReadableStream::init_class(cx, global).0
 		&& ByteStreamController::init_class(cx, global).0
 		&& DefaultController::init_class(cx, global).0
+		&& ByobRequest::init_class(cx, global).0
 		&& DefaultReader::init_class(cx, global).0
 		&& ByobReader::init_class(cx, global).0
 }

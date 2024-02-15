@@ -174,6 +174,14 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 		(data.cast::<T::Element>(), len / size_of::<T::Element>())
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
+	pub fn len(&self) -> usize {
+		self.data().1
+	}
+
 	/// Returns a slice to the contents of the [TypedArray].
 	///
 	/// The slice may be invalidated if the underlying [ArrayBuffer] is detached.
