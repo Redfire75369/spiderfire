@@ -6,15 +6,15 @@
 
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
-use ion::conversions::{ConversionBehavior, FromValue, ToValue};
-use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 
-pub use controller::{DefaultController, ByteStreamController};
+pub use controller::{ByobRequest, ByteStreamController, DefaultController};
+use controller::{Controller, ControllerInternals, ControllerKind};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 use ion::class::{NativeObject, Reflector};
+use ion::conversions::{ConversionBehavior, FromValue, ToValue};
 use ion::function::Opt;
 pub use reader::{ByobReader, DefaultReader};
-use crate::globals::streams::readable::controller::{Controller, ControllerInternals, ControllerKind};
-use crate::globals::streams::readable::reader::{Reader, ReaderKind};
+use reader::{Reader, ReaderKind};
 
 mod controller;
 mod reader;

@@ -9,13 +9,13 @@ use std::collections::VecDeque;
 use mozjs::jsapi::{Heap, JSObject};
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
-use ion::class::{Reflector};
+use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;
 use ion::typedarray::{ArrayBufferView, type_to_constructor, type_to_element_size};
 
 use crate::globals::streams::readable::{ReadableStream, State};
-use crate::globals::streams::readable::controller::{Controller, ControllerKind, ControllerInternals, PullIntoDescriptor};
+use crate::globals::streams::readable::controller::{Controller, ControllerInternals, ControllerKind, PullIntoDescriptor};
 
 pub type ChunkErrorClosure = dyn Fn(&Context, &Promise, &Value);
 pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>);
@@ -316,13 +316,13 @@ impl ByobReader {
 		let request = Request::standard(promise.get());
 
 		if let Some(stream) = self.common.stream(cx)? {
-			if view.data().1 == 0 {
+			if view.is_empty() {
 				return Err(Error::new("View must not be empty.", ErrorKind::Type).into());
 			}
 
 			let buffer = view.buffer(cx);
 
-			if buffer.data().1 == 0 {
+			if buffer.is_empty() {
 				return Err(Error::new("Buffer must contain bytes.", ErrorKind::Type).into());
 			}
 
@@ -342,7 +342,7 @@ impl ByobReader {
 			};
 
 			let offset = view.offset();
-			let length = view.data().1;
+			let length = view.len();
 			match buffer.transfer(cx) {
 				Ok(buffer) => {
 					let mut descriptor = PullIntoDescriptor {
