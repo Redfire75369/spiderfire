@@ -13,14 +13,15 @@ use mozjs::gc::HandleObject;
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Handle, JS_GetConstructor, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
-	JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
+	GCContext, Handle, JS_GetConstructor, JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto,
+	JS_SetReservedSlot, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
 };
 use mozjs::jsval::{NullValue, PrivateValue, UndefinedValue};
 
 use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
 pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
+use crate::conversions::ToValue;
 use crate::function::NativeFunction;
 
 mod native;
@@ -146,7 +147,7 @@ pub trait ClassDefinition: NativeObject {
 	}
 
 	fn get_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a Self> {
-		if Self::instance_of(cx, object) {
+		if Self::instance_of(cx, object) || Self::has_instance(cx, object)? {
 			Ok(unsafe { Self::get_private_unchecked(object) })
 		} else {
 			Err(private_error(Self::class()))
@@ -164,7 +165,7 @@ pub trait ClassDefinition: NativeObject {
 
 	#[allow(clippy::mut_from_ref)]
 	fn get_mut_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a mut Self> {
-		if Self::instance_of(cx, object) {
+		if Self::instance_of(cx, object) || Self::has_instance(cx, object)? {
 			Ok(unsafe { Self::get_mut_private_unchecked(object) })
 		} else {
 			Err(private_error(Self::class()))
@@ -186,6 +187,28 @@ pub trait ClassDefinition: NativeObject {
 				&Self::class().base,
 				ptr::null_mut(),
 			)
+		}
+	}
+
+	fn has_instance(cx: &Context, object: &Object) -> Result<bool> {
+		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
+		let constructor =
+			Function::from(cx.root(infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class").constructor))
+				.to_object(cx);
+		let object = object.as_value(cx);
+		let mut has_instance = false;
+		let result = unsafe {
+			JS_HasInstance(
+				cx.as_ptr(),
+				constructor.handle().into(),
+				object.handle().into(),
+				&mut has_instance,
+			)
+		};
+		if result {
+			Ok(has_instance)
+		} else {
+			Err(Error::none())
 		}
 	}
 }
