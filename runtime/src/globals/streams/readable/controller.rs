@@ -8,7 +8,6 @@ use std::collections::VecDeque;
 use std::ptr;
 
 use mozjs::conversions::ConversionBehavior;
-use mozjs::gc::{GCMethods, HandleObject, RootKind};
 use mozjs::jsapi::{Handle, Heap, JSContext, JSFunction, JSObject, Type};
 use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue};
 
@@ -20,7 +19,9 @@ use ion::class::{NativeObject, Reflector};
 use ion::conversions::{FromValue, ToValue};
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, type_to_constructor, Uint8Array};
 
-use crate::globals::streams::readable::{ByobReader, QueueingStrategy, ReadableStream, State, UnderlyingSource};
+use crate::globals::streams::readable::{
+	ByobReader, QueueingStrategy, ReadableStream, State, StreamSource, UnderlyingSource,
+};
 use crate::globals::streams::readable::reader::{Reader, ReaderKind, Request};
 
 #[derive(Traceable)]
@@ -102,36 +103,15 @@ impl Controller<'_> {
 	}
 
 	pub fn cancel<'cx: 'v, 'v>(&mut self, cx: &'cx Context, reason: Option<Value<'v>>) -> ResultExc<Promise<'cx>> {
-		let common = self.common_mut();
-		let object = common.reflector.get();
-		common.pull = None;
-		common.queue_size = 0;
-		let cancel = common.cancel.take();
-
 		match self {
-			Controller::Default(controller) => {
-				controller.queue.clear();
-				controller.size = None;
-			}
-			Controller::ByteStream(controller) => {
-				controller.pending_descriptors.clear();
-				controller.queue.clear();
-			}
+			Controller::Default(controller) => controller.reset_queue(cx),
+			Controller::ByteStream(controller) => controller.reset_queue(cx),
 		}
+		let common = self.common_mut();
 
 		let mut promise = Promise::new(cx);
-		if let Some(cancel) = &cancel {
-			let cancel = Function::from(unsafe { Local::from_heap(cancel) });
-			let this = Object::from(unsafe { Local::from_marked(&object) });
-			let reason = reason.unwrap_or_else(Value::undefined_handle);
-			let value = cancel.call(cx, &this, &[reason]).map_err(|report| report.unwrap().exception)?;
-			if let Ok(result) = Promise::from_value(cx, &value, true, ()) {
-				result.then(cx, |_, _| Ok(Value::undefined_handle()));
-				promise.handle_mut().set(result.get());
-			} else {
-				promise.resolve(cx, &Value::undefined_handle());
-			}
-		}
+		common.source.cancel(cx, &mut promise, reason)?;
+		common.source.clear_algorithms();
 		Ok(promise)
 	}
 
@@ -140,8 +120,7 @@ impl Controller<'_> {
 			Controller::Default(controller) => {
 				if let Some((chunk, _)) = controller.queue.pop_front() {
 					if controller.common.close_requested && controller.queue.is_empty() {
-						controller.common.pull = None;
-						controller.common.cancel = None;
+						controller.common.source.clear_algorithms();
 						controller.size = None;
 
 						let stream = controller.common.stream(cx)?;
@@ -240,10 +219,7 @@ pub struct CommonController {
 	reflector: Reflector,
 
 	pub(crate) stream: Box<Heap<*mut JSObject>>,
-	pub(crate) underlying_source: Option<Box<Heap<*mut JSObject>>>,
-	pub(crate) start: Option<Box<Heap<*mut JSFunction>>>,
-	pub(crate) pull: Option<Box<Heap<*mut JSFunction>>>,
-	pub(crate) cancel: Option<Box<Heap<*mut JSFunction>>>,
+	pub(crate) source: StreamSource,
 
 	pub(crate) started: bool,
 	pub(crate) pulling: bool,
@@ -254,32 +230,13 @@ pub struct CommonController {
 	pub(crate) queue_size: usize,
 }
 
-#[js_class]
 impl CommonController {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<CommonController> {
-		unreachable!()
-	}
-
-	pub(crate) fn new(
-		stream: &Object, source_object: Option<&Object>, source: &UnderlyingSource, high_water_mark: f64,
-	) -> CommonController {
-		fn to_heap<T>(obj: Option<&Local<T>>) -> Option<Box<Heap<T>>>
-		where
-			T: GCMethods + RootKind + Copy,
-			Heap<T>: Default,
-		{
-			obj.as_ref().map(|s| Heap::boxed(s.get()))
-		}
-
+	pub fn new(stream: &Object, source: StreamSource, high_water_mark: f64) -> CommonController {
 		CommonController {
 			reflector: Reflector::default(),
 
 			stream: Heap::boxed(stream.handle().get()),
-			underlying_source: to_heap(source_object.map(|o| &**o)),
-			start: to_heap(source.start.as_deref()),
-			pull: to_heap(source.pull.as_deref()),
-			cancel: to_heap(source.cancel.as_deref()),
+			source,
 
 			started: false,
 			pulling: false,
@@ -290,28 +247,31 @@ impl CommonController {
 			queue_size: 0,
 		}
 	}
+}
+
+#[js_class]
+impl CommonController {
+	#[ion(constructor)]
+	pub fn constructor() -> Result<CommonController> {
+		unreachable!()
+	}
+
+	pub(crate) fn new_from_script(
+		stream: &Object, source_object: Option<&Object>, source: &UnderlyingSource, high_water_mark: f64,
+	) -> CommonController {
+		CommonController::new(stream, source.to_native(source_object), high_water_mark)
+	}
 
 	pub(crate) fn stream<'cx>(&self, cx: &'cx Context) -> Result<&'cx mut ReadableStream> {
 		let stream = Object::from(unsafe { Local::from_heap(&*ptr::from_ref(&self.stream)) });
 		ReadableStream::get_mut_private(cx, &stream)
 	}
 
-	pub(crate) fn underlying_source(&self) -> Object {
-		self.underlying_source
-			.as_ref()
-			.map(|s| Object::from(unsafe { Local::from_heap(s) }))
-			.unwrap_or_else(|| Object::from(Local::from_handle(HandleObject::null())))
-	}
-
-	pub(crate) fn pull(&self) -> Option<Function> {
-		self.pull.as_ref().map(|pull| Function::from(unsafe { Local::from_heap(pull) }))
-	}
-
 	pub(crate) fn start<C: ControllerInternals>(&mut self, cx: &Context, start: Option<&Function>) {
 		let controller = self.reflector().get();
 
 		if let Some(start) = start {
-			let underlying_source = self.underlying_source();
+			let underlying_source = self.source.source_object();
 			let value = controller.as_value(cx);
 			let result = start.call(cx, &underlying_source, &[value]).map(|v| v.get());
 
@@ -370,18 +330,11 @@ impl CommonController {
 
 		self.pulling = true;
 
-		if let Some(pull) = &self.pull() {
-			let controller = stream.controller.get().as_value(cx);
-			let this = self.underlying_source();
-			let result = pull.call(cx, &this, &[controller]).map_err(|report| report.unwrap().exception)?;
-
-			let promise = match Promise::from_value(cx, &result, true, ()) {
-				Ok(promise) => promise,
-				Err(_) => Promise::new(cx),
-			};
-
+		let promise = self.source.pull(cx, self.reflector.get())?;
+		if let Some(promise) = promise {
 			let controller1 = TracedHeap::new(stream.controller.get());
 			let controller2 = TracedHeap::new(stream.controller.get());
+
 			promise.add_reactions(
 				cx,
 				move |cx, _| {
@@ -429,20 +382,25 @@ pub(crate) trait ControllerInternals: ClassDefinition {
 		self.common().pull_if_needed::<Self>(cx)
 	}
 
-	fn clear(&mut self);
+	fn reset_queue(&mut self, cx: &Context);
+
+	fn clear_algorithms(&mut self) {
+		self.common().source.clear_algorithms();
+	}
 
 	fn error_internal(&mut self, cx: &Context, error: &Value) -> Result<()> {
 		if self.common().stream(cx)?.state == State::Readable {
-			self.clear();
+			self.reset_queue(cx);
+			self.clear_algorithms();
 			self.common().stream(cx)?.error(cx, error)
 		} else {
 			Ok(())
 		}
 	}
-}
 
-fn controller_error<C: ControllerInternals>(cx: &Context, controller: &mut C, error: Option<Value>) -> Result<()> {
-	controller.error_internal(cx, &error.unwrap_or_else(Value::undefined_handle))
+	fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
+		self.error_internal(cx, &error.unwrap_or_else(Value::undefined_handle))
+	}
 }
 
 #[js_class]
@@ -470,7 +428,7 @@ impl DefaultController {
 		let size = strategy.size.as_ref().map(|s| Heap::boxed(s.get()));
 
 		DefaultController {
-			common: CommonController::new(stream, source_object, source, high_water_mark),
+			common: CommonController::new_from_script(stream, source_object, source, high_water_mark),
 			size,
 			queue: VecDeque::new(),
 		}
@@ -487,8 +445,7 @@ impl DefaultController {
 			if self.queue.is_empty() {
 				self.common.close_requested = true;
 			}
-			self.common.pull = None;
-			self.common.cancel = None;
+			self.common.source.clear_algorithms();
 			self.size = None;
 
 			stream.close(cx)
@@ -543,7 +500,7 @@ impl DefaultController {
 	}
 
 	pub fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
-		controller_error(cx, self, error)
+		ControllerInternals::error(self, cx, error)
 	}
 }
 
@@ -552,11 +509,13 @@ impl ControllerInternals for DefaultController {
 		&mut self.common
 	}
 
-	fn clear(&mut self) {
+	fn reset_queue(&mut self, _: &Context) {
 		self.queue.clear();
 		self.common.queue_size = 0;
-		self.common.pull = None;
-		self.common.cancel = None;
+	}
+
+	fn clear_algorithms(&mut self) {
+		self.common().source.clear_algorithms();
 		self.size = None;
 	}
 }
@@ -591,7 +550,7 @@ impl ByteStreamController {
 		}
 
 		Ok(ByteStreamController {
-			common: CommonController::new(stream, Some(source_object), source, high_water_mark),
+			common: CommonController::new_from_script(stream, Some(source_object), source, high_water_mark),
 			auto_allocate_chunk_size: source.auto_allocate_chunk_size.unwrap_or(0) as usize,
 			byob_request: None,
 			pending_descriptors: VecDeque::new(),
@@ -741,8 +700,7 @@ impl ByteStreamController {
 				}
 			}
 
-			self.common.pull = None;
-			self.common.cancel = None;
+			self.common.source.clear_algorithms();
 			stream.close(cx)
 		} else {
 			Err(Error::new("Cannot Close Byte Stream Controller", ErrorKind::Type))
@@ -833,7 +791,7 @@ impl ByteStreamController {
 	}
 
 	pub fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
-		controller_error(cx, self, error)
+		ControllerInternals::error(self, cx, error)
 	}
 }
 
@@ -842,12 +800,11 @@ impl ControllerInternals for ByteStreamController {
 		&mut self.common
 	}
 
-	fn clear(&mut self) {
+	fn reset_queue(&mut self, cx: &Context) {
+		self.invalidate_byob_request(cx).unwrap();
 		self.pending_descriptors.clear();
 		self.queue.clear();
 		self.common.queue_size = 0;
-		self.common.pull = None;
-		self.common.cancel = None;
 	}
 }
 
