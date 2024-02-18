@@ -7,7 +7,7 @@
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
 
-pub use controller::{ByobRequest, ByteStreamController, DefaultController};
+pub use controller::{ByobRequest, ByteStreamController, CommonController, DefaultController};
 use controller::{Controller, ControllerInternals, ControllerKind};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 use ion::class::{NativeObject, Reflector};
@@ -15,9 +15,11 @@ use ion::conversions::{ConversionBehavior, FromValue, ToValue};
 use ion::function::Opt;
 pub use reader::{ByobReader, DefaultReader};
 use reader::{Reader, ReaderKind};
+pub use source::StreamSource;
 
 mod controller;
 mod reader;
+mod source;
 
 #[derive(Default, FromValue)]
 pub struct UnderlyingSource<'cx> {
@@ -28,6 +30,19 @@ pub struct UnderlyingSource<'cx> {
 	ty: Option<String>,
 	#[ion(convert = ConversionBehavior::EnforceRange)]
 	auto_allocate_chunk_size: Option<u64>,
+}
+
+impl UnderlyingSource<'_> {
+	pub(crate) fn to_native(&self, object: Option<&Object>) -> StreamSource {
+		match object {
+			Some(object) => StreamSource::Script {
+				object: Heap::boxed(object.handle().get()),
+				pull: self.pull.as_ref().map(|pull| Heap::boxed(pull.get())),
+				cancel: self.cancel.as_ref().map(|cancel| Heap::boxed(cancel.get())),
+			},
+			None => StreamSource::None,
+		}
+	}
 }
 
 #[derive(Default, FromValue)]
