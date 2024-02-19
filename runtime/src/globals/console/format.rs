@@ -143,11 +143,11 @@ pub(crate) fn format_args<'cx>(cx: &'cx Context, args: &'cx [Value<'cx>]) -> Vec
 			};
 
 			if args.peek().is_none() {
-				output.push_str(&format[index..]);
 				break;
 			}
 		}
 
+		output.push_str(&format[index..]);
 		outputs.push(FormatArg::String(output));
 		outputs.extend(format_value_args(cx, args));
 		Ok(outputs)
