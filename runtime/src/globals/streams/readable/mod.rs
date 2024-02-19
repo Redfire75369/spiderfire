@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::collections::VecDeque;
+use std::rc::Rc;
+
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
 
@@ -16,6 +19,7 @@ use ion::function::Opt;
 pub use reader::{ByobReader, DefaultReader};
 use reader::{Reader, ReaderKind};
 pub use source::StreamSource;
+use source::TeeState;
 
 mod controller;
 mod reader;
@@ -90,21 +94,21 @@ impl ReadableStream {
 
 		let controller = underlying_source
 			.as_ref()
-			.map(|underlying_source| {
+			.map::<ResultExc<_>, _>(|underlying_source| {
 				let source_value = underlying_source.as_value(cx);
 				source = Some(UnderlyingSource::from_value(cx, &source_value, false, ())?);
 
 				let source = source.as_ref().unwrap();
 				if source.ty.as_deref() == Some("bytes") {
 					if strategy.size.is_some() {
-						return Err(Error::new("Implementation preserved member 'size'", ErrorKind::Range));
+						return Err(Error::new("Implementation preserved member 'size'", ErrorKind::Range).into());
 					}
 
 					if let Some(high_water_mark) = strategy.high_water_mark {
 						if high_water_mark.is_nan() {
-							return Err(Error::new("highWaterMark cannot be NaN", ErrorKind::Range));
+							return Err(Error::new("highWaterMark cannot be NaN", ErrorKind::Range).into());
 						} else if high_water_mark < 0.0 {
-							return Err(Error::new("highWaterMark must be non-negative", ErrorKind::Range));
+							return Err(Error::new("highWaterMark must be non-negative", ErrorKind::Range).into());
 						}
 					}
 					let high_water_mark = strategy.high_water_mark.unwrap_or(0.0);
@@ -114,7 +118,8 @@ impl ReadableStream {
 					let controller = Heap::boxed(ByteStreamController::new_object(cx, Box::new(controller)));
 					unsafe {
 						let controller = Object::from(Local::from_heap(&controller));
-						ByteStreamController::get_mut_private_unchecked(&controller).start(cx, source.start.as_ref());
+						ByteStreamController::get_mut_private_unchecked(&controller)
+							.start(cx, source.start.as_ref())?;
 					}
 
 					Ok(Some((ControllerKind::ByteStream, controller)))
@@ -122,7 +127,8 @@ impl ReadableStream {
 					Err(Error::new(
 						"Type of Underlying Source must be 'bytes' or not exist.",
 						ErrorKind::Type,
-					))
+					)
+					.into())
 				} else {
 					Ok(None)
 				}
@@ -130,33 +136,34 @@ impl ReadableStream {
 			.transpose()?
 			.flatten();
 
-		let (controller_kind, controller) = controller.unwrap_or_else(|| {
-			let source = source.unwrap_or_default();
-			let high_water_mark = strategy.high_water_mark.unwrap_or(1.0);
-			let controller =
-				DefaultController::initialise(this, underlying_source.as_ref(), &source, &strategy, high_water_mark);
-			let controller = Heap::boxed(DefaultController::new_object(cx, Box::new(controller)));
-			unsafe {
-				let controller = Object::from(Local::from_heap(&controller));
-				DefaultController::get_mut_private_unchecked(&controller).start(cx, source.start.as_ref());
+		let (controller_kind, controller) = match controller {
+			Some(controller) => controller,
+			None => {
+				let source = source.unwrap_or_default();
+				let high_water_mark = strategy.high_water_mark.unwrap_or(1.0);
+				let controller = DefaultController::initialise(
+					this,
+					underlying_source.as_ref(),
+					&source,
+					&strategy,
+					high_water_mark,
+				);
+				let controller = Heap::boxed(DefaultController::new_object(cx, Box::new(controller)));
+				unsafe {
+					let controller = Object::from(Local::from_heap(&controller));
+					DefaultController::get_mut_private_unchecked(&controller).start(cx, source.start.as_ref())?;
+				}
+
+				(ControllerKind::Default, controller)
 			}
+		};
 
-			(ControllerKind::Default, controller)
-		});
+		Ok(ReadableStream::new(controller_kind, controller))
+	}
 
-		Ok(ReadableStream {
-			reflector: Reflector::default(),
-
-			controller_kind,
-			controller,
-
-			reader_kind: ReaderKind::None,
-			reader: None,
-
-			state: State::Readable,
-			disturbed: false,
-			error: None,
-		})
+	#[ion(get)]
+	pub fn get_locked(&self) -> bool {
+		self.reader_kind != ReaderKind::None
 	}
 
 	pub fn cancel<'cx>(&mut self, cx: &'cx Context, Opt(reason): Opt<Value>) -> ResultExc<Promise<'cx>> {
@@ -185,6 +192,13 @@ impl ReadableStream {
 
 	#[ion(name = "getReader")]
 	pub fn get_reader<'cx>(&mut self, cx: &'cx Context, Opt(options): Opt<ReaderOptions>) -> Result<Object<'cx>> {
+		if self.get_locked() {
+			return Err(Error::new(
+				"New readers cannot be initialised for locked streams.",
+				ErrorKind::Type,
+			));
+		}
+
 		let options = options.unwrap_or_default();
 		if let Some(mode) = &options.mode {
 			if mode == "byob" {
@@ -199,13 +213,6 @@ impl ReadableStream {
 				Err(Error::new("Mode must be 'byob' or must not exist.", ErrorKind::Type))
 			}
 		} else {
-			if self.get_locked() {
-				return Err(Error::new(
-					"New readers cannot be initialised for locked streams.",
-					ErrorKind::Type,
-				));
-			}
-
 			let reader = DefaultReader::new(cx, &Object::from(Local::from_handle(self.reflector().handle())))?;
 			let object = Object::from(cx.root(DefaultReader::new_object(cx, Box::new(reader))));
 
@@ -216,9 +223,65 @@ impl ReadableStream {
 		}
 	}
 
-	#[ion(get)]
-	pub fn get_locked(&self) -> bool {
-		self.reader_kind != ReaderKind::None
+	pub fn tee<'cx>(&mut self, cx: &'cx Context) -> Result<[Object<'cx>; 2]> {
+		self.get_reader(cx, Opt(None))?;
+		Ok(self.tee_internal(cx, false))
+	}
+}
+
+impl ReadableStream {
+	pub(crate) fn new(controller_kind: ControllerKind, controller: Box<Heap<*mut JSObject>>) -> ReadableStream {
+		ReadableStream {
+			reflector: Reflector::default(),
+
+			controller_kind,
+			controller,
+
+			reader_kind: ReaderKind::None,
+			reader: None,
+
+			state: State::Readable,
+			disturbed: false,
+			error: None,
+		}
+	}
+
+	pub(crate) fn tee_internal<'cx>(&mut self, cx: &'cx Context, clone_branch_2: bool) -> [Object<'cx>; 2] {
+		match self.controller_kind {
+			ControllerKind::Default => {
+				fn create_branch(cx: &Context, state: Rc<TeeState>, second: bool) -> Object {
+					let branch = Object::from(cx.root(ReadableStream::new_raw_object(cx)));
+					let source = StreamSource::Tee(state, second);
+					let controller = DefaultController {
+						common: CommonController::new(&branch, source, 1.0),
+						size: None,
+						queue: VecDeque::default(),
+					};
+					let controller = Heap::boxed(DefaultController::new_object(cx, Box::new(controller)));
+
+					unsafe {
+						let controller = Object::from(Local::from_heap(&controller));
+						DefaultController::get_mut_private_unchecked(&controller).start(cx, None).unwrap();
+					}
+
+					let stream = ReadableStream::new(ControllerKind::Default, controller);
+					unsafe {
+						ReadableStream::set_private(branch.handle().get(), Box::new(stream));
+					}
+					branch
+				}
+
+				let state = Rc::new(TeeState::new(cx, self, clone_branch_2));
+				let branch1 = create_branch(cx, Rc::clone(&state), false);
+				let branch2 = create_branch(cx, Rc::clone(&state), true);
+
+				state.branch[0].set(branch1.handle().get());
+				state.branch[1].set(branch2.handle().get());
+
+				[branch1, branch2]
+			}
+			ControllerKind::ByteStream => todo!(),
+		}
 	}
 
 	pub(crate) fn close(&mut self, cx: &Context) -> Result<()> {
@@ -236,7 +299,7 @@ impl ReadableStream {
 		if self.reader_kind == ReaderKind::Default {
 			for request in &*requests {
 				let promise = request.promise();
-				(request.close)(cx, &promise, None);
+				(request.close)(cx, &promise, None)?;
 			}
 			requests.clear();
 		}

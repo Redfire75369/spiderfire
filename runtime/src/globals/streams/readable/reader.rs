@@ -18,11 +18,11 @@ use crate::globals::streams::readable::{ReadableStream, State};
 use crate::globals::streams::readable::controller::{Controller, ControllerInternals, ControllerKind, PullIntoDescriptor};
 
 pub type ChunkErrorClosure = dyn Fn(&Context, &Promise, &Value);
-pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>);
+pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>) -> Result<()>;
 
 #[derive(Traceable)]
 pub struct Request {
-	promise: Box<Heap<*mut JSObject>>,
+	pub(crate) promise: Box<Heap<*mut JSObject>>,
 	#[trace(no_trace)]
 	pub(crate) chunk: Box<ChunkErrorClosure>,
 	#[trace(no_trace)]
@@ -47,19 +47,20 @@ impl Request {
 
 		Request {
 			promise: Heap::boxed(promise),
-			chunk: Box::new(|cx, promise, value| {
+			chunk: Box::new(|cx, promise, chunk| {
 				let result = ReadResult {
-					value: Some(Value::from(Local::from_handle(value.handle()))),
+					value: Some(Value::from(Local::from_handle(chunk.handle()))),
 					done: false,
 				};
 				promise.resolve(cx, &into_value(result, cx));
 			}),
-			close: Box::new(|cx, promise, value| {
+			close: Box::new(|cx, promise, chunk| {
 				let result = ReadResult {
-					value: value.map(|v| Value::from(Local::from_handle(v.handle()))),
+					value: chunk.map(|v| Value::from(Local::from_handle(v.handle()))),
 					done: true,
 				};
 				promise.resolve(cx, &into_value(result, cx));
+				Ok(())
 			}),
 			error: Box::new(|cx, promise, error| {
 				promise.resolve(cx, error);
@@ -241,14 +242,17 @@ impl DefaultReader {
 
 	pub fn read<'cx>(&mut self, cx: &'cx Context) -> ResultExc<Promise<'cx>> {
 		let promise = Promise::new(cx);
-		let request = Request::standard(promise.get());
+		self.read_internal(cx, Request::standard(promise.get()))
+	}
 
+	pub(crate) fn read_internal<'cx>(&mut self, cx: &'cx Context, request: Request) -> ResultExc<Promise<'cx>> {
+		let promise = Promise::from(cx.root(request.promise.get())).unwrap();
 		if let Some(stream) = self.common.stream(cx)? {
 			stream.disturbed = true;
 
 			match stream.state {
 				State::Readable => stream.native_controller(cx)?.pull(cx, &promise, request)?,
-				State::Closed => (request.close)(cx, &promise, None),
+				State::Closed => (request.close)(cx, &promise, None)?,
 				State::Errored => (request.error)(cx, &promise, &stream.stored_error()),
 			}
 		} else {
@@ -365,7 +369,7 @@ impl ByobReader {
 							return Ok(promise);
 						} else if stream.state == State::Closed {
 							let empty = descriptor.construct(cx)?.as_value(cx);
-							(request.close)(cx, &promise, Some(&empty));
+							(request.close)(cx, &promise, Some(&empty))?;
 							return Ok(promise);
 						} else if controller.common.queue_size > 0 {
 							if controller.fill_pull_into_descriptor(cx, &mut descriptor)? {

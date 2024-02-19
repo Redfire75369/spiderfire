@@ -4,12 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::{ptr, slice};
 use std::collections::VecDeque;
-use std::ptr;
 
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{Handle, Heap, JSContext, JSFunction, JSObject, Type};
-use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue};
+use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue, UndefinedValue};
 
 use ion::{
 	ClassDefinition, Context, Error, ErrorKind, Exception, Function, Local, Object, Promise, Result, ResultExc,
@@ -77,7 +77,7 @@ impl PullIntoDescriptor {
 		if !done {
 			(request.chunk)(cx, &promise, &view);
 		} else {
-			(request.close)(cx, &promise, Some(&view));
+			(request.close)(cx, &promise, Some(&view))?;
 		}
 		Ok(())
 	}
@@ -267,37 +267,36 @@ impl CommonController {
 		ReadableStream::get_mut_private(cx, &stream)
 	}
 
-	pub(crate) fn start<C: ControllerInternals>(&mut self, cx: &Context, start: Option<&Function>) {
+	pub(crate) fn start<C: ControllerInternals>(&mut self, cx: &Context, start: Option<&Function>) -> ResultExc<()> {
 		let controller = self.reflector().get();
 
-		if let Some(start) = start {
-			let underlying_source = self.source.source_object();
-			let value = controller.as_value(cx);
-			let result = start.call(cx, &underlying_source, &[value]).map(|v| v.get());
+		let underlying_source = self.source.source_object();
+		let value = controller.as_value(cx);
+		let result = start
+			.map(|start| start.call(cx, &underlying_source, &[value]).map(|v| v.get()))
+			.unwrap_or_else(|| Ok(UndefinedValue()))
+			.map_err(|report| report.unwrap().exception)?;
 
-			let promise = match result {
-				Ok(value) => Promise::resolved(cx, &Value::from(cx.root(value))),
-				Err(Some(report)) => Promise::rejected(cx, &report.exception.as_value(cx)),
-				Err(None) => unreachable!(),
-			};
+		let promise = Promise::resolved(cx, &Value::from(cx.root(result)));
 
-			let controller1 = TracedHeap::new(controller);
-			let controller2 = TracedHeap::new(controller);
-			promise.add_reactions(
-				cx,
-				move |cx, _| {
-					let controller = C::from_traced_heap(cx, &controller1)?;
-					controller.common().started = true;
-					controller.pull_if_needed(cx)?;
-					Ok(Value::undefined_handle())
-				},
-				move |cx, error| {
-					let controller = C::from_traced_heap(cx, &controller2)?;
-					controller.error_internal(cx, error)?;
-					Ok(Value::undefined_handle())
-				},
-			);
-		}
+		let controller1 = TracedHeap::new(controller);
+		let controller2 = TracedHeap::new(controller);
+		promise.add_reactions(
+			cx,
+			move |cx, _| {
+				let controller = C::from_traced_heap(cx, &controller1)?;
+				controller.common().started = true;
+				controller.pull_if_needed(cx)?;
+				Ok(Value::undefined_handle())
+			},
+			move |cx, error| {
+				let controller = C::from_traced_heap(cx, &controller2)?;
+				controller.error_internal(cx, error)?;
+				Ok(Value::undefined_handle())
+			},
+		);
+
+		Ok(())
 	}
 
 	pub(crate) fn can_close_or_enqueue(&self, stream: &ReadableStream) -> bool {
@@ -374,8 +373,8 @@ pub(crate) trait ControllerInternals: ClassDefinition {
 
 	fn common(&mut self) -> &mut CommonController;
 
-	fn start(&mut self, cx: &Context, start: Option<&Function>) {
-		self.common().start::<Self>(cx, start);
+	fn start(&mut self, cx: &Context, start: Option<&Function>) -> ResultExc<()> {
+		self.common().start::<Self>(cx, start)
 	}
 
 	fn pull_if_needed(&mut self, cx: &Context) -> ResultExc<()> {
@@ -455,22 +454,26 @@ impl DefaultController {
 	}
 
 	pub fn enqueue(&mut self, cx: &Context, chunk: Value) -> ResultExc<()> {
+		self.enqueue_internal(cx, &chunk)
+	}
+
+	pub(crate) fn enqueue_internal(&mut self, cx: &Context, chunk: &Value) -> ResultExc<()> {
 		let stream = self.common.stream(cx)?;
 		if self.common.can_close_or_enqueue(stream) {
 			if let Some(Reader::Default(reader)) = stream.native_reader(cx)? {
 				if let Some(request) = reader.common.requests.pop_front() {
 					let promise = request.promise();
-					(request.chunk)(cx, &promise, &chunk);
+					(request.chunk)(cx, &promise, chunk);
 					return Ok(());
 				}
 			}
-			let args = [chunk];
+
 			let result = self
 				.size
 				.as_ref()
 				.map(|size| {
 					let size = Function::from(unsafe { Local::from_heap(size) });
-					size.call(cx, &Object::null(cx), &args)
+					size.call(cx, &Object::null(cx), slice::from_ref(chunk))
 				})
 				.unwrap_or_else(|| Ok(Value::i32(cx, 1)));
 
@@ -479,7 +482,7 @@ impl DefaultController {
 					let size = u64::from_value(cx, &size, false, ConversionBehavior::EnforceRange);
 					match size {
 						Ok(size) => {
-							self.queue.push_back((Heap::boxed(args[0].get()), size));
+							self.queue.push_back((Heap::boxed(chunk.get()), size));
 							self.common.queue_size += size as usize;
 							self.pull_if_needed(cx)?;
 						}
