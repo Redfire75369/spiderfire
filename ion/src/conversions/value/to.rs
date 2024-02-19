@@ -296,6 +296,12 @@ impl<'cx, T: ToValue<'cx>> ToValue<'cx> for [T] {
 	}
 }
 
+impl<'cx, const N: usize, T: ToValue<'cx>> ToValue<'cx> for [T; N] {
+	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
+		<[T]>::to_value(self, cx, value);
+	}
+}
+
 impl<'cx, T: ToValue<'cx>> ToValue<'cx> for Vec<T> {
 	fn to_value(&self, cx: &'cx Context, value: &mut Value) {
 		(**self).to_value(cx, value);
