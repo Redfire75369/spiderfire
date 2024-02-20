@@ -15,10 +15,10 @@ use ion::function::Opt;
 use ion::typedarray::{ArrayBufferView, type_to_constructor, type_to_element_size};
 
 use crate::globals::streams::readable::{ReadableStream, State};
-use crate::globals::streams::readable::controller::{Controller, ControllerInternals, ControllerKind, PullIntoDescriptor};
+use crate::globals::streams::readable::controller::{ControllerInternals, ControllerKind, PullIntoDescriptor};
 
 pub type ChunkErrorClosure = dyn Fn(&Context, &Promise, &Value);
-pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>) -> Result<()>;
+pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>) -> ResultExc<()>;
 
 #[derive(Traceable)]
 pub struct Request {
@@ -86,10 +86,24 @@ pub enum Reader<'r> {
 }
 
 impl<'r> Reader<'r> {
-	pub fn common(&self) -> &CommonReader {
+	pub(crate) fn common(&self) -> &CommonReader {
 		match self {
 			Reader::Default(reader) => &reader.common,
 			Reader::Byob(reader) => &reader.common,
+		}
+	}
+
+	pub(crate) fn into_default(self) -> Option<&'r mut DefaultReader> {
+		match self {
+			Reader::Default(reader) => Some(reader),
+			Reader::Byob(_) => None,
+		}
+	}
+
+	pub(crate) fn into_byob(self) -> Option<&'r mut ByobReader> {
+		match self {
+			Reader::Byob(reader) => Some(reader),
+			Reader::Default(_) => None,
 		}
 	}
 
@@ -236,15 +250,6 @@ impl DefaultReader {
 		})
 	}
 
-	pub fn cancel<'cx>(&self, cx: &'cx Context, reason: Opt<Value>) -> ResultExc<Promise<'cx>> {
-		self.common.cancel(cx, reason)
-	}
-
-	pub fn read<'cx>(&mut self, cx: &'cx Context) -> ResultExc<Promise<'cx>> {
-		let promise = Promise::new(cx);
-		self.read_internal(cx, Request::standard(promise.get()))
-	}
-
 	pub(crate) fn read_internal<'cx>(&mut self, cx: &'cx Context, request: Request) -> ResultExc<Promise<'cx>> {
 		let promise = Promise::from(cx.root(request.promise.get())).unwrap();
 		if let Some(stream) = self.common.stream(cx)? {
@@ -259,6 +264,15 @@ impl DefaultReader {
 			promise.reject_with_error(cx, &Error::new("Reader has already been released.", ErrorKind::Type));
 		}
 		Ok(promise)
+	}
+
+	pub fn cancel<'cx>(&self, cx: &'cx Context, reason: Opt<Value>) -> ResultExc<Promise<'cx>> {
+		self.common.cancel(cx, reason)
+	}
+
+	pub fn read<'cx>(&mut self, cx: &'cx Context) -> ResultExc<Promise<'cx>> {
+		let promise = Promise::new(cx);
+		self.read_internal(cx, Request::standard(promise.get()))
 	}
 
 	#[ion(name = "releaseLock")]
@@ -311,6 +325,88 @@ impl ByobReader {
 		})
 	}
 
+	pub(crate) fn read_internal<'cx>(
+		&mut self, cx: &'cx Context, view: ArrayBufferView, request: Request,
+	) -> ResultExc<Promise<'cx>> {
+		let stream = self.common.stream(cx)?.unwrap();
+		let promise = Promise::from(cx.root(request.promise.get())).unwrap();
+
+		stream.disturbed = true;
+		if stream.state == State::Errored {
+			(request.error)(cx, &promise, &stream.stored_error());
+			return Ok(promise);
+		}
+
+		let (constructor, element_size) = {
+			let ty = view.view_type();
+			(type_to_constructor(ty), type_to_element_size(ty))
+		};
+
+		let offset = view.offset();
+		let length = view.len();
+		let buffer = view.buffer(cx);
+		match buffer.transfer(cx) {
+			Ok(buffer) => {
+				let mut descriptor = PullIntoDescriptor {
+					buffer: Heap::boxed(buffer.get()),
+					offset,
+					length: length * element_size,
+					filled: 0,
+					element: element_size,
+					constructor,
+					kind: ReaderKind::Byob,
+				};
+
+				let controller = stream.native_controller(cx)?.into_byte_stream().unwrap();
+				if !controller.pending_descriptors.is_empty() {
+					controller.pending_descriptors.push_back(descriptor);
+
+					if stream.state == State::Readable {
+						self.common.requests.push_back(request);
+					}
+					return Ok(promise);
+				} else if stream.state == State::Closed {
+					let empty = descriptor.construct(cx)?.as_value(cx);
+					(request.close)(cx, &promise, Some(&empty))?;
+					return Ok(promise);
+				} else if controller.common.queue_size > 0 {
+					if controller.fill_pull_into_descriptor(cx, &mut descriptor)? {
+						let buffer = buffer.transfer(cx)?;
+						descriptor.buffer.set(buffer.get());
+						let view = descriptor.construct(cx)?.as_value(cx);
+
+						if controller.common.queue_size == 0 && controller.common.close_requested {
+							controller.close(cx)?;
+						} else {
+							controller.pull_if_needed(cx)?;
+						}
+
+						(request.chunk)(cx, &promise, &view);
+						return Ok(promise);
+					} else if controller.common.close_requested {
+						let error = Error::new("Stream closed by request.", ErrorKind::Type);
+						// TODO: ByteStreamController Error
+						(request.error)(cx, &promise, &error.as_value(cx));
+						return Ok(promise);
+					}
+				}
+
+				controller.pending_descriptors.push_back(descriptor);
+				if stream.state == State::Readable {
+					self.common.requests.push_back(request);
+				}
+
+				let stream = self.common.stream(cx)?.unwrap();
+				let controller = stream.native_controller(cx)?.into_byte_stream().unwrap();
+				controller.pull_if_needed(cx)?;
+			}
+			Err(error) => {
+				(request.error)(cx, &promise, &error.as_value(cx));
+			}
+		}
+		Ok(promise)
+	}
+
 	pub fn cancel<'cx>(&self, cx: &'cx Context, reason: Opt<Value>) -> ResultExc<Promise<'cx>> {
 		self.common.cancel(cx, reason)
 	}
@@ -318,8 +414,7 @@ impl ByobReader {
 	pub fn read<'cx>(&mut self, cx: &'cx Context, view: ArrayBufferView) -> ResultExc<Promise<'cx>> {
 		let promise = Promise::new(cx);
 		let request = Request::standard(promise.get());
-
-		if let Some(stream) = self.common.stream(cx)? {
+		if self.common.stream.is_some() {
 			if view.is_empty() {
 				return Err(Error::new("View must not be empty.", ErrorKind::Type).into());
 			}
@@ -334,85 +429,15 @@ impl ByobReader {
 				return Err(Error::new("ArrayBuffer must not be detached.", ErrorKind::Type).into());
 			}
 
-			stream.disturbed = true;
-			if stream.state == State::Errored {
-				(request.error)(cx, &promise, &stream.stored_error());
-				return Ok(promise);
-			}
-
-			let (constructor, element_size) = {
-				let ty = view.view_type();
-				(type_to_constructor(ty), type_to_element_size(ty))
-			};
-
-			let offset = view.offset();
-			let length = view.len();
-			match buffer.transfer(cx) {
-				Ok(buffer) => {
-					let mut descriptor = PullIntoDescriptor {
-						buffer: Heap::boxed(buffer.get()),
-						offset,
-						length: length * element_size,
-						filled: 0,
-						element: element_size,
-						constructor,
-						kind: ReaderKind::Byob,
-					};
-
-					if let Controller::ByteStream(controller) = stream.native_controller(cx)? {
-						if !controller.pending_descriptors.is_empty() {
-							controller.pending_descriptors.push_back(descriptor);
-
-							if stream.state == State::Readable {
-								self.common.requests.push_back(request);
-							}
-							return Ok(promise);
-						} else if stream.state == State::Closed {
-							let empty = descriptor.construct(cx)?.as_value(cx);
-							(request.close)(cx, &promise, Some(&empty))?;
-							return Ok(promise);
-						} else if controller.common.queue_size > 0 {
-							if controller.fill_pull_into_descriptor(cx, &mut descriptor)? {
-								let buffer = buffer.transfer(cx)?;
-								descriptor.buffer.set(buffer.get());
-								let view = descriptor.construct(cx)?.as_value(cx);
-
-								if controller.common.queue_size == 0 && controller.common.close_requested {
-									controller.close(cx)?;
-								} else {
-									controller.pull_if_needed(cx)?;
-								}
-
-								(request.chunk)(cx, &promise, &view);
-								return Ok(promise);
-							} else if controller.common.close_requested {
-								let error = Error::new("Stream closed by request.", ErrorKind::Type);
-								// TODO: ByteStreamController Error
-								(request.error)(cx, &promise, &error.as_value(cx));
-								return Ok(promise);
-							}
-						}
-
-						controller.pending_descriptors.push_back(descriptor);
-						controller.pull_if_needed(cx)?;
-
-						if stream.state == State::Readable {
-							self.common.requests.push_back(request);
-						}
-					}
-				}
-				Err(error) => {
-					(request.error)(cx, &promise, &error.as_value(cx));
-				}
-			}
+			self.read_internal(cx, view, request)
 		} else {
 			(request.error)(
 				cx,
 				&promise,
 				&Error::new("Reader has already been released.", ErrorKind::Type).as_value(cx),
 			);
+			Ok(Promise::new(cx))
 		}
-		Ok(promise)
 	}
 
 	#[ion(name = "releaseLock")]
