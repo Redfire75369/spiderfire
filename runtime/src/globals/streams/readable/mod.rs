@@ -18,8 +18,8 @@ use ion::conversions::{ConversionBehavior, FromValue, ToValue};
 use ion::function::Opt;
 pub use reader::{ByobReader, DefaultReader};
 use reader::{Reader, ReaderKind};
+use source::{forward_reader_error, TeeBytesState, TeeDefaultState};
 pub use source::StreamSource;
-use source::TeeState;
 
 mod controller;
 mod reader;
@@ -249,9 +249,9 @@ impl ReadableStream {
 	pub(crate) fn tee_internal<'cx>(&mut self, cx: &'cx Context, clone_branch_2: bool) -> [Object<'cx>; 2] {
 		match self.controller_kind {
 			ControllerKind::Default => {
-				fn create_branch(cx: &Context, state: Rc<TeeState>, second: bool) -> Object {
+				fn create_branch(cx: &Context, state: Rc<TeeDefaultState>, second: bool) -> Object {
 					let branch = Object::from(cx.root(ReadableStream::new_raw_object(cx)));
-					let source = StreamSource::Tee(state, second);
+					let source = StreamSource::TeeDefault(state, second);
 					let controller = DefaultController {
 						common: CommonController::new(&branch, source, 1.0),
 						size: None,
@@ -271,22 +271,58 @@ impl ReadableStream {
 					branch
 				}
 
-				let state = Rc::new(TeeState::new(cx, self, clone_branch_2));
+				let state = Rc::new(TeeDefaultState::new(cx, self, clone_branch_2));
 				let branch1 = create_branch(cx, Rc::clone(&state), false);
 				let branch2 = create_branch(cx, Rc::clone(&state), true);
 
-				state.branch[0].set(branch1.handle().get());
-				state.branch[1].set(branch2.handle().get());
+				state.common.branch[0].set(branch1.handle().get());
+				state.common.branch[1].set(branch2.handle().get());
 
 				[branch1, branch2]
 			}
-			ControllerKind::ByteStream => todo!(),
+			ControllerKind::ByteStream => {
+				fn create_branch(cx: &Context, state: Rc<TeeBytesState>, second: bool) -> Object {
+					let branch = Object::from(cx.root(ReadableStream::new_raw_object(cx)));
+					let source = StreamSource::TeeBytes(state, second);
+					let controller = ByteStreamController {
+						common: CommonController::new(&branch, source, 1.0),
+						auto_allocate_chunk_size: 0,
+						byob_request: None,
+						pending_descriptors: VecDeque::default(),
+						queue: VecDeque::default(),
+					};
+					let controller = Heap::boxed(ByteStreamController::new_object(cx, Box::new(controller)));
+
+					unsafe {
+						let controller = Object::from(Local::from_heap(&controller));
+						ByteStreamController::get_mut_private_unchecked(&controller).start(cx, None).unwrap();
+					}
+
+					let stream = ReadableStream::new(ControllerKind::ByteStream, controller);
+					unsafe {
+						ReadableStream::set_private(branch.handle().get(), Box::new(stream));
+					}
+					branch
+				}
+
+				let state = Rc::new(TeeBytesState::new(cx, self));
+				let branch1 = create_branch(cx, Rc::clone(&state), false);
+				let branch2 = create_branch(cx, Rc::clone(&state), true);
+
+				state.common.branch[0].set(branch1.handle().get());
+				state.common.branch[1].set(branch2.handle().get());
+
+				let reader = self.native_reader(cx).unwrap().unwrap().into_default().unwrap();
+				forward_reader_error(cx, &reader.common.closed(), Rc::clone(&state)).unwrap();
+
+				[branch1, branch2]
+			}
 		}
 	}
 
-	pub(crate) fn close(&mut self, cx: &Context) -> Result<()> {
+	pub(crate) fn close(&mut self, cx: &Context) -> ResultExc<()> {
 		if self.state != State::Readable {
-			return Err(Error::new("Cannot Close Stream", None));
+			return Err(Error::new("Cannot Close Stream", None).into());
 		}
 
 		self.state = State::Closed;

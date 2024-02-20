@@ -40,7 +40,7 @@ impl PullIntoDescriptor {
 		ArrayBuffer::from(unsafe { Local::from_heap(&self.buffer) }).unwrap()
 	}
 
-	pub(crate) fn construct<'cx>(&self, cx: &'cx Context) -> ResultExc<ArrayBufferView<'cx>> {
+	pub(crate) fn construct<'cx>(&self, cx: &'cx Context) -> Result<ArrayBufferView<'cx>> {
 		let view = unsafe {
 			(self.constructor)(
 				cx.as_ptr(),
@@ -52,10 +52,10 @@ impl PullIntoDescriptor {
 
 		if !view.is_null() {
 			Ok(ArrayBufferView::from(cx.root(view)).unwrap())
-		} else if let Some(exception) = Exception::new(cx)? {
+		} else if let Some(Exception::Error(exception)) = Exception::new(cx)? {
 			Err(exception)
 		} else {
-			Err(Error::new("Failed to Initialise Array Buffer", ErrorKind::Normal).into())
+			Err(Error::new("Failed to Initialise Array Buffer", None))
 		}
 	}
 
@@ -94,11 +94,25 @@ pub enum Controller<'c> {
 	ByteStream(&'c mut ByteStreamController),
 }
 
-impl Controller<'_> {
+impl<'c> Controller<'c> {
 	pub(crate) fn common_mut(&mut self) -> &mut CommonController {
 		match self {
 			Controller::Default(controller) => &mut controller.common,
 			Controller::ByteStream(controller) => &mut controller.common,
+		}
+	}
+
+	pub(crate) fn into_default(self) -> Option<&'c mut DefaultController> {
+		match self {
+			Controller::Default(controller) => Some(controller),
+			Controller::ByteStream(_) => None,
+		}
+	}
+
+	pub(crate) fn into_byte_stream(self) -> Option<&'c mut ByteStreamController> {
+		match self {
+			Controller::ByteStream(controller) => Some(controller),
+			Controller::Default(_) => None,
 		}
 	}
 
@@ -396,10 +410,6 @@ pub(crate) trait ControllerInternals: ClassDefinition {
 			Ok(())
 		}
 	}
-
-	fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
-		self.error_internal(cx, &error.unwrap_or_else(Value::undefined_handle))
-	}
 }
 
 #[js_class]
@@ -438,7 +448,7 @@ impl DefaultController {
 		self.common.desired_size(cx)
 	}
 
-	pub fn close(&mut self, cx: &Context) -> Result<()> {
+	pub fn close(&mut self, cx: &Context) -> ResultExc<()> {
 		let stream = self.common.stream(cx)?;
 		if self.common.can_close_or_enqueue(stream) {
 			if self.queue.is_empty() {
@@ -449,7 +459,7 @@ impl DefaultController {
 
 			stream.close(cx)
 		} else {
-			Err(Error::new("Cannot Close Stream", ErrorKind::Type))
+			Err(Error::new("Cannot Close Stream", ErrorKind::Type).into())
 		}
 	}
 
@@ -503,7 +513,7 @@ impl DefaultController {
 	}
 
 	pub fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
-		ControllerInternals::error(self, cx, error)
+		self.error_internal(cx, &error.unwrap_or_else(Value::undefined_handle))
 	}
 }
 
@@ -528,7 +538,7 @@ impl ControllerInternals for DefaultController {
 pub struct ByteStreamController {
 	pub(crate) common: CommonController,
 	pub(crate) auto_allocate_chunk_size: usize,
-	byob_request: Option<Box<Heap<*mut JSObject>>>,
+	pub(crate) byob_request: Option<Box<Heap<*mut JSObject>>>,
 	pub(crate) pending_descriptors: VecDeque<PullIntoDescriptor>,
 	pub(crate) queue: VecDeque<(Box<Heap<*mut JSObject>>, usize, usize)>,
 }
@@ -563,7 +573,7 @@ impl ByteStreamController {
 
 	pub(crate) fn fill_pull_into_descriptor(
 		&mut self, cx: &Context, descriptor: &mut PullIntoDescriptor,
-	) -> ResultExc<bool> {
+	) -> Result<bool> {
 		let aligned = descriptor.filled - descriptor.filled % descriptor.element;
 		let max_copy = self.common.queue_size.min(descriptor.length - descriptor.filled);
 		let max_aligned = descriptor.filled + max_copy - (descriptor.filled + max_copy) % descriptor.element;
@@ -585,8 +595,13 @@ impl ByteStreamController {
 				len = *length;
 				let chunk = ArrayBuffer::from(unsafe { Local::from_heap(chunk) }).unwrap();
 				let buffer = descriptor.buffer();
-				if !buffer.copy_data_to(cx, &chunk, copy, descriptor.offset + descriptor.filled, *offset) {
-					return Err(Exception::new(cx)?.unwrap());
+				if !chunk.copy_data_to(cx, &buffer, *offset, descriptor.offset + descriptor.filled, copy) {
+					let error = if let Some(Exception::Error(error)) = Exception::new(cx)? {
+						error
+					} else {
+						Error::new("Failed to copy data to descriptor buffer.", None)
+					};
+					return Err(error);
 				}
 			}
 
@@ -620,13 +635,17 @@ impl ByteStreamController {
 
 	pub(crate) fn enqueue_cloned_chunk(
 		&mut self, cx: &Context, buffer: &ArrayBuffer, offset: usize, length: usize,
-	) -> ResultExc<()> {
+	) -> Result<()> {
 		let buffer = match buffer.clone(cx, offset, length) {
 			Some(buffer) => buffer,
 			None => {
-				let exception = Exception::new(cx)?.unwrap();
-				self.error_internal(cx, &exception.as_value(cx))?;
-				return Err(exception);
+				let error = if let Some(Exception::Error(error)) = Exception::new(cx)? {
+					error
+				} else {
+					Error::new("Failed to clone ArrayBuffer", None)
+				};
+				self.error_internal(cx, &error.as_value(cx))?;
+				return Err(error);
 			}
 		};
 
@@ -654,6 +673,139 @@ impl ByteStreamController {
 			}
 		}
 		Ok(())
+	}
+
+	pub(crate) fn respond(&mut self, cx: &Context, written: usize) -> ResultExc<()> {
+		let descriptor = self.pending_descriptors.front().unwrap();
+		let stream = self.common.stream(cx)?;
+		match stream.state {
+			State::Readable => {
+				if written == 0 {
+					return Err(Error::new("Readable Stream must be written to.", ErrorKind::Type).into());
+				}
+				if descriptor.filled + written > descriptor.length {
+					return Err(
+						Error::new("Buffer of BYOB Request View has been overwritten.", ErrorKind::Range).into(),
+					);
+				}
+			}
+			State::Closed => {
+				if written != 0 {
+					return Err(Error::new("Closed Stream must not be written to.", ErrorKind::Type).into());
+				}
+			}
+			State::Errored => return Err(Error::new("Errored Stream cannot have BYOB Request", ErrorKind::Type).into()),
+		}
+
+		let (buffer, kind) = {
+			let descriptor = self.pending_descriptors.get_mut(0).unwrap();
+			let buffer = descriptor.buffer().transfer(cx)?;
+			descriptor.buffer.set(buffer.get());
+			(buffer, descriptor.kind)
+		};
+
+		self.invalidate_byob_request(cx)?;
+
+		match stream.state {
+			State::Readable => {
+				let mut descriptor = self.pending_descriptors.pop_front().unwrap();
+				descriptor.filled += written;
+
+				match kind {
+					ReaderKind::None => {
+						if descriptor.filled > 0 {
+							self.enqueue_cloned_chunk(cx, &buffer, descriptor.offset, descriptor.length)?;
+						}
+
+						if let Some(Reader::Byob(reader)) = stream.native_reader(cx)? {
+							self.process_descriptors(cx, reader, stream.state)?;
+						}
+					}
+					_ => {
+						if descriptor.filled < descriptor.element {
+							return Ok(());
+						}
+
+						let remainder = descriptor.filled % descriptor.element;
+
+						if remainder > 0 {
+							self.enqueue_cloned_chunk(
+								cx,
+								&buffer,
+								descriptor.offset + descriptor.filled - remainder,
+								remainder,
+							)?;
+
+							descriptor.filled -= remainder;
+						}
+
+						if let Some(Reader::Byob(reader)) = stream.native_reader(cx)? {
+							descriptor.commit(cx, reader, stream.state)?;
+							self.process_descriptors(cx, reader, stream.state)?;
+						}
+					}
+				}
+			}
+			State::Closed => match stream.native_reader(cx)? {
+				Some(Reader::Byob(reader)) => {
+					while !reader.common.requests.is_empty() {
+						let mut descriptor = self.pending_descriptors.pop_front().unwrap();
+						descriptor.commit(cx, reader, State::Closed)?;
+					}
+				}
+				_ => {
+					self.pending_descriptors.pop_front();
+				}
+			},
+			State::Errored => unreachable!(),
+		}
+
+		self.pull_if_needed(cx)
+	}
+
+	pub(crate) fn respond_with_new_view(&mut self, cx: &Context, view: ArrayBufferView) -> ResultExc<()> {
+		let buffer = view.buffer(cx);
+
+		if buffer.is_detached() {
+			return Err(Error::new("View Buffer cannot be detached.", ErrorKind::Type).into());
+		}
+
+		let stream = self.common.stream(cx)?;
+		match stream.state {
+			State::Readable => {
+				if view.is_empty() {
+					return Err(Error::new("View must have a non-zero length", ErrorKind::Type).into());
+				}
+			}
+			State::Closed => {
+				if !view.is_empty() {
+					return Err(Error::new(
+						"View for a Closed Readable Stream must have a zero length",
+						ErrorKind::Type,
+					)
+					.into());
+				}
+			}
+			State::Errored => unreachable!(),
+		}
+
+		let offset = view.offset();
+		let descriptor = self.pending_descriptors.get_mut(0).unwrap();
+
+		if descriptor.offset + descriptor.filled != offset {
+			return Err(Error::new("View Offset must be the same as descriptor.", ErrorKind::Range).into());
+		}
+		if descriptor.length != view.len() {
+			return Err(Error::new("View Length must be the same as descriptor.", ErrorKind::Range).into());
+		}
+		if descriptor.filled + view.len() > descriptor.length {
+			return Err(Error::new("View cannot overfill descriptor", ErrorKind::Range).into());
+		}
+
+		let len = view.len();
+		let buffer = buffer.transfer(cx)?;
+		descriptor.buffer.set(buffer.get());
+		self.respond(cx, len)
 	}
 
 	#[ion(get)]
@@ -688,7 +840,7 @@ impl ByteStreamController {
 		}
 	}
 
-	pub fn close(&mut self, cx: &Context) -> Result<()> {
+	pub fn close(&mut self, cx: &Context) -> ResultExc<()> {
 		let stream = self.common.stream(cx)?;
 		if self.common.can_close_or_enqueue(stream) {
 			if self.common.queue_size > 0 {
@@ -699,14 +851,14 @@ impl ByteStreamController {
 				if descriptor.filled % descriptor.element > 0 {
 					let error = Error::new("Pending Pull-Into Not Empty", ErrorKind::Type);
 					self.error_internal(cx, &error.as_value(cx))?;
-					return Err(error);
+					return Err(error.into());
 				}
 			}
 
 			self.common.source.clear_algorithms();
 			stream.close(cx)
 		} else {
-			Err(Error::new("Cannot Close Byte Stream Controller", ErrorKind::Type))
+			Err(Error::new("Cannot Close Byte Stream Controller", ErrorKind::Type).into())
 		}
 	}
 
@@ -722,15 +874,20 @@ impl ByteStreamController {
 
 		let stream = self.common.stream(cx)?;
 		if self.common.can_close_or_enqueue(stream) {
-			let buffer = buffer.transfer(cx)?;
 			let offset = chunk.offset();
+			let length = chunk.len();
+			let buffer = buffer.transfer(cx)?;
 
 			let mut shift = false;
-			if let Some(descriptor) = self.pending_descriptors.front() {
+			if !self.pending_descriptors.is_empty() {
+				self.invalidate_byob_request(cx)?;
+				let descriptor = self.pending_descriptors.front().unwrap();
 				let buffer = descriptor.buffer().transfer(cx)?;
 				descriptor.buffer.set(buffer.get());
-				if descriptor.kind == ReaderKind::None && descriptor.filled > 0 {
-					self.enqueue_cloned_chunk(cx, &buffer, descriptor.offset, descriptor.length)?;
+				if descriptor.kind == ReaderKind::None {
+					if descriptor.filled > 0 {
+						self.enqueue_cloned_chunk(cx, &buffer, descriptor.offset, descriptor.length)?;
+					}
 					shift = true;
 				}
 			}
@@ -749,7 +906,7 @@ impl ByteStreamController {
 							self.pending_descriptors.pop_front();
 
 							let array =
-								Uint8Array::with_array_buffer(cx, &buffer, offset, chunk.len()).unwrap().as_value(cx);
+								Uint8Array::with_array_buffer(cx, &buffer, offset, length).unwrap().as_value(cx);
 							(request.chunk)(cx, &promise, &array);
 
 							complete = true;
@@ -772,19 +929,19 @@ impl ByteStreamController {
 					}
 
 					if !complete {
-						self.queue.push_back((Heap::boxed(buffer.get()), offset, chunk.len()));
-						self.common.queue_size += chunk.len();
+						self.queue.push_back((Heap::boxed(buffer.get()), offset, length));
+						self.common.queue_size += length;
 					}
 				}
 				Some(Reader::Byob(reader)) => {
-					self.queue.push_back((Heap::boxed(buffer.get()), offset, chunk.len()));
-					self.common.queue_size += chunk.len();
+					self.queue.push_back((Heap::boxed(buffer.get()), offset, length));
+					self.common.queue_size += length;
 
 					self.process_descriptors(cx, reader, stream.state)?;
 				}
 				None => {
-					self.queue.push_back((Heap::boxed(buffer.get()), offset, chunk.len()));
-					self.common.queue_size += chunk.len();
+					self.queue.push_back((Heap::boxed(buffer.get()), offset, length));
+					self.common.queue_size += length;
 				}
 			}
 			self.pull_if_needed(cx)
@@ -794,7 +951,7 @@ impl ByteStreamController {
 	}
 
 	pub fn error(&mut self, cx: &Context, error: Option<Value>) -> Result<()> {
-		ControllerInternals::error(self, cx, error)
+		self.error_internal(cx, &error.unwrap_or_else(Value::undefined_handle))
 	}
 }
 
@@ -829,104 +986,13 @@ impl ByobRequest {
 		))
 	}
 
-	pub(crate) fn respond_internal(&mut self, cx: &Context, written: usize) -> ResultExc<()> {
-		let controller = self.controller.take().unwrap();
-		let controller = Object::from(unsafe { Local::from_heap(&controller) });
-		let controller = ByteStreamController::get_mut_private(cx, &controller)?;
-		let descriptor = controller.pending_descriptors.front().unwrap();
-		let stream = controller.common.stream(cx)?;
-		match stream.state {
-			State::Readable => {
-				if written == 0 {
-					return Err(Error::new("Readable Stream must be written to.", ErrorKind::Type).into());
-				}
-				if descriptor.filled + written > descriptor.length {
-					return Err(
-						Error::new("Buffer of BYOB Request View has been overwritten.", ErrorKind::Range).into(),
-					);
-				}
-			}
-			State::Closed => {
-				if written != 0 {
-					return Err(Error::new("Closed Stream must not be written to.", ErrorKind::Type).into());
-				}
-			}
-			State::Errored => return Err(Error::new("Errored Stream cannot have BYOB Request", ErrorKind::Type).into()),
-		}
-
-		let (buffer, kind) = {
-			let descriptor = controller.pending_descriptors.get_mut(0).unwrap();
-			let buffer = descriptor.buffer().transfer(cx)?;
-			descriptor.buffer.set(buffer.get());
-			(buffer, descriptor.kind)
-		};
-
-		controller.invalidate_byob_request(cx)?;
-
-		match stream.state {
-			State::Readable => {
-				let mut descriptor = controller.pending_descriptors.pop_front().unwrap();
-				descriptor.filled += written;
-
-				match kind {
-					ReaderKind::None => {
-						if descriptor.filled > 0 {
-							controller.enqueue_cloned_chunk(cx, &buffer, descriptor.offset, descriptor.length)?;
-						}
-
-						if let Some(Reader::Byob(reader)) = stream.native_reader(cx)? {
-							controller.process_descriptors(cx, reader, stream.state)?;
-						}
-					}
-					_ => {
-						if descriptor.filled < descriptor.element {
-							return Ok(());
-						}
-
-						let remainder = descriptor.filled % descriptor.element;
-
-						if remainder > 0 {
-							controller.enqueue_cloned_chunk(
-								cx,
-								&buffer,
-								descriptor.offset + descriptor.filled - remainder,
-								remainder,
-							)?;
-
-							descriptor.filled -= remainder;
-						}
-
-						if let Some(Reader::Byob(reader)) = stream.native_reader(cx)? {
-							descriptor.commit(cx, reader, stream.state)?;
-							controller.process_descriptors(cx, reader, stream.state)?;
-						}
-					}
-				}
-			}
-			State::Closed => match stream.native_reader(cx)? {
-				Some(Reader::Byob(reader)) => {
-					while !reader.common.requests.is_empty() {
-						let mut descriptor = controller.pending_descriptors.pop_front().unwrap();
-						descriptor.commit(cx, reader, State::Closed)?;
-					}
-				}
-				_ => {
-					controller.pending_descriptors.pop_front();
-				}
-			},
-			State::Errored => unreachable!(),
-		}
-
-		controller.pull_if_needed(cx)
-	}
-
 	#[ion(get)]
 	pub fn get_view(&self) -> *mut JSObject {
 		self.view.as_ref().map(|view| view.get()).unwrap_or_else(ptr::null_mut)
 	}
 
 	pub fn respond(&mut self, cx: &Context, #[ion(convert = ConversionBehavior::Clamp)] written: u64) -> ResultExc<()> {
-		if self.controller.is_some() {
+		if let Some(controller) = self.controller.take() {
 			let view = unsafe { Local::from_heap(self.view.as_ref().unwrap()) };
 			let view = ArrayBufferView::from(view).unwrap();
 			let buffer = view.buffer(cx);
@@ -939,7 +1005,9 @@ impl ByobRequest {
 				return Err(Error::new("View Buffer cannot be detached.", ErrorKind::Type).into());
 			}
 
-			self.respond_internal(cx, written as usize)
+			let controller = Object::from(unsafe { Local::from_heap(&controller) });
+			let controller = ByteStreamController::get_mut_private(cx, &controller)?;
+			controller.respond(cx, written as usize)
 		} else {
 			Err(Error::new("BYOB Request has already been invalidated.", ErrorKind::Type).into())
 		}
@@ -947,54 +1015,12 @@ impl ByobRequest {
 
 	#[ion(name = "respondWithNewView")]
 	pub fn respond_with_new_view(&mut self, cx: &Context, view: ArrayBufferView) -> ResultExc<()> {
-		let len = if let Some(controller) = &self.controller {
-			let controller = Object::from(unsafe { Local::from_heap(controller) });
+		if let Some(controller) = self.controller.take() {
+			let controller = Object::from(unsafe { Local::from_heap(&controller) });
 			let controller = ByteStreamController::get_mut_private(cx, &controller)?;
-			let buffer = view.buffer(cx);
-
-			if buffer.is_detached() {
-				return Err(Error::new("View Buffer cannot be detached.", ErrorKind::Type).into());
-			}
-
-			let stream = controller.common.stream(cx)?;
-			match stream.state {
-				State::Readable => {
-					if view.is_empty() {
-						return Err(Error::new("View must have a non-zero length", ErrorKind::Type).into());
-					}
-				}
-				State::Closed => {
-					if !view.is_empty() {
-						return Err(Error::new(
-							"View for a Closed Readable Stream must have a zero length",
-							ErrorKind::Type,
-						)
-						.into());
-					}
-				}
-				State::Errored => unreachable!(),
-			}
-
-			let offset = view.offset();
-			let descriptor = controller.pending_descriptors.get_mut(0).unwrap();
-
-			if descriptor.offset + descriptor.filled != offset {
-				return Err(Error::new("View Offset must be the same as descriptor.", ErrorKind::Range).into());
-			}
-			if descriptor.length != view.len() {
-				return Err(Error::new("View Length must be the same as descriptor.", ErrorKind::Range).into());
-			}
-			if descriptor.filled + view.len() > descriptor.length {
-				return Err(Error::new("View cannot overfill descriptor", ErrorKind::Range).into());
-			}
-
-			let len = view.len();
-			let buffer = buffer.transfer(cx)?;
-			descriptor.buffer.set(buffer.get());
-			len
+			controller.respond_with_new_view(cx, view)
 		} else {
-			return Err(Error::new("BYOB Request has already been invalidated.", ErrorKind::Type).into());
-		};
-		self.respond_internal(cx, len)
+			Err(Error::new("BYOB Request has already been invalidated.", ErrorKind::Type).into())
+		}
 	}
 }

@@ -124,6 +124,10 @@ where
 			") [".color(colour)
 		)?;
 
+		if elements.is_empty() {
+			return "]".color(colour).fmt(f);
+		}
+
 		let indent = indent_str((self.cfg.indentation + self.cfg.depth + 1) as usize);
 		f.write_str(NEWLINE)?;
 		indent.fmt(f)?;
@@ -142,7 +146,7 @@ where
 		}
 
 		f.write_str(NEWLINE)?;
-		"}".color(colour).fmt(f)?;
+		"]".color(colour).fmt(f)?;
 
 		Ok(())
 	}

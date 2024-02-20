@@ -12,15 +12,15 @@ use mozjs::gc::HandleObject;
 use mozjs::jsapi::{Heap, JSFunction, JSObject};
 use mozjs::jsval::{JSVal, UndefinedValue};
 
-use ion::{ClassDefinition, Context, Function, Local, Object, Promise, ResultExc, TracedHeap, Value};
+use ion::{ClassDefinition, Context, Exception, Function, Local, Object, Promise, Result, ResultExc, TracedHeap, Value};
 use ion::class::NativeObject;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
-use ion::typedarray::ArrayBuffer;
+use ion::typedarray::{ArrayBuffer, ArrayBufferView, Uint8Array};
 
-use crate::globals::streams::readable::controller::Controller;
-use crate::globals::streams::readable::ReadableStream;
-use crate::globals::streams::readable::reader::{Reader, Request};
+use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};
+use crate::globals::streams::readable::controller::ControllerInternals;
+use crate::globals::streams::readable::reader::{ReaderKind, Request};
 
 #[derive(Traceable)]
 pub enum StreamSource {
@@ -32,7 +32,8 @@ pub enum StreamSource {
 	},
 	Bytes(#[trace(no_trace)] Option<Bytes>),
 	BytesBuf(#[trace(no_trace)] Option<Box<dyn Buf>>),
-	Tee(Rc<TeeState>, bool),
+	TeeDefault(Rc<TeeDefaultState>, bool),
+	TeeBytes(Rc<TeeBytesState>, bool),
 }
 
 impl StreamSource {
@@ -70,13 +71,13 @@ impl StreamSource {
 				buf.advance(chunk.len());
 				Ok(Some(Promise::resolved(cx, &buffer.as_value(cx))))
 			}
-			StreamSource::Tee(state, second) => {
-				if state.reading.get() {
+			StreamSource::TeeDefault(state, second) => {
+				if state.common.reading.get() {
 					state.read_again.set(true);
 					return Ok(Some(Promise::resolved(cx, &Value::undefined_handle())));
 				}
 
-				state.reading.set(true);
+				state.common.reading.set(true);
 
 				let state1 = Rc::clone(state);
 				let state2 = Rc::clone(state);
@@ -97,59 +98,276 @@ impl StreamSource {
 
 							// TODO: CloneForBranch2
 
-							if !state.cancelled[0].get() {
-								let branch = state.branch(cx, false)?;
-								if let Controller::Default(controller) = branch.native_controller(cx)? {
-									controller.enqueue_internal(cx, &chunk)?;
-								}
+							if !state.common.cancelled[0].get() {
+								let branch = state.common.branch(cx, false)?;
+								let controller = branch.native_controller(cx)?.into_default().unwrap();
+								controller.enqueue_internal(cx, &chunk)?;
 							}
-							if !state.cancelled[1].get() {
-								let branch = state.branch(cx, true)?;
-								if let Controller::Default(controller) = branch.native_controller(cx)? {
-									controller.enqueue_internal(cx, &chunk)?;
-								}
+							if !state.common.cancelled[1].get() {
+								let branch = state.common.branch(cx, true)?;
+								let controller = branch.native_controller(cx)?.into_default().unwrap();
+								controller.enqueue_internal(cx, &chunk)?;
 							}
 
-							state.reading.set(false);
+							state.common.reading.set(false);
 							if state.read_again.get() {
-								let branch = state.branch(cx, second)?;
-								if let Controller::Default(controller) = branch.native_controller(cx)? {
-									controller.common.source.pull(cx, controller.reflector().get())?;
-								}
+								let branch = state.common.branch(cx, second)?;
+								let controller = branch.native_controller(cx)?.into_default().unwrap();
+								controller.common.source.pull(cx, controller.reflector().get())?;
 							}
 							Ok(Value::undefined_handle())
 						});
 					}),
 					close: Box::new(move |cx, _, _| {
-						state2.reading.set(false);
+						state2.common.reading.set(false);
 
-						if !state2.cancelled[0].get() {
-							let branch = state2.branch(cx, false)?;
-							if let Controller::Default(controller) = branch.native_controller(cx)? {
-								controller.close(cx)?;
-							}
+						if !state2.common.cancelled[0].get() {
+							let branch = state2.common.branch(cx, false)?;
+							branch.native_controller(cx)?.into_default().unwrap().close(cx)?;
 						}
-						if !state2.cancelled[1].get() {
-							let branch = state2.branch(cx, true)?;
-							if let Controller::Default(controller) = branch.native_controller(cx)? {
-								controller.close(cx)?;
-							}
+						if !state2.common.cancelled[1].get() {
+							let branch = state2.common.branch(cx, true)?;
+							branch.native_controller(cx)?.into_default().unwrap().close(cx)?;
 						}
 
-						if !state2.cancelled[0].get() || !state2.cancelled[1].get() {
-							let promise = Promise::from(unsafe { Local::from_heap(&state2.cancel_promise) }).unwrap();
-							promise.resolve(cx, &Value::undefined_handle());
-						}
-
+						state2.common.cancel(cx, &Value::undefined_handle());
 						Ok(())
 					}),
 					error: Box::new(move |_, _, _| {
-						state3.reading.set(false);
+						state3.common.reading.set(false);
 					}),
 				};
 
-				if let Some(Reader::Default(reader)) = state.stream(cx)?.native_reader(cx)? {
+				let reader = state.common.stream(cx)?.native_reader(cx)?.unwrap().into_default().unwrap();
+				reader.read_internal(cx, request)?;
+
+				promise.resolve(cx, &Value::undefined_handle());
+				Ok(Some(promise))
+			}
+			StreamSource::TeeBytes(state, second) => {
+				if state.common.reading.get() {
+					state.read_again[usize::from(*second)].set(true);
+					return Ok(Some(Promise::resolved(cx, &Value::undefined_handle())));
+				}
+
+				state.common.reading.set(true);
+
+				let stream = state.common.stream(cx)?;
+				let controller = stream.native_controller(cx)?.into_byte_stream().unwrap();
+				let byob_request = controller.get_byob_request(cx);
+
+				let promise = Promise::new(cx);
+				if byob_request.is_null() {
+					if stream.reader_kind == ReaderKind::Byob {
+						{
+							let reader = stream.native_reader(cx)?.unwrap().into_byob().unwrap();
+							assert!(reader.common.requests.is_empty());
+							reader.release_lock(cx)?;
+						}
+						stream.get_reader(cx, Opt(None))?;
+
+						let reader = stream.native_reader(cx)?.unwrap().into_default().unwrap();
+						forward_reader_error(cx, &reader.common.closed(), Rc::clone(state))?;
+					}
+
+					let state1 = Rc::clone(state);
+					let state2 = Rc::clone(state);
+					let state3 = Rc::clone(state);
+
+					let request = Request {
+						promise: Heap::boxed(promise.get()),
+						chunk: Box::new(move |cx, _, chunk| {
+							let promise = Promise::resolved(cx, &Value::undefined_handle());
+							let chunk = TracedHeap::new(chunk.get());
+							let state = Rc::clone(&state1);
+
+							promise.then(cx, move |cx, _| {
+								state.read_again[0].set(false);
+								state.read_again[1].set(false);
+
+								let chunk = Value::from(chunk.to_local());
+								let chunk = ArrayBufferView::from_value(cx, &chunk, true, ())?;
+								let controller1 =
+									state.common.branch(cx, false)?.native_controller(cx)?.into_byte_stream().unwrap();
+								let controller2 =
+									state.common.branch(cx, true)?.native_controller(cx)?.into_byte_stream().unwrap();
+
+								match (state.common.cancelled[0].get(), state.common.cancelled[1].get()) {
+									(false, false) => {
+										let chunk2 = chunk
+											.buffer(cx)
+											.clone(cx, chunk.offset(), chunk.len())
+											.and_then(|buffer| {
+												Uint8Array::with_array_buffer(cx, &buffer, 0, buffer.len())
+											})
+											.map(|array| ArrayBufferView::from(array.into_local()).unwrap());
+
+										if let Some(chunk2) = chunk2 {
+											controller1.enqueue(cx, chunk)?;
+											controller2.enqueue(cx, chunk2)?;
+										} else {
+											let exception = Exception::new(cx).unwrap().as_value(cx);
+											controller1.error_internal(cx, &exception)?;
+											controller2.error_internal(cx, &exception)?;
+											state.common.cancel(cx, &Value::undefined_handle());
+										}
+
+										state.common.reading.set(false);
+									}
+									(false, true) => controller1.enqueue(cx, chunk)?,
+									(true, false) => controller2.enqueue(cx, chunk)?,
+									_ => {}
+								}
+
+								state.common.reading.set(false);
+								if state.read_again[0].get() {
+									controller1.common.source.pull(cx, controller1.reflector().get())?;
+								} else if state.read_again[0].get() {
+									controller2.common.source.pull(cx, controller2.reflector().get())?;
+								}
+
+								Ok(Value::undefined_handle())
+							});
+						}),
+						close: Box::new(move |cx, _, _| {
+							state2.common.reading.set(false);
+
+							let controller1 =
+								state2.common.branch(cx, false)?.native_controller(cx)?.into_byte_stream().unwrap();
+							let controller2 =
+								state2.common.branch(cx, true)?.native_controller(cx)?.into_byte_stream().unwrap();
+
+							if !state2.common.cancelled[0].get() {
+								controller1.close(cx)?;
+							}
+							if !state2.common.cancelled[1].get() {
+								controller2.close(cx)?;
+							}
+
+							if !controller1.pending_descriptors.is_empty() {
+								controller1.respond(cx, 0)?;
+							}
+							if !controller2.pending_descriptors.is_empty() {
+								controller2.respond(cx, 0)?;
+							}
+
+							state2.common.cancel(cx, &Value::undefined_handle());
+							Ok(())
+						}),
+						error: Box::new(move |_, _, _| {
+							state3.common.reading.set(false);
+						}),
+					};
+
+					let reader = state.common.stream(cx)?.native_reader(cx)?.unwrap().into_default().unwrap();
 					reader.read_internal(cx, request)?;
+				} else {
+					if stream.reader_kind == ReaderKind::Default {
+						{
+							let reader = stream.native_reader(cx)?.unwrap().into_default().unwrap();
+							assert!(reader.common.requests.is_empty());
+							reader.release_lock(cx)?;
+						}
+						stream.get_reader(cx, Opt(Some(ReaderOptions { mode: Some(String::from("byob")) })))?;
+
+						let reader = stream.native_reader(cx)?.unwrap().into_byob().unwrap();
+						forward_reader_error(cx, &reader.common.closed(), Rc::clone(state))?;
+					}
+
+					let state1 = Rc::clone(state);
+					let state2 = Rc::clone(state);
+					let state3 = Rc::clone(state);
+					let second = *second;
+
+					let request = Request {
+						promise: Heap::boxed(promise.get()),
+						chunk: Box::new(move |cx, _, chunk| {
+							let promise = Promise::resolved(cx, &Value::undefined_handle());
+							let chunk = TracedHeap::new(chunk.get());
+							let state = Rc::clone(&state1);
+
+							promise.then(cx, move |cx, _| {
+								state.read_again[0].set(false);
+								state.read_again[1].set(false);
+
+								let chunk = Value::from(chunk.to_local());
+								let chunk = ArrayBufferView::from_value(cx, &chunk, true, ())?;
+
+								let byob_controller =
+									state.common.branch(cx, second)?.native_controller(cx)?.into_byte_stream().unwrap();
+								let other_controller = state
+									.common
+									.branch(cx, !second)?
+									.native_controller(cx)?
+									.into_byte_stream()
+									.unwrap();
+
+								if !state.common.cancelled[usize::from(!second)].get() {
+									let chunk2 = chunk
+										.buffer(cx)
+										.clone(cx, chunk.offset(), chunk.len())
+										.and_then(|buffer| Uint8Array::with_array_buffer(cx, &buffer, 0, buffer.len()))
+										.map(|array| ArrayBufferView::from(array.into_local()).unwrap());
+
+									if let Some(chunk2) = chunk2 {
+										other_controller.enqueue(cx, chunk2)?;
+									} else {
+										let exception = Exception::new(cx).unwrap().as_value(cx);
+										byob_controller.error_internal(cx, &exception)?;
+										other_controller.error_internal(cx, &exception)?;
+										state.common.cancel(cx, &Value::undefined_handle());
+									}
+								}
+								if !state.common.cancelled[usize::from(second)].get() {
+									byob_controller.respond_with_new_view(cx, chunk)?;
+								}
+
+								state.common.reading.set(false);
+								if state.read_again[usize::from(second)].get() {
+									byob_controller.common.source.pull(cx, byob_controller.reflector().get())?;
+								} else if state.read_again[usize::from(!second)].get() {
+									other_controller.common.source.pull(cx, other_controller.reflector().get())?;
+								}
+
+								Ok(Value::undefined_handle())
+							});
+						}),
+						close: Box::new(move |cx, _, _| {
+							state2.common.reading.set(false);
+
+							let controller1 =
+								state2.common.branch(cx, false)?.native_controller(cx)?.into_byte_stream().unwrap();
+							let controller2 =
+								state2.common.branch(cx, true)?.native_controller(cx)?.into_byte_stream().unwrap();
+
+							if !state2.common.cancelled[0].get() {
+								controller1.close(cx)?;
+							}
+							if !state2.common.cancelled[1].get() {
+								controller2.close(cx)?;
+							}
+
+							if !controller1.pending_descriptors.is_empty() {
+								controller1.respond(cx, 0)?;
+							}
+							if !controller2.pending_descriptors.is_empty() {
+								controller2.respond(cx, 0)?;
+							}
+
+							state2.common.cancel(cx, &Value::undefined_handle());
+							Ok(())
+						}),
+						error: Box::new(move |_, _, _| {
+							state3.common.reading.set(false);
+						}),
+					};
+
+					let reader = state.common.stream(cx)?.native_reader(cx)?.unwrap().into_byob().unwrap();
+					let byob_request = Object::from(cx.root(byob_request));
+					let byob_request = ByobRequest::get_private(cx, &byob_request)?;
+
+					let view = ArrayBufferView::from(cx.root(byob_request.get_view())).unwrap();
+					reader.read_internal(cx, view, request)?;
 				}
 
 				promise.resolve(cx, &Value::undefined_handle());
@@ -174,22 +392,22 @@ impl StreamSource {
 					promise.resolve(cx, &Value::undefined_handle());
 				}
 			}
-			StreamSource::Tee(state, second) => {
+			StreamSource::TeeDefault(state, second) => {
 				let reason = reason.unwrap_or_else(Value::undefined_handle);
 
 				let branch = usize::from(*second);
-				state.cancelled[branch].set(true);
-				state.reason[branch].set(reason.get());
+				state.common.cancelled[branch].set(true);
+				state.common.reason[branch].set(reason.get());
 
-				if state.cancelled[usize::from(!*second)].get() {
-					let composite = [state.reason[0].get(), state.reason[1].get()].as_value(cx);
-					let result = state.stream(cx)?.cancel(cx, Opt(Some(composite)))?;
+				if state.common.cancelled[usize::from(!*second)].get() {
+					let composite = [state.common.reason[0].get(), state.common.reason[1].get()].as_value(cx);
+					let result = state.common.stream(cx)?.cancel(cx, Opt(Some(composite)))?;
 
-					let cancel_promise = Promise::from(unsafe { Local::from_heap(&state.cancel_promise) }).unwrap();
+					let cancel_promise = state.common.cancel_promise();
 					cancel_promise.resolve(cx, &result.as_value(cx));
 				}
 
-				promise.handle_mut().set(state.cancel_promise.get());
+				promise.handle_mut().set(state.common.cancel_promise.get());
 			}
 			_ => {}
 		}
@@ -215,43 +433,94 @@ impl StreamSource {
 }
 
 #[derive(Traceable)]
-pub struct TeeState {
-	pub(crate) reading: Cell<bool>,
-	pub(crate) read_again: Cell<bool>,
-	pub(crate) cancelled: [Cell<bool>; 2],
-
-	pub(crate) clone_branch_2: bool,
-	pub(crate) stream: Box<Heap<*mut JSObject>>,
-
+pub(crate) struct TeeCommonState {
+	stream: Box<Heap<*mut JSObject>>,
 	pub(crate) branch: [Box<Heap<*mut JSObject>>; 2],
-	pub(crate) reason: [Box<Heap<JSVal>>; 2],
-	pub(crate) cancel_promise: Box<Heap<*mut JSObject>>,
+
+	reading: Cell<bool>,
+	cancelled: [Cell<bool>; 2],
+
+	reason: [Box<Heap<JSVal>>; 2],
+	cancel_promise: Box<Heap<*mut JSObject>>,
 }
 
-impl TeeState {
-	pub(crate) fn new(cx: &Context, stream: &ReadableStream, clone_branch_2: bool) -> TeeState {
+impl TeeCommonState {
+	pub(crate) fn new(cx: &Context, stream: &ReadableStream) -> TeeCommonState {
 		let promise = Promise::new(cx);
-		TeeState {
+		TeeCommonState {
+			stream: Heap::boxed(stream.reflector.get()),
+			branch: [Box::default(), Box::default()],
+
 			reading: Cell::new(false),
-			read_again: Cell::new(false),
 			cancelled: [Cell::new(false), Cell::new(false)],
 
-			clone_branch_2,
-			stream: Heap::boxed(stream.reflector.get()),
-
-			branch: [Box::default(), Box::default()],
 			reason: [Heap::boxed(UndefinedValue()), Heap::boxed(UndefinedValue())],
 			cancel_promise: Heap::boxed(promise.get()),
 		}
 	}
 
-	pub(crate) fn stream(&self, cx: &Context) -> ion::Result<&mut ReadableStream> {
+	pub(crate) fn stream(&self, cx: &Context) -> Result<&mut ReadableStream> {
 		let stream = Object::from(unsafe { Local::from_heap(&self.stream) });
 		ReadableStream::get_mut_private(cx, &stream)
 	}
 
-	pub(crate) fn branch(&self, cx: &Context, second: bool) -> ion::Result<&mut ReadableStream> {
+	pub(crate) fn branch(&self, cx: &Context, second: bool) -> Result<&mut ReadableStream> {
 		let stream = Object::from(unsafe { Local::from_heap(&self.branch[usize::from(second)]) });
 		ReadableStream::get_mut_private(cx, &stream)
 	}
+
+	pub(crate) fn cancel_promise(&self) -> Promise {
+		Promise::from(unsafe { Local::from_heap(&self.cancel_promise) }).unwrap()
+	}
+
+	pub(crate) fn cancel(&self, cx: &Context, value: &Value) {
+		if !self.cancelled[0].get() || !self.cancelled[1].get() {
+			self.cancel_promise().resolve(cx, value);
+		}
+	}
+}
+
+#[derive(Traceable)]
+pub struct TeeDefaultState {
+	pub(crate) common: TeeCommonState,
+	clone_branch_2: bool,
+	read_again: Cell<bool>,
+}
+
+impl TeeDefaultState {
+	pub(crate) fn new(cx: &Context, stream: &ReadableStream, clone_branch_2: bool) -> TeeDefaultState {
+		TeeDefaultState {
+			common: TeeCommonState::new(cx, stream),
+			clone_branch_2,
+			read_again: Cell::new(false),
+		}
+	}
+}
+
+#[derive(Traceable)]
+pub struct TeeBytesState {
+	pub(crate) common: TeeCommonState,
+	read_again: [Cell<bool>; 2],
+}
+
+impl TeeBytesState {
+	pub(crate) fn new(cx: &Context, stream: &ReadableStream) -> TeeBytesState {
+		TeeBytesState {
+			common: TeeCommonState::new(cx, stream),
+			read_again: [Cell::new(false), Cell::new(false)],
+		}
+	}
+}
+
+pub(crate) fn forward_reader_error(cx: &Context, closed_promise: &Promise, state: Rc<TeeBytesState>) -> Result<()> {
+	let controller1 = TracedHeap::new(state.common.branch(cx, false)?.controller.get());
+	let controller2 = TracedHeap::new(state.common.branch(cx, true)?.controller.get());
+
+	closed_promise.catch(cx, move |cx, reason| {
+		ByteStreamController::from_traced_heap(cx, &controller1)?.error_internal(cx, reason)?;
+		ByteStreamController::from_traced_heap(cx, &controller2)?.error_internal(cx, reason)?;
+		state.common.cancel(cx, &Value::undefined_handle());
+		Ok(Value::undefined_handle())
+	});
+	Ok(())
 }
