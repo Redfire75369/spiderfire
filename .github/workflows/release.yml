@@ -18,6 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [windows, macos, linux]
+        arch: [x86_64]
         include:
           - os: windows
             runner: windows-latest
