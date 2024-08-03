@@ -11,6 +11,10 @@ env:
   CXX: clang++
   CCACHE: sccache
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Build:
     runs-on: ${{ matrix.runner }}
