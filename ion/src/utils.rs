@@ -59,6 +59,7 @@ pub struct ArrayVec<const CAP: usize, T: Copy> {
 }
 
 impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
+	#[allow(clippy::new_without_default)]
 	pub const fn new() -> ArrayVec<CAP, T> {
 		ArrayVec {
 			elements: unsafe { MaybeUninit::uninit().assume_init() },

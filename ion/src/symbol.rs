@@ -83,7 +83,7 @@ impl SymbolCode {
 impl From<JSSymbolCode> for SymbolCode {
 	fn from(code: JSSymbolCode) -> SymbolCode {
 		if (code as u32) < JSSymbolCode::Limit as u32 {
-			SymbolCode::WellKnown(unsafe { transmute(code) })
+			SymbolCode::WellKnown(unsafe { transmute::<JSSymbolCode, WellKnownSymbolCode>(code) })
 		} else {
 			use JSSymbolCode as JSSC;
 			match code {

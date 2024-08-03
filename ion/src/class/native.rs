@@ -30,6 +30,7 @@ pub struct TypeIdWrapper<T: 'static> {
 }
 
 impl<T: 'static> TypeIdWrapper<T> {
+	#[allow(clippy::new_without_default)]
 	pub const fn new() -> TypeIdWrapper<T> {
 		TypeIdWrapper { _private: PhantomData }
 	}
