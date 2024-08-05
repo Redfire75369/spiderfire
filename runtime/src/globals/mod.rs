@@ -28,6 +28,7 @@ pub fn init_globals(cx: &Context, global: &Object) -> bool {
 		&& streams::define(cx, global)
 		&& url::define(cx, global)
 		&& Iterator::init_class(cx, global).0;
+
 	#[cfg(feature = "fetch")]
 	{
 		result && fetch::define(cx, global)
