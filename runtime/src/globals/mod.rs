@@ -8,6 +8,7 @@ use ion::{ClassDefinition, Context, Iterator, Object};
 
 pub mod abort;
 pub mod base64;
+pub mod clone;
 pub mod console;
 pub mod encoding;
 #[cfg(feature = "fetch")]
@@ -19,6 +20,7 @@ pub mod url;
 
 pub fn init_globals(cx: &Context, global: &Object) -> bool {
 	let result = base64::define(cx, global)
+		&& clone::define(cx, global)
 		&& console::define(cx, global)
 		&& encoding::define(cx, global)
 		&& file::define(cx, global)
