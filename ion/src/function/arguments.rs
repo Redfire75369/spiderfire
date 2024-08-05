@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::{CallArgs, JS_GetFunctionId, JS_GetObjectFunction};
+use mozjs::jsapi::CallArgs;
 use mozjs::jsval::JSVal;
 
-use crate::{Context, Error, ErrorKind, Local, Object, Result, Value};
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 use crate::conversions::FromValue;
 use crate::function::{Opt, Rest};
 
@@ -38,14 +38,12 @@ impl<'cx> Arguments<'cx> {
 	/// Checks if the expected minimum number of arguments were passed.
 	pub fn check_args(&self, cx: &Context, min: u16) -> Result<()> {
 		if self.args < min {
-			let func = crate::String::from(unsafe {
-				Local::from_marked(&JS_GetFunctionId(JS_GetObjectFunction(self.callee.handle().get())))
-			})
-			.to_owned(cx)?;
+			let callee = Function::from_object(cx, &self.callee).unwrap();
+			let name = callee.name(cx)?;
 
 			return Err(Error::new(
 				format!(
-					"Error while calling `{func}()` with {} argument(s) while {min} were expected.",
+					"Error while calling `{name}()` with {} argument(s) while {min} were expected.",
 					self.args
 				),
 				ErrorKind::Normal,

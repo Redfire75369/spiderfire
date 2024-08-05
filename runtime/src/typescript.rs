@@ -18,7 +18,7 @@ use swc_core::common::sync::Lrc;
 use swc_core::ecma::ast::{EsVersion, Program};
 use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};
 use swc_core::ecma::codegen::text_writer::JsWriter;
-use swc_core::ecma::parser::{Capturing, Parser, Syntax, TsConfig};
+use swc_core::ecma::parser::{Capturing, Parser, Syntax, TsSyntax};
 use swc_core::ecma::parser::lexer::Lexer;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
@@ -29,7 +29,7 @@ use swc_core::ecma::visit::VisitMut;
 use crate::config::Config;
 
 pub fn compile_typescript(filename: &str, source: &str) -> Result<(String, SourceMap), Error> {
-	let name = FileName::Real(PathBuf::from(filename));
+	let name = Lrc::new(FileName::Real(PathBuf::from(filename)));
 
 	let source_map: Lrc<SwcSourceMap> = Lrc::default();
 	let file = source_map.new_source_file(name, String::from(source));
@@ -68,7 +68,7 @@ pub fn handle_program(
 		let top_level_mark = Mark::new();
 
 		resolver(unresolved_mark, top_level_mark, true).visit_mut_program(program);
-		strip(top_level_mark).visit_mut_program(program);
+		strip(unresolved_mark, top_level_mark).visit_mut_program(program);
 		hygiene().visit_mut_program(program);
 		fixer(emitter.comments).visit_mut_program(program);
 	});
@@ -81,7 +81,7 @@ fn initialise_parser<'a>(
 ) -> (Handler, Parser<Capturing<Lexer<'a>>>) {
 	let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(source_map));
 	let lexer = Lexer::new(
-		Syntax::Typescript(TsConfig::default()),
+		Syntax::Typescript(TsSyntax::default()),
 		EsVersion::Es2022,
 		input,
 		Some(comments),

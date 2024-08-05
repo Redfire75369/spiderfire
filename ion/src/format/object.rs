@@ -196,7 +196,7 @@ pub(crate) fn write_prefix(
 		};
 
 		Function::from_object(cx, &constructor)
-			.and_then(|constructor_fn| constructor_fn.name(cx))
+			.and_then(|constructor_fn| constructor_fn.name(cx).ok())
 			.and_then(|name| {
 				let mut has_instance = false;
 				(unsafe {

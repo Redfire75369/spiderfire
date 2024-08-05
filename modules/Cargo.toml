@@ -7,7 +7,7 @@ license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
-idna = "0.5.0"
+idna = "1.0.2"
 
 futures.workspace = true
 mozjs.workspace = true

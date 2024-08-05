@@ -6,7 +6,6 @@
 
 use std::ffi::CString;
 use std::ops::Deref;
-
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
 	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId,
@@ -16,7 +15,7 @@ use mozjs::jsapi::{
 };
 use mozjs::jsval::{JSVal, ObjectValue};
 
-use crate::{Context, ErrorReport, Local, Object, Value};
+use crate::{Context, Error, ErrorReport, Local, Object, Value};
 use crate::flags::PropertyFlags;
 use crate::function::closure::{
 	call_closure, call_closure_once, Closure, ClosureOnce, create_closure_object, create_closure_once_object,
@@ -57,45 +56,35 @@ impl<'f> Function<'f> {
 	pub fn from_closure_once(
 		cx: &'f Context, name: &str, closure: Box<ClosureOnce>, nargs: u32, flags: PropertyFlags,
 	) -> Function<'f> {
-		unsafe {
-			let function = Function {
-				function: cx.root(NewFunctionWithReserved(
-					cx.as_ptr(),
-					Some(call_closure_once),
-					nargs,
-					u32::from(flags.bits()),
-					name.as_ptr().cast(),
-				)),
-			};
-			let closure_object = create_closure_once_object(cx, closure);
-			SetFunctionNativeReserved(
-				JS_GetFunctionObject(function.get()),
-				0,
-				&ObjectValue(closure_object.handle().get()),
-			);
-			function
-		}
+		let closure = create_closure_once_object(cx, closure);
+		Function::create_with_closure(cx, call_closure_once, name, closure, nargs, flags)
 	}
 
 	/// Creates a new [Function] with a [Closure].
 	pub fn from_closure(
 		cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags,
 	) -> Function<'f> {
+		let closure = create_closure_object(cx, closure);
+		Function::create_with_closure(cx, call_closure, name, closure, nargs, flags)
+	}
+
+	fn create_with_closure(
+		cx: &'f Context, call: NativeFunction, name: &str, closure: Object, nargs: u32, flags: PropertyFlags,
+	) -> Function<'f> {
 		unsafe {
 			let function = Function {
 				function: cx.root(NewFunctionWithReserved(
 					cx.as_ptr(),
-					Some(call_closure),
+					Some(call),
 					nargs,
 					u32::from(flags.bits()),
 					name.as_ptr().cast(),
 				)),
 			};
-			let closure_object = create_closure_object(cx, closure);
 			SetFunctionNativeReserved(
 				JS_GetFunctionObject(function.get()),
 				0,
-				&ObjectValue(closure_object.handle().get()),
+				&ObjectValue(closure.handle().get()),
 			);
 			function
 		}
@@ -127,17 +116,25 @@ impl<'f> Function<'f> {
 	}
 
 	/// Returns the name of the function.
-	pub fn name(&self, cx: &Context) -> Option<String> {
-		let id = unsafe { JS_GetFunctionId(self.get()) };
-		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
+	pub fn name(&self, cx: &Context) -> crate::Result<String> {
+		let mut name = crate::String::new(cx);
+		if unsafe { JS_GetFunctionId(cx.as_ptr(), self.handle().into(), name.handle_mut().into()) } {
+			name.to_owned(cx)
+		} else {
+			Err(Error::none())
+		}
 	}
 
 	/// Returns the display name of the function.
 	/// Function display names are a non-standard feature.
 	/// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/displayName) for more details.
-	pub fn display_name(&self, cx: &Context) -> Option<String> {
-		let id = unsafe { JS_GetFunctionDisplayId(self.get()) };
-		(!id.is_null()).then(|| unsafe { jsstr_to_string(cx.as_ptr(), id) })
+	pub fn display_name(&self, cx: &Context) -> crate::Result<String> {
+		let mut name = crate::String::new(cx);
+		if unsafe { JS_GetFunctionDisplayId(cx.as_ptr(), self.handle().into(), name.handle_mut().into()) } {
+			name.to_owned(cx)
+		} else {
+			Err(Error::none())
+		}
 	}
 
 	/// Returns the number of arguments of the function.

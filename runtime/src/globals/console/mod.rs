@@ -378,53 +378,46 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()
 			(sort_keys(cx, rows)?, sort_keys(cx, keys.into_iter().map(Ok))?)
 		};
 
-		let mut table = Table::new();
-		table.style = TableStyle::thin();
-
-		let mut header_row = vec![TableCell::new_with_alignment("Indices", 1, Alignment::Center)];
-		let mut headers = columns
-			.iter()
-			.map(|column| {
-				TableCell::new_with_alignment(format_key(cx, FormatConfig::default(), column), 1, Alignment::Center)
-			})
-			.collect();
-		header_row.append(&mut headers);
-		if has_values {
-			header_row.push(TableCell::new_with_alignment("Values", 1, Alignment::Center));
+		let mut headers = Vec::with_capacity(1 + columns.len() + 1);
+		headers.push(TableCell::builder("Indices").alignment(Alignment::Center).build());
+		for column in &columns {
+			let key = format_key(cx, FormatConfig::default(), column);
+			headers.push(TableCell::builder(key).alignment(Alignment::Center).build());
 		}
-		table.add_row(Row::new(header_row));
+		if has_values {
+			headers.push(TableCell::builder("Values").alignment(Alignment::Center).build());
+		}
 
-		for row in rows.iter() {
+		let mut table = Table::builder().style(TableStyle::thin()).rows(vec![Row::new(headers)]).build();
+
+		for row in &rows {
 			let value = object.get(cx, row)?.unwrap();
-			let mut table_row = vec![TableCell::new_with_alignment(
-				format_key(cx, FormatConfig::default(), row),
-				1,
-				Alignment::Center,
-			)];
+			let key = format_key(cx, FormatConfig::default(), row);
+
+			let mut cells = Vec::with_capacity(1 + columns.len() + 1);
+			cells.push(TableCell::builder(key).alignment(Alignment::Center).build());
 
 			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
 				for column in &columns {
 					if let Some(value) = object.get(cx, column)? {
-						let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
-						table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center))
+						let value = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
+						cells.push(TableCell::builder(value).alignment(Alignment::Center).build());
 					} else {
-						table_row.push(TableCell::new(""))
+						cells.push(TableCell::new(""));
 					}
 				}
 				if has_values {
-					table_row.push(TableCell::new(""));
+					cells.push(TableCell::new(""));
 				}
 			} else {
-				for _ in columns.iter() {
-					table_row.push(TableCell::new(""))
-				}
+				cells.extend((0..columns.len()).map(|_| TableCell::new("")));
 				if has_values {
-					let string = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
-					table_row.push(TableCell::new_with_alignment(string, 1, Alignment::Center));
+					let value = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
+					cells.push(TableCell::builder(value).alignment(Alignment::Center).build());
 				}
 			}
 
-			table.add_row(Row::new(table_row));
+			table.add_row(Row::new(cells));
 		}
 
 		println!("{}", indent_all_by((indents * 2) as usize, table.render()))

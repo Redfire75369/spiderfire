@@ -7,7 +7,7 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
-use mozjs::jsapi::{FromPropertyDescriptor, JS_GetObjectFunction, ObjectToCompletePropertyDescriptor};
+use mozjs::jsapi::{FromPropertyDescriptor, JS_GetObjectFunction, ToCompletePropertyDescriptor};
 use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
 
 use crate::{Context, Function, Local, Object, Value};
@@ -49,13 +49,8 @@ impl<'pd> PropertyDescriptor<'pd> {
 		let mut desc = PropertyDescriptor::empty(cx);
 		let desc_value = Value::object(cx, object);
 		unsafe {
-			ObjectToCompletePropertyDescriptor(
-				cx.as_ptr(),
-				object.handle().into(),
-				desc_value.handle().into(),
-				desc.handle_mut().into(),
-			)
-			.then_some(desc)
+			ToCompletePropertyDescriptor(cx.as_ptr(), desc_value.handle().into(), desc.handle_mut().into())
+				.then_some(desc)
 		}
 	}
 
