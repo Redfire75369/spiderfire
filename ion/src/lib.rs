@@ -29,6 +29,7 @@ pub use value::Value;
 
 mod bigint;
 pub mod class;
+pub mod clone;
 mod context;
 pub mod conversions;
 mod error;
