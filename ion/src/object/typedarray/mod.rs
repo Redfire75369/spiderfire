@@ -120,9 +120,10 @@ pub fn type_to_constructor(ty: Type) -> Constructor {
 		Type::Float64 => JS_NewFloat64ArrayWithBuffer,
 		Type::Uint8Clamped => JS_NewUint8ClampedArrayWithBuffer,
 		Type::MaxTypedArrayViewType => unsafe {
-			transmute::<unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, usize) -> *mut JSObject, _>(
-				JS_NewDataView,
-			)
+			transmute::<
+				unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, usize) -> *mut JSObject,
+				unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, i64) -> *mut JSObject,
+			>(JS_NewDataView)
 		},
 		_ => unreachable!(),
 	}
