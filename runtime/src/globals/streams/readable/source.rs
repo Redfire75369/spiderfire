@@ -18,7 +18,6 @@ use ion::clone::StructuredCloneBuffer;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, Uint8Array};
-use crate::globals::clone;
 use crate::globals::clone::STRUCTURED_CLONE_CALLBACKS;
 use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};
 use crate::globals::streams::readable::controller::ControllerInternals;

@@ -384,9 +384,9 @@ impl ByobReader {
 						(request.chunk)(cx, &promise, &view);
 						return Ok(promise);
 					} else if controller.common.close_requested {
-						let error = Error::new("Stream closed by request.", ErrorKind::Type);
-						// TODO: ByteStreamController Error
-						(request.error)(cx, &promise, &error.as_value(cx));
+						let error = Error::new("Stream closed by request.", ErrorKind::Type).as_value(cx);
+						let _ = controller.error_internal(cx, &error);
+						(request.error)(cx, &promise, &error);
 						return Ok(promise);
 					}
 				}
