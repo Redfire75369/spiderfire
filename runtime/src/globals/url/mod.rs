@@ -61,6 +61,29 @@ impl URL {
 		Url::options().base_url(base.as_ref()).parse(&input).is_ok()
 	}
 
+	pub fn parse(cx: &Context, input: String, Opt(base): Opt<String>) -> Option<*mut JSObject> {
+		let base = base.as_ref().and_then(|base| Url::parse(base).ok());
+		let url = Url::options().base_url(base.as_ref()).parse(&input).ok()?;
+
+		let url_object = URL::new_raw_object(cx);
+		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
+		search_params.url.as_ref().unwrap().set(url_object);
+		let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+
+		unsafe {
+			URL::set_private(
+				url_object,
+				Box::new(URL {
+					reflector: Reflector::default(),
+					url,
+					search_params,
+				}),
+			);
+		}
+
+		Some(url_object)
+	}
+
 	pub fn format(&self, Opt(options): Opt<FormatOptions>) -> Result<String> {
 		let mut url = self.url.clone();
 
