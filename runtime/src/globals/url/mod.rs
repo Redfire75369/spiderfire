@@ -20,6 +20,13 @@ use crate::runtime::ContextExt;
 
 mod search_params;
 
+const BLOB_ORIGIN: &str = "spiderfire";
+
+pub fn parse_uuid_from_url_path(url: &Url) -> Option<Uuid> {
+	let path = url.path().get((BLOB_ORIGIN.len() + 1)..).filter(|path| path.len() == 36)?;
+	Uuid::try_parse(path).ok()
+}
+
 #[derive(Default, FromValue)]
 pub struct FormatOptions {
 	#[ion(default)]
@@ -94,16 +101,12 @@ impl URL {
 		unsafe {
 			cx.get_private().blob_store.insert(uuid, Heap::boxed(blob.reflector().get()));
 		}
-		format!("blob:spiderfire/{}", uuid.hyphenated())
+		format!("blob:{BLOB_ORIGIN}/{}", uuid.hyphenated())
 	}
 
 	#[ion(name = "revokeObjectURL")]
 	pub fn revoke_object_url(cx: &Context, url: String) {
-		let uuid = Url::parse(&url).ok().and_then(|url| {
-			let path = url.path().get(1..).filter(|path| path.len() == 36)?;
-			Uuid::try_parse(path).ok()
-		});
-		if let Some(uuid) = uuid {
+		if let Some(uuid) = Url::parse(&url).ok().and_then(|url| parse_uuid_from_url_path(&url)) {
 			unsafe {
 				cx.get_private().blob_store.remove(&uuid);
 			}

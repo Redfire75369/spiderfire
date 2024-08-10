@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::collections::Bound;
 use std::iter::once;
 use std::str;
 use std::str::FromStr;
@@ -13,11 +14,12 @@ use bytes::Bytes;
 use const_format::concatcp;
 use data_url::DataUrl;
 use futures::future::{Either, select};
+use headers::{Range, HeaderMapExt};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
 use http::header::{
 	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING,
-	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-	IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
+	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_RANGE, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE,
+	IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use mozjs::jsapi::JSObject;
 use sys_locale::get_locales;
@@ -42,8 +44,10 @@ pub use response::Response;
 
 use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::Body;
+use crate::globals::url::parse_uuid_from_url_path;
 use crate::promise::future_to_promise;
-use crate::VERSION;
+use crate::{ContextExt, VERSION};
+use crate::globals::file::Blob;
 
 mod body;
 mod client;
@@ -216,7 +220,7 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 		if request.mode == RequestMode::SameOrigin {
 			network_error()
 		} else if SCHEMES.contains(&scheme) {
-			scheme_fetch(cx, scheme, request.url.clone()).await
+			scheme_fetch(cx, scheme, request, request.url.clone()).await
 		} else if scheme == "https" || scheme == "http" {
 			if let Some(port) = request.url.port() {
 				if BAD_PORTS.contains(&port) {
@@ -342,7 +346,10 @@ async fn main_fetch(cx: &Context, request: &mut Request, client: Client, redirec
 	response
 }
 
-async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
+async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -> Response {
+	let headers = Object::from(unsafe { Local::from_heap(&request.headers) });
+	let headers = &Headers::get_mut_private(cx, &headers).unwrap().headers;
+
 	match scheme {
 		"about" if url.path() == "blank" => {
 			let response = Response::new_from_bytes(Bytes::default(), url);
@@ -357,7 +364,80 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 			response.headers.set(Headers::new_object(cx, Box::new(headers)));
 			response
 		}
-		// TODO: blob: URLs
+		"blob" => {
+			if request.method != Method::GET {
+				return network_error();
+			}
+
+			let uuid = match parse_uuid_from_url_path(&url) {
+				Some(uuid) => uuid,
+				_ => return network_error(),
+			};
+			let blob = unsafe {
+				match cx.get_private().blob_store.get(&uuid) {
+					Some(blob) => blob,
+					_ => return network_error(),
+				}
+			};
+
+			let blob = Object::from(unsafe { Local::from_heap(blob) });
+			let blob = Blob::get_private(cx, &blob).unwrap();
+
+			let len = blob.as_bytes().len();
+			let kind = match HeaderValue::from_str(&blob.kind().unwrap_or_default()) {
+				Ok(kind) => kind,
+				Err(_) => return network_error(),
+			};
+
+			match headers.typed_try_get::<Range>() {
+				Ok(Some(range)) => {
+					if let Some((start, end)) = range.satisfiable_ranges(len as u64).next() {
+						let (start, end) = (start.map(|s| s as usize), end.map(|e| e as usize));
+						let bytes = blob.as_bytes().slice((start, end));
+						let new_len = bytes.len();
+
+						let mut response = Response::new_from_bytes(bytes, url);
+						response.status = Some(StatusCode::PARTIAL_CONTENT);
+						response.range_requested = true;
+
+						let (start, end) = match (start, end) {
+							(Bound::Included(s), Bound::Included(e)) => (s, e),
+							(Bound::Included(s), Bound::Unbounded) => (s, len - 1),
+							_ => unreachable!(),
+						};
+						let range = match HeaderValue::from_str(&format!("{start}-{end}/{len}")) {
+							Ok(range) => range,
+							Err(_) => return network_error(),
+						};
+
+						let headers = Headers {
+							reflector: Reflector::default(),
+							headers: HeaderMap::from_iter([
+								(CONTENT_TYPE, kind),
+								(CONTENT_LENGTH, HeaderValue::from(new_len)),
+								(CONTENT_RANGE, range),
+							]),
+							kind: HeadersKind::Immutable,
+						};
+						response.headers.set(Headers::new_object(cx, Box::new(headers)));
+						response
+					} else {
+						network_error()
+					}
+				}
+				Ok(None) => {
+					let response = Response::new_from_bytes(blob.as_bytes().clone(), url);
+					let headers = Headers {
+						reflector: Reflector::default(),
+						headers: HeaderMap::from_iter([(CONTENT_TYPE, kind), (CONTENT_LENGTH, HeaderValue::from(len))]),
+						kind: HeadersKind::Immutable,
+					};
+					response.headers.set(Headers::new_object(cx, Box::new(headers)));
+					response
+				}
+				Err(_) => network_error(),
+			}
+		}
 		"data" => {
 			let data_url = match DataUrl::process(url.as_str()) {
 				Ok(data_url) => data_url,
@@ -381,14 +461,20 @@ async fn scheme_fetch(cx: &Context, scheme: &str, url: Url) -> Response {
 			response
 		}
 		"file" => {
-			let path = url.to_file_path().unwrap();
-			match read(path).await {
-				Ok(bytes) => {
-					let response = Response::new_from_bytes(Bytes::from(bytes), url);
-					let headers = Headers::new(HeadersKind::Immutable);
-					response.headers.set(Headers::new_object(cx, Box::new(headers)));
-					response
-				}
+			if request.method != Method::GET {
+				return network_error();
+			}
+
+			match url.to_file_path() {
+				Ok(path) => match read(path).await {
+					Ok(bytes) => {
+						let response = Response::new_from_bytes(Bytes::from(bytes), url);
+						let headers = Headers::new(HeadersKind::Immutable);
+						response.headers.set(Headers::new_object(cx, Box::new(headers)));
+						response
+					}
+					Err(_) => network_error(),
+				},
 				Err(_) => network_error(),
 			}
 		}
