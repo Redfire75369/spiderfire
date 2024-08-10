@@ -94,7 +94,7 @@ impl FileReader {
 	#[ion(name = "readAsArrayBuffer")]
 	pub fn read_as_array_buffer(&mut self, cx: &Context, blob: &Blob) -> Result<()> {
 		self.state.validate()?;
-		let bytes = blob.as_bytes().clone();
+		let bytes = blob.bytes.clone();
 
 		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
@@ -112,7 +112,7 @@ impl FileReader {
 	#[ion(name = "readAsBinaryString")]
 	pub fn read_as_binary_string(&mut self, cx: &Context, blob: &Blob) -> Result<()> {
 		self.state.validate()?;
-		let bytes = blob.as_bytes().clone();
+		let bytes = blob.bytes.clone();
 
 		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
@@ -130,8 +130,8 @@ impl FileReader {
 	#[ion(name = "readAsText")]
 	pub fn read_as_text(&mut self, cx: &Context, blob: &Blob, Opt(encoding): Opt<String>) -> Result<()> {
 		self.state.validate()?;
-		let bytes = blob.as_bytes().clone();
-		let mime = blob.kind();
+		let bytes = blob.bytes.clone();
+		let mime = blob.kind.clone();
 
 		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
@@ -151,8 +151,8 @@ impl FileReader {
 	#[ion(name = "readAsDataURL")]
 	pub fn read_as_data_url(&mut self, cx: &Context, blob: &Blob) -> Result<()> {
 		self.state.validate()?;
-		let bytes = blob.as_bytes().clone();
-		let mime = blob.kind();
+		let bytes = blob.bytes.clone();
+		let mime = blob.kind.clone();
 
 		let this = TracedHeap::new(self.reflector().get());
 		let cx2 = unsafe { Context::new_unchecked(cx.as_ptr()) };
@@ -199,25 +199,25 @@ impl FileReaderSync {
 
 	#[ion(name = "readAsArrayBuffer")]
 	pub fn read_as_array_buffer(&mut self, blob: &Blob) -> ArrayBufferWrapper {
-		ArrayBufferWrapper::from(blob.as_bytes().to_vec())
+		ArrayBufferWrapper::from(blob.bytes.to_vec())
 	}
 
 	#[ion(name = "readAsBinaryString")]
 	pub fn read_as_binary_string(&mut self, blob: &Blob) -> ByteString {
-		unsafe { ByteString::<Latin1>::from_unchecked(blob.as_bytes().to_vec()) }
+		unsafe { ByteString::<Latin1>::from_unchecked(blob.bytes.to_vec()) }
 	}
 
 	#[ion(name = "readAsText")]
 	pub fn read_as_text(&mut self, blob: &Blob, Opt(encoding): Opt<String>) -> String {
-		let encoding = encoding_from_string_mime(encoding.as_deref(), blob.kind().as_deref());
-		encoding.decode_without_bom_handling(blob.as_bytes()).0.into_owned()
+		let encoding = encoding_from_string_mime(encoding.as_deref(), blob.kind.as_deref());
+		encoding.decode_without_bom_handling(&blob.bytes).0.into_owned()
 	}
 
 	#[ion(name = "readAsDataURL")]
 	pub fn read_as_data_url(&mut self, blob: &Blob) -> String {
-		let mime = blob.kind();
+		let mime = blob.kind.clone();
 
-		let base64 = BASE64_STANDARD.encode(blob.as_bytes());
+		let base64 = BASE64_STANDARD.encode(&blob.bytes);
 		match mime {
 			Some(mime) => format!("data:{};base64,{}", mime, base64),
 			None => format!("data:base64,{}", base64),

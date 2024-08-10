@@ -132,20 +132,10 @@ pub struct BlobOptions {
 
 #[js_class]
 pub struct Blob {
-	reflector: Reflector,
+	pub(crate) reflector: Reflector,
 	#[trace(no_trace)]
-	bytes: Bytes,
-	kind: Option<String>,
-}
-
-impl Blob {
-	pub fn as_bytes(&self) -> &Bytes {
-		&self.bytes
-	}
-
-	pub fn kind(&self) -> Option<String> {
-		self.kind.clone()
-	}
+	pub(crate) bytes: Bytes,
+	pub(crate) kind: Option<String>,
 }
 
 #[js_class]

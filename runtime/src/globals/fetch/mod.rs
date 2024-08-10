@@ -383,8 +383,8 @@ async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -
 			let blob = Object::from(unsafe { Local::from_heap(blob) });
 			let blob = Blob::get_private(cx, &blob).unwrap();
 
-			let len = blob.as_bytes().len();
-			let kind = match HeaderValue::from_str(&blob.kind().unwrap_or_default()) {
+			let len = blob.bytes.len();
+			let kind = match HeaderValue::from_str(blob.kind.as_deref().unwrap_or("")) {
 				Ok(kind) => kind,
 				Err(_) => return network_error(),
 			};
@@ -393,7 +393,7 @@ async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -
 				Ok(Some(range)) => {
 					if let Some((start, end)) = range.satisfiable_ranges(len as u64).next() {
 						let (start, end) = (start.map(|s| s as usize), end.map(|e| e as usize));
-						let bytes = blob.as_bytes().slice((start, end));
+						let bytes = blob.bytes.slice((start, end));
 						let new_len = bytes.len();
 
 						let mut response = Response::new_from_bytes(bytes, url);
@@ -426,7 +426,7 @@ async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -
 					}
 				}
 				Ok(None) => {
-					let response = Response::new_from_bytes(blob.as_bytes().clone(), url);
+					let response = Response::new_from_bytes(blob.bytes.clone(), url);
 					let headers = Headers {
 						reflector: Reflector::default(),
 						headers: HeaderMap::from_iter([(CONTENT_TYPE, kind), (CONTENT_LENGTH, HeaderValue::from(len))]),

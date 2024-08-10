@@ -134,9 +134,9 @@ impl<'cx> FromValue<'cx> for FetchBody {
 				});
 			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
 				return Ok(FetchBody {
-					body: FetchBodyInner::Bytes(blob.as_bytes().clone()),
+					body: FetchBodyInner::Bytes(blob.bytes.clone()),
 					source: Some(Heap::boxed(value.get())),
-					kind: blob.kind().map(FetchBodyKind::Blob),
+					kind: blob.kind.clone().map(FetchBodyKind::Blob),
 				});
 			} else if let Ok(search_params) = <&URLSearchParams>::from_value(cx, value, strict, ()) {
 				return Ok(FetchBody {
