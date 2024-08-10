@@ -7,13 +7,14 @@
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::{GCMethods, RootedTraceableSet};
+use mozjs::gc::{GCMethods, RootedTraceableSet, Traceable};
 use mozjs::jsapi::{
-	BigInt, Heap, JS_GetContextPrivate, JS_SetContextPrivate, JSContext, JSFunction, JSObject, JSScript, JSString,
-	PropertyDescriptor, PropertyKey, Rooted, Symbol,
+	BigInt, Heap, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer, JS_AddExtraGCRootsTracer,
+	JS_GetContextPrivate, JS_SetContextPrivate, PropertyDescriptor, PropertyKey, Rooted, Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::Runtime;
@@ -56,12 +57,37 @@ pub struct Persistent {
 	objects: Vec<Box<Heap<*mut JSObject>>>,
 }
 
+pub trait TraceablePrivate: Traceable + Any {
+	fn as_any(&self) -> &dyn Any;
+
+	fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: Traceable + Any> TraceablePrivate for T {
+	fn as_any(&self) -> &dyn Any {
+		self
+	}
+
+	fn as_any_mut(&mut self) -> &mut dyn Any {
+		self
+	}
+}
+
 #[derive(Default)]
 pub struct ContextInner {
 	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
 	persistent: Persistent,
-	private: Option<Box<dyn Any>>,
+	private: Option<Box<dyn TraceablePrivate>>,
+}
+
+impl ContextInner {
+	extern "C" fn trace(trc: *mut JSTracer, data: *mut c_void) {
+		unsafe {
+			let inner = &mut *data.cast::<ContextInner>();
+			inner.private.trace(trc);
+		}
+	}
 }
 
 /// Represents the thread-local state of the runtime.
@@ -83,6 +109,7 @@ impl Context {
 			let private = Box::into_raw(private);
 			unsafe {
 				JS_SetContextPrivate(cx, private.cast());
+				JS_AddExtraGCRootsTracer(cx, Some(ContextInner::trace), private.cast());
 			}
 			unsafe { NonNull::new_unchecked(private) }
 		});
@@ -112,12 +139,12 @@ impl Context {
 		self.private
 	}
 
-	pub fn get_raw_private(&self) -> *mut dyn Any {
+	pub fn get_raw_private(&self) -> *mut dyn TraceablePrivate {
 		let inner = self.get_inner_data();
 		ptr::from_mut(unsafe { (*inner.as_ptr()).private.as_deref_mut().unwrap() })
 	}
 
-	pub fn set_private(&self, private: Box<dyn Any>) {
+	pub fn set_private(&self, private: Box<dyn TraceablePrivate>) {
 		let inner_private = self.get_inner_data();
 		unsafe {
 			(*inner_private.as_ptr()).private = Some(private);

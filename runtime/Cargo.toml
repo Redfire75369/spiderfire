@@ -92,6 +92,13 @@ optional = true
 workspace = true
 features = ["sync"]
 
+[dependencies.uuid]
+version = "1.10.0"
+features = [
+	"v4",
+	"fast-rng"
+]
+
 [features]
 debugmozjs = ["ion/debugmozjs"]
 fetch = [

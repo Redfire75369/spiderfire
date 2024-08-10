@@ -8,11 +8,15 @@ use std::cmp::Ordering;
 
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
+use uuid::Uuid;
 
 use ion::{ClassDefinition, Context, Error, Local, Object, Result};
-use ion::class::Reflector;
+use ion::class::{NativeObject, Reflector};
 use ion::function::Opt;
 pub use search_params::URLSearchParams;
+
+use crate::globals::file::Blob;
+use crate::runtime::ContextExt;
 
 mod search_params;
 
@@ -82,6 +86,28 @@ impl URL {
 		}
 
 		Some(url_object)
+	}
+
+	#[ion(name = "createObjectURL")]
+	pub fn create_object_url(cx: &Context, blob: &Blob) -> String {
+		let uuid = Uuid::new_v4();
+		unsafe {
+			cx.get_private().blob_store.insert(uuid, Heap::boxed(blob.reflector().get()));
+		}
+		format!("blob:spiderfire/{}", uuid.hyphenated())
+	}
+
+	#[ion(name = "revokeObjectURL")]
+	pub fn revoke_object_url(cx: &Context, url: String) {
+		let uuid = Url::parse(&url).ok().and_then(|url| {
+			let path = url.path().get(1..).filter(|path| path.len() == 36)?;
+			Uuid::try_parse(path).ok()
+		});
+		if let Some(uuid) = uuid {
+			unsafe {
+				cx.get_private().blob_store.remove(&uuid);
+			}
+		}
 	}
 
 	pub fn format(&self, Opt(options): Opt<FormatOptions>) -> Result<String> {

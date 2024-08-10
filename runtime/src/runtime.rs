@@ -4,10 +4,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::collections::HashMap;
 use std::ptr;
 
+use mozjs::gc::Traceable;
 use mozjs::glue::CreateJobQueue;
-use mozjs::jsapi::{ContextOptionsRef, JSAutoRealm, SetJobQueue, SetPromiseRejectionTrackerCallback};
+use mozjs::jsapi::{
+	ContextOptionsRef, Heap, JSAutoRealm, JSObject, JSTracer, SetJobQueue, SetPromiseRejectionTrackerCallback,
+};
+use uuid::Uuid;
 
 use ion::{Context, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
@@ -23,6 +28,17 @@ use crate::module::StandardModules;
 #[derive(Default)]
 pub struct ContextPrivate {
 	pub(crate) event_loop: EventLoop,
+	pub(crate) blob_store: HashMap<Uuid, Box<Heap<*mut JSObject>>>,
+}
+
+unsafe impl Traceable for ContextPrivate {
+	unsafe fn trace(&self, trc: *mut JSTracer) {
+		for blob in self.blob_store.values() {
+			unsafe {
+				blob.trace(trc);
+			}
+		}
+	}
 }
 
 pub trait ContextExt {
@@ -32,7 +48,7 @@ pub trait ContextExt {
 
 impl ContextExt for Context {
 	unsafe fn get_private(&self) -> &mut ContextPrivate {
-		unsafe { (*self.get_raw_private()).downcast_mut().unwrap() }
+		unsafe { (*self.get_raw_private()).as_any_mut().downcast_mut().unwrap() }
 	}
 }
 
