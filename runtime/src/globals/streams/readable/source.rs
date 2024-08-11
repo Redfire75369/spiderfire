@@ -400,7 +400,7 @@ impl StreamSource {
 					let byob_request = ByobRequest::get_private(cx, &byob_request)?;
 
 					let view = ArrayBufferView::from(cx.root(byob_request.get_view())).unwrap();
-					reader.read_internal(cx, view, request)?;
+					reader.read_internal(cx, view, 1, request)?;
 				}
 
 				promise.resolve(cx, &Value::undefined_handle());

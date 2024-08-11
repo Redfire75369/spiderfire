@@ -6,6 +6,7 @@
 
 use std::collections::VecDeque;
 
+use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{Heap, JSObject};
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
@@ -286,6 +287,18 @@ impl DefaultReader {
 	}
 }
 
+#[derive(FromValue)]
+pub struct ByobReadOptions {
+	#[ion(convert = ConversionBehavior::EnforceRange, default = 1)]
+	min: u64,
+}
+
+impl Default for ByobReadOptions {
+	fn default() -> ByobReadOptions {
+		ByobReadOptions { min: 1 }
+	}
+}
+
 #[js_class]
 #[ion(name = "ReadableStreamBYOBReader")]
 pub struct ByobReader {
@@ -326,7 +339,7 @@ impl ByobReader {
 	}
 
 	pub(crate) fn read_internal<'cx>(
-		&mut self, cx: &'cx Context, view: ArrayBufferView, request: Request,
+		&mut self, cx: &'cx Context, view: ArrayBufferView, min: usize, request: Request,
 	) -> ResultExc<Promise<'cx>> {
 		let stream = self.common.stream(cx)?.unwrap();
 		let promise = Promise::from(cx.root(request.promise.get())).unwrap();
@@ -352,6 +365,7 @@ impl ByobReader {
 					offset,
 					length: length * element_size,
 					filled: 0,
+					min: min * element_size,
 					element: element_size,
 					constructor,
 					kind: ReaderKind::Byob,
@@ -411,25 +425,53 @@ impl ByobReader {
 		self.common.cancel(cx, reason)
 	}
 
-	pub fn read<'cx>(&mut self, cx: &'cx Context, view: ArrayBufferView) -> ResultExc<Promise<'cx>> {
+	pub fn read<'cx>(
+		&mut self, cx: &'cx Context, view: ArrayBufferView, Opt(options): Opt<ByobReadOptions>,
+	) -> ResultExc<Promise<'cx>> {
 		let promise = Promise::new(cx);
 		let request = Request::standard(promise.get());
 		if self.common.stream.is_some() {
 			if view.is_empty() {
-				return Err(Error::new("View must not be empty.", ErrorKind::Type).into());
+				promise.reject(cx, &Error::new("View must not be empty.", ErrorKind::Type).as_value(cx));
+				return Ok(promise);
 			}
 
 			let buffer = view.buffer(cx);
 
 			if buffer.is_empty() {
-				return Err(Error::new("Buffer must contain bytes.", ErrorKind::Type).into());
+				promise.reject(
+					cx,
+					&Error::new("Buffer must contain bytes.", ErrorKind::Type).as_value(cx),
+				);
+				return Ok(promise);
 			}
 
 			if buffer.is_detached() {
-				return Err(Error::new("ArrayBuffer must not be detached.", ErrorKind::Type).into());
+				promise.reject(
+					cx,
+					&Error::new("ArrayBuffer must not be detached.", ErrorKind::Type).as_value(cx),
+				);
+				return Ok(promise);
 			}
 
-			self.read_internal(cx, view, request)
+			let options = options.unwrap_or_default();
+			if options.min == 0 {
+				promise.reject(
+					cx,
+					&Error::new("min must be greater than 0.", ErrorKind::Type).as_value(cx),
+				);
+				return Ok(promise);
+			}
+
+			if options.min > view.len() as u64 {
+				promise.reject(
+					cx,
+					&Error::new("min is greater than View Length", ErrorKind::Range).as_value(cx),
+				);
+				return Ok(promise);
+			}
+
+			self.read_internal(cx, view, options.min as usize, request)
 		} else {
 			(request.error)(
 				cx,

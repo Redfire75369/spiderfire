@@ -30,6 +30,7 @@ pub(crate) struct PullIntoDescriptor {
 	pub(crate) offset: usize,
 	pub(crate) length: usize,
 	pub(crate) filled: usize,
+	pub(crate) min: usize,
 	pub(crate) element: usize,
 	pub(crate) constructor: unsafe extern "C" fn(*mut JSContext, Handle<*mut JSObject>, usize, i64) -> *mut JSObject,
 	pub(crate) kind: ReaderKind,
@@ -197,6 +198,7 @@ impl<'c> Controller<'c> {
 							offset: 0,
 							length: controller.auto_allocate_chunk_size,
 							filled: 0,
+							min: 1,
 							element: 1,
 							constructor: type_to_constructor(Type::Uint8),
 							kind: ReaderKind::Default,
@@ -574,11 +576,10 @@ impl ByteStreamController {
 	pub(crate) fn fill_pull_into_descriptor(
 		&mut self, cx: &Context, descriptor: &mut PullIntoDescriptor,
 	) -> Result<bool> {
-		let aligned = descriptor.filled - descriptor.filled % descriptor.element;
 		let max_copy = self.common.queue_size.min(descriptor.length - descriptor.filled);
 		let max_aligned = descriptor.filled + max_copy - (descriptor.filled + max_copy) % descriptor.element;
 
-		let ready = max_aligned > aligned;
+		let ready = max_aligned > descriptor.min;
 
 		let mut remaining = if ready {
 			max_aligned - descriptor.filled
@@ -708,13 +709,15 @@ impl ByteStreamController {
 
 		match stream.state {
 			State::Readable => {
-				let mut descriptor = self.pending_descriptors.pop_front().unwrap();
+				let descriptor = self.pending_descriptors.front_mut().unwrap();
 				descriptor.filled += written;
+
+				let PullIntoDescriptor { filled, offset, length, min, .. } = *descriptor;
 
 				match kind {
 					ReaderKind::None => {
-						if descriptor.filled > 0 {
-							self.enqueue_cloned_chunk(cx, &buffer, descriptor.offset, descriptor.length)?;
+						if filled > 0 {
+							self.enqueue_cloned_chunk(cx, &buffer, offset, length)?;
 						}
 
 						if let Some(Reader::Byob(reader)) = stream.native_reader(cx)? {
@@ -722,10 +725,11 @@ impl ByteStreamController {
 						}
 					}
 					_ => {
-						if descriptor.filled < descriptor.element {
+						if filled < min {
 							return Ok(());
 						}
 
+						let mut descriptor = self.pending_descriptors.pop_front().unwrap();
 						let remainder = descriptor.filled % descriptor.element;
 
 						if remainder > 0 {

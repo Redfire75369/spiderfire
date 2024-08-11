@@ -34,7 +34,6 @@ workspace = true
 optional = true
 
 [features]
-default = []
 debugmozjs = ["mozjs/debugmozjs"]
 macros = ["dep:ion-proc"]
 sourcemap = ["dep:sourcemap"]
