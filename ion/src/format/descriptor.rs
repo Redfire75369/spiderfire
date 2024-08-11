@@ -4,11 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
 
-use crate::{Context, Object, PropertyDescriptor};
+use crate::{Context, Function, Object, PropertyDescriptor};
 use crate::format::{Config, format_value};
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
@@ -29,7 +30,7 @@ pub struct DescriptorDisplay<'cx> {
 }
 
 impl Display for DescriptorDisplay<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let color = self.cfg.colours.function;
 
 		if let Some(getter) = self.desc.getter(self.cx) {
@@ -38,43 +39,12 @@ impl Display for DescriptorDisplay<'_> {
 				"/Setter".color(color).fmt(f)?;
 			}
 
-			return if let Some(object) = self.object {
-				let value = match getter.call(self.cx, object, &[]) {
-					Ok(value) => value,
-					Err(report) => {
-						f.write_str(" <Inspection threw (")?;
-						match report {
-							Some(mut report) => {
-								report.stack = None;
-								report.format(self.cx).fmt(f)?;
-								f.write_char(')')?;
-							}
-							None => f.write_str("unknown error")?,
-						}
-						f.write_char('>')?;
-						return "]".color(color).fmt(f);
-					}
-				};
-
-				if value.handle().is_object() {
-					"] ".color(color).fmt(f)?;
-					format_object(
-						self.cx,
-						self.cfg.depth(self.cfg.depth + 1).quoted(true),
-						value.to_object(self.cx),
-					)
-					.fmt(f)
-				} else {
-					": ".color(color).fmt(f)?;
-					format_primitive(self.cx, self.cfg.quoted(true), &value).fmt(f)?;
-					"]".color(color).fmt(f)
-				}
+			if let Some(object) = self.object {
+				format_getter(f, self.cx, &getter, object, self.cfg)
 			} else {
 				"]".color(color).fmt(f)
-			};
-		}
-
-		if self.desc.setter(self.cx).is_some() {
+			}
+		} else if self.desc.setter(self.cx).is_some() {
 			"[Setter]".color(color).fmt(f)
 		} else {
 			match self.desc.value(self.cx) {
@@ -82,5 +52,35 @@ impl Display for DescriptorDisplay<'_> {
 				None => f.write_str("<empty descriptor>"),
 			}
 		}
+	}
+}
+
+fn format_getter(f: &mut Formatter<'_>, cx: &Context, getter: &Function, object: &Object, cfg: Config) -> fmt::Result {
+	let color = cfg.colours.function;
+
+	let value = match getter.call(cx, object, &[]) {
+		Ok(value) => value,
+		Err(report) => {
+			f.write_str(" <Inspection threw (")?;
+			match report {
+				Some(mut report) => {
+					report.stack = None;
+					report.format(cx).fmt(f)?;
+					f.write_char(')')?;
+				}
+				None => f.write_str("unknown error")?,
+			}
+			f.write_char('>')?;
+			return "]".color(color).fmt(f);
+		}
+	};
+
+	if value.handle().is_object() {
+		"] ".color(color).fmt(f)?;
+		format_object(cx, cfg.depth(cfg.depth + 1).quoted(true), value.to_object(cx)).fmt(f)
+	} else {
+		": ".color(color).fmt(f)?;
+		format_primitive(cx, cfg.quoted(true), &value).fmt(f)?;
+		"]".color(color).fmt(f)
 	}
 }

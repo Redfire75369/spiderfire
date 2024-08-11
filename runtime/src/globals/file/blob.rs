@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use encoding_rs::UTF_8;
 use mozjs::jsapi::JSObject;
 
@@ -15,10 +15,11 @@ use ion::class::Reflector;
 use ion::conversions::FromValue;
 use ion::format::NEWLINE;
 use ion::function::{Clamp, Opt};
-use ion::typedarray::{ArrayBuffer, ArrayBufferView, ArrayBufferWrapper};
+use ion::typedarray::{ArrayBuffer, ArrayBufferView, ArrayBufferWrapper, Uint8ArrayWrapper};
 
 use crate::promise::future_to_promise;
 
+#[derive(Debug)]
 pub enum BufferSource<'cx> {
 	Buffer(ArrayBuffer<'cx>),
 	View(ArrayBufferView<'cx>),
@@ -72,26 +73,14 @@ impl<'cx> FromValue<'cx> for BufferSource<'cx> {
 	}
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct BlobPart(Bytes);
-
-impl<'cx> FromValue<'cx> for BlobPart {
-	type Config = ();
-	fn from_value(cx: &'cx Context, value: &Value, strict: bool, _: ()) -> Result<BlobPart> {
-		if value.handle().is_string() {
-			return Ok(BlobPart(Bytes::from(String::from_value(cx, value, true, ())?)));
-		} else if value.handle().is_object() {
-			if let Ok(buffer_source) = BufferSource::from_value(cx, value, strict, false) {
-				return Ok(BlobPart(buffer_source.to_bytes()));
-			} else if let Ok(blob) = <&Blob>::from_value(cx, value, strict, ()) {
-				return Ok(BlobPart(blob.bytes.clone()));
-			}
-		}
-		Err(Error::new(
-			"Expected BufferSource, Blob or String in Blob constructor.",
-			ErrorKind::Type,
-		))
-	}
+#[derive(Debug, FromValue)]
+pub enum BlobPart<'cx> {
+	#[ion(inherit)]
+	String(String),
+	#[ion(inherit)]
+	BufferSource(#[ion(convert = false)] BufferSource<'cx>),
+	#[ion(inherit)]
+	Blob(&'cx Blob),
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -99,6 +88,31 @@ pub enum Endings {
 	#[default]
 	Transparent,
 	Native,
+}
+
+impl Endings {
+	fn convert(self, buffer: &mut BytesMut, string: &str) {
+		let string = string.as_bytes();
+		match self {
+			Endings::Transparent => buffer.extend(string),
+			Endings::Native => {
+				let mut i = 0;
+				while let Some(&b) = string.get(i) {
+					i += 1;
+					if b == b'\r' {
+						buffer.extend_from_slice(NEWLINE.as_bytes());
+						if string.get(i) == Some(&b'\n') {
+							i += 1;
+						}
+					} else if b == b'\n' {
+						buffer.extend_from_slice(NEWLINE.as_bytes());
+					} else {
+						buffer.put_u8(b);
+					}
+				}
+			}
+		}
+	}
 }
 
 impl FromStr for Endings {
@@ -130,6 +144,15 @@ pub struct BlobOptions {
 	endings: Endings,
 }
 
+fn validate_kind(kind: Option<String>) -> Option<String> {
+	kind.filter(|kind| kind.as_bytes().iter().all(|b| matches!(b, 0x20..=0x7E)))
+		.map(|mut kind| {
+			kind.make_ascii_lowercase();
+			kind
+		})
+}
+
+#[derive(Debug)]
 #[js_class]
 pub struct Blob {
 	pub(crate) reflector: Reflector,
@@ -144,42 +167,22 @@ impl Blob {
 	pub fn constructor(Opt(parts): Opt<Vec<BlobPart>>, Opt(options): Opt<BlobOptions>) -> Blob {
 		let options = options.unwrap_or_default();
 
-		let mut bytes = Vec::new();
+		let mut bytes = BytesMut::new();
 
 		if let Some(parts) = parts {
-			let len = parts
-				.iter()
-				.map(|part| part.0.len() + part.0.iter().filter(|&&b| b == b'\r' || b == b'\n').count() * 2)
-				.sum();
-			bytes.reserve(len);
-
 			for part in parts {
-				match options.endings {
-					Endings::Transparent => bytes.extend(part.0),
-					Endings::Native => {
-						let mut i = 0;
-						while let Some(&b) = part.0.get(i) {
-							i += 1;
-							if b == b'\r' {
-								bytes.extend_from_slice(NEWLINE.as_bytes());
-								if part.0.get(i) == Some(&b'\n') {
-									i += 1;
-								}
-							} else if b == b'\n' {
-								bytes.extend_from_slice(NEWLINE.as_bytes());
-							} else {
-								bytes.push(b);
-							}
-						}
-					}
+				match part {
+					BlobPart::String(str) => options.endings.convert(&mut bytes, &str),
+					BlobPart::BufferSource(source) => bytes.extend_from_slice(unsafe { source.as_slice() }),
+					BlobPart::Blob(blob) => bytes.extend_from_slice(&blob.bytes),
 				}
 			}
 		}
 
 		Blob {
 			reflector: Reflector::default(),
-			bytes: Bytes::from(bytes),
-			kind: options.kind,
+			bytes: bytes.freeze(),
+			kind: validate_kind(options.kind),
 		}
 	}
 
@@ -210,22 +213,13 @@ impl Blob {
 		}
 		let end = end.min(size) as usize;
 
-		let kind = match kind {
-			Some(mut kind) if kind.as_bytes().iter().all(|&b| (0x20..=0x7E).contains(&b)) => {
-				kind.make_ascii_lowercase();
-				Some(kind)
-			}
-			_ => None,
-		};
-
 		let span = 0.max(end - start);
-
 		let bytes = self.bytes.slice(start..start + span);
 
 		let blob = Blob {
 			reflector: Reflector::default(),
 			bytes,
-			kind,
+			kind: validate_kind(kind),
 		};
 		Blob::new_object(cx, Box::new(blob))
 	}
@@ -239,5 +233,10 @@ impl Blob {
 	pub fn array_buffer<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let bytes = self.bytes.clone();
 		future_to_promise(cx, async move { Ok::<_, ()>(ArrayBufferWrapper::from(bytes.to_vec())) })
+	}
+
+	pub fn bytes<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let bytes = self.bytes.clone();
+		future_to_promise(cx, async move { Ok::<_, ()>(Uint8ArrayWrapper::from(bytes.to_vec())) })
 	}
 }

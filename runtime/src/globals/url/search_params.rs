@@ -3,8 +3,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 use form_urlencoded::{parse, Serializer};
 use mozjs::jsapi::{Heap, JSObject};
+use url::Url;
 
 use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, OwnedKey, Result, Value};
 use ion::class::Reflector;
@@ -61,17 +63,29 @@ impl<'cx> FromValue<'cx> for URLSearchParamsInit {
 #[js_class]
 pub struct URLSearchParams {
 	reflector: Reflector,
-	pairs: Vec<(String, String)>,
-	pub(super) url: Option<Heap<*mut JSObject>>,
+	pub(super) pairs: Vec<(String, String)>,
+	url: Option<Heap<*mut JSObject>>,
 }
 
 impl URLSearchParams {
-	pub fn pairs(&self) -> &[(String, String)] {
-		&self.pairs
+	pub(super) fn from_url(url: &Url, url_object: *mut JSObject) -> Box<URLSearchParams> {
+		let search_params = Box::new(URLSearchParams {
+			reflector: Reflector::default(),
+			pairs: url.query_pairs().into_owned().collect(),
+			url: Some(Heap::default()),
+		});
+		if let Some(url) = search_params.url.as_ref() {
+			url.set(url_object);
+		}
+		search_params
 	}
 
-	pub(super) fn set_pairs(&mut self, pairs: Vec<(String, String)>) {
-		self.pairs = pairs;
+	pub(super) fn set_pairs_from_url(&mut self, url: &Url) {
+		self.pairs = url.query_pairs().into_owned().collect();
+	}
+
+	pub fn pairs(&self) -> &[(String, String)] {
+		&self.pairs
 	}
 }
 
@@ -84,14 +98,6 @@ impl URLSearchParams {
 			reflector: Reflector::default(),
 			pairs,
 			url: None,
-		}
-	}
-
-	pub(super) fn new(pairs: Vec<(String, String)>) -> URLSearchParams {
-		URLSearchParams {
-			reflector: Reflector::default(),
-			pairs,
-			url: Some(Heap::default()),
 		}
 	}
 

@@ -45,6 +45,13 @@ pub struct URL {
 	search_params: Box<Heap<*mut JSObject>>,
 }
 
+impl URL {
+	fn search_params(&mut self, cx: &Context) -> &mut URLSearchParams {
+		let search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
+		URLSearchParams::get_mut_private(cx, &search_params).unwrap()
+	}
+}
+
 #[js_class]
 impl URL {
 	#[ion(constructor)]
@@ -55,9 +62,10 @@ impl URL {
 			.parse(&input)
 			.map_err(|error| Error::new(error.to_string(), None))?;
 
-		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
-		search_params.url.as_ref().unwrap().set(this.handle().get());
-		let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+		let search_params = Heap::boxed(URLSearchParams::new_object(
+			cx,
+			URLSearchParams::from_url(&url, this.handle().get()),
+		));
 
 		Ok(URL {
 			reflector: Reflector::default(),
@@ -77,9 +85,10 @@ impl URL {
 		let url = Url::options().base_url(base.as_ref()).parse(&input).ok()?;
 
 		let url_object = URL::new_raw_object(cx);
-		let search_params = Box::new(URLSearchParams::new(url.query_pairs().into_owned().collect()));
-		search_params.url.as_ref().unwrap().set(url_object);
-		let search_params = Heap::boxed(URLSearchParams::new_object(cx, search_params));
+		let search_params = Heap::boxed(URLSearchParams::new_object(
+			cx,
+			URLSearchParams::from_url(&url, url_object),
+		));
 
 		unsafe {
 			URL::set_private(
@@ -145,9 +154,7 @@ impl URL {
 	pub fn set_href(&mut self, cx: &Context, input: String) -> Result<()> {
 		match Url::parse(&input) {
 			Ok(url) => {
-				let search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
-				let search_params = URLSearchParams::get_mut_private(cx, &search_params)?;
-				search_params.set_pairs(url.query_pairs().into_owned().collect());
+				self.search_params(cx).set_pairs_from_url(&url);
 				self.url = url;
 				Ok(())
 			}
@@ -268,10 +275,7 @@ impl URL {
 			self.url.set_query(Some(&search));
 		}
 
-		let search_params = Object::from(unsafe { Local::from_heap(&self.search_params) });
-		if let Ok(search_params) = URLSearchParams::get_mut_private(cx, &search_params) {
-			search_params.set_pairs(self.url.query_pairs().into_owned().collect());
-		}
+		self.search_params(cx).pairs = self.url.query_pairs().into_owned().collect();
 	}
 
 	#[ion(get)]

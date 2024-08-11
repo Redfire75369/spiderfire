@@ -4,8 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, slice};
+use std::{fmt, ptr, slice};
 use std::ffi::c_void;
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
@@ -243,6 +244,12 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 impl TypedArray<'_, ArrayBufferViewU8> {
 	pub fn view_type(&self) -> Type {
 		unsafe { JS_GetArrayBufferViewType(self.get()) }
+	}
+}
+
+impl<T: TypedArrayElement> Debug for TypedArray<'_, T> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("TypedArray").field("view", &self.view).finish()
 	}
 }
 

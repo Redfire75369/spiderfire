@@ -7,7 +7,6 @@ license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
-arrayvec = "0.7.4"
 bitflags = "2.4.2"
 byteorder = "1.5.0"
 bytemuck = "1.14.3"
@@ -15,6 +14,7 @@ itoa = "1.0.10"
 typed-arena = "2.0.2"
 utf16string = "0.2.0"
 
+arrayvec.workspace = true
 colored.workspace = true
 chrono.workspace = true
 encoding_rs.workspace = true

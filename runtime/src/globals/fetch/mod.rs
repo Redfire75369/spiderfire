@@ -8,7 +8,7 @@ use std::collections::Bound;
 use std::iter::once;
 use std::str;
 use std::str::FromStr;
-
+use arrayvec::ArrayVec;
 use async_recursion::async_recursion;
 use bytes::Bytes;
 use const_format::concatcp;
@@ -383,22 +383,21 @@ async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -
 			let blob = Object::from(unsafe { Local::from_heap(blob) });
 			let blob = Blob::get_private(cx, &blob).unwrap();
 
-			let len = blob.bytes.len();
 			let kind = match HeaderValue::from_str(blob.kind.as_deref().unwrap_or("")) {
 				Ok(kind) => kind,
 				Err(_) => return network_error(),
 			};
 
-			match headers.typed_try_get::<Range>() {
+			let mut response_headers = ArrayVec::<_, 3>::new();
+			response_headers.push((CONTENT_TYPE, kind));
+
+			let mut bytes = blob.bytes.clone();
+			let (status, range_requested) = match headers.typed_try_get::<Range>() {
 				Ok(Some(range)) => {
+					let len = bytes.len();
 					if let Some((start, end)) = range.satisfiable_ranges(len as u64).next() {
 						let (start, end) = (start.map(|s| s as usize), end.map(|e| e as usize));
-						let bytes = blob.bytes.slice((start, end));
-						let new_len = bytes.len();
-
-						let mut response = Response::new_from_bytes(bytes, url);
-						response.status = Some(StatusCode::PARTIAL_CONTENT);
-						response.range_requested = true;
+						bytes = bytes.slice((start, end));
 
 						let (start, end) = match (start, end) {
 							(Bound::Included(s), Bound::Included(e)) => (s, e),
@@ -410,33 +409,30 @@ async fn scheme_fetch(cx: &Context, scheme: &str, request: &Request, url: Url) -
 							Err(_) => return network_error(),
 						};
 
-						let headers = Headers {
-							reflector: Reflector::default(),
-							headers: HeaderMap::from_iter([
-								(CONTENT_TYPE, kind),
-								(CONTENT_LENGTH, HeaderValue::from(new_len)),
-								(CONTENT_RANGE, range),
-							]),
-							kind: HeadersKind::Immutable,
-						};
-						response.headers.set(Headers::new_object(cx, Box::new(headers)));
-						response
+						response_headers.push((CONTENT_RANGE, range));
+
+						(StatusCode::PARTIAL_CONTENT, true)
 					} else {
-						network_error()
+						return network_error();
 					}
 				}
-				Ok(None) => {
-					let response = Response::new_from_bytes(blob.bytes.clone(), url);
-					let headers = Headers {
-						reflector: Reflector::default(),
-						headers: HeaderMap::from_iter([(CONTENT_TYPE, kind), (CONTENT_LENGTH, HeaderValue::from(len))]),
-						kind: HeadersKind::Immutable,
-					};
-					response.headers.set(Headers::new_object(cx, Box::new(headers)));
-					response
-				}
-				Err(_) => network_error(),
-			}
+				Ok(None) => (StatusCode::OK, false),
+				Err(_) => return network_error(),
+			};
+
+			response_headers.push((CONTENT_LENGTH, HeaderValue::from(bytes.len())));
+
+			let mut response = Response::new_from_bytes(bytes, url);
+			response.status = Some(status);
+			response.range_requested = range_requested;
+
+			let headers = Headers {
+				reflector: Reflector::default(),
+				headers: HeaderMap::from_iter(response_headers),
+				kind: HeadersKind::Immutable,
+			};
+			response.headers.set(Headers::new_object(cx, Box::new(headers)));
+			response
 		}
 		"data" => {
 			let data_url = match DataUrl::process(url.as_str()) {

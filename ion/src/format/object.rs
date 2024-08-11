@@ -13,7 +13,7 @@ use itoa::Buffer;
 use mozjs::jsapi::{
 	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
 };
-
+use mozjs::typedarray::{ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 use crate::{
 	Array, Context, Date, Exception, Function, Local, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result,
 };
@@ -31,10 +31,7 @@ use crate::format::regexp::format_regexp;
 use crate::format::string::format_string;
 use crate::format::typedarray::{format_array_buffer, format_typed_array};
 use crate::symbol::WellKnownSymbolCode;
-use crate::typedarray::{
-	ArrayBuffer, ArrayBufferView, ClampedUint8Array, Float32Array, Float64Array, Int16Array, Int32Array, Int8Array,
-	Uint16Array, Uint32Array, Uint8Array,
-};
+use crate::typedarray::{ArrayBuffer, ArrayBufferView, TypedArray, TypedArrayElement};
 
 /// Formats a [JavaScript Object](Object), depending on its class, using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].
@@ -76,35 +73,8 @@ impl Display for ObjectDisplay<'_> {
 			ESC::Object => format_raw_object(cx, cfg, &self.object).fmt(f),
 			ESC::Other => {
 				if let Some(view) = ArrayBufferView::from(cx.root(object.handle().get())) {
-					'view: {
-						return match view.view_type() {
-							Type::Int8 => format_typed_array(cfg, &Int8Array::from(view.into_local()).unwrap()).fmt(f),
-							Type::Uint8 => {
-								format_typed_array(cfg, &Uint8Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Int16 => {
-								format_typed_array(cfg, &Int16Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Uint16 => {
-								format_typed_array(cfg, &Uint16Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Int32 => {
-								format_typed_array(cfg, &Int32Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Uint32 => {
-								format_typed_array(cfg, &Uint32Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Float32 => {
-								format_typed_array(cfg, &Float32Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Float64 => {
-								format_typed_array(cfg, &Float64Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							Type::Uint8Clamped => {
-								format_typed_array(cfg, &ClampedUint8Array::from(view.into_local()).unwrap()).fmt(f)
-							}
-							_ => break 'view,
-						};
+					if let Some(res) = format_array_buffer_view(f, view, cfg) {
+						return res;
 					}
 				}
 
@@ -113,6 +83,26 @@ impl Display for ObjectDisplay<'_> {
 			_ => format_string(cx, cfg, &self.object.as_value(cx).to_source(cx)).fmt(f),
 		}
 	}
+}
+
+fn format_array_buffer_view(f: &mut Formatter<'_>, view: ArrayBufferView, cfg: Config) -> Option<fmt::Result> {
+	fn view_into_array<T: TypedArrayElement>(view: ArrayBufferView) -> Option<TypedArray<T>> {
+		TypedArray::from(view.into_local())
+	}
+
+	let res = match view.view_type() {
+		Type::Int8 => format_typed_array(cfg, &view_into_array::<Int8>(view)?).fmt(f),
+		Type::Uint8 => format_typed_array(cfg, &view_into_array::<Uint8>(view)?).fmt(f),
+		Type::Int16 => format_typed_array(cfg, &view_into_array::<Int16>(view)?).fmt(f),
+		Type::Uint16 => format_typed_array(cfg, &view_into_array::<Uint16>(view)?).fmt(f),
+		Type::Int32 => format_typed_array(cfg, &view_into_array::<Int32>(view)?).fmt(f),
+		Type::Uint32 => format_typed_array(cfg, &view_into_array::<Uint32>(view)?).fmt(f),
+		Type::Float32 => format_typed_array(cfg, &view_into_array::<Float32>(view)?).fmt(f),
+		Type::Float64 => format_typed_array(cfg, &view_into_array::<Float64>(view)?).fmt(f),
+		Type::Uint8Clamped => format_typed_array(cfg, &view_into_array::<ClampedU8>(view)?).fmt(f),
+		_ => return None,
+	};
+	Some(res)
 }
 
 /// Formats an [object](Object) using the given [configuration](Config).

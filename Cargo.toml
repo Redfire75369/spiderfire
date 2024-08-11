@@ -19,6 +19,7 @@ runtime = { path = "./runtime"}
 modules = { path = "./modules"}
 cli = { path = "./cli"}
 
+arrayvec = "0.7.4"
 bytes = "1.5.0"
 colored = "2.1.0"
 dunce = "1.0.4"

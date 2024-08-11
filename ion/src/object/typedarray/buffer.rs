@@ -18,6 +18,7 @@ use mozjs::typedarray::CreateWith;
 use crate::{Context, Error, ErrorKind, Local, Object, Result};
 use crate::utils::BoxExt;
 
+#[derive(Debug)]
 pub struct ArrayBuffer<'ab> {
 	buffer: Local<'ab, *mut JSObject>,
 }

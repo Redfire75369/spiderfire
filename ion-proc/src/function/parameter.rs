@@ -161,14 +161,14 @@ impl Parameters {
 				let this_param = ThisParameter::from_arg(arg, ty);
 				match this_param {
 					Ok(Some(this_param)) => {
-						if let Pat::Ident(ident) = &*this_param.pat_ty.pat {
+						if let Pat::Ident(pat_ident) = &*this_param.pat_ty.pat {
 							if let Some(this) = &this {
 								return Some(Err(Error::new(
 									this.1.span(),
 									"Unable to have multiple this/self parameters",
 								)));
 							}
-							let ident = ident.ident.clone();
+							let ident = pat_ident.ident.clone();
 							this = Some((this_param, ident, i));
 						}
 						return None;

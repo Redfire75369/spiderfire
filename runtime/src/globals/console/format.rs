@@ -75,62 +75,25 @@ pub(crate) fn format_args<'cx>(cx: &'cx Context, args: &'cx [Value<'cx>]) -> Vec
 				}
 				Some(b'0'..=b'9') | Some(b'.') | Some(b'd') | Some(b'i') | Some(b'f') => {
 					let arg = args.next().unwrap();
-
-					let (w_len, width) = parse_maximum(&format[index..]).unzip();
-					index += w_len.unwrap_or(0);
-					let (p_len, precision) = get_ascii_at(&format, index)
-						.filter(|b| *b == b'.')
-						.and_then(|_| parse_maximum(&format[index + 1..]))
-						.unzip();
-					index += p_len.map(|len| len + 1).unwrap_or(0);
-
-					match get_ascii_at(&format, index) {
-						Some(b'd') | Some(b'i') => {
-							if arg.get().is_symbol() {
-								output.push_str("NaN");
-							} else if arg.get().is_bigint() {
-								let bigint = BigInt::from(unsafe { Local::from_marked(&arg.get().to_bigint()) });
-								output.push_str(&bigint.to_string(cx, 10).unwrap().to_owned(cx).unwrap());
-							} else {
-								write_printf(
-									&mut output,
-									width,
-									precision,
-									i32::from_value(cx, arg, false, ConversionBehavior::Default)?,
-								)
-								.unwrap();
-							}
-							index += 1;
-						}
-						Some(b'f') => {
-							if arg.get().is_symbol() {
-								output.push_str("NaN");
-							} else {
-								write_printf(&mut output, width, precision, f64::from_value(cx, arg, false, ())?)
-									.unwrap();
-							}
-							index += 1;
-						}
-						_ => output.push_str(&format[base..index]),
-					}
+					format_number_arg(cx, arg, &format, &mut index, &mut output)?;
 				}
-				Some(next @ (b's' | b'o' | b'O')) => {
+				Some(b's') => {
 					let arg = args.next().unwrap();
 					index += 1;
 
-					match next {
-						b's' => output.push_str(&String::from_value(cx, arg, false, ())?),
-						b'o' | b'O' => {
-							outputs.push(FormatArg::String(output));
-							output = String::with_capacity(format.len() - index);
+					output.push_str(&String::from_value(cx, arg, false, ())?);
+				}
+				Some(b'o' | b'O') => {
+					let arg = args.next().unwrap();
+					index += 1;
 
-							outputs.push(FormatArg::Value {
-								value: format_value(cx, FormatConfig::default().indentation(INDENTS.get()), arg),
-								spaced: false,
-							});
-						}
-						_ => unreachable!(),
-					}
+					outputs.push(FormatArg::String(output));
+					output = String::with_capacity(format.len() - index);
+
+					outputs.push(FormatArg::Value {
+						value: format_value(cx, FormatConfig::default().indentation(INDENTS.get()), arg),
+						spaced: false,
+					});
 				}
 				Some(b'c') => {
 					index += 1;
@@ -170,6 +133,47 @@ pub(crate) fn format_value_args<'cx>(
 	})
 }
 
+pub(crate) fn format_number_arg<'cx>(
+	cx: &'cx Context, arg: &Value<'cx>, format: &str, index: &mut usize, output: &mut String,
+) -> Result<()> {
+	let (w_len, width) = parse_maximum(&format[*index..]).unzip();
+	*index += w_len.unwrap_or(0);
+	let (p_len, precision) = get_ascii_at(format, *index)
+		.filter(|b| *b == b'.')
+		.and_then(|_| parse_maximum(&format[*index + 1..]))
+		.unzip();
+	*index += p_len.map(|len| len + 1).unwrap_or(0);
+
+	match get_ascii_at(format, *index) {
+		Some(b'd') | Some(b'i') => {
+			if arg.get().is_symbol() {
+				output.push_str("NaN");
+			} else if arg.get().is_bigint() {
+				let bigint = BigInt::from(unsafe { Local::from_marked(&arg.get().to_bigint()) });
+				output.push_str(&bigint.to_string(cx, 10).unwrap().to_owned(cx)?);
+			} else {
+				write_printf(
+					output,
+					width,
+					precision,
+					i32::from_value(cx, arg, false, ConversionBehavior::Default)?,
+				)?;
+			}
+			*index += 1;
+		}
+		Some(b'f') => {
+			if arg.get().is_symbol() {
+				output.push_str("NaN");
+			} else {
+				write_printf(output, width, precision, f64::from_value(cx, arg, false, ())?)?;
+			}
+			*index += 1;
+		}
+		_ => output.push_str(&format[(*index - 1)..*index]),
+	}
+
+	Ok(())
+}
 fn get_ascii_at(str: &str, index: usize) -> Option<u8> {
 	str.as_bytes().get(index).copied().filter(|b| b.is_ascii())
 }

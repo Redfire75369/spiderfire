@@ -6,7 +6,7 @@
 
 use std::ffi::c_void;
 use std::ptr;
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use mozjs::jsapi::{
 	CloneDataPolicy, Handle, JSContext, JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader,
 	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_ReadUint32Pair, JS_WriteBytes, JS_WriteString,
