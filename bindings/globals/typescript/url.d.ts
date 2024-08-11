@@ -47,6 +47,12 @@ declare class URL {
 
 	static canParse(url: string, base?: string): boolean;
 
+	static parse(url: string, base?: string): URL | null
+
+	static createObjectURL(object: Blob): string;
+
+	static revokeObjectURL(url: string): void;
+
 	toString(): string;
 
 	toJSON(): string;

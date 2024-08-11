@@ -4,6 +4,10 @@ declare class URL {
 	constructor(url: string, base?: string): URL;
 
 	static canParse(url: string, base?: string): boolean;
+	static parse(url: string, base?: string): URL | null;
+
+	static createObjectURL(object: Blob): string;
+	static revokeObjectURL(url: string): void;
 
 	get href(): string;
 	set href(href: string): void;

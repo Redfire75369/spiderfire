@@ -19,6 +19,8 @@ declare class Blob {
 	text(): Promise<string>;
 
 	arrayBuffer(): Promise<ArrayBuffer>;
+
+	bytes(): Promise<Uint8Array>;
 }
 
 declare interface FileOptions extends BlobOptions {
