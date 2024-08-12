@@ -20,38 +20,38 @@ use runtime::promise::future_to_promise;
 
 fn check_exists(path: &Path) -> Result<()> {
 	if path.exists() {
+		Ok(())
+	} else {
 		Err(Error::new(
 			format!("Path {} does not exist", path.to_str().unwrap()),
 			None,
 		))
-	} else {
-		Ok(())
 	}
 }
 
 fn check_not_exists(path: &Path) -> Result<()> {
 	if !path.exists() {
-		Err(Error::new(format!("Path {} exist", path.to_str().unwrap()), None))
-	} else {
 		Ok(())
+	} else {
+		Err(Error::new(format!("Path {} exists", path.to_str().unwrap()), None))
 	}
 }
 
 fn check_is_file(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_file() {
+		Ok(())
+	} else {
 		Err(Error::new(
 			format!("Path {} is not a file", path.to_str().unwrap()),
 			None,
 		))
-	} else {
-		Ok(())
 	}
 }
 
 fn check_is_not_file(path: &Path) -> Result<()> {
 	check_exists(path)?;
-	if !path.is_file() {
+	if path.is_file() {
 		Err(Error::new(format!("Path {} is a file", path.to_str().unwrap()), None))
 	} else {
 		Ok(())
@@ -61,18 +61,18 @@ fn check_is_not_file(path: &Path) -> Result<()> {
 fn check_is_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
 	if path.is_dir() {
+		Ok(())
+	} else {
 		Err(Error::new(
 			format!("Path {} is not a directory", path.to_str().unwrap()),
 			None,
 		))
-	} else {
-		Ok(())
 	}
 }
 
 fn check_is_not_dir(path: &Path) -> Result<()> {
 	check_exists(path)?;
-	if !path.is_dir() {
+	if path.is_dir() {
 		Err(Error::new(
 			format!("Path {} is a directory", path.to_str().unwrap()),
 			None,

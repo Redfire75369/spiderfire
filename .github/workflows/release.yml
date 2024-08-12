@@ -63,7 +63,10 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows'
         env:
-          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true -Clinker=lld-link
+          MOZ_LTO: full
+          CFLAGS: /clang:-flto
+          CPPFLAGS: " /clang:-flto"
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
         run: |
           just build-release -v --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
@@ -78,8 +81,9 @@ jobs:
         if: matrix.os == 'linux'
         env:
           MOZ_LTO: full
-          CFLAGS: -flto -fuse-ld=lld
-          CXXFLAGS: -flto -fuse-ld=lld
+          CFLAGS: -flto
+          CPPFLAGS: -flto
+          CXXFLAGS: -flto
           LDFLAGS: -fuse-ld=lld
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld
         run: |
