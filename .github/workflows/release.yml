@@ -43,6 +43,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install LLVM
+        if: matrix.os == 'linux'
+        uses: ZhongRuoyu/setup-llvm@v0
+        with:
+          llvm-version: 18
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -57,9 +63,7 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows'
         env:
-          CFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
-          CXXFLAGS: /clang:-flto=thin /clang:-fuse-ld=lld-link
-          RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
+          RUSTFLAGS: -Clto=fat -Cembed-bitcode=true -Clinker=lld-link
         run: |
           just build-release -v --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
