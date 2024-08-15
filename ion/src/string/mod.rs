@@ -5,26 +5,25 @@
  */
 
 use std::{ptr, slice};
-use std::ffi::c_void;
 use std::ops::{Deref, DerefMut, Range};
 use std::string::String as RustString;
 
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
-use mozjs::glue::{CreateJSExternalStringCallbacks, JSExternalStringCallbacksTraps};
 use mozjs::jsapi::{
 	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
 	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
-	JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
+	JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
-use mozjs::jsapi::mozilla::MallocSizeOf;
 use utf16string::{WStr, WString};
 
 use crate::{Context, Error, ErrorKind, Local};
-use crate::string::byte::{ByteStr, Latin1};
+use crate::string::byte::{ByteStr, ByteString, Latin1};
+use crate::string::external::create_callbacks;
 use crate::utils::BoxExt;
 
 pub mod byte;
+mod external;
 
 #[derive(Copy, Clone, Debug)]
 pub enum StringRef<'s> {
@@ -81,36 +80,38 @@ impl<'s> String<'s> {
 		}
 	}
 
+	/// Creates a new string by moving ownership of the Latin-1 string to the JS Runtime temporarily.
+	/// Returns the bytes if the creation of the string in the runtime fails.
+	pub fn from_latin1(cx: &Context, string: ByteString<Latin1>) -> Result<String, ByteString<Latin1>> {
+		let bytes = string.into_vec().into_boxed_slice();
+		let (chars, len) = unsafe { Box::into_raw_parts(bytes) };
+
+		unsafe {
+			let callbacks = create_callbacks(len);
+			let jsstr = JS_NewExternalStringLatin1(cx.as_ptr(), chars, len, callbacks);
+
+			if jsstr.is_null() {
+				let bytes = Box::from_raw_parts(chars, len).into_vec();
+				Err(ByteString::from_unchecked(bytes))
+			} else {
+				Ok(String::from(cx.root(jsstr)))
+			}
+		}
+	}
+
 	/// Creates a new string by moving ownership of the UTF-16 string to the JS Runtime temporarily.
 	/// Returns the string if the creation of the string in the runtime fails.
 	pub fn from_wstring(cx: &Context, string: WString<NativeEndian>) -> Result<String, WString<NativeEndian>> {
-		unsafe extern "C" fn finalise_external_string(data: *const c_void, chars: *mut u16) {
-			let _ = unsafe { Box::from_raw_parts(chars.cast::<u8>(), data as usize * 2) };
-		}
-
-		extern "C" fn size_of_external_string(data: *const c_void, _: *const u16, _: MallocSizeOf) -> usize {
-			data as usize
-		}
-
-		static EXTERNAL_STRING_CALLBACKS_TRAPS: JSExternalStringCallbacksTraps = JSExternalStringCallbacksTraps {
-			finalize: Some(finalise_external_string),
-			sizeOfBuffer: Some(size_of_external_string),
-		};
-
-		let vec = string.into_bytes();
-		let boxed = vec.into_boxed_slice();
-
-		let (chars, len) = unsafe { Box::into_raw_parts(boxed) };
+		let bytes = string.into_bytes().into_boxed_slice();
+		let (chars, len) = unsafe { Box::into_raw_parts(bytes) };
 
 		unsafe {
-			let callbacks = CreateJSExternalStringCallbacks(&EXTERNAL_STRING_CALLBACKS_TRAPS, len as *mut c_void);
+			let callbacks = create_callbacks(len);
 			let jsstr = JS_NewExternalUCString(cx.as_ptr(), chars.cast::<u16>(), len / 2, callbacks);
 
 			if jsstr.is_null() {
-				let slice = slice::from_raw_parts_mut(chars, len);
-				let boxed = Box::from_raw(slice);
-				let vec = Vec::from(boxed);
-				Err(WString::from_utf16_unchecked(vec))
+				let bytes = Box::from_raw_parts(chars, len).into_vec();
+				Err(WString::from_utf16_unchecked(bytes))
 			} else {
 				Ok(String::from(cx.root(jsstr)))
 			}
@@ -174,15 +175,9 @@ impl<'s> String<'s> {
 	/// Converts the [String] into a [WStr].
 	/// Returns [None] if the string contains only Latin-1 characters.
 	pub fn as_wstr(&self, cx: &Context) -> crate::Result<Option<&'s WStr<NativeEndian>>> {
-		self.is_utf16()
-			.then(|| unsafe {
-				let mut length = 0;
-				let chars = JS_GetTwoByteStringCharsAndLength(cx.as_ptr(), ptr::null(), self.get(), &mut length);
-				let slice = slice::from_raw_parts(chars, length);
-				cast_slice(slice)
-			})
-			.map(|bytes| {
-				WStr::from_utf16(bytes)
+		self.as_wtf16(cx)
+			.map(|slice| {
+				WStr::from_utf16(cast_slice(slice))
 					.map_err(|_| Error::new("String contains invalid UTF-16 codepoints", ErrorKind::Type))
 			})
 			.transpose()

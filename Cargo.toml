@@ -27,7 +27,7 @@ encoding_rs = "0.8.33"
 futures = "0.3.30"
 indent = "0.1.1"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-sourcemap = "8.0.1"
+sourcemap = "9.0.0"
 url = "2.5.0"
 
 [workspace.dependencies.chrono]

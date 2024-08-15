@@ -65,7 +65,7 @@ jobs:
         env:
           MOZ_LTO: full
           CFLAGS: /clang:-flto
-          CPPFLAGS: " /clang:-flto"
+          CPPFLAGS: /clang:-flto
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
         run: |
           just build-release -v --target $env:TARGET
