@@ -7,13 +7,13 @@ license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
-convert_case = "0.6.0"
-quote = "1.0.35"
-prettyplease = "0.2.16"
-proc-macro2 = "1.0.78"
+convert_case.workspace = true
+prettyplease.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
 
 [dependencies.syn]
-version = "2.0.48"
+workspace = true
 features = ["visit-mut"]
 
 [lints]

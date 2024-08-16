@@ -7,9 +7,8 @@ license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
-idna = "1.0.2"
-
 futures.workspace = true
+idna.workspace = true
 mozjs.workspace = true
 url.workspace = true
 runtime.workspace = true
@@ -23,8 +22,7 @@ workspace = true
 features = ["fs"]
 
 [dependencies.tokio-stream]
-version = "0.1.14"
-default-features = false
+workspace = true
 features = ["fs"]
 
 [dev-dependencies.tokio]

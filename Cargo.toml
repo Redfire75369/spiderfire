@@ -20,23 +20,70 @@ modules = { path = "./modules" }
 cli = { path = "./cli" }
 
 arrayvec = "0.7.4"
-bytes = "1.5.0"
+async-recursion = "1.1.1"
+base64 = "0.22.1"
+bitflags = "2.6.0"
+bytes = "1.7.1"
+byteorder = "1.5.0"
+bytemuck = "1.17.0"
+clap = "4.5.16"
 colored = "2.1.0"
-dunce = "1.0.4"
-encoding_rs = "0.8.33"
+const_format = "0.2.32"
+convert_case = "0.6.0"
+data-url = "0.3.1"
+dirs = "5.0.1"
+dunce = "1.0.5"
+encoding_rs = "0.8.34"
+form_urlencoded = "1.2.1"
 futures = "0.3.30"
+headers = "0.4.0"
+http = "1.1.0"
+http-body-util = "0.1.2"
+humansize = "2.1.3"
+hyper = "1.4.1"
+hyper-util = "0.1.7"
+idna = "1.0.2"
 indent = "0.1.1"
+indexmap = "2.4.0"
+itoa = "1.0.11"
+mime = "0.3.17"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
+pin-project = "1.1.5"
+prettyplease = "0.2.20"
+proc-macro2 = "1.0.86"
+quote = "1.0.36"
+rustyline-derive = "0.10.0"
+sha3 = "0.10.8"
 sourcemap = "9.0.0"
-url = "2.5.0"
+swc_core = "0.101.2"
+syn = "2.0.74"
+sys-locale = "0.3.1"
+term-table = "1.4.0"
+typed-arena = "2.0.2"
+uri-url = "0.3.0"
+url = "2.5.2"
+uuid = "1.10.0"
+utf16string = "0.2.0"
 
 [workspace.dependencies.chrono]
-version = "0.4.33"
+version = "0.4.38"
 default-features = false
 features = ["clock", "std"]
 
+[workspace.dependencies.hyper-rustls]
+version = "0.27.2"
+default-features = false
+
+[workspace.dependencies.rustyline]
+version = "14.0.0"
+default-features = false
+
 [workspace.dependencies.tokio]
-version = "1.36.0"
+version = "1.39.2"
+default-features = false
+
+[workspace.dependencies.tokio-stream]
+version = "0.1.15"
 default-features = false
 
 [workspace.lints.rust]

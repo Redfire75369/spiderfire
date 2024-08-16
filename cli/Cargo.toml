@@ -7,18 +7,17 @@ license.workspace = true
 authors = ["Redfire <redfire75369@hotmail.com>"]
 
 [dependencies]
-humansize = "2.1.3"
-rustyline-derive = "0.10.0"
-
 colored.workspace = true
 dunce.workspace = true
+humansize.workspace = true
 ion.workspace = true
 modules.workspace = true
 mozjs.workspace = true
+rustyline-derive.workspace = true
 sourcemap.workspace = true
 
 [dependencies.clap]
-version = "4.5.0"
+workspace = true
 features = ["derive"]
 
 [dependencies.runtime]
@@ -26,7 +25,7 @@ workspace = true
 features = ["fetch"]
 
 [dependencies.rustyline]
-version = "14.0.0"
+workspace = true
 default-features = false
 
 [dependencies.tokio]
