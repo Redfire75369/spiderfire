@@ -18,7 +18,7 @@ use ion::clone::StructuredCloneBuffer;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, Uint8Array};
-use crate::globals::clone::STRUCTURED_CLONE_CALLBACKS;
+use crate::globals::clone::{StructuredCloneDataHolder, STRUCTURED_CLONE_CALLBACKS};
 use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};
 use crate::globals::streams::readable::controller::ControllerInternals;
 use crate::globals::streams::readable::reader::{ReaderKind, Request};
@@ -107,6 +107,7 @@ impl StreamSource {
 								let mut buffer = StructuredCloneBuffer::new(
 									StructuredCloneScope::SameProcess,
 									&STRUCTURED_CLONE_CALLBACKS,
+									Some(Box::new(StructuredCloneDataHolder::default())),
 								);
 								let result =
 									buffer.write(cx, &chunk, None, &policy).and_then(|_| buffer.read(cx, &policy));

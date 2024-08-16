@@ -6,30 +6,37 @@
 
 use std::ffi::c_void;
 use std::ptr;
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use mozjs::jsapi::{
 	CloneDataPolicy, Handle, JSContext, JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader,
-	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_ReadUint32Pair, JS_WriteBytes, JS_WriteString,
-	JS_WriteUint32Pair, StructuredCloneScope,
+	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_WriteBytes, JS_WriteString, JS_WriteUint32Pair,
+	StructuredCloneScope,
 };
 
 use ion::{ClassDefinition, Context, Local, Object, ResultExc, Value};
 use ion::class::Reflector;
-use ion::clone::StructuredCloneBuffer;
+use ion::clone::{read_uint64, write_uint64, StructuredCloneBuffer};
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
 use crate::globals::file::Blob;
 
+#[derive(Clone, Copy, Debug)]
 #[repr(u32)]
 enum StructuredCloneTags {
 	Min = 0xFFFF8000,
-	Blob = 0xFFFF8001,
+	BlobSameProcess = 0xFFFF8001,
+	BlobDifferentProcess = 0xFFFF8002,
 	Max = 0xFFFFFFFF,
+}
+
+#[derive(Debug, Default)]
+pub struct StructuredCloneDataHolder {
+	blob_data: Vec<Bytes>,
 }
 
 unsafe extern "C" fn read_callback(
 	cx: *mut JSContext, r: *mut JSStructuredCloneReader, _: *const CloneDataPolicy, tag: u32, _data: u32,
-	_private: *mut c_void,
+	private: *mut c_void,
 ) -> *mut JSObject {
 	assert!(
 		tag > StructuredCloneTags::Min as u32,
@@ -41,15 +48,31 @@ unsafe extern "C" fn read_callback(
 	);
 
 	let cx = unsafe { &Context::new_unchecked(cx) };
-	if tag == StructuredCloneTags::Blob as u32 {
-		let mut len_high = 0;
-		let mut len_low = 0;
+	let data = unsafe { &mut *private.cast::<StructuredCloneDataHolder>() };
+
+	if tag == StructuredCloneTags::BlobSameProcess as u32 {
+		let index;
+		let mut kind = ion::String::new(cx);
+
+		unsafe {
+			index = read_uint64(r).unwrap() as usize;
+			JS_ReadString(r, kind.handle_mut().into());
+		}
+
+		Blob::new_object(
+			cx,
+			Box::new(Blob {
+				reflector: Reflector::default(),
+				bytes: data.blob_data[index].clone(),
+				kind: Some(kind.to_owned(cx).unwrap()),
+			}),
+		)
+	} else if tag == StructuredCloneTags::BlobDifferentProcess as u32 {
 		let mut bytes;
 		let mut kind = ion::String::new(cx);
 
 		unsafe {
-			JS_ReadUint32Pair(r, &mut len_high, &mut len_low);
-			let len = ((len_high as usize) << 32) | (len_low as usize);
+			let len = read_uint64(r).unwrap() as usize;
 			bytes = BytesMut::with_capacity(len);
 			JS_ReadBytes(r, bytes.as_mut_ptr().cast(), len);
 			bytes.set_len(len);
@@ -70,23 +93,26 @@ unsafe extern "C" fn read_callback(
 }
 
 unsafe extern "C" fn write_callback(
-	cx: *mut JSContext, w: *mut JSStructuredCloneWriter, obj: Handle<*mut JSObject>, _same_process_scope: *mut bool,
-	_private: *mut c_void,
+	cx: *mut JSContext, w: *mut JSStructuredCloneWriter, obj: Handle<*mut JSObject>, same_process_scope: *mut bool,
+	private: *mut c_void,
 ) -> bool {
 	let cx = unsafe { &Context::new_unchecked(cx) };
 	let object = Object::from(unsafe { Local::from_raw_handle(obj) });
+	let data = unsafe { &mut *private.cast::<StructuredCloneDataHolder>() };
 
 	if let Ok(blob) = Blob::get_private(cx, &object) {
 		let kind = ion::String::copy_from_str(cx, blob.kind.as_deref().unwrap_or("")).unwrap();
 
 		unsafe {
-			JS_WriteUint32Pair(w, StructuredCloneTags::Blob as u32, 0);
-			JS_WriteUint32Pair(
-				w,
-				(blob.bytes.len() >> 32) as u32,
-				(blob.bytes.len() & 0xFFFFFFFF) as u32,
-			);
-			JS_WriteBytes(w, blob.bytes.as_ptr().cast(), blob.bytes.len());
+			if *same_process_scope {
+				JS_WriteUint32Pair(w, StructuredCloneTags::BlobSameProcess as u32, 0);
+				write_uint64(w, data.blob_data.len() as u64);
+				data.blob_data.push(blob.bytes.clone());
+			} else {
+				JS_WriteUint32Pair(w, StructuredCloneTags::BlobDifferentProcess as u32, 0);
+				write_uint64(w, blob.bytes.len() as u64);
+				JS_WriteBytes(w, blob.bytes.as_ptr().cast(), blob.bytes.len());
+			}
 			JS_WriteString(w, kind.handle().into());
 		}
 	}
@@ -120,7 +146,11 @@ fn structured_clone<'cx>(
 		allowSharedMemoryObjects_: true,
 	};
 
-	let mut buffer = StructuredCloneBuffer::new(StructuredCloneScope::SameProcess, &STRUCTURED_CLONE_CALLBACKS);
+	let mut buffer = StructuredCloneBuffer::new(
+		StructuredCloneScope::SameProcess,
+		&STRUCTURED_CLONE_CALLBACKS,
+		Some(Box::new(StructuredCloneDataHolder::default())),
+	);
 	buffer.write(cx, &data, transfer, &policy)?;
 	buffer.read(cx, &policy)
 }

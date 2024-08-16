@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::any::Any;
+use std::ffi::c_void;
 use std::ptr;
 use mozjs::glue::{
 	CopyJSStructuredCloneData, DeleteJSAutoStructuredCloneBuffer, GetLengthOfJSStructuredCloneData,
@@ -11,7 +13,8 @@ use mozjs::glue::{
 };
 use mozjs::jsapi::{
 	CloneDataPolicy, JS_ReadStructuredClone, JS_STRUCTURED_CLONE_VERSION, JS_WriteStructuredClone,
-	JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, StructuredCloneScope,
+	JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, StructuredCloneScope, JSStructuredCloneReader,
+	JS_ReadUint32Pair, JSStructuredCloneWriter, JS_WriteUint32Pair,
 };
 use crate::{Context, Exception, Object, ResultExc, Value};
 use crate::conversions::ToValue;
@@ -20,14 +23,18 @@ pub struct StructuredCloneBuffer {
 	buf: *mut JSAutoStructuredCloneBuffer,
 	scope: StructuredCloneScope,
 	callbacks: &'static JSStructuredCloneCallbacks,
+	data: Box<Option<Box<dyn Any>>>,
 }
 
 impl StructuredCloneBuffer {
-	pub fn new(scope: StructuredCloneScope, callbacks: &'static JSStructuredCloneCallbacks) -> StructuredCloneBuffer {
+	pub fn new(
+		scope: StructuredCloneScope, callbacks: &'static JSStructuredCloneCallbacks, data: Option<Box<dyn Any>>,
+	) -> StructuredCloneBuffer {
 		StructuredCloneBuffer {
 			buf: unsafe { NewJSAutoStructuredCloneBuffer(scope, callbacks) },
 			scope,
 			callbacks,
+			data: Box::new(data),
 		}
 	}
 
@@ -46,7 +53,7 @@ impl StructuredCloneBuffer {
 				self.scope,
 				policy,
 				self.callbacks,
-				ptr::null_mut(),
+				self.data_ptr(),
 				transfer.handle().into(),
 			);
 
@@ -71,7 +78,7 @@ impl StructuredCloneBuffer {
 				rval.handle_mut().into(),
 				policy,
 				self.callbacks,
-				ptr::null_mut(),
+				self.data_ptr(),
 			);
 
 			if res {
@@ -106,6 +113,10 @@ impl StructuredCloneBuffer {
 			WriteBytesToJSStructuredCloneData(data.as_ptr(), data.len(), scdata);
 		}
 	}
+
+	fn data_ptr(&self) -> *mut c_void {
+		ptr::from_ref(&*self.data).cast::<c_void>().cast_mut()
+	}
 }
 
 impl Drop for StructuredCloneBuffer {
@@ -114,4 +125,15 @@ impl Drop for StructuredCloneBuffer {
 			DeleteJSAutoStructuredCloneBuffer(self.buf);
 		}
 	}
+}
+
+pub unsafe fn read_uint64(r: *mut JSStructuredCloneReader) -> Option<u64> {
+	let mut high = 0;
+	let mut low = 0;
+	let res = unsafe { JS_ReadUint32Pair(r, &mut high, &mut low) };
+	res.then_some(((high as u64) << 32) | (low as u64))
+}
+
+pub unsafe fn write_uint64(w: *mut JSStructuredCloneWriter, data: u64) -> bool {
+	JS_WriteUint32Pair(w, (data >> 32) as u32, (data & 0xFFFFFFFF) as u32)
 }
