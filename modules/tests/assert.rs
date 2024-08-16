@@ -68,7 +68,7 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 			assert_eq!(message, &error, "{}: {:#?}", filename, exception);
 		}
 		_ => {
-			panic!("Exception was not an Error")
+			panic!("Exception was not an Error");
 		}
 	}
 }

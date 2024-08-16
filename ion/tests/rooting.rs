@@ -7,7 +7,8 @@ use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
 use ion::object::default_new_global;
 
-fn main() {
+#[test]
+fn test() {
 	let engine = JSEngine::init().unwrap();
 	let runtime = Runtime::new(engine.handle());
 

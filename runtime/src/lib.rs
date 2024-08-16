@@ -16,6 +16,7 @@ pub mod config;
 pub mod event_loop;
 pub mod globals;
 pub mod module;
+#[cfg(feature = "tokio-promise")]
 pub mod promise;
 mod runtime;
 pub mod typescript;

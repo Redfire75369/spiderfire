@@ -58,7 +58,7 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 
 impl<'local, T: GCMethods + RootKind> Local<'local, T> {
 	/// Creates a new [Local].
-	/// `Context::root_*` should be used instead.
+	/// `Context::root` should be used instead.
 	pub(crate) fn new(cx: &Context, root: &'local mut Rooted<T>, initial: T) -> Local<'local, T> {
 		root.ptr = initial;
 		unsafe {

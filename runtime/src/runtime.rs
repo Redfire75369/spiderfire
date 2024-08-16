@@ -14,7 +14,7 @@ use mozjs::jsapi::{
 };
 use uuid::Uuid;
 
-use ion::{Context, ErrorReport, Object};
+use ion::{Context, ContextInner, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
 use ion::object::default_new_global;
 
@@ -80,8 +80,11 @@ impl<'cx> Runtime<'cx> {
 
 impl Drop for Runtime<'_> {
 	fn drop(&mut self) {
-		let inner_private = self.cx.get_inner_data();
-		let _ = unsafe { Box::from_raw(inner_private.as_ptr()) };
+		let inner_private = self.cx.get_inner_data().as_ptr();
+		unsafe {
+			let _ = Box::from_raw(inner_private);
+			ContextInner::remove_tracer(self.cx.as_ptr(), inner_private);
+		}
 	}
 }
 

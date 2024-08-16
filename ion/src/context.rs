@@ -11,10 +11,11 @@ use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::{GCMethods, RootedTraceableSet, Traceable};
+use mozjs::gc::{GCMethods, Traceable};
 use mozjs::jsapi::{
-	BigInt, Heap, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer, JS_AddExtraGCRootsTracer,
-	JS_GetContextPrivate, JS_SetContextPrivate, PropertyDescriptor, PropertyKey, Rooted, Symbol,
+	BigInt, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer, JS_AddExtraGCRootsTracer,
+	JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer, JS_SetContextPrivate, PropertyDescriptor, PropertyKey, Rooted,
+	Symbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::Runtime;
@@ -51,12 +52,6 @@ struct RootedArena {
 	symbols: Arena<Rooted<*mut Symbol>>,
 }
 
-#[allow(clippy::vec_box)]
-#[derive(Default)]
-pub struct Persistent {
-	objects: Vec<Box<Heap<*mut JSObject>>>,
-}
-
 pub trait TraceablePrivate: Traceable + Any {
 	fn as_any(&self) -> &dyn Any;
 
@@ -77,11 +72,22 @@ impl<T: Traceable + Any> TraceablePrivate for T {
 pub struct ContextInner {
 	pub class_infos: HashMap<TypeId, ClassInfo>,
 	pub module_loader: Option<Box<dyn ModuleLoader>>,
-	persistent: Persistent,
 	private: Option<Box<dyn TraceablePrivate>>,
 }
 
 impl ContextInner {
+	unsafe fn add_tracer(cx: *mut JSContext, inner: *mut ContextInner) {
+		unsafe {
+			JS_AddExtraGCRootsTracer(cx, Some(ContextInner::trace), inner.cast::<c_void>());
+		}
+	}
+
+	pub unsafe fn remove_tracer(cx: *mut JSContext, inner: *mut ContextInner) {
+		unsafe {
+			JS_RemoveExtraGCRootsTracer(cx, Some(ContextInner::trace), inner.cast::<c_void>());
+		}
+	}
+
 	extern "C" fn trace(trc: *mut JSTracer, data: *mut c_void) {
 		unsafe {
 			let inner = &mut *data.cast::<ContextInner>();
@@ -109,7 +115,7 @@ impl Context {
 			let private = Box::into_raw(private);
 			unsafe {
 				JS_SetContextPrivate(cx, private.cast());
-				JS_AddExtraGCRootsTracer(cx, Some(ContextInner::trace), private.cast());
+				ContextInner::add_tracer(cx, private);
 			}
 			unsafe { NonNull::new_unchecked(private) }
 		});
@@ -185,7 +191,7 @@ mod private {
 				impl Sealed for $value {
 					const GC_TYPE: GCType = GCType::$gc_type;
 
-					fn alloc(arena: &RootedArena, root: Rooted<Self>) -> &mut Rooted<Self> {
+					fn alloc(arena: &RootedArena, root: Rooted<$value>) -> &mut Rooted<$value> {
 						arena.$key.alloc(root)
 					}
 				}
@@ -203,68 +209,6 @@ mod private {
 		(*mut JSFunction, functions, Function),
 		(*mut BigInt, big_ints, BigInt),
 		(*mut Symbol, symbols, Symbol),
-	}
-}
-
-macro_rules! impl_root_methods {
-	($(($fn_name:ident, $pointer:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
-		$(
-			#[deprecated = "Use Context::root instead."]
-			#[doc = concat!("Roots a [", stringify!($pointer), "](", stringify!($pointer), ") as a ", stringify!($gc_type), " ands returns a [Local] to it.")]
-			pub fn $fn_name(&self, ptr: $pointer) -> Local<$pointer> {
-				let root = self.rooted.$key.alloc(Rooted::new_unrooted());
-				self.order.borrow_mut().push(GCType::$gc_type);
-
-				Local::new(self, root, ptr)
-			}
-		)*
-	};
-	([persistent], $(($root_fn:ident, $unroot_fn:ident, $pointer:ty, $key:ident)$(,)?)*) => {
-		$(
-			#[deprecated = "Use TracedHeap instead."]
-			pub fn $root_fn(&self, ptr: $pointer) -> Local<$pointer> {
-				let heap = Heap::boxed(ptr);
-				let persistent = unsafe { &mut (*self.get_inner_data().as_ptr()).persistent.$key };
-				persistent.push(heap);
-				let ptr = &*persistent[persistent.len() - 1];
-				unsafe {
-					RootedTraceableSet::add(ptr);
-					Local::from_heap(ptr)
-				}
-			}
-
-			#[deprecated = "Use TracedHeap instead."]
-			pub fn $unroot_fn(&self, ptr: $pointer) {
-				let persistent = unsafe { &mut (*self.get_inner_data().as_ptr()).persistent.$key };
-				let idx = match persistent.iter().rposition(|x| x.get() == ptr) {
-					Some(idx) => idx,
-					None => return,
-				};
-				unsafe {
-					RootedTraceableSet::remove(&*persistent[idx]);
-				}
-				persistent.swap_remove(idx);
-			}
-		)*
-	};
-}
-
-impl Context {
-	impl_root_methods! {
-		(root_value, JSVal, values, Value),
-		(root_object, *mut JSObject, objects, Object),
-		(root_string, *mut JSString, strings, String),
-		(root_script, *mut JSScript, scripts, Script),
-		(root_property_key, PropertyKey, property_keys, PropertyKey),
-		(root_property_descriptor, PropertyDescriptor, property_descriptors, PropertyDescriptor),
-		(root_function, *mut JSFunction, functions, Function),
-		(root_bigint, *mut BigInt, big_ints, BigInt),
-		(root_symbol, *mut Symbol, symbols, Symbol),
-	}
-
-	impl_root_methods! {
-		[persistent],
-		(root_persistent_object, unroot_persistent_object, *mut JSObject, objects)
 	}
 }
 
