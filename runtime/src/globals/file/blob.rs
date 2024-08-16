@@ -10,12 +10,12 @@ use bytes::{BufMut, Bytes, BytesMut};
 use encoding_rs::UTF_8;
 use mozjs::jsapi::JSObject;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, Value};
 use ion::class::Reflector;
 use ion::conversions::FromValue;
 use ion::format::NEWLINE;
 use ion::function::{Clamp, Opt};
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, ArrayBufferWrapper, Uint8ArrayWrapper};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, Value};
 
 use crate::promise::future_to_promise;
 

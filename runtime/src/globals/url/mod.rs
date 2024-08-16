@@ -10,9 +10,9 @@ use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 use uuid::Uuid;
 
-use ion::{ClassDefinition, Context, Error, Local, Object, Result};
 use ion::class::{NativeObject, Reflector};
 use ion::function::Opt;
+use ion::{ClassDefinition, Context, Error, Local, Object, Result};
 pub use search_params::URLSearchParams;
 
 use crate::globals::file::Blob;

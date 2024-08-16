@@ -4,50 +4,50 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::collections::Bound;
-use std::iter::once;
-use std::str;
-use std::str::FromStr;
 use arrayvec::ArrayVec;
 use async_recursion::async_recursion;
 use bytes::Bytes;
 use const_format::concatcp;
 use data_url::DataUrl;
-use futures::future::{Either, select};
-use headers::{Range, HeaderMapExt};
-use http::{HeaderMap, HeaderValue, Method, StatusCode};
+use futures::future::{select, Either};
+use headers::{HeaderMapExt, Range};
 use http::header::{
 	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING,
 	CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_RANGE, CONTENT_TYPE, HOST, IF_MATCH, IF_MODIFIED_SINCE,
 	IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
+use http::{HeaderMap, HeaderValue, Method, StatusCode};
 use mozjs::jsapi::JSObject;
+use std::collections::Bound;
+use std::iter::once;
+use std::str;
+use std::str::FromStr;
 use sys_locale::get_locales;
 use tokio::fs::read;
 use uri_url::url_to_uri;
 use url::Url;
 
 use body::FetchBody;
-pub use client::{default_client, GLOBAL_CLIENT};
 use client::Client;
-use header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
+pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
-use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc, TracedHeap};
+use header::{remove_all_header_entries, HeadersKind, FORBIDDEN_RESPONSE_HEADERS};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
-pub use request::{Request, RequestInfo, RequestInit};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, Promise, ResultExc, TracedHeap};
 use request::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect};
-use response::{network_error, ResponseKind, ResponseTaint};
+pub use request::{Request, RequestInfo, RequestInit};
 pub use response::Response;
+use response::{network_error, ResponseKind, ResponseTaint};
 
 use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::Body;
+use crate::globals::file::Blob;
 use crate::globals::url::parse_uuid_from_url_path;
 use crate::promise::future_to_promise;
 use crate::{ContextExt, VERSION};
-use crate::globals::file::Blob;
 
 mod body;
 mod client;

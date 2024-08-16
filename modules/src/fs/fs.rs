@@ -4,17 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fs, os};
 use std::iter::Iterator;
 use std::path::Path;
+use std::{fs, os};
 
 use futures::stream::StreamExt;
 use mozjs::jsapi::JSFunctionSpec;
 use tokio_stream::wrappers::ReadDirStream;
 
-use ion::{Context, Error, Object, Promise, Result};
 use ion::flags::PropertyFlags;
 use ion::typedarray::Uint8ArrayWrapper;
+use ion::{Context, Error, Object, Promise, Result};
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
 

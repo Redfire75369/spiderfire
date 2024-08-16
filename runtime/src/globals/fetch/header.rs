@@ -14,20 +14,20 @@ use std::str::FromStr;
 use std::vec;
 
 use http::header::{
-	ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS,
-	ACCESS_CONTROL_ALLOW_METHODS, CONNECTION, CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, DATE, DNT, Entry,
-	EXPECT, HeaderMap, HeaderName, HeaderValue, HOST, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER,
-	TRANSFER_ENCODING, UPGRADE, VIA,
+	Entry, HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE,
+	ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, CONNECTION, CONTENT_LANGUAGE, CONTENT_LENGTH,
+	CONTENT_TYPE, COOKIE, DATE, DNT, EXPECT, HOST, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER, TRANSFER_ENCODING,
+	UPGRADE, VIA,
 };
-use mime::{APPLICATION, FORM_DATA, Mime, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
+use mime::{Mime, APPLICATION, FORM_DATA, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
 
-use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
-use ion::{ClassDefinition, JSIterator};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
+use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
+use ion::{ClassDefinition, JSIterator};
 
 #[derive(FromValue)]
 pub enum Header {

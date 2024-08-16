@@ -6,11 +6,11 @@
 
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{Context, Error, Function, Object, Result};
 use ion::flags::PropertyFlags;
+use ion::{Context, Error, Function, Object, Result};
 
-use crate::ContextExt;
 use crate::event_loop::microtasks::Microtask;
+use crate::ContextExt;
 
 #[js_fn]
 fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {

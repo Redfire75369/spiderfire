@@ -7,9 +7,9 @@
 use mozjs::jsapi::CallArgs;
 use mozjs::jsval::JSVal;
 
-use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 use crate::conversions::FromValue;
 use crate::function::{Opt, Rest};
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 
 /// Represents Arguments to a [JavaScript Function](crate::Function).
 /// Wrapper around [CallArgs] to provide lifetimes and root all arguments.

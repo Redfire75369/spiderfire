@@ -8,9 +8,9 @@ use std::path::Path;
 
 use mozjs::rust::{JSEngine, Runtime};
 
-use ion::Context;
 use ion::module::Module;
-use runtime::config::{Config, CONFIG, LogLevel};
+use ion::Context;
+use runtime::config::{Config, LogLevel, CONFIG};
 use runtime::module::Loader;
 use runtime::RuntimeBuilder;
 

@@ -7,8 +7,8 @@
 use std::ptr;
 
 use mozjs::jsapi::{
-	JS_NewGlobalObject, JSClass, JSCLASS_RESERVED_SLOTS_MASK, JSCLASS_RESERVED_SLOTS_SHIFT, JSPrincipals,
-	OnNewGlobalHookOption,
+	JSClass, JSPrincipals, JS_NewGlobalObject, OnNewGlobalHookOption, JSCLASS_RESERVED_SLOTS_MASK,
+	JSCLASS_RESERVED_SLOTS_SHIFT,
 };
 use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 

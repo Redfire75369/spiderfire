@@ -5,8 +5,8 @@
  */
 
 use proc_macro2::TokenStream;
-use syn::{Error, Item, Result};
 use syn::spanned::Spanned;
+use syn::{Error, Item, Result};
 
 use crate::class::r#impl::impl_js_class_impl;
 use crate::class::r#struct::impl_js_class_struct;

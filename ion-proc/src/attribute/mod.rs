@@ -5,10 +5,10 @@
  */
 
 use proc_macro2::Ident;
-use syn::{Attribute, Result};
 use syn::meta::ParseNestedMeta;
 use syn::parse::Parse;
 use syn::punctuated::Punctuated;
+use syn::{Attribute, Result};
 
 pub(crate) mod class;
 pub(crate) mod function;

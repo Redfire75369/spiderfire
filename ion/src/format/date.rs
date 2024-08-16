@@ -9,8 +9,8 @@ use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
 
-use crate::{Context, Date};
 use crate::format::Config;
+use crate::{Context, Date};
 
 /// Formats a [JavaScript Date](Date) using the given [configuration](Config).
 pub fn format_date<'cx>(cx: &'cx Context, cfg: Config, date: &'cx Date<'cx>) -> DateDisplay<'cx> {

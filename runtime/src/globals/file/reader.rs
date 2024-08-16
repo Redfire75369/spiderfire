@@ -7,19 +7,19 @@
 use std::cell::UnsafeCell;
 use std::str::FromStr;
 
-use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use mime::Mime;
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::{JSVal, NullValue};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, TracedHeap};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::ToValue;
 use ion::function::Opt;
 use ion::string::byte::{ByteString, Latin1};
 use ion::typedarray::ArrayBufferWrapper;
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Result, TracedHeap};
 
 use crate::globals::file::Blob;
 use crate::promise::future_to_promise;

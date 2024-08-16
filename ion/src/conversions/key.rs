@@ -7,14 +7,14 @@
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JS_StringToId, JS_ValueToId, JSString};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsapi::Symbol as JSSymbol;
+use mozjs::jsapi::{JSString, JS_StringToId, JS_ValueToId};
 use mozjs::jsid::{SymbolId, VoidId};
 use mozjs::jsval::JSVal;
 
-use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
 use crate::symbol::WellKnownSymbolCode;
+use crate::{Context, OwnedKey, PropertyKey, String, Symbol, Value};
 
 /// Represents types that can be converted to [property keys](PropertyKey).
 pub trait ToPropertyKey<'cx> {

@@ -9,10 +9,10 @@ use std::fmt::{Display, Formatter, Write};
 
 use colored::Colorize;
 
-use crate::{Context, Function, Object, PropertyDescriptor};
-use crate::format::{Config, format_value};
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
+use crate::format::{format_value, Config};
+use crate::{Context, Function, Object, PropertyDescriptor};
 
 /// Formats a [descriptor](PropertyDescriptor) with the given [configuration](Config).
 pub fn format_descriptor<'cx>(

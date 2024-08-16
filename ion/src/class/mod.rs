@@ -13,16 +13,16 @@ use mozjs::gc::HandleObject;
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Handle, JS_GetConstructor, JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto,
-	JS_SetReservedSlot, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
+	GCContext, Handle, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
+	JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
 };
 use mozjs::jsval::{NullValue, PrivateValue, UndefinedValue};
 
-use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
-pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
+pub use crate::class::native::{NativeClass, PrototypeChain, TypeIdWrapper, MAX_PROTO_CHAIN_LENGTH};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::conversions::ToValue;
 use crate::function::NativeFunction;
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
 
 mod native;
 mod reflect;

@@ -15,9 +15,9 @@ use mozjs::jsapi::{
 	IsPromiseObject, JSObject, NewPromiseObject, PromiseState, RejectPromise, ResolvePromise,
 };
 
-use crate::{Context, Error, Function, Local, Object, ResultExc, Value};
 use crate::conversions::ToValue;
 use crate::flags::PropertyFlags;
+use crate::{Context, Error, Function, Local, Object, ResultExc, Value};
 
 /// Represents a [Promise] in the JavaScript Runtime.
 /// Refer to [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for more details.

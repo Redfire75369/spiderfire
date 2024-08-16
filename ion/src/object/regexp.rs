@@ -8,14 +8,14 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use mozjs::glue::JS_GetRegExpFlags;
+use mozjs::jsapi::RegExpFlags as REFlags;
 use mozjs::jsapi::{
 	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, JSObject, NewUCRegExpObject,
 	ObjectIsRegExp,
 };
-use mozjs::jsapi::RegExpFlags as REFlags;
 
-use crate::{Context, Local, Object, Value};
 use crate::flags::RegExpFlags;
+use crate::{Context, Local, Object, Value};
 
 #[derive(Debug)]
 pub struct RegExp<'r> {

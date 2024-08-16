@@ -2,10 +2,10 @@ use mozjs::jsapi::{JSAutoRealm, JSContext};
 use mozjs::jsval::JSVal;
 use mozjs::rust::{JSEngine, Runtime};
 
-use ion::{Arguments, Context, Function, Object, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
 use ion::object::default_new_global;
+use ion::{Arguments, Context, Function, Object, Value};
 
 #[test]
 fn test() {

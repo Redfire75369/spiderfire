@@ -4,23 +4,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, slice};
 use std::ops::{Deref, DerefMut, Range};
 use std::string::String as RustString;
+use std::{ptr, slice};
 
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
 use mozjs::jsapi::{
-	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
+	JSString, JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
 	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
-	JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
+	JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear,
 };
 use utf16string::{WStr, WString};
 
-use crate::{Context, Error, ErrorKind, Local};
 use crate::string::byte::{ByteStr, ByteString, Latin1};
 use crate::string::external::create_callbacks;
 use crate::utils::BoxExt;
+use crate::{Context, Error, ErrorKind, Local};
 
 pub mod byte;
 mod external;

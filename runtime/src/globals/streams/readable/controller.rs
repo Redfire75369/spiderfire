@@ -4,25 +4,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, slice};
 use std::collections::VecDeque;
+use std::{ptr, slice};
 
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{Handle, Heap, JSContext, JSFunction, JSObject, Type};
 use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue, UndefinedValue};
 
+use ion::class::{NativeObject, Reflector};
+use ion::conversions::{FromValue, ToValue};
+use ion::typedarray::{type_to_constructor, ArrayBuffer, ArrayBufferView, Uint8Array};
 use ion::{
 	ClassDefinition, Context, Error, ErrorKind, Exception, Function, Local, Object, Promise, Result, ResultExc,
 	TracedHeap, Value,
 };
-use ion::class::{NativeObject, Reflector};
-use ion::conversions::{FromValue, ToValue};
-use ion::typedarray::{ArrayBuffer, ArrayBufferView, type_to_constructor, Uint8Array};
 
+use crate::globals::streams::readable::reader::{Reader, ReaderKind, Request};
 use crate::globals::streams::readable::{
 	ByobReader, QueueingStrategy, ReadableStream, State, StreamSource, UnderlyingSource,
 };
-use crate::globals::streams::readable::reader::{Reader, ReaderKind, Request};
 
 #[derive(Traceable)]
 pub(crate) struct PullIntoDescriptor {

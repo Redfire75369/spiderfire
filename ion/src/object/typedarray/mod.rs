@@ -8,18 +8,18 @@ use std::mem::transmute;
 use std::ops::Deref;
 
 use mozjs::jsapi::{
-	Handle, JS_NewDataView, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt16ArrayWithBuffer,
-	JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer,
-	JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject, Type,
+	Handle, JSContext, JSObject, JS_NewDataView, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer,
+	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer,
+	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, Type,
 };
-use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 use mozjs::typedarray as jsta;
+use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 
 pub use buffer::*;
 pub use view::*;
 
-use crate::{Context, Value};
 use crate::conversions::{IntoValue, ToValue};
+use crate::{Context, Value};
 
 mod buffer;
 mod view;

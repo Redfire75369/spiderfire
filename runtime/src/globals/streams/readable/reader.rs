@@ -9,14 +9,14 @@ use std::collections::VecDeque;
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{Heap, JSObject};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;
-use ion::typedarray::{ArrayBufferView, type_to_constructor, type_to_element_size};
+use ion::typedarray::{type_to_constructor, type_to_element_size, ArrayBufferView};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
 
-use crate::globals::streams::readable::{ReadableStream, State};
 use crate::globals::streams::readable::controller::{ControllerInternals, ControllerKind, PullIntoDescriptor};
+use crate::globals::streams::readable::{ReadableStream, State};
 
 pub type ChunkErrorClosure = dyn Fn(&Context, &Promise, &Value);
 pub type CloseClosure = dyn Fn(&Context, &Promise, Option<&Value>) -> ResultExc<()>;

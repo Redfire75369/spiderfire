@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 
 use mozjs::jsapi::{JSFunctionSpec, JSPropertySpec};
 
-use ion::{Context, Error, Object, Result};
 use ion::flags::PropertyFlags;
 use ion::function::Rest;
 use ion::spec::create_property_spec_string;
+use ion::{Context, Error, Object, Result};
 use runtime::module::NativeModule;
 
 #[cfg(windows)]

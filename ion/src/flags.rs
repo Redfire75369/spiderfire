@@ -10,12 +10,12 @@ use std::str;
 
 use arrayvec::ArrayVec;
 use bitflags::{bitflags, Flags};
-use mozjs::jsapi::{
-	JSITER_FORAWAITOF, JSITER_HIDDEN, JSITER_OWNONLY, JSITER_PRIVATE, JSITER_SYMBOLS, JSITER_SYMBOLSONLY,
-	JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY, JSPROP_RESOLVING, RegExpFlag_DotAll, RegExpFlag_Global,
-	RegExpFlag_HasIndices, RegExpFlag_IgnoreCase, RegExpFlag_Multiline, RegExpFlag_Sticky, RegExpFlag_Unicode,
-};
 use mozjs::jsapi::RegExpFlags as REFlags;
+use mozjs::jsapi::{
+	RegExpFlag_DotAll, RegExpFlag_Global, RegExpFlag_HasIndices, RegExpFlag_IgnoreCase, RegExpFlag_Multiline,
+	RegExpFlag_Sticky, RegExpFlag_Unicode, JSITER_FORAWAITOF, JSITER_HIDDEN, JSITER_OWNONLY, JSITER_PRIVATE,
+	JSITER_SYMBOLS, JSITER_SYMBOLSONLY, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY, JSPROP_RESOLVING,
+};
 
 bitflags! {
 	/// Represents the flags of properties on an [Object](crate::Object)

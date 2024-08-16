@@ -6,11 +6,11 @@
 
 use encoding_rs::{Encoder, UTF_8};
 
-use ion::{Context, Object, Value};
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;
 use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
+use ion::{Context, Object, Value};
 
 pub struct EncodeResult {
 	read: u64,

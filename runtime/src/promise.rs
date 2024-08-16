@@ -8,8 +8,8 @@ use std::future::Future;
 
 use tokio::task::spawn_local;
 
-use ion::{Context, Promise};
 use ion::conversions::{BoxedIntoValue, IntoValue};
+use ion::{Context, Promise};
 
 use crate::ContextExt;
 

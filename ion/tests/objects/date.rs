@@ -2,8 +2,8 @@ use chrono::{TimeZone, Utc};
 use mozjs::jsapi::JSAutoRealm;
 use mozjs::rust::{JSEngine, Runtime};
 
-use ion::{Context, Date};
 use ion::object::default_new_global;
+use ion::{Context, Date};
 
 const EPOCH: i64 = 0; // 01 January 1970
 const POST_EPOCH: i64 = 1615766400; // 15 March 2021

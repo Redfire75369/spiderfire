@@ -10,16 +10,16 @@ use hyper::ext::ReasonPhrase;
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, TracedHeap};
 use ion::class::{NativeObject, Reflector};
 use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
+use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, TracedHeap};
 pub use options::*;
 
 use crate::globals::fetch::body::{Body, FetchBody};
 use crate::globals::fetch::header::HeadersKind;
-use crate::globals::fetch::Headers;
 use crate::globals::fetch::response::body::ResponseBody;
+use crate::globals::fetch::Headers;
 use crate::promise::future_to_promise;
 
 mod body;

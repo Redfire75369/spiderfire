@@ -9,15 +9,14 @@ use std::ptr;
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{
-	GetRealmIteratorPrototype, Heap, JSClass, JSCLASS_BACKGROUND_FINALIZE, JSClassOps, JSContext, JSFunctionSpec,
-	JSNativeWrapper, JSObject, JSTracer,
+	GetRealmIteratorPrototype, Heap, JSClass, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper, JSObject,
+	JSTracer, JSCLASS_BACKGROUND_FINALIZE,
 };
 use mozjs::jsval::JSVal;
 
-use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
 use crate::class::{
-	finalise_native_object_operation, NativeClass, NativeObject, PrototypeChain, Reflector,
-	trace_native_object_operation, TypeIdWrapper,
+	finalise_native_object_operation, trace_native_object_operation, NativeClass, NativeObject, PrototypeChain,
+	Reflector, TypeIdWrapper,
 };
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;
@@ -25,6 +24,7 @@ use crate::function::NativeFunction;
 use crate::object::class_reserved_slots;
 use crate::spec::{create_function_spec, create_function_spec_symbol};
 use crate::symbol::WellKnownSymbolCode;
+use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
 
 pub trait JSIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>>;

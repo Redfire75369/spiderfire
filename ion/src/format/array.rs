@@ -10,11 +10,11 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 use mozjs::jsapi::JSProtoKey;
 
-use crate::{Array, Context};
-use crate::format::{indent_str, NEWLINE};
-use crate::format::Config;
 use crate::format::descriptor::format_descriptor;
 use crate::format::object::{write_prefix, write_remaining};
+use crate::format::Config;
+use crate::format::{indent_str, NEWLINE};
+use crate::{Array, Context};
 
 /// Formats an [JavaScript Array](Array) using the given [configuration](Config).
 pub fn format_array<'cx>(cx: &'cx Context, cfg: Config, array: &'cx Array<'cx>) -> ArrayDisplay<'cx> {

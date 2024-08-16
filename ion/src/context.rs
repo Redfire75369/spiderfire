@@ -22,8 +22,8 @@ use mozjs::rust::Runtime;
 use typed_arena::Arena;
 
 use crate::class::ClassInfo;
-use crate::Local;
 use crate::module::ModuleLoader;
+use crate::Local;
 
 /// Represents Types that can be Rooted in SpiderMonkey
 pub enum GCType {

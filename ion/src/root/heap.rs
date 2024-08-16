@@ -6,7 +6,7 @@
 
 use std::marker::PhantomPinned;
 
-use mozjs::gc::{GCMethods, RootedTraceableSet, RootKind, Traceable};
+use mozjs::gc::{GCMethods, RootKind, RootedTraceableSet, Traceable};
 use mozjs::jsapi::Heap;
 
 use crate::Local;

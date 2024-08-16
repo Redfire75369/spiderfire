@@ -14,10 +14,10 @@ use mozjs::jsval::{JSVal, ObjectValue};
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Error, ErrorKind, Object, Result, Stack, Value};
 use crate::conversions::{FromValue, ToValue};
-use crate::format::{Config, format_value, NEWLINE};
+use crate::format::{format_value, Config, NEWLINE};
 use crate::stack::Location;
+use crate::{Context, Error, ErrorKind, Object, Result, Stack, Value};
 
 pub trait ThrowException {
 	fn throw(&self, cx: &Context);

@@ -12,9 +12,9 @@ use mozjs::jsval::{
 	UndefinedValue,
 };
 
-use crate::{Array, Context, Local, Object, Symbol};
 use crate::bigint::BigInt;
 use crate::conversions::ToValue;
+use crate::{Array, Context, Local, Object, Symbol};
 
 /// Represents a JavaScript Value in the runtime.
 /// It can represent either a primitive or an object.

@@ -11,8 +11,8 @@ use mozjs::jsapi::{
 	MapValues, NewMapObject,
 };
 
-use crate::{Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
+use crate::{Context, Function, Local, Object, Value};
 
 pub struct Map<'m> {
 	map: Local<'m, *mut JSObject>,

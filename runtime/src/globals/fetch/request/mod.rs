@@ -10,9 +10,9 @@ use http::{HeaderMap, Method};
 use mozjs::jsapi::{Heap, JSObject};
 use url::Url;
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 use ion::class::Reflector;
 use ion::function::Opt;
+use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
 pub use options::*;
 
 use crate::globals::abort::AbortSignal;

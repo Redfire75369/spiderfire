@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{LitStr, Result};
 use syn::meta::ParseNestedMeta;
+use syn::{LitStr, Result};
 
-use crate::attribute::{ParseArgument, ParseAttribute};
 use crate::attribute::name::Name;
+use crate::attribute::{ParseArgument, ParseAttribute};
 
 #[derive(Default)]
 pub(crate) struct PropertyAttribute {

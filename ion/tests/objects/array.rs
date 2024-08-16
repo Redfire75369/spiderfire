@@ -1,10 +1,10 @@
 use mozjs::jsapi::JSAutoRealm;
 use mozjs::rust::{JSEngine, Runtime};
 
-use ion::{Array, Context, Value};
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::object::default_new_global;
+use ion::{Array, Context, Value};
 
 #[test]
 fn array() {

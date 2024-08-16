@@ -1,5 +1,5 @@
-use ion::{Context, Function, js_fn, Object, Promise, Value};
 use ion::function::{Enforce, Rest, Strict};
+use ion::{js_fn, Context, Function, Object, Promise, Value};
 
 #[allow(clippy::too_many_arguments)]
 #[js_fn]

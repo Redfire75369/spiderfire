@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{GenericArgument, PathArguments, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::visit_mut::{visit_type_mut, visit_type_path_mut, visit_type_reference_mut, VisitMut};
+use syn::{GenericArgument, PathArguments, Type, TypePath, TypeReference};
 
 use crate::utils::path_ends_with;
 

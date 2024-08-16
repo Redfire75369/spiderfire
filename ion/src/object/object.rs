@@ -10,20 +10,20 @@ use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 
-use mozjs::jsapi::{
-	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
-	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
-	JS_GetPropertyDescriptorById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById,
-	JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, Unbox,
-};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
+use mozjs::jsapi::{
+	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JSFunctionSpec, JSFunctionSpecWithHelp, JSObject,
+	JSPropertySpec, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp, JS_DefineProperties,
+	JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById, JS_GetPropertyDescriptorById,
+	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, Unbox,
+};
 use mozjs::jsval::NullValue;
 use mozjs::rust::IdVector;
 
-use crate::{Context, Error, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Result, Value};
 use crate::conversions::{FromValue, ToPropertyKey, ToValue};
 use crate::flags::{IteratorFlags, PropertyFlags};
 use crate::function::NativeFunction;
+use crate::{Context, Error, Exception, Function, Local, OwnedKey, PropertyDescriptor, PropertyKey, Result, Value};
 
 /// Represents an [Object] in the JS Runtime.
 ///

@@ -9,9 +9,9 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{ItemFn, Result, Signature, Type};
 
 use crate::attribute::name::Name;
-use crate::function::{check_abi, impl_fn_body, set_signature};
 use crate::function::parameter::Parameters;
 use crate::function::wrapper::impl_wrapper_fn;
+use crate::function::{check_abi, impl_fn_body, set_signature};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum MethodKind {

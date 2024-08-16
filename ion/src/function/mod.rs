@@ -14,8 +14,8 @@ pub use arguments::{Accessor, Arguments, FromArgument};
 pub use closure::{Closure, ClosureOnce};
 pub use function::{Function, NativeFunction};
 
-use crate::{Context, Error, Object, ResultExc, ThrowException, Value};
 use crate::conversions::{FromValue, ToValue};
+use crate::{Context, Error, Object, ResultExc, ThrowException, Value};
 
 mod arguments;
 mod closure;

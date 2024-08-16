@@ -4,20 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, GetFunctionNativeReserved, JS_NewObject, JS_SetReservedSlot, JSClass, JSCLASS_BACKGROUND_FINALIZE,
-	JSClassOps, JSContext, JSObject,
+	GCContext, GetFunctionNativeReserved, JSClass, JSClassOps, JSContext, JSObject, JS_NewObject, JS_SetReservedSlot,
+	JSCLASS_BACKGROUND_FINALIZE,
 };
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 
-use crate::{Arguments, Context, Error, ErrorKind, Object, ResultExc, ThrowException, Value};
 use crate::conversions::ToValue;
 use crate::function::__handle_native_function_result;
 use crate::object::class_reserved_slots;
+use crate::{Arguments, Context, Error, ErrorKind, Object, ResultExc, ThrowException, Value};
 
 const CLOSURE_SLOT: u32 = 0;
 

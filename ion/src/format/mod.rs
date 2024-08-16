@@ -11,9 +11,9 @@ use std::str;
 
 pub use config::Config;
 
-use crate::{Context, Value};
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
+use crate::{Context, Value};
 
 pub mod array;
 pub mod boxed;

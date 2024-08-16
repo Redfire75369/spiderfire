@@ -14,14 +14,14 @@ use mozjs::jsapi::{
 };
 use uuid::Uuid;
 
-use ion::{Context, ContextInner, ErrorReport, Object};
 use ion::module::{init_module_loader, ModuleLoader};
 use ion::object::default_new_global;
+use ion::{Context, ContextInner, ErrorReport, Object};
 
-use crate::event_loop::{EventLoop, promise_rejection_tracker_callback};
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
-use crate::event_loop::microtasks::{JOB_QUEUE_TRAPS, MicrotaskQueue};
+use crate::event_loop::microtasks::{MicrotaskQueue, JOB_QUEUE_TRAPS};
+use crate::event_loop::{promise_rejection_tracker_callback, EventLoop};
 use crate::globals::{init_globals, init_microtasks, init_timers};
 use crate::module::StandardModules;
 

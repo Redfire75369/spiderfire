@@ -8,7 +8,7 @@ use std::fs::{metadata, read_dir};
 use std::io;
 use std::path::Path;
 
-use humansize::{BINARY, SizeFormatter};
+use humansize::{SizeFormatter, BINARY};
 
 use runtime::cache::Cache;
 

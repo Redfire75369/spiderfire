@@ -4,29 +4,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fmt, ptr, slice};
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
+use std::{fmt, ptr, slice};
 
 use mozjs::jsapi::{
-	GetArrayBufferViewLengthAndData, HandleObject, IsArrayBufferViewShared, IsLargeArrayBufferView,
-	JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset,
+	GetArrayBufferViewLengthAndData, HandleObject, IsArrayBufferViewShared, IsLargeArrayBufferView, JSContext,
+	JSObject, JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset,
 	JS_GetArrayBufferViewType, JS_IsArrayBufferViewObject, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer,
 	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer,
-	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, JSContext, JSObject,
-	NewExternalArrayBuffer, Type,
+	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, NewExternalArrayBuffer,
+	Type,
 };
 use mozjs::typedarray as jsta;
 use mozjs::typedarray::{
 	ArrayBufferViewU8, ClampedU8, CreateWith, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8,
 };
 
-use crate::{Context, Local, Object};
 use crate::typedarray::buffer::ArrayBuffer;
 use crate::utils::BoxExt;
+use crate::{Context, Local, Object};
 
 pub trait TypedArrayElement: jsta::TypedArrayElement {
 	const NAME: &'static str;

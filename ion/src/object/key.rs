@@ -8,12 +8,12 @@ use std::hash::{Hash, Hasher};
 use std::mem::discriminant;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::{JS_IdToProtoKey, JS_ValueToId, JSProtoKey, ProtoKeyToId};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
+use mozjs::jsapi::{JSProtoKey, JS_IdToProtoKey, JS_ValueToId, ProtoKeyToId};
 use mozjs::jsid::{IntId, VoidId};
 
-use crate::{Context, Local, Result, String, Symbol, Value};
 use crate::conversions::ToPropertyKey;
+use crate::{Context, Local, Result, String, Symbol, Value};
 
 pub struct PropertyKey<'k> {
 	key: Local<'k, JSPropertyKey>,

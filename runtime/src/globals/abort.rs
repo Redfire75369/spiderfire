@@ -4,25 +4,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, task};
 use std::future::Future;
-use std::pin::{Pin, pin};
-use std::sync::Arc;
+use std::pin::{pin, Pin};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::task::Poll;
+use std::{ptr, task};
 
 use chrono::Duration;
 use mozjs::jsapi::JSObject;
 use mozjs::jsval::JSVal;
 use tokio::sync::watch::{channel, Receiver, Sender};
 
-use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::{Enforce, Opt};
+use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 
-use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
+use crate::ContextExt;
 
 #[derive(Clone, Debug, Default)]
 pub enum Signal {

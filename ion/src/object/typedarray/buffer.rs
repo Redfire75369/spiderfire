@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{ptr, slice};
 use std::ffi::c_void;
 use std::ops::{Deref, DerefMut};
+use std::{ptr, slice};
 
 use mozjs::jsapi::{
 	ArrayBufferClone, ArrayBufferCopyData, DetachArrayBuffer, GetArrayBufferMaybeSharedLengthAndData,
@@ -15,8 +15,8 @@ use mozjs::jsapi::{
 };
 use mozjs::typedarray::CreateWith;
 
-use crate::{Context, Error, ErrorKind, Local, Object, Result};
 use crate::utils::BoxExt;
+use crate::{Context, Error, ErrorKind, Local, Object, Result};
 
 #[derive(Debug)]
 pub struct ArrayBuffer<'ab> {

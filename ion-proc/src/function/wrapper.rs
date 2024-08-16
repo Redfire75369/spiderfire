@@ -6,9 +6,9 @@
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Error, FnArg, GenericParam, ItemFn, parse2, Result, ReturnType, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::{parse2, Error, FnArg, GenericParam, ItemFn, Result, ReturnType, Type};
 
 use crate::function::inner::impl_inner_fn;
 use crate::function::parameter::Parameters;

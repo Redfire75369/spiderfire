@@ -6,7 +6,7 @@
 
 use prettyplease::unparse;
 use proc_macro2::Ident;
-use syn::{GenericParam, Generics, parse2, Pat, Path, Type, TypeParamBound};
+use syn::{parse2, GenericParam, Generics, Pat, Path, Type, TypeParamBound};
 
 pub(crate) fn path_ends_with<I: ?Sized>(path: &Path, ident: &I) -> bool
 where

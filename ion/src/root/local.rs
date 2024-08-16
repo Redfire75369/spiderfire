@@ -8,9 +8,9 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 
 use mozjs::gc::{GCMethods, Handle, MutableHandle, RootKind};
-use mozjs::jsapi::{Heap, Rooted};
 use mozjs::jsapi::Handle as RawHandle;
 use mozjs::jsapi::MutableHandle as RawMutableHandle;
+use mozjs::jsapi::{Heap, Rooted};
 
 use crate::Context;
 

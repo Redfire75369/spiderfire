@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::{Context, Value};
 use crate::conversions::ToValue;
+use crate::{Context, Value};
 
 pub type BoxedIntoValue = Box<dyn for<'cx> IntoValue<'cx>>;
 

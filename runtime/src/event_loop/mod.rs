@@ -12,13 +12,13 @@ use std::task::Poll;
 use futures::future::poll_fn;
 use mozjs::jsapi::{Handle, Heap, JSContext, JSObject, PromiseRejectionHandlingState};
 
+use ion::format::{format_value, Config};
 use ion::{Context, ErrorReport, Local, Promise};
-use ion::format::{Config, format_value};
 
-use crate::ContextExt;
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;
 use crate::event_loop::microtasks::MicrotaskQueue;
+use crate::ContextExt;
 
 pub(crate) mod future;
 pub(crate) mod macrotasks;

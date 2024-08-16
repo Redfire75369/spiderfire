@@ -4,21 +4,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fmt, ptr};
 use std::fmt::{Display, Formatter, Write};
 use std::mem::MaybeUninit;
+use std::{fmt, ptr};
 
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSObject, JSString,
+	BuildStackString, CaptureCurrentStack, JSObject, JSString, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames,
 	StackFormat,
 };
 #[cfg(feature = "sourcemap")]
 use sourcemap::SourceMap;
 
-use crate::{Context, Object};
 use crate::format::{INDENT, NEWLINE};
 use crate::utils::normalise_path;
+use crate::{Context, Object};
 
 /// Represents a location in a source file.
 #[derive(Clone, Debug, PartialEq, Eq)]

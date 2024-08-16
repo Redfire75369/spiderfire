@@ -9,9 +9,9 @@ use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
 
-use crate::{Context, Symbol};
 use crate::format::Config;
 use crate::symbol::SymbolCode;
+use crate::{Context, Symbol};
 
 /// Formats a [Symbol] as a [String] with the given [configuration](Config).
 ///

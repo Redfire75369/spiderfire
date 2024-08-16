@@ -6,13 +6,13 @@
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, parse2, Result, Type};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::{parse2, Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, Result, Type};
 
-use crate::attribute::{Optional, ParseAttribute};
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::value::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
+use crate::attribute::{Optional, ParseAttribute};
 use crate::utils::{add_trait_bounds, format_type, path_ends_with};
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {

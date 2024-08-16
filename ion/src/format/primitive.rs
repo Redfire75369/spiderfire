@@ -10,12 +10,12 @@ use std::fmt::{Display, Formatter};
 use colored::Colorize;
 use itoa::Buffer;
 
-use crate::{Context, Symbol, Value};
 use crate::bigint::BigInt;
 use crate::conversions::FromValue;
-use crate::format::Config;
 use crate::format::string::format_string;
 use crate::format::symbol::format_symbol;
+use crate::format::Config;
+use crate::{Context, Symbol, Value};
 
 /// Formats a primitive value using the given [configuration](Config).
 /// The supported types are `boolean`, `number`, `string`, `symbol`, `null` and `undefined`.

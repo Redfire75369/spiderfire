@@ -8,9 +8,9 @@ use std::borrow::Cow;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-use mozjs::jsapi::{JS_GetFunctionObject, JS_IdToValue, JS_NewStringCopyN, JS_WrapValue, JSFunction, JSObject, JSString};
 use mozjs::jsapi::PropertyKey as JSPropertyKey;
 use mozjs::jsapi::Symbol as JSSymbol;
+use mozjs::jsapi::{JSFunction, JSObject, JSString, JS_GetFunctionObject, JS_IdToValue, JS_NewStringCopyN, JS_WrapValue};
 use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue,
 	UInt32Value, UndefinedValue,
@@ -18,10 +18,10 @@ use mozjs::jsval::{
 use mozjs::rust::{maybe_wrap_object_or_null_value, maybe_wrap_object_value, maybe_wrap_value};
 use mozjs::typedarray as jsta;
 
-use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
 use crate::object::RegExp;
 use crate::string::byte::{BytePredicate, ByteStr, ByteString};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
+use crate::{Array, Context, Date, Function, Object, Promise, PropertyKey, Symbol, Value};
 
 /// Represents types that can be converted to JavaScript [Values](Value).
 pub trait ToValue<'cx> {

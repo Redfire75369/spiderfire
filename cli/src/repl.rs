@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use rustyline::{Config, Result};
 use rustyline::config::Builder;
 use rustyline::validate::{MatchingBracketValidator, ValidationContext, ValidationResult, Validator};
+use rustyline::{Config, Result};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 #[derive(Completer, Helper, Hinter, Highlighter)]

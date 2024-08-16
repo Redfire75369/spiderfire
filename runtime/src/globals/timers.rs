@@ -8,11 +8,11 @@ use chrono::Duration;
 use mozjs::jsapi::JSFunctionSpec;
 use mozjs::jsval::JSVal;
 
-use ion::{Context, Error, Function, Object, Result};
 use ion::function::{Clamp, Enforce, Opt, Rest};
+use ion::{Context, Error, Function, Object, Result};
 
-use crate::ContextExt;
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
+use crate::ContextExt;
 
 const MINIMUM_DELAY: i32 = 1;
 const MINIMUM_DELAY_NESTED: i32 = 4;

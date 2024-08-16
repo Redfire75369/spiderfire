@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{LitStr, Result};
 use syn::meta::ParseNestedMeta;
+use syn::{LitStr, Result};
 
-use crate::attribute::{ArgumentError, ParseArgument, ParseArgumentWith, ParseAttribute};
 use crate::attribute::name::Name;
+use crate::attribute::{ArgumentError, ParseArgument, ParseArgumentWith, ParseAttribute};
 use crate::class::method::MethodKind;
 
 // TODO: Add `inspectable` to provide `toString` and `toJSON`

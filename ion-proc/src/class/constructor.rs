@@ -8,8 +8,8 @@ use proc_macro2::TokenStream;
 use syn::{ItemFn, Result, Type};
 
 use crate::class::method::{Method, MethodReceiver};
-use crate::function::{check_abi, set_signature};
 use crate::function::wrapper::impl_wrapper_fn;
+use crate::function::{check_abi, set_signature};
 
 pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &Type) -> Result<Method> {
 	let (wrapper, parameters) = impl_wrapper_fn(ion, constructor.clone(), Some(ty), true)?;

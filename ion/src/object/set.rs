@@ -16,8 +16,8 @@ use mozjs::jsapi::{
 	IsSetObject, JSObject, NewSetObject, SetAdd, SetClear, SetDelete, SetEntries, SetForEach, SetHas, SetKeys, SetSize,
 };
 
-use crate::{Context, Function, Local, Object, Value};
 use crate::conversions::ToValue;
+use crate::{Context, Function, Local, Object, Value};
 
 pub struct Set<'s> {
 	set: Local<'s, *mut JSObject>,

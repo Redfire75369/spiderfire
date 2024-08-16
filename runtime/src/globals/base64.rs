@@ -4,13 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use data_url::forgiving_base64::decode_to_vec;
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{Context, Error, ErrorKind, Object, Result};
 use ion::string::byte::ByteString;
+use ion::{Context, Error, ErrorKind, Object, Result};
 
 const INVALID_CHARACTER_EXCEPTION: &str = "String contains an invalid character.";
 

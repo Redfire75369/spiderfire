@@ -5,10 +5,10 @@ use mozjs::jsapi::JSAutoRealm;
 use mozjs::jsval::Int32Value;
 use mozjs::rust::{JSEngine, Runtime};
 
-use ion::{Array, Context, Date, Object, Promise, Value};
-use ion::conversions::{FromValue, ToValue};
 use ion::conversions::ConversionBehavior;
+use ion::conversions::{FromValue, ToValue};
 use ion::object::default_new_global;
+use ion::{Array, Context, Date, Object, Promise, Value};
 
 #[test]
 fn from_value() {

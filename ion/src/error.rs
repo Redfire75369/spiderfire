@@ -4,17 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{error, fmt, ptr};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use std::{error, fmt, ptr};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey, UndefinedHandleValue};
+use mozjs::jsapi::{CreateError, JSExnType, JSObject, JSProtoKey, JS_ReportErrorUTF8, UndefinedHandleValue};
 
-use crate::{Context, ErrorReport, Exception, Object, Stack, Value};
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;
 use crate::stack::Location;
+use crate::{Context, ErrorReport, Exception, Object, Stack, Value};
 
 /// Represents the types of errors that can be thrown and are recognised in the JS Runtime.
 #[derive(Clone, Debug, Eq, PartialEq)]

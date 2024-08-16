@@ -10,8 +10,8 @@ use std::fmt::{Display, Formatter};
 use colored::Colorize;
 use indent::indent_by;
 
-use crate::{Context, Function};
 use crate::format::Config;
+use crate::{Context, Function};
 
 /// Formats a [function](Function), using the given [configuration](Config).
 ///

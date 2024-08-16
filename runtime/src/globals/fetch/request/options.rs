@@ -12,8 +12,8 @@ use mozjs::jsapi::JSObject;
 use mozjs::jsval::JSVal;
 use url::Url;
 
-use ion::{Context, Error, ErrorKind, Result, Value};
 use ion::conversions::FromValue;
+use ion::{Context, Error, ErrorKind, Result, Value};
 
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersInit;

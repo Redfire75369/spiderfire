@@ -6,8 +6,8 @@
 
 use mozjs::jsapi::JSFunctionSpec;
 
-use ion::{Context, Error, Function, Object, Result, Value};
 use ion::function::Opt;
+use ion::{Context, Error, Function, Object, Result, Value};
 use runtime::module::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {

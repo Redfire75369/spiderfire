@@ -10,7 +10,7 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 use itoa::Buffer;
 
-use crate::format::{Config, indent_str, NEWLINE};
+use crate::format::{indent_str, Config, NEWLINE};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
 
 pub fn format_array_buffer<'cx>(cfg: Config, buffer: &'cx ArrayBuffer<'cx>) -> ArrayBufferDisplay<'cx> {

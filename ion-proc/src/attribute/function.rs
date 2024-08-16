@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::{Expr, Result};
 use syn::meta::ParseNestedMeta;
+use syn::{Expr, Result};
 
 use crate::attribute::{ParseArgument, ParseAttribute};
 

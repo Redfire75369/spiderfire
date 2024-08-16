@@ -13,17 +13,17 @@ use mozjs::rust::JSEngine;
 use mozjs::rust::Runtime as RustRuntime;
 use sourcemap::SourceMap;
 
-use ion::Context;
-use ion::format::Config as FormatConfig;
 use ion::format::format_value;
+use ion::format::Config as FormatConfig;
 use ion::module::Module;
 use ion::script::Script;
+use ion::Context;
 use modules::Modules;
-use runtime::{Runtime, RuntimeBuilder};
 use runtime::cache::locate_in_cache;
 use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
 use runtime::module::Loader;
+use runtime::{Runtime, RuntimeBuilder};
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);

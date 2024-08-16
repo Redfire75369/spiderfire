@@ -9,10 +9,10 @@ use std::fmt::{Display, Formatter, Write};
 
 use mozjs::conversions::ConversionBehavior;
 
-use ion::{BigInt, Context, Local, Result, Value};
 use ion::conversions::FromValue;
-use ion::format::{format_value, ValueDisplay};
 use ion::format::Config as FormatConfig;
+use ion::format::{format_value, ValueDisplay};
+use ion::{BigInt, Context, Local, Result, Value};
 
 use crate::config::{Config, LogLevel};
 use crate::globals::console::INDENTS;

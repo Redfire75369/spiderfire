@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use ion::{Context, Object};
 use ion::flags::PropertyFlags;
 use ion::module::{Module, ModuleRequest};
+use ion::{Context, Object};
 
 pub trait StandardModules {
 	fn init(self, cx: &Context, global: &Object) -> bool;

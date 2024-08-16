@@ -4,20 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::any::Any;
-use std::ffi::c_void;
-use std::ptr;
+use crate::conversions::ToValue;
+use crate::{Context, Exception, Object, ResultExc, Value};
 use mozjs::glue::{
 	CopyJSStructuredCloneData, DeleteJSAutoStructuredCloneBuffer, GetLengthOfJSStructuredCloneData,
 	NewJSAutoStructuredCloneBuffer, WriteBytesToJSStructuredCloneData,
 };
 use mozjs::jsapi::{
-	CloneDataPolicy, JS_ReadStructuredClone, JS_STRUCTURED_CLONE_VERSION, JS_WriteStructuredClone,
-	JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, StructuredCloneScope, JSStructuredCloneReader,
-	JS_ReadUint32Pair, JSStructuredCloneWriter, JS_WriteUint32Pair,
+	CloneDataPolicy, JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, JSStructuredCloneReader,
+	JSStructuredCloneWriter, JS_ReadStructuredClone, JS_ReadUint32Pair, JS_WriteStructuredClone, JS_WriteUint32Pair,
+	StructuredCloneScope, JS_STRUCTURED_CLONE_VERSION,
 };
-use crate::{Context, Exception, Object, ResultExc, Value};
-use crate::conversions::ToValue;
+use std::any::Any;
+use std::ffi::c_void;
+use std::ptr;
 
 pub struct StructuredCloneBuffer {
 	buf: *mut JSAutoStructuredCloneBuffer,

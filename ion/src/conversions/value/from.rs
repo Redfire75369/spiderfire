@@ -4,24 +4,24 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::conversions::{ConversionResult, FromJSValConvertible};
 pub use mozjs::conversions::ConversionBehavior;
+use mozjs::conversions::{ConversionResult, FromJSValConvertible};
+use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsapi::{
 	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction,
 	JSObject, JSString, RootedObject, RootedValue,
 };
-use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};
 use mozjs::typedarray as jsta;
 use mozjs::typedarray::JSObjectStorage;
 
-use crate::{
-	Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value,
-};
 use crate::object::RegExp;
 use crate::string::byte::{BytePredicate, ByteString};
 use crate::typedarray::{ArrayBuffer, TypedArray, TypedArrayElement};
+use crate::{
+	Array, Context, Date, Error, ErrorKind, Exception, Function, Object, Promise, Result, StringRef, Symbol, Value,
+};
 
 /// Represents types that can be converted to from [JavaScript Values](Value).
 pub trait FromValue<'cx>: Sized {

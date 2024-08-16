@@ -10,12 +10,12 @@ use mozjs::jsapi::JSFunctionSpec;
 use mozjs::rust::JSEngine;
 use mozjs::rust::Runtime as RustRuntime;
 
-use ion::{Context, Error, Exception, Function, Object, Value};
 use ion::module::Module;
+use ion::{Context, Error, Exception, Function, Object, Value};
 use modules::Assert;
-use runtime::{Runtime, RuntimeBuilder};
-use runtime::config::{Config, CONFIG, LogLevel};
+use runtime::config::{Config, LogLevel, CONFIG};
 use runtime::module::Loader;
+use runtime::{Runtime, RuntimeBuilder};
 
 const OK: (&str, &str) = ("ok", include_str!("scripts/assert/ok.js"));
 const EQUALS: (&str, &str) = ("equals", include_str!("scripts/assert/equals.js"));

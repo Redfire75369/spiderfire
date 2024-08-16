@@ -11,8 +11,8 @@ use colored::Colorize;
 use encoding_rs::UTF_8;
 use mozjs::jsval::StringValue;
 
-use crate::{Context, Local, Value};
 use crate::format::Config;
+use crate::{Context, Local, Value};
 
 pub fn format_string<'cx>(cx: &'cx Context, cfg: Config, string: &'cx crate::String<'cx>) -> StringDisplay<'cx> {
 	StringDisplay { cx, string, cfg }

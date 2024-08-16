@@ -8,20 +8,9 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
-use colored::{Color, Colorize};
-use itoa::Buffer;
-use mozjs::jsapi::{
-	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
-};
-use mozjs::typedarray::{ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
-use crate::{
-	Array, Context, Date, Exception, Function, Local, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result,
-};
 use crate::conversions::ToValue;
-use crate::format::{indent_str, NEWLINE};
 use crate::format::array::format_array;
 use crate::format::boxed::format_boxed_primitive;
-use crate::format::Config;
 use crate::format::date::format_date;
 use crate::format::descriptor::format_descriptor;
 use crate::format::function::format_function;
@@ -30,8 +19,19 @@ use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
 use crate::format::string::format_string;
 use crate::format::typedarray::{format_array_buffer, format_typed_array};
+use crate::format::Config;
+use crate::format::{indent_str, NEWLINE};
 use crate::symbol::WellKnownSymbolCode;
 use crate::typedarray::{ArrayBuffer, ArrayBufferView, TypedArray, TypedArrayElement};
+use crate::{
+	Array, Context, Date, Exception, Function, Local, Object, Promise, PropertyDescriptor, PropertyKey, RegExp, Result,
+};
+use colored::{Color, Colorize};
+use itoa::Buffer;
+use mozjs::jsapi::{
+	ESClass, IdentifyStandardPrototype, JSProtoKey, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, Type,
+};
+use mozjs::typedarray::{ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
 
 /// Formats a [JavaScript Object](Object), depending on its class, using the given [configuration](Config).
 /// The object is passed to more specific formatting functions, such as [format_array] and [format_date].

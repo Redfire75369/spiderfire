@@ -7,9 +7,9 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use crate::{Context, Object};
-use crate::format::Config;
 use crate::format::primitive::format_primitive;
+use crate::format::Config;
+use crate::{Context, Object};
 
 /// Formats a boxed primitive ([Object]) using the given [configuration](Config).
 /// The supported boxed types are `Boolean`, `Number`, `String` and `BigInt`.

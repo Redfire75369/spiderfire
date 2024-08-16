@@ -12,8 +12,8 @@ use futures::StreamExt;
 use mozjs::jsapi::JSObject;
 use tokio::task::JoinHandle;
 
-use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException, Value};
 use ion::conversions::BoxedIntoValue;
+use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException, Value};
 
 type FutureOutput = (Result<BoxedIntoValue, BoxedIntoValue>, *mut JSObject);
 

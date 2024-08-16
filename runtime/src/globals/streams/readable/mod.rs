@@ -12,14 +12,14 @@ use mozjs::jsval::JSVal;
 
 pub use controller::{ByobRequest, ByteStreamController, CommonController, DefaultController};
 use controller::{Controller, ControllerInternals, ControllerKind};
-use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::{ConversionBehavior, FromValue, ToValue};
 use ion::function::Opt;
+use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 pub use reader::{ByobReader, DefaultReader};
 use reader::{Reader, ReaderKind};
-use source::{forward_reader_error, TeeBytesState, TeeDefaultState};
 pub use source::StreamSource;
+use source::{forward_reader_error, TeeBytesState, TeeDefaultState};
 
 mod controller;
 mod reader;

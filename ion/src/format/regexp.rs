@@ -9,9 +9,9 @@ use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
 
-use crate::Context;
 use crate::format::Config;
 use crate::object::RegExp;
+use crate::Context;
 
 /// Formats a [RegExp object](RegExp) using the given [configuration](Config).
 pub fn format_regexp<'cx>(cx: &'cx Context, cfg: Config, regexp: &'cx RegExp<'cx>) -> RegExpDisplay<'cx> {

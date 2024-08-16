@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use syn::ItemFn;
 use syn::punctuated::Punctuated;
+use syn::ItemFn;
 
 use crate::function::parameter::Parameters;
 

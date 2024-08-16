@@ -4,23 +4,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{fmt, task};
 use std::fmt::{Display, Formatter};
 use std::pin::Pin;
 use std::task::Poll;
+use std::{fmt, task};
 
 use bytes::Bytes;
 use form_urlencoded::Serializer;
-use http::{HeaderMap, HeaderValue};
 use http::header::CONTENT_TYPE;
+use http::{HeaderMap, HeaderValue};
 use http_body_util::Full;
 use hyper::body::{Frame, Incoming, SizeHint};
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;
 use pin_project::pin_project;
 
-use ion::{Context, Error, ErrorKind, Value};
 use ion::conversions::FromValue;
+use ion::{Context, Error, ErrorKind, Value};
 
 use crate::globals::file::{Blob, BufferSource};
 use crate::globals::url::URLSearchParams;

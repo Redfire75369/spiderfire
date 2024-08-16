@@ -8,7 +8,7 @@ use std::collections::vec_deque::VecDeque;
 use std::ffi::c_void;
 
 use mozjs::glue::JobQueueTraps;
-use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JobQueueIsEmpty, JobQueueMayNotBeEmpty, JSContext, JSFunction, JSObject};
+use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JSContext, JSFunction, JSObject, JobQueueIsEmpty, JobQueueMayNotBeEmpty};
 
 use ion::{Context, ErrorReport, Function, Object};
 

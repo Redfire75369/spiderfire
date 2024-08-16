@@ -8,8 +8,8 @@ use proc_macro2::{Ident, TokenStream};
 use syn::{ImplItemConst, Result, Type};
 
 use crate::attribute::name::Name;
-use crate::attribute::ParseAttribute;
 use crate::attribute::property::PropertyAttribute;
+use crate::attribute::ParseAttribute;
 use crate::utils::path_ends_with;
 
 #[derive(Clone, Debug)]

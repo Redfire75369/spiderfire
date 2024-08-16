@@ -1,9 +1,9 @@
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
-use ion::{Context, FromValue, Object, Result, Value};
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::function::{Enforce, Strict};
+use ion::{Context, FromValue, Object, Result, Value};
 
 #[derive(FromValue)]
 pub struct Complex<'cx> {

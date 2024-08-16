@@ -7,12 +7,12 @@
 use std::mem::transmute;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsapi::SymbolCode as JSSymbolCode;
+use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
 
-use crate::{Context, Local};
 use crate::conversions::{FromValue, ToValue};
+use crate::{Context, Local};
 
 /// Represents a well-known symbol code.
 ///
