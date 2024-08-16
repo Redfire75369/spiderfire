@@ -21,7 +21,10 @@ use ion::clone::StructuredCloneBuffer;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::typedarray::{ArrayBuffer, ArrayBufferView, Uint8Array};
-use ion::{ClassDefinition, Context, Exception, Function, Local, Object, Promise, Result, ResultExc, TracedHeap, Value};
+use ion::{
+	ClassDefinition, Context, Exception, Function, JSIterator, Local, Object, Promise, Result, ResultExc, TracedHeap,
+	Value,
+};
 
 #[derive(Traceable)]
 pub enum StreamSource {
@@ -33,6 +36,7 @@ pub enum StreamSource {
 	},
 	Bytes(#[trace(no_trace)] Option<Bytes>),
 	BytesBuf(#[trace(no_trace)] Option<Box<dyn Buf>>),
+	Iterator(#[trace(no_trace)] Box<dyn JSIterator>, Option<Box<Heap<JSVal>>>),
 	TeeDefault(Rc<TeeDefaultState>, bool),
 	TeeBytes(Rc<TeeBytesState>, bool),
 }
@@ -71,6 +75,10 @@ impl StreamSource {
 				let buffer = ArrayBuffer::copy_from_bytes(cx, chunk).unwrap();
 				buf.advance(chunk.len());
 				Ok(Some(Promise::resolved(cx, &buffer.as_value(cx))))
+			}
+			StreamSource::Iterator(iterator, Some(data)) => {
+				let data = Value::from(unsafe { Local::from_heap(data) });
+				Ok(iterator.next_value(cx, &data).map(|value| Promise::resolved(cx, &value)))
 			}
 			StreamSource::TeeDefault(state, second) => {
 				if state.common.reading.get() {
@@ -460,6 +468,9 @@ impl StreamSource {
 			}
 			StreamSource::BytesBuf(buf) => {
 				*buf = None;
+			}
+			StreamSource::Iterator(_, data) => {
+				*data = None;
 			}
 			_ => {}
 		}
