@@ -82,7 +82,6 @@ jobs:
         run: |
           just build-release -v --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
-          strip ./target/$TARGET/release/spiderfire
 
       - name: Run Tests
         if: matrix.job == 'test'
