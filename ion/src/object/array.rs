@@ -267,3 +267,30 @@ impl DoubleEndedIterator for ArrayIter<'_, '_> {
 }
 
 impl FusedIterator for ArrayIter<'_, '_> {}
+
+#[cfg(test)]
+mod tests {
+	use crate::{Array, Value};
+	use crate::flags::PropertyFlags;
+	use crate::utils::test::TestRuntime;
+
+	#[test]
+	fn array() {
+		let rt = TestRuntime::new();
+		let cx = &rt.cx;
+
+		let array = Array::new(cx);
+		array.set(cx, 0, &Value::null(cx));
+		array.define(cx, 2, &Value::undefined_handle(), PropertyFlags::all());
+
+		let value1 = array.get(cx, 0).unwrap().unwrap();
+		let value2 = array.get(cx, 2).unwrap().unwrap();
+		assert!(value1.handle().is_null());
+		assert!(value2.handle().is_undefined());
+
+		assert!(array.delete(cx, 0));
+		assert!(array.delete(cx, 2));
+		assert!(array.get(cx, 0).unwrap().is_none());
+		assert!(array.get(cx, 2).unwrap().is_some());
+	}
+}

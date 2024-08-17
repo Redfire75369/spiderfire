@@ -443,3 +443,36 @@ impl ExactSizeIterator for ObjectIter<'_, '_> {
 }
 
 impl FusedIterator for ObjectIter<'_, '_> {}
+
+#[cfg(test)]
+mod tests {
+	use crate::flags::PropertyFlags;
+	use crate::utils::test::TestRuntime;
+	use crate::{Object, OwnedKey, Value};
+
+	#[test]
+	fn object() {
+		let rt = TestRuntime::new();
+		let cx = &rt.cx;
+
+		let object = Object::new(cx);
+		object.set(cx, "key1", &Value::null(cx));
+		object.define(cx, "key2", &Value::undefined_handle(), PropertyFlags::all());
+
+		let value1 = object.get(cx, "key1").unwrap().unwrap();
+		let value2 = object.get(cx, "key2").unwrap().unwrap();
+		assert!(value1.handle().is_null());
+		assert!(value2.handle().is_undefined());
+
+		let keys = object.keys(cx, None);
+		for (i, key) in keys.enumerate() {
+			let expected = format!("key{}", i + 1);
+			assert_eq!(key.to_owned_key(cx).unwrap(), OwnedKey::String(expected));
+		}
+
+		assert!(object.delete(cx, "key1"));
+		assert!(object.delete(cx, "key2"));
+		assert!(object.get(cx, "key1").unwrap().is_none());
+		assert!(object.get(cx, "key2").unwrap().is_some());
+	}
+}
