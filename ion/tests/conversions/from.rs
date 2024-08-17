@@ -1,23 +1,17 @@
 use std::f64::consts::PI;
 
 use chrono::{TimeZone, Utc};
-use mozjs::jsapi::JSAutoRealm;
 use mozjs::jsval::Int32Value;
-use mozjs::rust::{JSEngine, Runtime};
 
 use ion::conversions::ConversionBehavior;
 use ion::conversions::{FromValue, ToValue};
-use ion::object::default_new_global;
+use ion::utils::test::TestRuntime;
 use ion::{Array, Context, Date, Object, Promise, Value};
 
 #[test]
 fn from_value() {
-	let engine = JSEngine::init().unwrap();
-	let runtime = Runtime::new(engine.handle());
-
-	let cx = &Context::from_runtime(&runtime);
-	let global = default_new_global(cx);
-	let _realm = JSAutoRealm::new(runtime.cx(), global.handle().get());
+	let rt = TestRuntime::new();
+	let cx = &rt.cx;
 
 	test_booleans(cx);
 	test_integers(cx);

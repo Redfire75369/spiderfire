@@ -116,3 +116,30 @@ impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
 		unsafe { slice::from_raw_parts(self.elements.as_ptr().cast::<T>(), self.len()).iter() }
 	}
 }
+
+pub mod test {
+	use mozjs::jsapi::JSAutoRealm;
+	use mozjs::rust::{JSEngine, Runtime};
+
+	use crate::{default_new_global, Context};
+
+	pub struct TestRuntime {
+		pub realm: JSAutoRealm,
+		pub cx: Context,
+		pub runtime: Runtime,
+		pub engine: JSEngine,
+	}
+
+	impl TestRuntime {
+		pub fn new() -> TestRuntime {
+			let engine = JSEngine::init().unwrap();
+			let runtime = Runtime::new(engine.handle());
+
+			let cx = Context::from_runtime(&runtime);
+			let global = default_new_global(&cx);
+			let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
+
+			TestRuntime { realm, cx, runtime, engine }
+		}
+	}
+}

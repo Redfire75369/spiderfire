@@ -37,3 +37,4 @@ debugmozjs = ["ion/debugmozjs"]
 
 [lib]
 doctest = false
+test = false

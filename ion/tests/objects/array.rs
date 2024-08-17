@@ -1,19 +1,12 @@
-use mozjs::jsapi::JSAutoRealm;
-use mozjs::rust::{JSEngine, Runtime};
-
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
-use ion::object::default_new_global;
-use ion::{Array, Context, Value};
+use ion::{Array, Value};
+use ion::utils::test::TestRuntime;
 
 #[test]
 fn array() {
-	let engine = JSEngine::init().unwrap();
-	let runtime = Runtime::new(engine.handle());
-
-	let cx = &Context::from_runtime(&runtime);
-	let global = default_new_global(cx);
-	let _realm = JSAutoRealm::new(runtime.cx(), global.handle().get());
+	let rt = TestRuntime::new();
+	let cx = &rt.cx;
 
 	let array = Array::new(cx);
 	array.set(cx, 0, &Value::null(cx));

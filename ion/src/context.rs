@@ -26,6 +26,7 @@ use crate::module::ModuleLoader;
 use crate::Local;
 
 /// Represents Types that can be Rooted in SpiderMonkey
+#[derive(Clone, Copy, Debug)]
 pub enum GCType {
 	Value,
 	Object,

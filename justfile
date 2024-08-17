@@ -16,10 +16,10 @@ run-release *args:
   cargo run --release {{args}}
 
 test *args:
-  cargo test --features debugmozjs --locked --no-fail-fast {{args}}
+  cargo nextest run --features debugmozjs --locked {{args}}
 
 test-release *args:
-  cargo test --release --locked --no-fail-fast {{args}}
+  cargo nextest run  --release --locked {{args}}
 
 lint:
   cargo fmt --check --all

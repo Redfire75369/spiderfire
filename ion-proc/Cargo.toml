@@ -21,5 +21,6 @@ workspace = true
 
 [lib]
 proc-macro = true
-test = false
+
 doctest = false
+test = false

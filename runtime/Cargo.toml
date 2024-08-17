@@ -124,5 +124,5 @@ tokio-promise = ["tokio/rt"]
 workspace = true
 
 [lib]
-test = false
 doctest = false
+test = false

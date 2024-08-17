@@ -74,17 +74,19 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows'
         run: |
-          just build-release -v --target $env:TARGET
+          just build-release -v --locked --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
 
       - name: Build POSIX
         if: matrix.os == 'macos' || matrix.os == 'linux'
         run: |
-          just build-release -v --target $TARGET
+          just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Run Tests
         if: matrix.job == 'test'
+        env:
+          NEXTEST_PROFILE: ci
         shell: bash
         run: just test-release -v --target $TARGET
 

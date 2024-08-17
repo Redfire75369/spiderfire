@@ -33,5 +33,5 @@ features = ["macros", "rt"]
 debugmozjs = ["ion/debugmozjs"]
 
 [lib]
-test = false
 doctest = false
+test = false

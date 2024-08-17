@@ -6,7 +6,7 @@ env:
   SHELL: /bin/bash
   CARGO_TERM_COLOR: never
   SCCACHE_GHA_ENABLED: "true"
-  
+
   CC: clang
   CXX: clang++
   CCACHE: sccache
@@ -68,13 +68,13 @@ jobs:
           CPPFLAGS: /clang:-flto
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
         run: |
-          just build-release -v --target $env:TARGET
+          just build-release -v --locked --target $env:TARGET
           Rename-Item -Path .\target\$env:TARGET\release\cli.exe -NewName spiderfire.exe
 
       - name: Build MacOS
         if: matrix.os == 'macos'
         run: |
-          just build-release -v --target $TARGET
+          just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Build Linux
@@ -87,7 +87,7 @@ jobs:
           LDFLAGS: -fuse-ld=lld
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld
         run: |
-          just build-release -v --target $TARGET
+          just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
 
       - name: Upload Executables as Artifacts

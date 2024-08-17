@@ -1,20 +1,16 @@
-use mozjs::jsapi::{JSAutoRealm, JSContext};
+use mozjs::jsapi::JSContext;
 use mozjs::jsval::JSVal;
-use mozjs::rust::{JSEngine, Runtime};
 
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
-use ion::object::default_new_global;
+use ion::utils::test::TestRuntime;
 use ion::{Arguments, Context, Function, Object, Value};
 
 #[test]
 fn test() {
-	let engine = JSEngine::init().unwrap();
-	let runtime = Runtime::new(engine.handle());
-
-	let cx = &Context::from_runtime(&runtime);
-	let global = default_new_global(cx);
-	let _realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
+	let rt = TestRuntime::new();
+	let cx = &rt.cx;
+	let global = Object::global(cx);
 
 	let _native = global.define_method(cx, "native", native, 1, PropertyFlags::all());
 	let native: Function = global.get_as(cx, "native", true, ()).unwrap().unwrap();
