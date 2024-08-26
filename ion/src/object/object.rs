@@ -446,33 +446,104 @@ impl FusedIterator for ObjectIter<'_, '_> {}
 
 #[cfg(test)]
 mod tests {
-	use crate::flags::PropertyFlags;
+	use crate::flags::{IteratorFlags, PropertyFlags};
 	use crate::utils::test::TestRuntime;
-	use crate::{Object, OwnedKey, Value};
+	use crate::{Context, Object, OwnedKey, Value};
+
+	type Property = (&'static str, i32);
+
+	const SET: Property = ("set_key", 0);
+	const DEFINE: Property = ("def_key", 1);
+	const ENUMERABLE: Property = ("enum_key", 2);
+
+	const ENUMERABLE_PROPERTIES: [Property; 2] = [SET, ENUMERABLE];
+	const PROPERTIES: [Property; 3] = [SET, DEFINE, ENUMERABLE];
+
+	fn create_object(cx: &Context) -> Object {
+		let object = Object::new(cx);
+
+		assert!(object.set(cx, SET.0, &Value::i32(cx, SET.1)));
+		assert!(object.define(cx, DEFINE.0, &Value::i32(cx, DEFINE.1), PropertyFlags::CONSTANT));
+		assert!(object.define(cx, ENUMERABLE.0, &Value::i32(cx, ENUMERABLE.1), PropertyFlags::all()));
+
+		object
+	}
 
 	#[test]
-	fn object() {
+	fn global() {
 		let rt = TestRuntime::new();
 		let cx = &rt.cx;
 
-		let object = Object::new(cx);
-		object.set(cx, "key1", &Value::null(cx));
-		object.define(cx, "key2", &Value::undefined_handle(), PropertyFlags::all());
+		let global = Object::global(cx);
+		assert_eq!(rt.global, global.handle().get());
+	}
 
-		let value1 = object.get(cx, "key1").unwrap().unwrap();
-		let value2 = object.get(cx, "key2").unwrap().unwrap();
-		assert!(value1.handle().is_null());
-		assert!(value2.handle().is_undefined());
+	#[test]
+	fn property() {
+		let rt = TestRuntime::new();
+		let cx = &rt.cx;
 
-		let keys = object.keys(cx, None);
-		for (i, key) in keys.enumerate() {
-			let expected = format!("key{}", i + 1);
-			assert_eq!(key.to_owned_key(cx).unwrap(), OwnedKey::String(expected));
+		let object = create_object(cx);
+
+		assert!(object.has(cx, SET.0));
+		assert!(object.has_own(cx, DEFINE.0));
+
+		let value = object.get(cx, SET.0).unwrap().unwrap();
+		assert_eq!(SET.1, value.handle().to_int32());
+
+		let descriptor = object.get_descriptor(cx, SET.0).unwrap().unwrap();
+		assert!(descriptor.is_configurable());
+		assert!(descriptor.is_enumerable());
+		assert!(descriptor.is_writable());
+		assert!(!descriptor.is_resolving());
+		assert_eq!(SET.1, descriptor.value(cx).unwrap().handle().to_int32());
+
+		let value = object.get(cx, DEFINE.0).unwrap().unwrap();
+		assert_eq!(DEFINE.1, value.handle().to_int32());
+
+		let descriptor = object.get_descriptor(cx, DEFINE.0).unwrap().unwrap();
+		assert!(!descriptor.is_configurable());
+		assert!(!descriptor.is_enumerable());
+		assert!(!descriptor.is_writable());
+		assert!(!descriptor.is_resolving());
+		assert_eq!(DEFINE.1, descriptor.value(cx).unwrap().handle().to_int32());
+
+		assert!(object.delete(cx, SET.0));
+		assert!(object.delete(cx, DEFINE.0));
+		assert!(object.get(cx, SET.0).unwrap().is_none());
+		assert!(object.get(cx, DEFINE.0).unwrap().is_some());
+	}
+
+	#[test]
+	fn iterator() {
+		let rt = TestRuntime::new();
+		let cx = &rt.cx;
+
+		let object = create_object(cx);
+
+		let properties = [
+			(ENUMERABLE_PROPERTIES.as_slice(), None),
+			(
+				PROPERTIES.as_slice(),
+				Some(IteratorFlags::OWN_ONLY | IteratorFlags::HIDDEN),
+			),
+		];
+
+		for (properties, flags) in properties {
+			for (i, key) in object.keys(cx, flags).enumerate() {
+				assert_eq!(
+					OwnedKey::String(String::from(properties[i].0)),
+					key.to_owned_key(cx).unwrap()
+				);
+			}
+
+			for (i, (key, value)) in object.iter(cx, flags).enumerate() {
+				assert_eq!(
+					OwnedKey::String(String::from(properties[i].0)),
+					key.to_owned_key(cx).unwrap()
+				);
+				assert_eq!(properties[i].1, value.unwrap().handle().to_int32());
+			}
 		}
-
-		assert!(object.delete(cx, "key1"));
-		assert!(object.delete(cx, "key2"));
-		assert!(object.get(cx, "key1").unwrap().is_none());
-		assert!(object.get(cx, "key2").unwrap().is_some());
 	}
 }

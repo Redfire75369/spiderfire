@@ -118,13 +118,14 @@ impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
 }
 
 pub mod test {
-	use mozjs::jsapi::JSAutoRealm;
+	use mozjs::jsapi::{JSAutoRealm, JSObject};
 	use mozjs::rust::{JSEngine, Runtime};
 
 	use crate::{default_new_global, Context};
 
 	pub struct TestRuntime {
 		pub realm: JSAutoRealm,
+		pub global: *mut JSObject,
 		pub cx: Context,
 		pub runtime: Runtime,
 		pub engine: JSEngine,
@@ -139,7 +140,19 @@ pub mod test {
 			let global = default_new_global(&cx);
 			let realm = JSAutoRealm::new(cx.as_ptr(), global.handle().get());
 
-			TestRuntime { realm, cx, runtime, engine }
+			TestRuntime {
+				realm,
+				global: global.handle().get(),
+				cx,
+				runtime,
+				engine,
+			}
+		}
+	}
+
+	impl Default for TestRuntime {
+		fn default() -> TestRuntime {
+			TestRuntime::new()
 		}
 	}
 }
