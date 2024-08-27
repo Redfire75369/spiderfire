@@ -48,6 +48,9 @@ runs:
     - name: Install Just
       uses: taiki-e/install-action@just
 
+    - name: Install Nextest
+      uses: taiki-e/install-action@nextest
+
     - name: Setup sccache
       uses: mozilla-actions/sccache-action@v0.0.5
 
