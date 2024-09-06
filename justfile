@@ -9,6 +9,18 @@ build *args:
 build-release *args:
   cargo build --release {{args}}
 
+check *args:
+  cargo check --features debugmozjs {{args}}
+
+check-release *args:
+  cargo check --release {{args}}
+  
+clippy *args:
+  cargo clippy --features debugmozjs {{args}}
+
+clippy-release *args:
+  cargo clippy --release {{args}}
+  
 run *args:
   cargo run --features debugmozjs {{args}}
 
