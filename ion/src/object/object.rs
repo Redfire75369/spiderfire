@@ -302,7 +302,7 @@ impl<'o> Object<'o> {
 	where
 		'o: 'cx,
 	{
-		ObjectIter::new(cx, self, self.keys(cx, flags))
+		ObjectIter::new(self, self.keys(cx, flags))
 	}
 
 	pub fn to_hashmap<'cx>(
@@ -360,6 +360,10 @@ impl<'cx> ObjectKeysIter<'cx> {
 			count,
 		}
 	}
+
+	pub fn into_owned(self) -> ObjectOwnedKeysIter<'cx> {
+		ObjectOwnedKeysIter { iter: self }
+	}
 }
 
 impl<'cx> Iterator for ObjectKeysIter<'cx> {
@@ -400,15 +404,44 @@ impl ExactSizeIterator for ObjectKeysIter<'_> {
 
 impl FusedIterator for ObjectKeysIter<'_> {}
 
+pub struct ObjectOwnedKeysIter<'cx> {
+	iter: ObjectKeysIter<'cx>,
+}
+
+impl<'cx> Iterator for ObjectOwnedKeysIter<'cx> {
+	type Item = Result<OwnedKey<'cx>>;
+
+	fn next(&mut self) -> Option<Result<OwnedKey<'cx>>> {
+		self.iter.next().map(|key| key.to_owned_key(self.iter.cx))
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.iter.size_hint()
+	}
+}
+
+impl<'cx> DoubleEndedIterator for ObjectOwnedKeysIter<'cx> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		self.iter.next_back().map(|key| key.to_owned_key(self.iter.cx))
+	}
+}
+
+impl ExactSizeIterator for ObjectOwnedKeysIter<'_> {
+	fn len(&self) -> usize {
+		self.iter.len()
+	}
+}
+
+impl FusedIterator for ObjectOwnedKeysIter<'_> {}
+
 pub struct ObjectIter<'cx, 'o> {
-	cx: &'cx Context,
 	object: &'o Object<'cx>,
 	keys: ObjectKeysIter<'cx>,
 }
 
 impl<'cx, 'o> ObjectIter<'cx, 'o> {
-	fn new(cx: &'cx Context, object: &'o Object<'cx>, keys: ObjectKeysIter<'cx>) -> ObjectIter<'cx, 'o> {
-		ObjectIter { cx, object, keys }
+	fn new(object: &'o Object<'cx>, keys: ObjectKeysIter<'cx>) -> ObjectIter<'cx, 'o> {
+		ObjectIter { object, keys }
 	}
 }
 
@@ -417,7 +450,7 @@ impl<'cx> Iterator for ObjectIter<'cx, '_> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.keys.next().map(|key| {
-			let value = self.object.get(self.cx, &key).transpose().unwrap();
+			let value = self.object.get(self.keys.cx, &key).transpose().unwrap();
 			(key, value)
 		})
 	}
@@ -430,7 +463,7 @@ impl<'cx> Iterator for ObjectIter<'cx, '_> {
 impl DoubleEndedIterator for ObjectIter<'_, '_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.keys.next_back().map(|key| {
-			let value = self.object.get(self.cx, &key).transpose().unwrap();
+			let value = self.object.get(self.keys.cx, &key).transpose().unwrap();
 			(key, value)
 		})
 	}
@@ -448,7 +481,9 @@ impl FusedIterator for ObjectIter<'_, '_> {}
 mod tests {
 	use crate::flags::{IteratorFlags, PropertyFlags};
 	use crate::utils::test::TestRuntime;
-	use crate::{Context, Object, OwnedKey, Value};
+	use crate::{Context, Object, OwnedKey, Symbol, Value};
+	use crate::conversions::FromValue;
+	use crate::symbol::WellKnownSymbolCode;
 
 	type Property = (&'static str, i32);
 
@@ -465,6 +500,16 @@ mod tests {
 		assert!(object.set(cx, SET.0, &Value::i32(cx, SET.1)));
 		assert!(object.define(cx, DEFINE.0, &Value::i32(cx, DEFINE.1), PropertyFlags::CONSTANT));
 		assert!(object.define(cx, ENUMERABLE.0, &Value::i32(cx, ENUMERABLE.1), PropertyFlags::all()));
+
+		object
+	}
+
+	fn create_mixed_object(cx: &Context) -> Object {
+		let object = Object::new(cx);
+
+		assert!(object.set(cx, 16, &Value::i32(cx, 16)));
+		assert!(object.set(cx, SET.0, &Value::i32(cx, SET.1)));
+		assert!(object.set(cx, WellKnownSymbolCode::ToStringTag, &Value::string(cx, "Mixed")));
 
 		object
 	}
@@ -530,11 +575,8 @@ mod tests {
 		];
 
 		for (properties, flags) in properties {
-			for (i, key) in object.keys(cx, flags).enumerate() {
-				assert_eq!(
-					OwnedKey::String(String::from(properties[i].0)),
-					key.to_owned_key(cx).unwrap()
-				);
+			for (i, key) in object.keys(cx, flags).into_owned().enumerate() {
+				assert_eq!(OwnedKey::String(String::from(properties[i].0)), key.unwrap());
 			}
 
 			for (i, (key, value)) in object.iter(cx, flags).enumerate() {
@@ -545,5 +587,33 @@ mod tests {
 				assert_eq!(properties[i].1, value.unwrap().handle().to_int32());
 			}
 		}
+	}
+
+	#[test]
+	fn mixed_iterator() {
+		let rt = TestRuntime::new();
+		let cx = &rt.cx;
+
+		let object = create_mixed_object(cx);
+		let flags = Some(IteratorFlags::SYMBOLS);
+
+		let mut keys = object.keys(cx, flags).into_owned();
+		assert_eq!(OwnedKey::Int(16), keys.next().unwrap().unwrap());
+		assert_eq!(OwnedKey::String(String::from(SET.0)), keys.next().unwrap().unwrap());
+		assert_eq!(
+			OwnedKey::Symbol(Symbol::well_known(cx, WellKnownSymbolCode::ToStringTag)),
+			keys.next().unwrap().unwrap()
+		);
+
+		let mut values = object.iter(cx, flags);
+		assert_eq!(16, values.next().unwrap().1.unwrap().handle().to_int32());
+		assert_eq!(SET.1, values.next().unwrap().1.unwrap().handle().to_int32());
+		assert_eq!(
+			"Mixed",
+			crate::String::from_value(cx, &values.next().unwrap().1.unwrap(), true, ())
+				.unwrap()
+				.to_owned(cx)
+				.unwrap()
+		);
 	}
 }
