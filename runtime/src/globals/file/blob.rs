@@ -30,6 +30,10 @@ impl BufferSource<'_> {
 		unsafe { self.as_slice().len() }
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
 	pub fn is_shared(&self) -> bool {
 		match self {
 			BufferSource::Buffer(buffer) => buffer.is_shared(),
