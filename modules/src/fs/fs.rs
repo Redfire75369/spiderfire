@@ -28,7 +28,7 @@ fn read_dir_error(path: &str, err: io::Error) -> Error {
 }
 
 #[js_fn]
-fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
+fn read_binary(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -40,7 +40,7 @@ fn readBinary(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn readBinarySync(path_str: String) -> Result<Uint8ArrayWrapper> {
+fn read_binary_sync(path_str: String) -> Result<Uint8ArrayWrapper> {
 	let path = Path::new(&path_str);
 
 	match fs::read(path) {
@@ -50,7 +50,7 @@ fn readBinarySync(path_str: String) -> Result<Uint8ArrayWrapper> {
 }
 
 #[js_fn]
-fn readString(cx: &Context, path_str: String) -> Option<Promise> {
+fn read_string(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -59,14 +59,14 @@ fn readString(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn readStringSync(path_str: String) -> Result<String> {
+fn read_string_sync(path_str: String) -> Result<String> {
 	let path = Path::new(&path_str);
 
 	fs::read_to_string(path).map_err(|err| read_file_error(&path_str, err))
 }
 
 #[js_fn]
-fn readDir(cx: &Context, path_str: String) -> Option<Promise> {
+fn read_dir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -87,7 +87,7 @@ fn readDir(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn readDirSync(path_str: String) -> Result<Vec<String>> {
+fn read_dir_sync(path_str: String) -> Result<Vec<String>> {
 	let path = Path::new(&path_str);
 
 	match fs::read_dir(path) {
@@ -124,7 +124,7 @@ fn write_sync(path_str: String, #[ion(convert = false)] contents: BufferSource) 
 }
 
 #[js_fn]
-fn createDir(cx: &Context, path_str: String) -> Option<Promise> {
+fn create_dir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -133,14 +133,14 @@ fn createDir(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn createDirSync(path_str: String) -> bool {
+fn create_dir_sync(path_str: String) -> bool {
 	let path = Path::new(&path_str);
 
 	fs::create_dir(path).is_ok()
 }
 
 #[js_fn]
-fn createDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
+fn create_dir_recursive(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 
@@ -149,14 +149,14 @@ fn createDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn createDirRecursiveSync(path_str: String) -> bool {
+fn create_dir_recursive_sync(path_str: String) -> bool {
 	let path = Path::new(&path_str);
 
 	fs::create_dir_all(path).is_ok()
 }
 
 #[js_fn]
-fn removeFile(cx: &Context, path_str: String) -> Option<Promise> {
+fn remove_file(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 		Ok(tokio::fs::remove_file(path).await.is_ok())
@@ -164,13 +164,13 @@ fn removeFile(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn removeFileSync(path_str: String) -> bool {
+fn remove_file_sync(path_str: String) -> bool {
 	let path = Path::new(&path_str);
 	fs::remove_file(path).is_ok()
 }
 
 #[js_fn]
-fn removeDir(cx: &Context, path_str: String) -> Option<Promise> {
+fn remove_dir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 		Ok(tokio::fs::remove_dir(path).await.is_ok())
@@ -178,13 +178,13 @@ fn removeDir(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn removeDirSync(path_str: String) -> bool {
+fn remove_dir_sync(path_str: String) -> bool {
 	let path = Path::new(&path_str);
 	fs::remove_dir(path).is_ok()
 }
 
 #[js_fn]
-fn removeDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
+fn remove_dir_recursive(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let path = Path::new(&path_str);
 		Ok(tokio::fs::remove_dir_all(path).await.is_ok())
@@ -192,7 +192,7 @@ fn removeDirRecursive(cx: &Context, path_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn removeDirRecursiveSync(path_str: String) -> bool {
+fn remove_dir_recursive_sync(path_str: String) -> bool {
 	let path = Path::new(&path_str);
 	fs::remove_dir_all(path).is_ok()
 }
@@ -208,7 +208,7 @@ fn copy(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn copySync(from_str: String, to_str: String) -> bool {
+fn copy_sync(from_str: String, to_str: String) -> bool {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -226,7 +226,7 @@ fn rename(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 }
 
 #[js_fn]
-fn renameSync(from_str: String, to_str: String) -> bool {
+fn rename_sync(from_str: String, to_str: String) -> bool {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
@@ -234,7 +234,7 @@ fn renameSync(from_str: String, to_str: String) -> bool {
 }
 
 #[js_fn]
-fn softLink(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
+fn soft_link(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);
@@ -257,7 +257,7 @@ fn softLink(cx: &Context, original_str: String, link_str: String) -> Option<Prom
 }
 
 #[js_fn]
-fn softLinkSync(original_str: String, link_str: String) -> bool {
+fn soft_link_sync(original_str: String, link_str: String) -> bool {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -278,7 +278,7 @@ fn softLinkSync(original_str: String, link_str: String) -> bool {
 }
 
 #[js_fn]
-fn hardLink(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
+fn hard_link(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
 	future_to_promise::<_, _, Error>(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);
@@ -288,7 +288,7 @@ fn hardLink(cx: &Context, original_str: String, link_str: String) -> Option<Prom
 }
 
 #[js_fn]
-fn hardLinkSync(original_str: String, link_str: String) -> bool {
+fn hard_link_sync(original_str: String, link_str: String) -> bool {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
@@ -296,36 +296,36 @@ fn hardLinkSync(original_str: String, link_str: String) -> bool {
 }
 
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(readBinarySync, "readBinary", 1),
-	function_spec!(readStringSync, "readString", 1),
-	function_spec!(readDirSync, "readDir", 1),
-	function_spec!(writeSync, "write", 2),
-	function_spec!(createDirSync, "createDir", 1),
-	function_spec!(createDirRecursiveSync, "createDirRecursive", 1),
-	function_spec!(removeFileSync, "removeFile", 1),
-	function_spec!(removeDirSync, "removeDir", 1),
-	function_spec!(removeDirRecursiveSync, "removeDirRecursive", 1),
-	function_spec!(copySync, "copy", 2),
-	function_spec!(renameSync, "rename", 2),
-	function_spec!(softLinkSync, "softLink", 2),
-	function_spec!(hardLinkSync, "hardLink", 2),
+	function_spec!(read_binary_sync, "readBinary", 1),
+	function_spec!(read_string_sync, "readString", 1),
+	function_spec!(read_dir_sync, "readDir", 1),
+	function_spec!(write_sync, "write", 2),
+	function_spec!(create_dir_sync, "createDir", 1),
+	function_spec!(create_dir_recursive_sync, "createDirRecursive", 1),
+	function_spec!(remove_file_sync, "removeFile", 1),
+	function_spec!(remove_dir_sync, "removeDir", 1),
+	function_spec!(remove_dir_recursive_sync, "removeDirRecursive", 1),
+	function_spec!(copy_sync, "copy", 2),
+	function_spec!(rename_sync, "rename", 2),
+	function_spec!(soft_link_sync, "softLink", 2),
+	function_spec!(hard_link_sync, "hardLink", 2),
 	JSFunctionSpec::ZERO,
 ];
 
 const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(readBinary, 1),
-	function_spec!(readString, 1),
-	function_spec!(readDir, 1),
+	function_spec!(read_binary, "readBinary", 1),
+	function_spec!(read_string, "readString", 1),
+	function_spec!(read_dir, "readDir", 1),
 	function_spec!(write, 2),
-	function_spec!(createDir, 1),
-	function_spec!(createDirRecursive, 1),
-	function_spec!(removeFile, 1),
-	function_spec!(removeDir, 1),
-	function_spec!(removeDirRecursive, 1),
+	function_spec!(create_dir, "createDir", 1),
+	function_spec!(create_dir_recursive, "createDirRecursive", 1),
+	function_spec!(remove_file, "removeFile", 1),
+	function_spec!(remove_dir, "removeDir", 1),
+	function_spec!(remove_dir_recursive, "removeDirRecursive", 1),
 	function_spec!(copy, 2),
 	function_spec!(rename, 2),
-	function_spec!(softLink, 2),
-	function_spec!(hardLink, 2),
+	function_spec!(soft_link, "softLink", 2),
+	function_spec!(hard_link, "hardLink", 2),
 	JSFunctionSpec::ZERO,
 ];
 
