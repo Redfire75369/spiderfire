@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use idna::{domain_to_ascii, domain_to_ascii_strict, domain_to_unicode};
+use idna::domain_to_ascii_strict;
 use mozjs::jsapi::JSFunctionSpec;
 
 use ion::function::Opt;
@@ -13,10 +13,10 @@ use runtime::globals::url::{URLSearchParams, URL};
 use runtime::module::NativeModule;
 
 #[js_fn]
-fn domainToASCII(domain: String, Opt(strict): Opt<bool>) -> Result<String> {
+fn domain_to_ascii(domain: String, Opt(strict): Opt<bool>) -> Result<String> {
 	let strict = strict.unwrap_or(false);
 	let domain = if !strict {
-		domain_to_ascii(&domain)
+		idna::domain_to_ascii(&domain)
 	} else {
 		domain_to_ascii_strict(&domain)
 	};
@@ -24,13 +24,13 @@ fn domainToASCII(domain: String, Opt(strict): Opt<bool>) -> Result<String> {
 }
 
 #[js_fn]
-fn domainToUnicode(domain: String) -> String {
-	domain_to_unicode(&domain).0
+fn domain_to_unicode(domain: String) -> String {
+	idna::domain_to_unicode(&domain).0
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(domainToASCII, 0),
-	function_spec!(domainToUnicode, 0),
+	function_spec!(domain_to_ascii, "domainToASCII", 0),
+	function_spec!(domain_to_unicode, "domainToUnicode", 0),
 	JSFunctionSpec::ZERO,
 ];
 

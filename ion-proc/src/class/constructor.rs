@@ -17,7 +17,6 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 	check_abi(&mut constructor)?;
 	set_signature(&mut constructor)?;
 	constructor.attrs.clear();
-	constructor.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 
 	let body = parse_quote!({
 		let cx = &#ion::Context::new_unchecked(cx);

@@ -51,31 +51,31 @@ fn clear_timer(cx: &Context, id: Option<Enforce<u32>>) -> Result<()> {
 }
 
 #[js_fn]
-fn setTimeout(
+fn set_timeout(
 	cx: &Context, callback: Function, Opt(duration): Opt<Clamp<i32>>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, false)
 }
 
 #[js_fn]
-fn setInterval(
+fn set_interval(
 	cx: &Context, callback: Function, Opt(duration): Opt<Clamp<i32>>, Rest(arguments): Rest<JSVal>,
 ) -> Result<u32> {
 	set_timer(cx, callback, duration, arguments, true)
 }
 
 #[js_fn]
-fn clearTimeout(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
+fn clear_timeout(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
 	clear_timer(cx, id)
 }
 
 #[js_fn]
-fn clearInterval(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
+fn clear_interval(cx: &Context, Opt(id): Opt<Enforce<u32>>) -> Result<()> {
 	clear_timer(cx, id)
 }
 
 #[js_fn]
-fn queueMacrotask(cx: &Context, callback: Function) -> Result<()> {
+fn queue_macrotask(cx: &Context, callback: Function) -> Result<()> {
 	let event_loop = unsafe { &mut cx.get_private().event_loop };
 	if let Some(queue) = &mut event_loop.macrotasks {
 		queue.enqueue(Macrotask::User(UserMacrotask::new(callback)), None);
@@ -86,11 +86,11 @@ fn queueMacrotask(cx: &Context, callback: Function) -> Result<()> {
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(setTimeout, 1),
-	function_spec!(setInterval, 1),
-	function_spec!(clearTimeout, 0),
-	function_spec!(clearInterval, 0),
-	function_spec!(queueMacrotask, 1),
+	function_spec!(set_timeout, "setTimeout", 1),
+	function_spec!(set_interval, "setInterval", 1),
+	function_spec!(clear_timeout, "clearTimeout", 0),
+	function_spec!(clear_interval, "clearInterval", 0),
+	function_spec!(queue_macrotask, "queueMacrotask", 1),
 	JSFunctionSpec::ZERO,
 ];
 

@@ -32,7 +32,7 @@ fn join(Rest(segments): Rest<String>) -> String {
 }
 
 #[js_fn]
-fn stripPrefix(path: String, prefix: String) -> Result<String> {
+fn strip_prefix(path: String, prefix: String) -> Result<String> {
 	let path = Path::new(&path);
 
 	if let Ok(path) = path.strip_prefix(&prefix) {
@@ -43,7 +43,7 @@ fn stripPrefix(path: String, prefix: String) -> Result<String> {
 }
 
 #[js_fn]
-fn fileStem(path: String) -> Option<String> {
+fn file_stem(path: String) -> Option<String> {
 	let path = Path::new(&path);
 	path.file_stem().map(|s| String::from(s.to_str().unwrap()))
 }
@@ -55,7 +55,7 @@ fn parent(path: String) -> Option<String> {
 }
 
 #[js_fn]
-fn fileName(path: String) -> Option<String> {
+fn file_name(path: String) -> Option<String> {
 	let path = Path::new(&path);
 	path.file_name().map(|s| String::from(s.to_str().unwrap()))
 }
@@ -67,56 +67,56 @@ fn extension(path: String) -> Option<String> {
 }
 
 #[js_fn]
-fn withFileName(path: String, file_name: String) -> String {
+fn with_file_name(path: String, file_name: String) -> String {
 	let path = Path::new(&path);
 	String::from(path.with_file_name(file_name).to_str().unwrap())
 }
 
 #[js_fn]
-fn withExtension(path: String, extension: String) -> String {
+fn with_externsion(path: String, extension: String) -> String {
 	let path = Path::new(&path);
 	String::from(path.with_extension(extension).to_str().unwrap())
 }
 
 #[js_fn]
-fn isAbsolute(path: String) -> bool {
+fn is_absolute(path: String) -> bool {
 	Path::new(&path).is_absolute()
 }
 
 #[js_fn]
-fn isRelative(path: String) -> bool {
+fn is_relative(path: String) -> bool {
 	Path::new(&path).is_relative()
 }
 
 #[js_fn]
-fn hasRoot(path: String) -> bool {
+fn has_root(path: String) -> bool {
 	Path::new(&path).has_root()
 }
 
 #[js_fn]
-fn startsWith(path: String, prefix: String) -> bool {
+fn starts_with(path: String, prefix: String) -> bool {
 	Path::new(&path).starts_with(prefix)
 }
 
 #[js_fn]
-fn endsWith(path: String, prefix: String) -> bool {
+fn ends_with(path: String, prefix: String) -> bool {
 	Path::new(&path).ends_with(prefix)
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(join, 0),
-	function_spec!(stripPrefix, 2),
-	function_spec!(fileStem, 1),
+	function_spec!(strip_prefix, "stripPrefix", 2),
+	function_spec!(file_stem, "fileStem", 1),
 	function_spec!(parent, 1),
-	function_spec!(fileName, 1),
+	function_spec!(file_name, "fileName", 1),
 	function_spec!(extension, 1),
-	function_spec!(withFileName, 2),
-	function_spec!(withExtension, 2),
-	function_spec!(isAbsolute, 1),
-	function_spec!(isRelative, 1),
-	function_spec!(hasRoot, 1),
-	function_spec!(startsWith, 2),
-	function_spec!(endsWith, 2),
+	function_spec!(with_file_name, "withFileName", 2),
+	function_spec!(with_externsion, "withExtension", 2),
+	function_spec!(is_absolute, "isAbsolute", 1),
+	function_spec!(is_relative, "isRelative", 1),
+	function_spec!(has_root, "hasRoot", 1),
+	function_spec!(starts_with, "startsWith", 2),
+	function_spec!(ends_with, "endsWith", 2),
 	JSFunctionSpec::ZERO,
 ];
 

@@ -25,7 +25,6 @@ pub(crate) fn impl_js_fn(mut function: ItemFn) -> Result<ItemFn> {
 	set_signature(&mut function)?;
 
 	function.attrs.clear();
-	function.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 	function.block = impl_fn_body(ion, &wrapper)?;
 
 	Ok(function)

@@ -218,7 +218,7 @@ fn group(cx: &Context, Rest(values): Rest<Value>) {
 }
 
 #[js_fn]
-fn groupEnd() {
+fn group_end() {
 	INDENTS.set(INDENTS.get().max(1) - 1);
 }
 
@@ -238,7 +238,7 @@ fn count(Opt(label): Opt<String>) {
 }
 
 #[js_fn]
-fn countReset(Opt(label): Opt<String>) {
+fn count_reset(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	COUNT_MAP.with_borrow_mut(|counts| match counts.get_mut(&label) {
 		Some(count) => {
@@ -270,7 +270,7 @@ fn time(Opt(label): Opt<String>) {
 }
 
 #[js_fn]
-fn timeLog(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
+fn time_log(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow(|timers| match timers.get(&label) {
 		Some(start) => {
@@ -292,7 +292,7 @@ fn timeLog(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 }
 
 #[js_fn]
-fn timeEnd(Opt(label): Opt<String>) {
+fn time_end(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow_mut(|timers| match timers.remove(&label) {
 		Some(start_time) => {
@@ -445,12 +445,12 @@ const METHODS: &[JSFunctionSpec] = &[
 	function_spec!(trace, 0),
 	function_spec!(group, 0),
 	function_spec!(group, "groupCollapsed", 0),
-	function_spec!(groupEnd, 0),
+	function_spec!(group_end, "groupEnd", 0),
 	function_spec!(count, 1),
-	function_spec!(countReset, 1),
+	function_spec!(count_reset, "countReset", 1),
 	function_spec!(time, 1),
-	function_spec!(timeLog, 1),
-	function_spec!(timeEnd, 1),
+	function_spec!(time_log, "timeLog", 1),
+	function_spec!(time_end, "timeEnd", 1),
 	function_spec!(table, 1),
 	JSFunctionSpec::ZERO,
 ];

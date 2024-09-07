@@ -70,7 +70,6 @@ where
 		set_signature(&mut method)?;
 
 		method.attrs.clear();
-		method.attrs.push(parse_quote!(#[allow(non_snake_case)]));
 		method.sig.ident = format_ident!("__ion_bindings_method_{}", method.sig.ident);
 		method.block = impl_fn_body(ion, &wrapper)?;
 

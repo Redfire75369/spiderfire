@@ -13,7 +13,7 @@ use crate::event_loop::microtasks::Microtask;
 use crate::ContextExt;
 
 #[js_fn]
-fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
+fn queue_microtask(cx: &Context, callback: Function) -> Result<()> {
 	let event_loop = unsafe { &mut cx.get_private().event_loop };
 	if let Some(queue) = &mut event_loop.microtasks {
 		queue.enqueue(cx, Microtask::User(callback.get()));
@@ -23,7 +23,7 @@ fn queueMicrotask(cx: &Context, callback: Function) -> Result<()> {
 	}
 }
 
-const FUNCTION: JSFunctionSpec = function_spec!(queueMicrotask, 0);
+const FUNCTION: JSFunctionSpec = function_spec!(queue_microtask, "queueMicrotask", 0);
 
 pub fn define(cx: &Context, global: &Object) -> bool {
 	global.define_as(
