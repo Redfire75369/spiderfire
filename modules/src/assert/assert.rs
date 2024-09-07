@@ -63,6 +63,7 @@ pub struct Assert;
 
 impl NativeModule for Assert {
 	const NAME: &'static str = "assert";
+	const VARIABLE_NAME: &'static str = "assert";
 	const SOURCE: &'static str = include_str!("assert.js");
 
 	fn module(cx: &Context) -> Option<Object> {

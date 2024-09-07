@@ -39,6 +39,7 @@ pub struct UrlM;
 
 impl NativeModule for UrlM {
 	const NAME: &'static str = "url";
+	const VARIABLE_NAME: &'static str = "url";
 	const SOURCE: &'static str = include_str!("url.js");
 
 	fn module(cx: &Context) -> Option<Object> {

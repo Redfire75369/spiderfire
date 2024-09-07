@@ -7,7 +7,6 @@
 use std::iter::Iterator;
 use std::path::Path;
 use std::{fs, io, os};
-
 use futures::stream::StreamExt;
 use mozjs::jsapi::JSFunctionSpec;
 use tokio_stream::wrappers::ReadDirStream;
@@ -330,22 +329,43 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 ];
 
 #[derive(Default)]
+pub struct FileSystemSync;
+
+impl NativeModule for FileSystemSync {
+	const NAME: &'static str = "fs/sync";
+	const VARIABLE_NAME: &'static str = "fsSync";
+	const SOURCE: &'static str = include_str!("fs_sync.js");
+
+	fn module(cx: &Context) -> Option<Object> {
+		let fs = Object::new(cx);
+
+		if unsafe { fs.define_methods(cx, SYNC_FUNCTIONS) } {
+			Some(fs)
+		} else {
+			None
+		}
+	}
+}
+
+#[derive(Default)]
 pub struct FileSystem;
 
 impl NativeModule for FileSystem {
 	const NAME: &'static str = "fs";
+	const VARIABLE_NAME: &'static str = "fs";
 	const SOURCE: &'static str = include_str!("fs.js");
 
 	fn module(cx: &Context) -> Option<Object> {
-		let fs = Object::new(cx);
-		let sync = Object::new(cx);
+		FileSystemSync::module(cx).and_then(|sync| {
+			let fs = Object::new(cx);
 
-		if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
-			&& unsafe { sync.define_methods(cx, SYNC_FUNCTIONS) }
-			&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
-		{
-			return Some(fs);
-		}
-		None
+			if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
+				&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
+			{
+				Some(fs)
+			} else {
+				None
+			}
+		})
 	}
 }

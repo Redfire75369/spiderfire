@@ -131,6 +131,7 @@ pub struct PathM;
 
 impl NativeModule for PathM {
 	const NAME: &'static str = "path";
+	const VARIABLE_NAME: &'static str = "path";
 	const SOURCE: &'static str = include_str!("path.js");
 
 	fn module(cx: &Context) -> Option<Object> {

@@ -26,6 +26,7 @@ impl StandardModules for () {
 
 pub trait NativeModule {
 	const NAME: &'static str;
+	const VARIABLE_NAME: &'static str;
 	const SOURCE: &'static str;
 
 	fn module(cx: &Context) -> Option<Object>;
@@ -44,7 +45,7 @@ impl<M: NativeModule> StandardModules for M {
 // TODO: Remove JS Wrapper, Stop Global Scope Pollution, Use CreateEmptyModule and AddModuleExport
 // TODO: Waiting on https://bugzilla.mozilla.org/show_bug.cgi?id=1722802
 pub fn init_module<M: NativeModule>(cx: &Context, global: &Object) -> bool {
-	let internal = format!("______{}Internal______", M::NAME);
+	let internal = format!("______{}Internal______", M::VARIABLE_NAME);
 	let module = M::module(cx);
 
 	if let Some(module) = module {
@@ -63,9 +64,7 @@ pub fn init_module<M: NativeModule>(cx: &Context, global: &Object) -> bool {
 pub fn init_global_module<M: NativeModule>(cx: &Context, global: &Object) -> bool {
 	let module = M::module(cx);
 
-	if let Some(module) = module {
-		global.define_as(cx, M::NAME, &module, PropertyFlags::CONSTANT_ENUMERATED)
-	} else {
-		false
-	}
+	module
+		.map(|module| global.define_as(cx, M::NAME, &module, PropertyFlags::CONSTANT_ENUMERATED))
+		.unwrap_or_default()
 }
