@@ -28,7 +28,7 @@ mod native;
 mod reflect;
 
 /// Stores information about a native class created for JS.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Debug)]
 pub struct ClassInfo {
 	class: &'static NativeClass,
@@ -154,7 +154,6 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	#[allow(clippy::mut_from_ref)]
 	unsafe fn get_mut_private_unchecked<'a>(object: &Object<'a>) -> &'a mut Self {
 		unsafe {
 			let mut value = UndefinedValue();
@@ -163,7 +162,6 @@ pub trait ClassDefinition: NativeObject {
 		}
 	}
 
-	#[allow(clippy::mut_from_ref)]
 	fn get_mut_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a mut Self> {
 		if Self::instance_of(cx, object) || Self::has_instance(cx, object)? {
 			Ok(unsafe { Self::get_mut_private_unchecked(object) })

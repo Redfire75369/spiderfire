@@ -193,7 +193,7 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 	/// Returns a mutable slice to the contents of the [TypedArray].
 	///
 	/// The slice may be invalidated if the underlying [ArrayBuffer] is detached.
-	#[allow(clippy::mut_from_ref)]
+	#[expect(clippy::mut_from_ref)]
 	pub unsafe fn as_mut_slice(&self) -> &mut [T::Element] {
 		let (ptr, len) = self.data();
 		unsafe { slice::from_raw_parts_mut(ptr, len) }
@@ -233,7 +233,7 @@ impl<'bv, T: TypedArrayElement> TypedArray<'bv, T> {
 	}
 
 	/// Checks if an object is an array buffer view.
-	#[allow(clippy::not_unsafe_ptr_arg_deref)]
+	#[expect(clippy::not_unsafe_ptr_arg_deref)]
 	pub fn is_array_buffer_view(object: *mut JSObject) -> bool {
 		unsafe { JS_IsArrayBufferViewObject(object) }
 	}

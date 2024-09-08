@@ -4,11 +4,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use futures::stream::StreamExt;
+use mozjs::jsapi::JSFunctionSpec;
 use std::iter::Iterator;
 use std::path::Path;
 use std::{fs, io, os};
-use futures::stream::StreamExt;
-use mozjs::jsapi::JSFunctionSpec;
 use tokio_stream::wrappers::ReadDirStream;
 
 use ion::flags::PropertyFlags;

@@ -99,7 +99,7 @@ pub struct Module<'m>(pub Object<'m>);
 
 impl<'cx> Module<'cx> {
 	/// Compiles a [Module] with the given source and filename.
-	#[allow(clippy::result_large_err)]
+	#[expect(clippy::result_large_err)]
 	pub fn compile(
 		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
 	) -> Result<Module<'cx>, ModuleError> {
@@ -134,7 +134,7 @@ impl<'cx> Module<'cx> {
 	/// Compiles and evaluates a [Module] with the given source and filename.
 	/// On success, returns the compiled module object and a promise. The promise resolves with the return value of the module.
 	/// The promise is a byproduct of enabling top-level await.
-	#[allow(clippy::result_large_err)]
+	#[expect(clippy::result_large_err)]
 	pub fn compile_and_evaluate(
 		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
 	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {

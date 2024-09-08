@@ -479,11 +479,11 @@ impl FusedIterator for ObjectIter<'_, '_> {}
 
 #[cfg(test)]
 mod tests {
+	use crate::conversions::FromValue;
 	use crate::flags::{IteratorFlags, PropertyFlags};
+	use crate::symbol::WellKnownSymbolCode;
 	use crate::utils::test::TestRuntime;
 	use crate::{Context, Object, OwnedKey, Symbol, Value};
-	use crate::conversions::FromValue;
-	use crate::symbol::WellKnownSymbolCode;
 
 	type Property = (&'static str, i32);
 

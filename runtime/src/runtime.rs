@@ -42,7 +42,7 @@ unsafe impl Traceable for ContextPrivate {
 }
 
 pub trait ContextExt {
-	#[allow(clippy::mut_from_ref)]
+	#[expect(clippy::mut_from_ref)]
 	unsafe fn get_private(&self) -> &mut ContextPrivate;
 }
 
@@ -55,7 +55,7 @@ impl ContextExt for Context {
 pub struct Runtime<'cx> {
 	global: Object<'cx>,
 	cx: &'cx Context,
-	#[allow(dead_code)]
+	#[expect(dead_code)]
 	realm: JSAutoRealm,
 }
 

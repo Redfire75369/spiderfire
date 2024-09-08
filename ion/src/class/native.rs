@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::any::TypeId;
 use std::fmt;
 use std::fmt::{Debug, Formatter, Write};
 use std::marker::PhantomData;
@@ -15,14 +14,20 @@ use crate::utils::ArrayVec;
 
 pub const MAX_PROTO_CHAIN_LENGTH: usize = 8;
 
-pub trait TypeIdWrap: private::Sealed + 'static {
-	fn type_id(&self) -> TypeId;
-}
+pub trait TypeIdWrap: private::Sealed + 'static {}
 
 mod private {
-	pub trait Sealed {}
+	use std::any::TypeId;
 
-	impl<T: 'static> Sealed for super::TypeIdWrapper<T> {}
+	pub trait Sealed: 'static {
+		fn type_id(&self) -> TypeId;
+	}
+
+	impl<T: 'static> Sealed for super::TypeIdWrapper<T> {
+		fn type_id(&self) -> TypeId {
+			TypeId::of::<T>()
+		}
+	}
 }
 
 pub struct TypeIdWrapper<T: 'static> {
@@ -30,17 +35,18 @@ pub struct TypeIdWrapper<T: 'static> {
 }
 
 impl<T: 'static> TypeIdWrapper<T> {
-	#[allow(clippy::new_without_default)]
 	pub const fn new() -> TypeIdWrapper<T> {
 		TypeIdWrapper { _private: PhantomData }
 	}
 }
 
-impl<T: 'static> TypeIdWrap for TypeIdWrapper<T> {
-	fn type_id(&self) -> TypeId {
-		TypeId::of::<T>()
+impl<T: 'static> Default for TypeIdWrapper<T> {
+	fn default() -> TypeIdWrapper<T> {
+		TypeIdWrapper::new()
 	}
 }
+
+impl<T: 'static> TypeIdWrap for TypeIdWrapper<T> {}
 
 unsafe impl<T: 'static> Send for TypeIdWrapper<T> {}
 

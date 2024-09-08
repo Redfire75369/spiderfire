@@ -55,7 +55,6 @@ pub struct Request {
 
 	pub(crate) integrity: String,
 
-	#[allow(dead_code)]
 	pub(crate) unsafe_request: bool,
 	pub(crate) keepalive: bool,
 

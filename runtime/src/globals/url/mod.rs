@@ -140,7 +140,7 @@ impl URL {
 	}
 
 	#[ion(name = "toString", alias = ["toJSON"])]
-	#[allow(clippy::inherent_to_string)]
+	#[expect(clippy::inherent_to_string)]
 	pub fn to_string(&self) -> String {
 		self.url.to_string()
 	}

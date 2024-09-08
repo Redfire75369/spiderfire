@@ -13,17 +13,15 @@ use std::ptr::NonNull;
 
 use mozjs::gc::{GCMethods, Traceable};
 use mozjs::jsapi::{
-	BigInt, JSContext, JSFunction, JSObject, JSScript, JSString, JSTracer, JS_AddExtraGCRootsTracer,
-	JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer, JS_SetContextPrivate, PropertyDescriptor, PropertyKey, Rooted,
-	Symbol,
+	JSContext, JSTracer, JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer,
+	JS_SetContextPrivate, Rooted,
 };
-use mozjs::jsval::JSVal;
 use mozjs::rust::Runtime;
-use typed_arena::Arena;
 
 use crate::class::ClassInfo;
 use crate::module::ModuleLoader;
 use crate::Local;
+use private::RootedArena;
 
 /// Represents Types that can be Rooted in SpiderMonkey
 #[derive(Clone, Copy, Debug)]
@@ -37,20 +35,6 @@ pub enum GCType {
 	Function,
 	BigInt,
 	Symbol,
-}
-
-/// Holds Rooted Values
-#[derive(Default)]
-struct RootedArena {
-	values: Arena<Rooted<JSVal>>,
-	objects: Arena<Rooted<*mut JSObject>>,
-	strings: Arena<Rooted<*mut JSString>>,
-	scripts: Arena<Rooted<*mut JSScript>>,
-	property_keys: Arena<Rooted<PropertyKey>>,
-	property_descriptors: Arena<Rooted<PropertyDescriptor>>,
-	functions: Arena<Rooted<*mut JSFunction>>,
-	big_ints: Arena<Rooted<*mut BigInt>>,
-	symbols: Arena<Rooted<*mut Symbol>>,
 }
 
 pub trait TraceablePrivate: Traceable + Any {
@@ -172,13 +156,27 @@ pub trait Rootable: private::Sealed {}
 impl<T: private::Sealed> Rootable for T {}
 
 mod private {
+	use super::GCType;
 	use mozjs::gc::{GCMethods, RootKind};
 	use mozjs::jsapi::{BigInt, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol};
 	use mozjs::jsval::JSVal;
+	use typed_arena::Arena;
 
-	use super::{GCType, RootedArena};
+	/// Holds Rooted Values
+	#[derive(Default)]
+	pub struct RootedArena {
+		pub values: Arena<Rooted<JSVal>>,
+		pub objects: Arena<Rooted<*mut JSObject>>,
+		pub strings: Arena<Rooted<*mut JSString>>,
+		pub scripts: Arena<Rooted<*mut JSScript>>,
+		pub property_keys: Arena<Rooted<PropertyKey>>,
+		pub property_descriptors: Arena<Rooted<PropertyDescriptor>>,
+		pub functions: Arena<Rooted<*mut JSFunction>>,
+		pub big_ints: Arena<Rooted<*mut BigInt>>,
+		pub symbols: Arena<Rooted<*mut Symbol>>,
+	}
 
-	#[allow(clippy::mut_from_ref, private_interfaces)]
+	#[expect(clippy::mut_from_ref)]
 	pub trait Sealed: RootKind + GCMethods + Copy + Sized {
 		const GC_TYPE: GCType;
 
@@ -188,7 +186,6 @@ mod private {
 	macro_rules! impl_rootable {
 		($(($value:ty, $key:ident, $gc_type:ident)$(,)?)*) => {
 			$(
-				#[allow(clippy::mut_from_ref, private_interfaces)]
 				impl Sealed for $value {
 					const GC_TYPE: GCType = GCType::$gc_type;
 

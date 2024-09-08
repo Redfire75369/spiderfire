@@ -59,7 +59,6 @@ pub struct ArrayVec<const CAP: usize, T: Copy> {
 }
 
 impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
-	#[allow(clippy::new_without_default)]
 	pub const fn new() -> ArrayVec<CAP, T> {
 		ArrayVec {
 			elements: unsafe { MaybeUninit::uninit().assume_init() },
@@ -114,6 +113,12 @@ impl<const CAP: usize, T: Copy> ArrayVec<CAP, T> {
 
 	pub fn iter(&self) -> Iter<'_, T> {
 		unsafe { slice::from_raw_parts(self.elements.as_ptr().cast::<T>(), self.len()).iter() }
+	}
+}
+
+impl<const CAP: usize, T: Copy> Default for ArrayVec<CAP, T> {
+	fn default() -> ArrayVec<CAP, T> {
+		ArrayVec::new()
 	}
 }
 

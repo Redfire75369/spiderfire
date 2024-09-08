@@ -168,7 +168,7 @@ impl URLSearchParams {
 	}
 
 	#[ion(name = "toString")]
-	#[allow(clippy::inherent_to_string)]
+	#[expect(clippy::inherent_to_string)]
 	pub fn to_string(&self) -> String {
 		Serializer::new(String::new()).extend_pairs(&*self.pairs).finish()
 	}

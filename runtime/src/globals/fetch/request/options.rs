@@ -20,7 +20,7 @@ use crate::globals::fetch::header::HeadersInit;
 
 #[derive(Clone, Default, Debug, Traceable)]
 pub enum Referrer {
-	#[allow(clippy::enum_variant_names)]
+	#[expect(clippy::enum_variant_names)]
 	NoReferrer,
 	#[default]
 	Client,
@@ -134,7 +134,7 @@ pub enum RequestMode {
 	#[default]
 	NoCors,
 	Navigate,
-	#[allow(dead_code)]
+	#[expect(dead_code)]
 	Websocket,
 }
 
@@ -400,9 +400,9 @@ pub struct RequestInit<'cx> {
 	pub(crate) keepalive: Option<bool>,
 	pub(crate) signal: Option<*mut JSObject>,
 
-	#[allow(dead_code)]
+	#[expect(dead_code)]
 	pub(crate) duplex: Option<RequestDuplex>,
-	#[allow(dead_code)]
+	#[expect(dead_code)]
 	#[ion(default)]
 	priority: Option<RequestPriority>,
 	pub(crate) window: Option<JSVal>,

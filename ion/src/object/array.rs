@@ -79,13 +79,17 @@ impl<'a> Array<'a> {
 	}
 
 	/// Returns the length of the [Array].
-	#[allow(clippy::len_without_is_empty)]
 	pub fn len(&self, cx: &Context) -> u32 {
 		let mut length = 0;
 		unsafe {
 			GetArrayLength(cx.as_ptr(), self.handle().into(), &mut length);
 		}
 		length
+	}
+
+	/// Returns if the [Array] is empty.
+	pub fn is_empty(&self, cx: &Context) -> bool {
+		self.len(cx) == 0
 	}
 
 	/// Checks if the [Array] has a value at the given index.
@@ -266,9 +270,9 @@ impl FusedIterator for ArrayIter<'_, '_> {}
 
 #[cfg(test)]
 mod tests {
-	use crate::{Array, Value};
 	use crate::flags::PropertyFlags;
 	use crate::utils::test::TestRuntime;
+	use crate::{Array, Value};
 
 	#[test]
 	fn array() {

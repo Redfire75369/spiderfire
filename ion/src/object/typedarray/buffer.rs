@@ -111,7 +111,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	/// Returns a mutable slice to the contents of the [ArrayBuffer].
 	///
 	/// The slice may be invalidated if the [ArrayBuffer] is detached.
-	#[allow(clippy::mut_from_ref)]
+	#[expect(clippy::mut_from_ref)]
 	pub unsafe fn as_mut_slice(&self) -> &mut [u8] {
 		let (ptr, len, _) = self.data();
 		unsafe { slice::from_raw_parts_mut(ptr, len) }
@@ -170,7 +170,7 @@ impl<'ab> ArrayBuffer<'ab> {
 	}
 
 	/// Checks if an object is an array buffer.
-	#[allow(clippy::not_unsafe_ptr_arg_deref)]
+	#[expect(clippy::not_unsafe_ptr_arg_deref)]
 	pub fn is_array_buffer(object: *mut JSObject) -> bool {
 		unsafe { IsArrayBufferObjectMaybeShared(object) }
 	}
