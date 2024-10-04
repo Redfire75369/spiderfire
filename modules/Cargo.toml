@@ -25,6 +25,10 @@ features = ["fs"]
 workspace = true
 features = ["fs"]
 
+[dependencies.windows]
+workspace = true
+features = ["Win32_Storage_FileSystem"]
+
 [dev-dependencies.tokio]
 workspace = true
 features = ["macros", "rt"]

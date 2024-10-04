@@ -4,69 +4,292 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::cell::RefCell;
+use std::fs::File;
+use std::future::Future;
+use std::io::{Read, Write};
 use std::iter::Iterator;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
 use std::path::Path;
-use std::{fs, io, os};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::{fs, io, os, result};
 
 use futures::stream::StreamExt;
+use ion::class::{ClassObjectWrapper, Reflector};
 use ion::flags::PropertyFlags;
+use ion::function::Opt;
 use ion::typedarray::Uint8ArrayWrapper;
-use ion::{Context, Error, Object, Promise, Result};
+use ion::{ClassDefinition, Context, Error, Object, Promise, Result};
 use mozjs::jsapi::JSFunctionSpec;
 use runtime::globals::file::BufferSource;
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
+use tokio::task::spawn_blocking;
 use tokio_stream::wrappers::ReadDirStream;
+#[cfg(windows)]
+use windows::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_DIRECTORY, FILE_FLAGS_AND_ATTRIBUTES};
 
-fn read_file_error(path: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not read file: {}\n{}", path, err), None)
+#[derive(Copy, Clone, Debug, FromValue)]
+struct OpenOptions {
+	#[ion(default = true)]
+	read: bool,
+	#[ion(default)]
+	write: bool,
+	#[ion(default)]
+	append: bool,
+	#[ion(default)]
+	truncate: bool,
+	#[ion(default)]
+	create: bool,
+	#[ion(name = "createNew", default)]
+	create_new: bool,
+}
+
+impl OpenOptions {
+	fn into_std(self) -> fs::OpenOptions {
+		let mut options = fs::OpenOptions::new();
+
+		options
+			.read(self.read)
+			.write(self.write)
+			.append(self.append)
+			.truncate(self.truncate)
+			.create(self.create)
+			.create_new(self.create_new);
+
+		options
+	}
+
+	fn into_tokio(self) -> tokio::fs::OpenOptions {
+		let options = self.into_std();
+		tokio::fs::OpenOptions::from(options)
+	}
+}
+
+impl Default for OpenOptions {
+	fn default() -> OpenOptions {
+		OpenOptions {
+			read: true,
+			write: false,
+			append: false,
+			truncate: false,
+			create: false,
+			create_new: false,
+		}
+	}
+}
+
+fn open_error(path: &str, err: io::Error) -> String {
+	format!("Could not open file: {}\n{}", path, err)
+}
+
+#[js_fn]
+fn open(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> Option<Promise> {
+	future_to_promise(cx, async move {
+		let path = Path::new(&path_str);
+		let options = options.unwrap_or_default().into_tokio();
+
+		match options.open(path).await {
+			Ok(file) => Ok(ClassObjectWrapper(Box::new(FileHandle::new(
+				&path_str,
+				file.into_std().await,
+			)))),
+			Err(err) => Err(open_error(&path_str, err)),
+		}
+	})
+}
+
+#[js_fn]
+fn open_sync(path_str: String, Opt(options): Opt<OpenOptions>) -> Result<ClassObjectWrapper<FileHandle>> {
+	let path = Path::new(&path_str);
+	let options = options.unwrap_or_default().into_std();
+
+	match options.open(path) {
+		Ok(file) => Ok(ClassObjectWrapper(Box::new(FileHandle::new(&path_str, file)))),
+		Err(err) => Err(Error::new(open_error(&path_str, err), None)),
+	}
+}
+
+fn read_file_error(path: &str, err: io::Error) -> String {
+	format!("Could not read file: {}\n{}", path, err)
+}
+
+fn write_file_error(path: &str, err: io::Error) -> String {
+	format!("Could not write to file: {}\n{}", path, err)
+}
+
+#[js_class]
+pub struct FileHandle {
+	reflector: Reflector,
+	#[trace(no_trace)]
+	path: Arc<str>,
+	#[trace(no_trace)]
+	handle: Rc<RefCell<Option<File>>>,
+}
+
+impl FileHandle {
+	fn new(path: &str, file: File) -> FileHandle {
+		FileHandle {
+			reflector: Reflector::new(),
+			path: Arc::from(path),
+			handle: Rc::new(RefCell::new(Some(file))),
+		}
+	}
+
+	fn with_sync<F, T>(&self, callback: F) -> Result<T>
+	where
+		F: FnOnce(&mut File) -> Result<T>,
+	{
+		match &mut *self.handle.borrow_mut() {
+			Some(handle) => callback(handle),
+			None => Err(Error::new("File is busy due to async operation.", None)),
+		}
+	}
+
+	fn with_blocking_task<F, T>(&self, callback: F) -> impl Future<Output = Result<T>>
+	where
+		F: FnOnce(&mut File) -> result::Result<T, String> + Send + 'static,
+		T: Send + 'static,
+	{
+		let handle_cell = Rc::clone(&self.handle);
+
+		let mut taken = false;
+		let mut handle = {
+			let mut handle = handle_cell.borrow_mut();
+			handle.as_mut().unwrap().try_clone().ok().unwrap_or_else(|| {
+				taken = true;
+				handle.take().unwrap()
+			})
+		};
+
+		async move {
+			let (handle, result) = spawn_blocking(move || {
+				let result = callback(&mut handle);
+				(handle, result)
+			})
+			.await
+			.unwrap();
+
+			if taken {
+				handle_cell.borrow_mut().replace(handle);
+			}
+
+			result.map_err(|err| Error::new(err, None))
+		}
+	}
+}
+
+#[js_class]
+impl FileHandle {
+	pub fn read<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		future_to_promise(
+			cx,
+			self.with_blocking_task(move |file| {
+				let mut bytes = Vec::new();
+				match file.read_to_end(&mut bytes) {
+					Ok(_) => Ok(Uint8ArrayWrapper::from(bytes)),
+					Err(err) => Err(read_file_error(&path, err)),
+				}
+			}),
+		)
+	}
+
+	#[ion(name = "readSync")]
+	pub fn read_sync(&self) -> Result<Uint8ArrayWrapper> {
+		self.with_sync(|file| {
+			let mut bytes = Vec::new();
+			match file.read_to_end(&mut bytes) {
+				Ok(_) => Ok(Uint8ArrayWrapper::from(bytes)),
+				Err(err) => Err(Error::new(read_file_error(&self.path, err), None)),
+			}
+		})
+	}
+
+	pub fn read_string<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		future_to_promise(
+			cx,
+			self.with_blocking_task(move |file| {
+				let mut string = String::new();
+				match file.read_to_string(&mut string) {
+					Ok(_) => Ok(string),
+					Err(err) => Err(read_file_error(&path, err)),
+				}
+			}),
+		)
+	}
+
+	#[ion(name = "readStringSync")]
+	pub fn read_string_sync(&self) -> Result<String> {
+		self.with_sync(|file| {
+			let mut string = String::new();
+			match file.read_to_string(&mut string) {
+				Ok(_) => Ok(string),
+				Err(err) => Err(Error::new(read_file_error(&self.path, err), None)),
+			}
+		})
+	}
+
+	pub fn write<'cx>(
+		&self, cx: &'cx Context, #[ion(convert = false)] contents: BufferSource<'cx>,
+	) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		let contents = contents.to_vec();
+		future_to_promise(
+			cx,
+			self.with_blocking_task(move |file| match file.write_all(&contents) {
+				Ok(_) => Ok(()),
+				Err(err) => Err(write_file_error(&path, err)),
+			}),
+		)
+	}
+
+	#[ion(name = "writeSync")]
+	pub fn write_sync(&self, #[ion(convert = false)] contents: BufferSource) -> Result<()> {
+		self.with_sync(|file| {
+			let contents = unsafe { contents.as_slice() };
+			match file.write_all(contents) {
+				Ok(_) => Ok(()),
+				Err(err) => Err(Error::new(write_file_error(&self.path, err), None)),
+			}
+		})
+	}
 }
 
 fn read_dir_error(path: &str, err: io::Error) -> Error {
 	Error::new(format!("Could not read directory: {}\n{}", path, err), None)
 }
 
-#[js_fn]
-fn read_binary(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise(cx, async move {
-		let path = Path::new(&path_str);
-
-		match tokio::fs::read(path).await {
-			Ok(bytes) => Ok(Uint8ArrayWrapper::from(bytes)),
-			Err(err) => Err(read_file_error(&path_str, err)),
-		}
-	})
+fn create_dir_error(path: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not create directory: {}\n{}", path, err), None)
 }
 
-#[js_fn]
-fn read_binary_sync(path_str: String) -> Result<Uint8ArrayWrapper> {
-	let path = Path::new(&path_str);
-
-	match fs::read(path) {
-		Ok(bytes) => Ok(Uint8ArrayWrapper::from(bytes)),
-		Err(err) => Err(read_file_error(&path_str, err)),
-	}
+fn remove_error(path: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not remove: {}\n{}", path, err), None)
 }
 
-#[js_fn]
-fn read_string(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise(cx, async move {
-		let path = Path::new(&path_str);
-
-		tokio::fs::read_to_string(path).await.map_err(|err| read_file_error(&path_str, err))
-	})
+fn copy_error(from: &str, to: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not copy from {} to {}\n{}", from, to, err), None)
 }
 
-#[js_fn]
-fn read_string_sync(path_str: String) -> Result<String> {
-	let path = Path::new(&path_str);
+fn rename_error(from: &str, to: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not rename from {} to {}\n{}", from, to, err), None)
+}
 
-	fs::read_to_string(path).map_err(|err| read_file_error(&path_str, err))
+fn symlink_error(original: &str, link: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not symlink {} to {}\n{}", original, link, err), None)
+}
+
+fn link_error(original: &str, link: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not link {} to {}\n{}", original, link, err), None)
 }
 
 #[js_fn]
 fn read_dir(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 
 		match tokio::fs::read_dir(path).await {
@@ -104,227 +327,228 @@ fn read_dir_sync(path_str: String) -> Result<Vec<String>> {
 }
 
 #[js_fn]
-fn write<'cx>(
-	cx: &'cx Context, path_str: String, #[ion(convert = false)] contents: BufferSource<'cx>,
-) -> Option<Promise<'cx>> {
-	let contents = contents.to_vec();
-	future_to_promise::<_, _, Error>(cx, async move {
+fn create_dir(cx: &Context, path_str: String, Opt(recursive): Opt<bool>) -> Option<Promise> {
+	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
-		Ok(tokio::fs::write(path, contents).await.is_ok())
+		let recursive = recursive.unwrap_or_default();
+
+		let result = if recursive {
+			tokio::fs::create_dir_all(path).await
+		} else {
+			tokio::fs::create_dir(path).await
+		};
+		match result {
+			Ok(_) => Ok(()),
+			Err(err) => Err(create_dir_error(&path_str, err)),
+		}
 	})
 }
 
 #[js_fn]
-fn write_sync(path_str: String, #[ion(convert = false)] contents: BufferSource) -> bool {
+fn create_dir_sync(path_str: String, Opt(recursive): Opt<bool>) -> Result<()> {
 	let path = Path::new(&path_str);
+	let recursive = recursive.unwrap_or_default();
 
-	let contents = unsafe { contents.as_slice() };
-	fs::write(path, contents).is_ok()
+	let result = if recursive {
+		fs::create_dir_all(path)
+	} else {
+		fs::create_dir(path)
+	};
+	match result {
+		Ok(_) => Ok(()),
+		Err(err) => Err(create_dir_error(&path_str, err)),
+	}
 }
 
 #[js_fn]
-fn create_dir(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+fn remove(cx: &Context, path_str: String, Opt(recursive): Opt<bool>) -> Option<Promise> {
+	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
+		let recursive = recursive.unwrap_or_default();
 
-		Ok(tokio::fs::create_dir(path).await.is_ok())
+		let metadata = tokio::fs::symlink_metadata(path).await?;
+		let file_type = metadata.file_type();
+
+		let result = if file_type.is_dir() {
+			if recursive {
+				tokio::fs::remove_dir_all(path).await
+			} else {
+				tokio::fs::remove_dir(path).await
+			}
+		} else {
+			#[cfg(unix)]
+			{
+				tokio::fs::remove_file(path).await
+			}
+
+			#[cfg(windows)]
+			{
+				let attributes = FILE_FLAGS_AND_ATTRIBUTES(metadata.file_attributes());
+				if attributes.contains(FILE_ATTRIBUTE_DIRECTORY) {
+					tokio::fs::remove_dir(path).await
+				} else {
+					tokio::fs::remove_file(path).await
+				}
+			}
+		};
+		result.map_err(|err| remove_error(&path_str, err))
 	})
 }
 
 #[js_fn]
-fn create_dir_sync(path_str: String) -> bool {
+fn remove_sync(path_str: String, Opt(recursive): Opt<bool>) -> Result<()> {
 	let path = Path::new(&path_str);
+	let recursive = recursive.unwrap_or_default();
 
-	fs::create_dir(path).is_ok()
-}
+	let metadata = fs::symlink_metadata(path)?;
+	let file_type = metadata.file_type();
 
-#[js_fn]
-fn create_dir_recursive(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
-		let path = Path::new(&path_str);
+	let result = if file_type.is_dir() {
+		if recursive {
+			fs::remove_dir_all(path)
+		} else {
+			fs::remove_dir(path)
+		}
+	} else {
+		#[cfg(unix)]
+		{
+			fs::remove_file(path)
+		}
 
-		Ok(tokio::fs::create_dir_all(path).await.is_ok())
-	})
-}
-
-#[js_fn]
-fn create_dir_recursive_sync(path_str: String) -> bool {
-	let path = Path::new(&path_str);
-
-	fs::create_dir_all(path).is_ok()
-}
-
-#[js_fn]
-fn remove_file(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
-		let path = Path::new(&path_str);
-		Ok(tokio::fs::remove_file(path).await.is_ok())
-	})
-}
-
-#[js_fn]
-fn remove_file_sync(path_str: String) -> bool {
-	let path = Path::new(&path_str);
-	fs::remove_file(path).is_ok()
-}
-
-#[js_fn]
-fn remove_dir(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
-		let path = Path::new(&path_str);
-		Ok(tokio::fs::remove_dir(path).await.is_ok())
-	})
-}
-
-#[js_fn]
-fn remove_dir_sync(path_str: String) -> bool {
-	let path = Path::new(&path_str);
-	fs::remove_dir(path).is_ok()
-}
-
-#[js_fn]
-fn remove_dir_recursive(cx: &Context, path_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
-		let path = Path::new(&path_str);
-		Ok(tokio::fs::remove_dir_all(path).await.is_ok())
-	})
-}
-
-#[js_fn]
-fn remove_dir_recursive_sync(path_str: String) -> bool {
-	let path = Path::new(&path_str);
-	fs::remove_dir_all(path).is_ok()
+		#[cfg(windows)]
+		{
+			let attributes = FILE_FLAGS_AND_ATTRIBUTES(metadata.file_attributes());
+			if attributes.contains(FILE_ATTRIBUTE_DIRECTORY) {
+				fs::remove_dir(path)
+			} else {
+				fs::remove_file(path)
+			}
+		}
+	};
+	result.map_err(|err| remove_error(&path_str, err))
 }
 
 #[js_fn]
 fn copy(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+	future_to_promise(cx, async move {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
 
-		Ok(tokio::fs::copy(from, to).await.is_ok())
+		tokio::fs::copy(from, to).await.map_err(|err| copy_error(&from_str, &to_str, err))
 	})
 }
 
 #[js_fn]
-fn copy_sync(from_str: String, to_str: String) -> bool {
+fn copy_sync(from_str: String, to_str: String) -> Result<u64> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	fs::copy(from, to).is_ok()
+	fs::copy(from, to).map_err(|err| copy_error(&from_str, &to_str, err))
 }
 
 #[js_fn]
 fn rename(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+	future_to_promise(cx, async move {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
 
-		Ok(tokio::fs::rename(from, to).await.is_ok())
+		tokio::fs::rename(from, to).await.map_err(|err| rename_error(&from_str, &to_str, err))
 	})
 }
 
 #[js_fn]
-fn rename_sync(from_str: String, to_str: String) -> bool {
+fn rename_sync(from_str: String, to_str: String) -> Result<()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	fs::rename(from, to).is_ok()
+	fs::rename(from, to).map_err(|err| rename_error(&from_str, &to_str, err))
 }
 
 #[js_fn]
-fn soft_link(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+fn symlink(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
+	future_to_promise(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);
 
+		let result;
 		#[cfg(target_family = "unix")]
 		{
-			Ok(tokio::fs::symlink(original, link).await.is_ok())
+			result = tokio::fs::symlink(original, link).await;
 		}
 		#[cfg(target_family = "windows")]
 		{
-			if original.is_file() {
-				Ok(tokio::fs::symlink_file(original, link).await.is_ok())
-			} else if original.is_dir() {
-				Ok(tokio::fs::symlink_dir(original, link).await.is_ok())
+			result = if original.is_dir() {
+				tokio::fs::symlink_dir(original, link).await
 			} else {
-				Ok(false)
-			}
+				tokio::fs::symlink_file(original, link).await
+			};
 		}
+		result.map_err(|err| symlink_error(&original_str, &link_str, err))
 	})
 }
 
 #[js_fn]
-fn soft_link_sync(original_str: String, link_str: String) -> bool {
+fn symlink_sync(original_str: String, link_str: String) -> Result<()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
+	let result;
 	#[cfg(target_family = "unix")]
 	{
-		os::unix::fs::symlink(original, link).is_ok()
+		result = os::unix::fs::symlink(original, link)
 	}
 	#[cfg(target_family = "windows")]
 	{
-		if original.is_file() {
-			os::windows::fs::symlink_file(original, link).is_ok()
-		} else if original.is_dir() {
-			os::windows::fs::symlink_dir(original, link).is_ok()
+		result = if original.is_dir() {
+			os::windows::fs::symlink_dir(original, link)
 		} else {
-			false
-		}
+			os::windows::fs::symlink_file(original, link)
+		};
 	}
+	result.map_err(|err| symlink_error(&original_str, &link_str, err))
 }
 
 #[js_fn]
-fn hard_link(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
-	future_to_promise::<_, _, Error>(cx, async move {
+fn link(cx: &Context, original_str: String, link_str: String) -> Option<Promise> {
+	future_to_promise(cx, async move {
 		let original = Path::new(&original_str);
 		let link = Path::new(&link_str);
 
-		Ok(tokio::fs::hard_link(original, link).await.is_ok())
+		tokio::fs::hard_link(original, link)
+			.await
+			.map_err(|err| link_error(&original_str, &link_str, err))
 	})
 }
 
 #[js_fn]
-fn hard_link_sync(original_str: String, link_str: String) -> bool {
+fn link_sync(original_str: String, link_str: String) -> Result<()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	fs::hard_link(original, link).is_ok()
+	fs::hard_link(original, link).map_err(|err| link_error(&original_str, &link_str, err))
 }
 
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(read_binary_sync, "readBinary", 1),
-	function_spec!(read_string_sync, "readString", 1),
+	function_spec!(open_sync, "open", 1),
 	function_spec!(read_dir_sync, "readDir", 1),
-	function_spec!(write_sync, "write", 2),
 	function_spec!(create_dir_sync, "createDir", 1),
-	function_spec!(create_dir_recursive_sync, "createDirRecursive", 1),
-	function_spec!(remove_file_sync, "removeFile", 1),
-	function_spec!(remove_dir_sync, "removeDir", 1),
-	function_spec!(remove_dir_recursive_sync, "removeDirRecursive", 1),
+	function_spec!(remove_sync, "remove", 1),
 	function_spec!(copy_sync, "copy", 2),
 	function_spec!(rename_sync, "rename", 2),
-	function_spec!(soft_link_sync, "softLink", 2),
-	function_spec!(hard_link_sync, "hardLink", 2),
+	function_spec!(symlink_sync, "symlink", 2),
+	function_spec!(link_sync, "link", 2),
 	JSFunctionSpec::ZERO,
 ];
 
 const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(read_binary, "readBinary", 1),
-	function_spec!(read_string, "readString", 1),
+	function_spec!(open, 1),
 	function_spec!(read_dir, "readDir", 1),
-	function_spec!(write, 2),
 	function_spec!(create_dir, "createDir", 1),
-	function_spec!(create_dir_recursive, "createDirRecursive", 1),
-	function_spec!(remove_file, "removeFile", 1),
-	function_spec!(remove_dir, "removeDir", 1),
-	function_spec!(remove_dir_recursive, "removeDirRecursive", 1),
+	function_spec!(remove, "remove", 1),
 	function_spec!(copy, 2),
 	function_spec!(rename, 2),
-	function_spec!(soft_link, "softLink", 2),
-	function_spec!(hard_link, "hardLink", 2),
+	function_spec!(symlink, "symlink", 2),
+	function_spec!(link, "link", 2),
 	JSFunctionSpec::ZERO,
 ];
 
@@ -361,6 +585,7 @@ impl NativeModule for FileSystem {
 
 			if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
 				&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
+				&& FileHandle::init_class(cx, &fs).0
 			{
 				Some(fs)
 			} else {
