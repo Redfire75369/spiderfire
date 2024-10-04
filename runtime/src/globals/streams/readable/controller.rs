@@ -267,11 +267,6 @@ impl CommonController {
 
 #[js_class]
 impl CommonController {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<CommonController> {
-		unreachable!()
-	}
-
 	pub(crate) fn new_from_script(
 		stream: &Object, source_object: Option<&Object>, source: &UnderlyingSource, high_water_mark: f64,
 	) -> CommonController {
@@ -424,14 +419,6 @@ pub struct DefaultController {
 
 #[js_class]
 impl DefaultController {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<DefaultController> {
-		Err(Error::new(
-			"ReadableStreamDefaultController has no constructor.",
-			ErrorKind::Type,
-		))
-	}
-
 	pub(crate) fn initialise(
 		stream: &Object, source_object: Option<&Object>, source: &UnderlyingSource, strategy: &QueueingStrategy,
 		high_water_mark: f64,
@@ -547,14 +534,6 @@ pub struct ByteStreamController {
 
 #[js_class]
 impl ByteStreamController {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<ByteStreamController> {
-		Err(Error::new(
-			"ReadableByteStreamController has no constructor.",
-			ErrorKind::Type,
-		))
-	}
-
 	pub(crate) fn initialise(
 		stream: &Object, source_object: &Object, source: &UnderlyingSource, high_water_mark: f64,
 	) -> Result<ByteStreamController> {
@@ -982,14 +961,6 @@ pub struct ByobRequest {
 
 #[js_class]
 impl ByobRequest {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<ByobRequest> {
-		Err(Error::new(
-			"ReadableStreamBYOBRequest has no constructor.",
-			ErrorKind::Type,
-		))
-	}
-
 	#[ion(get)]
 	pub fn get_view(&self) -> *mut JSObject {
 		self.view.as_ref().map(|view| view.get()).unwrap_or_else(ptr::null_mut)

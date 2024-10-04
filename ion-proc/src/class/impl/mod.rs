@@ -79,16 +79,6 @@ pub(super) fn impl_js_class_impl(r#impl: &mut ItemImpl) -> Result<[ItemImpl; 2]>
 		)],
 	});
 
-	let constructor = match constructor {
-		Some(constructor) => constructor,
-		None => {
-			return Err(Error::new(
-				r#impl.span(),
-				"Native Class Impls must contain a constructor.",
-			));
-		}
-	};
-
 	let ident: Ident = parse2(quote_spanned!(r#type.span() => #r#type))?;
 	class_definition(ion, r#impl.span(), &r#type, &ident, constructor, specs)
 }
@@ -175,10 +165,10 @@ fn parse_class_method(
 }
 
 fn class_definition(
-	ion: &TokenStream, span: Span, r#type: &Type, ident: &Ident, constructor: Method, specs: PrototypeSpecs,
+	ion: &TokenStream, span: Span, r#type: &Type, ident: &Ident, constructor: Option<Method>, specs: PrototypeSpecs,
 ) -> Result<[ItemImpl; 2]> {
 	let (spec_fns, def_fns) = specs.to_impl_fns(ion, span, ident)?;
-	let constructor_function = constructor.method;
+	let constructor_function = constructor.as_ref().map(|c| &c.method);
 	let functions = specs.into_functions().into_iter().map(|method| method.method);
 
 	let mut spec_impls: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
@@ -188,15 +178,20 @@ fn class_definition(
 	}))?;
 	spec_impls.attrs.push(parse_quote!(#[doc(hidden)]));
 
-	let constructor_nargs = u32::from(constructor.nargs);
+	let (constructor_function, constructor_nargs) = constructor.map_or((quote!(::std::option::Option::None), 0), |c| {
+		(
+			quote!(::std::option::Option::Some(Self::__ion_bindings_constructor)),
+			u32::from(c.nargs),
+		)
+	});
 	let class_definition = parse2(quote_spanned!(span => impl #ion::ClassDefinition for #r#type {
 		fn class() -> &'static #ion::class::NativeClass {
 			static __ION_NATIVE_CLASS: &#ion::class::NativeClass = #r#type::__ion_native_class();
 			__ION_NATIVE_CLASS
 		}
 
-		fn constructor() -> (#ion::function::NativeFunction, ::core::primitive::u32) {
-			(Self::__ion_bindings_constructor, #constructor_nargs)
+		fn constructor() -> (::std::option::Option<#ion::function::NativeFunction>, ::core::primitive::u32) {
+			(#constructor_function, #constructor_nargs)
 		}
 
 		#(#def_fns)*

@@ -137,11 +137,6 @@ pub(crate) struct CommonReader {
 
 #[js_class]
 impl CommonReader {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<CommonReader> {
-		unreachable!()
-	}
-
 	pub(crate) fn new(cx: &Context, stream: &ReadableStream, stream_object: &Object) -> CommonReader {
 		let closed = Promise::new(cx);
 		match stream.state {

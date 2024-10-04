@@ -29,11 +29,15 @@ pub(super) fn impl_constructor(ion: &TokenStream, mut constructor: ItemFn, ty: &
 
 		#wrapper
 
-		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
-			if !args.is_constructing() {
-				return ::std::result::Result::Err(#ion::Error::new("Constructor must be called with \"new\".", ::std::option::Option::None).into());
-			}
+		if !args.is_constructing() {
+			let name = unsafe {
+				::std::ffi::CStr::from_ptr(<#ty as #ion::ClassDefinition>::class().base.name).to_str().unwrap()
+			};
+			::mozjs::error::throw_type_error(cx.as_ptr(), &format!("{name} constructor: 'new' is required"));
+			return false;
+		}
 
+		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
 			wrapper(cx, args, &mut this)
 		}));
 

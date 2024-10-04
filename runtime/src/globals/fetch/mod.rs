@@ -17,7 +17,6 @@ use http::header::{
 	IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
-use mozjs::jsapi::JSObject;
 use std::collections::Bound;
 use std::iter::once;
 use std::str;
@@ -32,7 +31,7 @@ use client::Client;
 pub use client::{default_client, GLOBAL_CLIENT};
 pub use header::Headers;
 use header::{remove_all_header_entries, HeadersKind, FORBIDDEN_RESPONSE_HEADERS};
-use ion::class::Reflector;
+use ion::class::{ClassObjectWrapper, Reflector};
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
@@ -102,7 +101,9 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 	})
 }
 
-async fn fetch_internal<'o>(cx: &Context, request: &Object<'o>, client: Client) -> ResultExc<*mut JSObject> {
+async fn fetch_internal<'o>(
+	cx: &Context, request: &Object<'o>, client: Client,
+) -> ResultExc<ClassObjectWrapper<Response>> {
 	let request = Request::get_mut_private(cx, request)?;
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(cx, &signal)?.signal.clone().poll();
@@ -118,7 +119,7 @@ async fn fetch_internal<'o>(cx: &Context, request: &Object<'o>, client: Client) 
 				ErrorKind::Type,
 			)))
 		} else {
-			Ok(Response::new_object(cx, Box::new(response)))
+			Ok(ClassObjectWrapper(Box::new(response)))
 		}
 	})
 }

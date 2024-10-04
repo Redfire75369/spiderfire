@@ -24,7 +24,7 @@ use crate::function::NativeFunction;
 use crate::object::class_reserved_slots;
 use crate::spec::{create_function_spec, create_function_spec_symbol};
 use crate::symbol::WellKnownSymbolCode;
-use crate::{Arguments, ClassDefinition, Context, Error, ErrorKind, Local, Object, ThrowException, Value};
+use crate::{Arguments, ClassDefinition, Context, Local, Object, ThrowException, Value};
 
 pub trait JSIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, private: &Value<'cx>) -> Option<Value<'cx>>;
@@ -83,12 +83,6 @@ impl Iterator {
 }
 
 impl Iterator {
-	unsafe extern "C" fn constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
-		let cx = &unsafe { Context::new_unchecked(cx) };
-		Error::new("Constructor should not be called", ErrorKind::Type).throw(cx);
-		false
-	}
-
 	unsafe extern "C" fn next_raw(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
 		let cx = &unsafe { Context::new_unchecked(cx) };
 		let args = &mut unsafe { Arguments::new(cx, argc, vp) };
@@ -199,8 +193,8 @@ impl ClassDefinition for Iterator {
 		Some(cx.root(unsafe { GetRealmIteratorPrototype(cx.as_ptr()) }))
 	}
 
-	fn constructor() -> (NativeFunction, u32) {
-		(Iterator::constructor, 0)
+	fn constructor() -> (Option<NativeFunction>, u32) {
+		(None, 0)
 	}
 
 	fn functions() -> Option<&'static [JSFunctionSpec]> {

@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use mozjs::error::throw_type_error;
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
 use std::ffi::CStr;
@@ -13,16 +14,16 @@ use mozjs::gc::HandleObject;
 use mozjs::gc::Traceable;
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Handle, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
+	GCContext, Handle, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
 	JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
 };
-use mozjs::jsval::{NullValue, PrivateValue, UndefinedValue};
+use mozjs::jsval::{JSVal, NullValue, PrivateValue, UndefinedValue};
 
 pub use crate::class::native::{NativeClass, PrototypeChain, TypeIdWrapper, MAX_PROTO_CHAIN_LENGTH};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
-use crate::conversions::ToValue;
+use crate::conversions::{IntoValue, ToValue};
 use crate::function::NativeFunction;
-use crate::{Context, Error, ErrorKind, Function, Local, Object, Result};
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 
 mod native;
 mod reflect;
@@ -47,7 +48,7 @@ pub trait ClassDefinition: NativeObject {
 		None
 	}
 
-	fn constructor() -> (NativeFunction, u32);
+	fn constructor() -> (Option<NativeFunction>, u32);
 
 	fn functions() -> Option<&'static [JSFunctionSpec]> {
 		None
@@ -93,7 +94,7 @@ pub trait ClassDefinition: NativeObject {
 						proto_class,
 						parent_proto.into(),
 						Self::class().base.name,
-						Some(constructor),
+						Some(constructor.unwrap_or(illegal_constructor)),
 						nargs,
 						unwrap_specs(properties),
 						unwrap_specs(functions),
@@ -211,6 +212,14 @@ pub trait ClassDefinition: NativeObject {
 	}
 }
 
+pub struct ClassObjectWrapper<T: ClassDefinition>(pub Box<T>);
+
+impl<T: ClassDefinition> IntoValue<'_> for ClassObjectWrapper<T> {
+	fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
+		T::new_object(cx, self.0).to_value(cx, value)
+	}
+}
+
 trait SpecZero {
 	fn is_zeroed(&self) -> bool;
 }
@@ -264,4 +273,9 @@ pub unsafe extern "C" fn trace_native_object_operation<T: Traceable>(trc: *mut J
 			private.trace(trc);
 		}
 	}
+}
+
+unsafe extern "C" fn illegal_constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
+	throw_type_error(cx, "Illegal constructor.");
+	false
 }
