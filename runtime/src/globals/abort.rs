@@ -12,7 +12,7 @@ use std::task::Poll;
 use std::{ptr, task};
 
 use chrono::Duration;
-use mozjs::jsapi::JSObject;
+use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
 use tokio::sync::watch::{channel, Receiver, Sender};
 
@@ -80,6 +80,7 @@ impl Drop for SignalFuture {
 #[js_class]
 pub struct AbortController {
 	reflector: Reflector,
+	signal: Box<Heap<*mut JSObject>>,
 	#[trace(no_trace)]
 	sender: Sender<Option<JSVal>>,
 }
@@ -87,21 +88,25 @@ pub struct AbortController {
 #[js_class]
 impl AbortController {
 	#[ion(constructor)]
-	pub fn constructor() -> AbortController {
-		let (sender, _) = channel(None);
-		AbortController { reflector: Reflector::default(), sender }
-	}
-
-	// TODO: Return the same signal object
-	#[ion(get)]
-	pub fn get_signal(&self, cx: &Context) -> *mut JSObject {
-		AbortSignal::new_object(
+	pub fn constructor(cx: &Context) -> AbortController {
+		let (sender, receiver) = channel(None);
+		let signal = Heap::boxed(AbortSignal::new_object(
 			cx,
 			Box::new(AbortSignal {
 				reflector: Reflector::default(),
-				signal: Signal::Receiver(self.sender.subscribe()),
+				signal: Signal::Receiver(receiver),
 			}),
-		)
+		));
+		AbortController {
+			reflector: Reflector::default(),
+			signal,
+			sender,
+		}
+	}
+
+	#[ion(get)]
+	pub fn get_signal(&self) -> *mut JSObject {
+		self.signal.get()
 	}
 
 	pub fn abort<'cx>(&self, cx: &'cx Context, Opt(reason): Opt<Value<'cx>>) {
@@ -120,11 +125,6 @@ pub struct AbortSignal {
 
 #[js_class]
 impl AbortSignal {
-	#[ion(constructor)]
-	pub fn constructor() -> Result<AbortSignal> {
-		Err(Error::new("AbortSignal has no constructor.", ErrorKind::Type))
-	}
-
 	#[ion(get)]
 	pub fn get_aborted(&self) -> bool {
 		self.get_reason().is_some()
