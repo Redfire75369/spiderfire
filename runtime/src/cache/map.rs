@@ -9,10 +9,9 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use sourcemap::SourceMap;
-
 use ion::utils::normalise_path;
 use ion::{Error, ErrorReport, Exception};
+use sourcemap::SourceMap;
 
 thread_local!(static SOURCEMAP_CACHE: RefCell<HashMap<PathBuf, SourceMap>> = RefCell::new(HashMap::new()));
 

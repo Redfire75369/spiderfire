@@ -12,8 +12,7 @@ use mozjs::jsapi::JSProtoKey;
 
 use crate::format::descriptor::format_descriptor;
 use crate::format::object::{write_prefix, write_remaining};
-use crate::format::Config;
-use crate::format::{indent_str, NEWLINE};
+use crate::format::{indent_str, Config, NEWLINE};
 use crate::{Array, Context};
 
 /// Formats an [JavaScript Array](Array) using the given [configuration](Config).

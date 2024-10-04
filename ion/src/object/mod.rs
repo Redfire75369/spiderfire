@@ -6,18 +6,17 @@
 
 use std::ptr;
 
-use mozjs::jsapi::{
-	JSClass, JSPrincipals, JS_NewGlobalObject, OnNewGlobalHookOption, JSCLASS_RESERVED_SLOTS_MASK,
-	JSCLASS_RESERVED_SLOTS_SHIFT,
-};
-use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
-
 pub use array::Array;
 pub use date::Date;
 pub use descriptor::PropertyDescriptor;
 pub use iterator::{Iterator, JSIterator};
 pub use key::{OwnedKey, PropertyKey};
 pub use map::Map;
+use mozjs::jsapi::{
+	JSClass, JSPrincipals, JS_NewGlobalObject, OnNewGlobalHookOption, JSCLASS_RESERVED_SLOTS_MASK,
+	JSCLASS_RESERVED_SLOTS_SHIFT,
+};
+use mozjs::rust::{RealmOptions, SIMPLE_GLOBAL_CLASS};
 pub use object::Object;
 pub use promise::Promise;
 pub use regexp::RegExp;

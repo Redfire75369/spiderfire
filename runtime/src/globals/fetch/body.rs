@@ -15,12 +15,11 @@ use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue};
 use http_body_util::Full;
 use hyper::body::{Frame, Incoming, SizeHint};
+use ion::conversions::FromValue;
+use ion::{Context, Error, ErrorKind, Value};
 use mozjs::jsapi::Heap;
 use mozjs::jsval::JSVal;
 use pin_project::pin_project;
-
-use ion::conversions::FromValue;
-use ion::{Context, Error, ErrorKind, Value};
 
 use crate::globals::file::{Blob, BufferSource};
 use crate::globals::url::URLSearchParams;

@@ -10,11 +10,10 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 use dunce::canonicalize;
-use mozjs::jsapi::JSObject;
-use url::Url;
-
 use ion::module::{Module, ModuleData, ModuleLoader, ModuleRequest};
 use ion::{Context, Error, Local, Object, Result, Value};
+use mozjs::jsapi::JSObject;
+use url::Url;
 
 use crate::cache::locate_in_cache;
 use crate::cache::map::save_sourcemap;

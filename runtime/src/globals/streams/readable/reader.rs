@@ -6,14 +6,13 @@
 
 use std::collections::VecDeque;
 
-use mozjs::conversions::ConversionBehavior;
-use mozjs::jsapi::{Heap, JSObject};
-
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;
 use ion::typedarray::{type_to_constructor, type_to_element_size, ArrayBufferView};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
+use mozjs::conversions::ConversionBehavior;
+use mozjs::jsapi::{Heap, JSObject};
 
 use crate::globals::streams::readable::controller::{ControllerInternals, ControllerKind, PullIntoDescriptor};
 use crate::globals::streams::readable::{ReadableStream, State};

@@ -5,9 +5,8 @@
  */
 
 use std::borrow::Cow;
-use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::str;
+use std::{fmt, str};
 
 pub use config::Config;
 

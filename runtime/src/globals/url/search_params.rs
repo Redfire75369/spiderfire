@@ -5,14 +5,13 @@
  */
 
 use form_urlencoded::{parse, Serializer};
-use mozjs::jsapi::{Heap, JSObject};
-use url::Url;
-
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::symbol::WellKnownSymbolCode;
 use ion::{ClassDefinition, Context, Error, ErrorKind, JSIterator, Local, Object, OwnedKey, Result, Value};
+use mozjs::jsapi::{Heap, JSObject};
+use url::Url;
 
 use crate::globals::url::URL;
 

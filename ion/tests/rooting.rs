@@ -1,10 +1,9 @@
-use mozjs::jsapi::JSContext;
-use mozjs::jsval::JSVal;
-
 use ion::conversions::{ConversionBehavior, FromValue};
 use ion::flags::PropertyFlags;
 use ion::utils::test::TestRuntime;
 use ion::{Arguments, Context, Function, Object, Value};
+use mozjs::jsapi::JSContext;
+use mozjs::jsval::JSVal;
 
 #[test]
 fn test() {

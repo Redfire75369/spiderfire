@@ -4,12 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::collections::Bound;
+use std::iter::once;
+use std::str;
+use std::str::FromStr;
+
 use arrayvec::ArrayVec;
 use async_recursion::async_recursion;
+use body::FetchBody;
 use bytes::Bytes;
+use client::Client;
+pub use client::{default_client, GLOBAL_CLIENT};
 use const_format::concatcp;
 use data_url::DataUrl;
 use futures::future::{select, Either};
+pub use header::Headers;
+use header::{remove_all_header_entries, HeadersKind, FORBIDDEN_RESPONSE_HEADERS};
 use headers::{HeaderMapExt, Range};
 use http::header::{
 	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING,
@@ -17,20 +27,6 @@ use http::header::{
 	IF_NONE_MATCH, IF_RANGE, IF_UNMODIFIED_SINCE, LOCATION, PRAGMA, RANGE, REFERER, REFERRER_POLICY, USER_AGENT,
 };
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
-use std::collections::Bound;
-use std::iter::once;
-use std::str;
-use std::str::FromStr;
-use sys_locale::get_locales;
-use tokio::fs::read;
-use uri_url::url_to_uri;
-use url::Url;
-
-use body::FetchBody;
-use client::Client;
-pub use client::{default_client, GLOBAL_CLIENT};
-pub use header::Headers;
-use header::{remove_all_header_entries, HeadersKind, FORBIDDEN_RESPONSE_HEADERS};
 use ion::class::{ClassObjectWrapper, Reflector};
 use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
@@ -40,6 +36,10 @@ use request::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, Reques
 pub use request::{Request, RequestInfo, RequestInit};
 pub use response::Response;
 use response::{network_error, ResponseKind, ResponseTaint};
+use sys_locale::get_locales;
+use tokio::fs::read;
+use uri_url::url_to_uri;
+use url::Url;
 
 use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::Body;

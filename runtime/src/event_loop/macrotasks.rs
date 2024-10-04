@@ -11,10 +11,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
+use ion::{Context, ErrorReport, Function, Object, Value};
 use mozjs::jsapi::JSFunction;
 use mozjs::jsval::JSVal;
-
-use ion::{Context, ErrorReport, Function, Object, Value};
 
 pub struct SignalMacrotask {
 	callback: Option<Box<dyn FnOnce()>>,

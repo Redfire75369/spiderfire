@@ -4,21 +4,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use bytes::{Bytes, BytesMut};
-use mozjs::jsapi::{
-	CloneDataPolicy, Handle, JSContext, JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader,
-	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_WriteBytes, JS_WriteString, JS_WriteUint32Pair,
-	StructuredCloneScope,
-};
 use std::ffi::c_void;
 use std::ptr;
 
-use crate::globals::file::Blob;
+use bytes::{Bytes, BytesMut};
 use ion::class::Reflector;
 use ion::clone::{read_uint64, write_uint64, StructuredCloneBuffer};
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
 use ion::{ClassDefinition, Context, Local, Object, ResultExc, Value};
+use mozjs::jsapi::{
+	CloneDataPolicy, Handle, JSContext, JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader,
+	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_WriteBytes, JS_WriteString, JS_WriteUint32Pair,
+	StructuredCloneScope,
+};
+
+use crate::globals::file::Blob;
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u32)]

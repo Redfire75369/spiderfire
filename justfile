@@ -14,13 +14,13 @@ check *args:
 
 check-release *args:
   cargo check --release {{args}}
-  
+
 clippy *args:
   cargo clippy --features debugmozjs {{args}}
 
 clippy-release *args:
   cargo clippy --release {{args}}
-  
+
 run *args:
   cargo run --features debugmozjs {{args}}
 
@@ -34,5 +34,5 @@ test-release *args:
   cargo nextest run  --release --locked {{args}}
 
 lint:
-  cargo fmt --check --all
+  cargo +nightly fmt --check --all
   cargo clippy --all-targets --locked -- -D warnings

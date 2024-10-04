@@ -12,14 +12,13 @@ use std::task::Poll;
 use std::{ptr, task};
 
 use chrono::Duration;
-use mozjs::jsapi::{Heap, JSObject};
-use mozjs::jsval::JSVal;
-use tokio::sync::watch::{channel, Receiver, Sender};
-
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::{Enforce, Opt};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
+use mozjs::jsapi::{Heap, JSObject};
+use mozjs::jsval::JSVal;
+use tokio::sync::watch::{channel, Receiver, Sender};
 
 use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 use crate::ContextExt;

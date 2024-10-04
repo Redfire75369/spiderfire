@@ -4,13 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::rust::{JSEngine, Runtime};
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
-
 use ion::Context;
 use modules::Modules;
+use mozjs::rust::{JSEngine, Runtime};
 use runtime::RuntimeBuilder;
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 use crate::evaluate::eval_inline;
 use crate::repl::{rustyline_config, ReplHelper};

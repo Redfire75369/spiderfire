@@ -7,10 +7,6 @@
 use std::collections::VecDeque;
 use std::{ptr, slice};
 
-use mozjs::conversions::ConversionBehavior;
-use mozjs::jsapi::{Handle, Heap, JSContext, JSFunction, JSObject, Type};
-use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue, UndefinedValue};
-
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::{FromValue, ToValue};
 use ion::typedarray::{type_to_constructor, ArrayBuffer, ArrayBufferView, Uint8Array};
@@ -18,6 +14,9 @@ use ion::{
 	ClassDefinition, Context, Error, ErrorKind, Exception, Function, Local, Object, Promise, Result, ResultExc,
 	TracedHeap, Value,
 };
+use mozjs::conversions::ConversionBehavior;
+use mozjs::jsapi::{Handle, Heap, JSContext, JSFunction, JSObject, Type};
+use mozjs::jsval::{DoubleValue, Int32Value, JSVal, NullValue, UndefinedValue};
 
 use crate::globals::streams::readable::reader::{Reader, ReaderKind, Request};
 use crate::globals::streams::readable::{

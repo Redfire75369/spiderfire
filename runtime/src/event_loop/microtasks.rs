@@ -7,10 +7,11 @@
 use std::collections::vec_deque::VecDeque;
 use std::ffi::c_void;
 
-use mozjs::glue::JobQueueTraps;
-use mozjs::jsapi::{CurrentGlobalOrNull, Handle, JSContext, JSFunction, JSObject, JobQueueIsEmpty, JobQueueMayNotBeEmpty};
-
 use ion::{Context, ErrorReport, Function, Object};
+use mozjs::glue::JobQueueTraps;
+use mozjs::jsapi::{
+	CurrentGlobalOrNull, Handle, JSContext, JSFunction, JSObject, JobQueueIsEmpty, JobQueueMayNotBeEmpty,
+};
 
 use crate::ContextExt;
 

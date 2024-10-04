@@ -4,8 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::conversions::ToValue;
-use crate::{Context, Exception, Object, ResultExc, Value};
+use std::any::Any;
+use std::ffi::c_void;
+use std::ptr;
+
 use mozjs::glue::{
 	CopyJSStructuredCloneData, DeleteJSAutoStructuredCloneBuffer, GetLengthOfJSStructuredCloneData,
 	NewJSAutoStructuredCloneBuffer, WriteBytesToJSStructuredCloneData,
@@ -15,9 +17,9 @@ use mozjs::jsapi::{
 	JSStructuredCloneWriter, JS_ReadStructuredClone, JS_ReadUint32Pair, JS_WriteStructuredClone, JS_WriteUint32Pair,
 	StructuredCloneScope, JS_STRUCTURED_CLONE_VERSION,
 };
-use std::any::Any;
-use std::ffi::c_void;
-use std::ptr;
+
+use crate::conversions::ToValue;
+use crate::{Context, Exception, Object, ResultExc, Value};
 
 pub struct StructuredCloneBuffer {
 	buf: *mut JSAutoStructuredCloneBuffer,

@@ -6,9 +6,8 @@
 
 use std::path::Path;
 
-use sourcemap::SourceMap;
-
 pub use cache::*;
+use sourcemap::SourceMap;
 
 mod cache;
 pub mod map;

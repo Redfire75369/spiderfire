@@ -4,8 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::iter;
-use std::ptr;
+use std::{iter, ptr};
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{

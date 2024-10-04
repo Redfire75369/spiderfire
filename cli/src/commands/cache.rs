@@ -9,7 +9,6 @@ use std::io;
 use std::path::Path;
 
 use humansize::{SizeFormatter, BINARY};
-
 use runtime::cache::Cache;
 
 pub(crate) fn cache_statistics() {

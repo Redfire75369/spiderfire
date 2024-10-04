@@ -6,13 +6,11 @@
 
 use std::path::Path;
 
-use mozjs::jsapi::JSFunctionSpec;
-use mozjs::rust::JSEngine;
-use mozjs::rust::Runtime as RustRuntime;
-
 use ion::module::Module;
 use ion::{Context, Error, Exception, Function, Object, Value};
 use modules::Assert;
+use mozjs::jsapi::JSFunctionSpec;
+use mozjs::rust::{JSEngine, Runtime as RustRuntime};
 use runtime::config::{Config, LogLevel, CONFIG};
 use runtime::module::Loader;
 use runtime::{Runtime, RuntimeBuilder};

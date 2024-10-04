@@ -37,12 +37,12 @@ impl ErrorKind {
 	/// Converts a prototype key into an [ErrorKind].
 	/// Returns [ErrorKind::None] for unrecognised prototype keys.
 	pub fn from_proto_key(key: JSProtoKey) -> ErrorKind {
+		use ErrorKind as EK;
 		use JSProtoKey::{
 			JSProto_AggregateError, JSProto_CompileError, JSProto_Error, JSProto_EvalError, JSProto_InternalError,
 			JSProto_LinkError, JSProto_RangeError, JSProto_ReferenceError, JSProto_RuntimeError, JSProto_SyntaxError,
 			JSProto_TypeError,
 		};
-		use ErrorKind as EK;
 		match key {
 			JSProto_Error => EK::Normal,
 			JSProto_InternalError => EK::Internal,
@@ -63,8 +63,7 @@ impl ErrorKind {
 	///
 	/// Note that [`ErrorKind::None`] is converted to [`JSEXN_ERR`](JSExnType::JSEXN_ERR).
 	pub fn to_exception_type(&self) -> JSExnType {
-		use ErrorKind as EK;
-		use JSExnType as JSET;
+		use {ErrorKind as EK, JSExnType as JSET};
 		match self {
 			EK::Normal => JSET::JSEXN_ERR,
 			EK::Internal => JSET::JSEXN_INTERNALERR,

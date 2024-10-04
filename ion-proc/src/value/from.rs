@@ -8,7 +8,9 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse2, Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, Result, Type};
+use syn::{
+	parse2, Block, Data, DeriveInput, Error, Field, Fields, GenericParam, Generics, ItemImpl, Meta, Result, Type,
+};
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::value::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};

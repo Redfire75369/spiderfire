@@ -4,9 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use chrono::{DateTime, TimeZone, Utc};
-
 pub use blob::{Blob, BufferSource};
+use chrono::{DateTime, TimeZone, Utc};
 use ion::function::{Opt, Wrap};
 use ion::{ClassDefinition, Context, Object};
 

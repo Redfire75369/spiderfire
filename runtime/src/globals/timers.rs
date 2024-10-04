@@ -5,11 +5,10 @@
  */
 
 use chrono::Duration;
-use mozjs::jsapi::JSFunctionSpec;
-use mozjs::jsval::JSVal;
-
 use ion::function::{Clamp, Enforce, Opt, Rest};
 use ion::{Context, Error, Function, Object, Result};
+use mozjs::jsapi::JSFunctionSpec;
+use mozjs::jsval::JSVal;
 
 use crate::event_loop::macrotasks::{Macrotask, TimerMacrotask, UserMacrotask};
 use crate::ContextExt;

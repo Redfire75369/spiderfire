@@ -7,9 +7,10 @@
 use std::mem::transmute;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::Symbol as JSSymbol;
-use mozjs::jsapi::SymbolCode as JSSymbolCode;
-use mozjs::jsapi::{GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol};
+use mozjs::jsapi::{
+	GetSymbolCode, GetSymbolDescription, GetSymbolFor, GetWellKnownSymbol, NewSymbol, Symbol as JSSymbol,
+	SymbolCode as JSSymbolCode,
+};
 
 use crate::conversions::{FromValue, ToValue};
 use crate::{Context, Local};
@@ -207,9 +208,7 @@ mod tests {
 
 	#[test]
 	fn code_conversion() {
-		use JSSymbolCode as JSSC;
-		use SymbolCode as SC;
-		use WellKnownSymbolCode as WKSC;
+		use {JSSymbolCode as JSSC, SymbolCode as SC, WellKnownSymbolCode as WKSC};
 
 		// Well Known Symbol Codes
 		convert_codes! {

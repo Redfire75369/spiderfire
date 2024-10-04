@@ -7,16 +7,15 @@
 use std::collections::HashMap;
 use std::ptr;
 
+use ion::module::{init_module_loader, ModuleLoader};
+use ion::object::default_new_global;
+use ion::{Context, ContextInner, ErrorReport, Object};
 use mozjs::gc::Traceable;
 use mozjs::glue::CreateJobQueue;
 use mozjs::jsapi::{
 	ContextOptionsRef, Heap, JSAutoRealm, JSObject, JSTracer, SetJobQueue, SetPromiseRejectionTrackerCallback,
 };
 use uuid::Uuid;
-
-use ion::module::{init_module_loader, ModuleLoader};
-use ion::object::default_new_global;
-use ion::{Context, ContextInner, ErrorReport, Object};
 
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;

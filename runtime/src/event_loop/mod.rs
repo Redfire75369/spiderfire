@@ -10,10 +10,9 @@ use std::task;
 use std::task::Poll;
 
 use futures::future::poll_fn;
-use mozjs::jsapi::{Handle, Heap, JSContext, JSObject, PromiseRejectionHandlingState};
-
 use ion::format::{format_value, Config};
 use ion::{Context, ErrorReport, Local, Promise};
+use mozjs::jsapi::{Handle, Heap, JSContext, JSObject, PromiseRejectionHandlingState};
 
 use crate::event_loop::future::FutureQueue;
 use crate::event_loop::macrotasks::MacrotaskQueue;

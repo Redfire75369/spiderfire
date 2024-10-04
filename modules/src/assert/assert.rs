@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::JSFunctionSpec;
-
 use ion::function::Opt;
 use ion::{Context, Error, Function, Object, Result, Value};
+use mozjs::jsapi::JSFunctionSpec;
 use runtime::module::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {

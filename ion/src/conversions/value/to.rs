@@ -8,9 +8,10 @@ use std::borrow::Cow;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-use mozjs::jsapi::PropertyKey as JSPropertyKey;
-use mozjs::jsapi::Symbol as JSSymbol;
-use mozjs::jsapi::{JSFunction, JSObject, JSString, JS_GetFunctionObject, JS_IdToValue, JS_NewStringCopyN, JS_WrapValue};
+use mozjs::jsapi::{
+	JSFunction, JSObject, JSString, JS_GetFunctionObject, JS_IdToValue, JS_NewStringCopyN, JS_WrapValue,
+	PropertyKey as JSPropertyKey, Symbol as JSSymbol,
+};
 use mozjs::jsval::{
 	BooleanValue, DoubleValue, Int32Value, JSVal, NullValue, ObjectOrNullValue, ObjectValue, StringValue, SymbolValue,
 	UInt32Value, UndefinedValue,

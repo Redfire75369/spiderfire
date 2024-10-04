@@ -7,11 +7,9 @@
 #![allow(clippy::declare_interior_mutable_const)]
 
 use std::cmp::Ordering;
-use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::str;
 use std::str::FromStr;
-use std::vec;
+use std::{fmt, str, vec};
 
 use http::header::{
 	Entry, HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE,
@@ -19,15 +17,13 @@ use http::header::{
 	CONTENT_TYPE, COOKIE, DATE, DNT, EXPECT, HOST, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER, TRANSFER_ENCODING,
 	UPGRADE, VIA,
 };
-use mime::{Mime, APPLICATION, FORM_DATA, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
-
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;
 use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
-use ion::{Array, Context, Error, ErrorKind, Object, OwnedKey, Result, Value};
-use ion::{ClassDefinition, JSIterator};
+use ion::{Array, ClassDefinition, Context, Error, ErrorKind, JSIterator, Object, OwnedKey, Result, Value};
+use mime::{Mime, APPLICATION, FORM_DATA, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
 
 #[derive(FromValue)]
 pub enum Header {

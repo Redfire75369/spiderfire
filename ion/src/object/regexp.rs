@@ -8,10 +8,9 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use mozjs::glue::JS_GetRegExpFlags;
-use mozjs::jsapi::RegExpFlags as REFlags;
 use mozjs::jsapi::{
 	CheckRegExpSyntax, ExecuteRegExp, ExecuteRegExpNoStatics, GetRegExpSource, JSObject, NewUCRegExpObject,
-	ObjectIsRegExp,
+	ObjectIsRegExp, RegExpFlags as REFlags,
 };
 
 use crate::flags::RegExpFlags;

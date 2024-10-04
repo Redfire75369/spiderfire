@@ -9,21 +9,18 @@ use std::fs::read_to_string;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use mozjs::rust::JSEngine;
-use mozjs::rust::Runtime as RustRuntime;
-use sourcemap::SourceMap;
-
-use ion::format::format_value;
-use ion::format::Config as FormatConfig;
+use ion::format::{format_value, Config as FormatConfig};
 use ion::module::Module;
 use ion::script::Script;
 use ion::Context;
 use modules::Modules;
+use mozjs::rust::{JSEngine, Runtime as RustRuntime};
 use runtime::cache::locate_in_cache;
 use runtime::cache::map::{save_sourcemap, transform_error_report_with_sourcemaps};
 use runtime::config::Config;
 use runtime::module::Loader;
 use runtime::{Runtime, RuntimeBuilder};
+use sourcemap::SourceMap;
 
 pub(crate) async fn eval_inline(rt: &Runtime<'_>, source: &str) {
 	let result = Script::compile_and_evaluate(rt.cx(), Path::new("inline.js"), source);

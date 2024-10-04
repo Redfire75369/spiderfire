@@ -8,12 +8,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
+use ion::conversions::FromValue;
+use ion::{Context, Error, ErrorKind, Result, Value};
 use mozjs::jsapi::JSObject;
 use mozjs::jsval::JSVal;
 use url::Url;
-
-use ion::conversions::FromValue;
-use ion::{Context, Error, ErrorKind, Result, Value};
 
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersInit;

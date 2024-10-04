@@ -9,11 +9,10 @@ use std::task::Poll;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mozjs::jsapi::JSObject;
-use tokio::task::JoinHandle;
-
 use ion::conversions::BoxedIntoValue;
 use ion::{Context, Error, ErrorKind, ErrorReport, Promise, ThrowException, Value};
+use mozjs::jsapi::JSObject;
+use tokio::task::JoinHandle;
 
 type FutureOutput = (Result<BoxedIntoValue, BoxedIntoValue>, *mut JSObject);
 

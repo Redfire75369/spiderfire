@@ -8,10 +8,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use http::StatusCode;
-use mozjs::conversions::ConversionBehavior;
-
 use ion::conversions::FromValue;
 use ion::{Context, Error, ErrorKind, Result, Value};
+use mozjs::conversions::ConversionBehavior;
 
 use crate::globals::fetch::header::HeadersInit;
 

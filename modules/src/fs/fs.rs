@@ -4,19 +4,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use futures::stream::StreamExt;
-use mozjs::jsapi::JSFunctionSpec;
 use std::iter::Iterator;
 use std::path::Path;
 use std::{fs, io, os};
-use tokio_stream::wrappers::ReadDirStream;
 
+use futures::stream::StreamExt;
 use ion::flags::PropertyFlags;
 use ion::typedarray::Uint8ArrayWrapper;
 use ion::{Context, Error, Object, Promise, Result};
+use mozjs::jsapi::JSFunctionSpec;
 use runtime::globals::file::BufferSource;
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
+use tokio_stream::wrappers::ReadDirStream;
 
 fn read_file_error(path: &str, err: io::Error) -> Error {
 	Error::new(format!("Could not read file: {}\n{}", path, err), None)

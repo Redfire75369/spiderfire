@@ -7,12 +7,10 @@
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
-use mozjs::conversions::ConversionBehavior;
-
 use ion::conversions::FromValue;
-use ion::format::Config as FormatConfig;
-use ion::format::{format_value, ValueDisplay};
+use ion::format::{format_value, Config as FormatConfig, ValueDisplay};
 use ion::{BigInt, Context, Local, Result, Value};
+use mozjs::conversions::ConversionBehavior;
 
 use crate::config::{Config, LogLevel};
 use crate::globals::console::INDENTS;

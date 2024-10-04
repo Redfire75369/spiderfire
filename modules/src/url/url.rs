@@ -5,10 +5,9 @@
  */
 
 use idna::domain_to_ascii_strict;
-use mozjs::jsapi::JSFunctionSpec;
-
 use ion::function::Opt;
 use ion::{ClassDefinition, Context, Object, Result};
+use mozjs::jsapi::JSFunctionSpec;
 use runtime::globals::url::{URLSearchParams, URL};
 use runtime::module::NativeModule;
 

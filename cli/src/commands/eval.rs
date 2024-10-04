@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::rust::{JSEngine, Runtime};
-
 use ion::Context;
 use modules::Modules;
+use mozjs::rust::{JSEngine, Runtime};
 use runtime::RuntimeBuilder;
 
 use crate::evaluate::eval_inline;

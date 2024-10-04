@@ -6,10 +6,9 @@
 
 use std::future::Future;
 
-use tokio::task::spawn_local;
-
 use ion::conversions::{BoxedIntoValue, IntoValue};
 use ion::{Context, Promise};
+use tokio::task::spawn_local;
 
 use crate::ContextExt;
 

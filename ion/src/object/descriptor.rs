@@ -7,8 +7,10 @@
 use std::ops::{Deref, DerefMut};
 
 use mozjs::glue::{SetAccessorPropertyDescriptor, SetDataPropertyDescriptor};
-use mozjs::jsapi::PropertyDescriptor as JSPropertyDescriptor;
-use mozjs::jsapi::{FromPropertyDescriptor, JS_GetObjectFunction, ToCompletePropertyDescriptor};
+use mozjs::jsapi::{
+	FromPropertyDescriptor, JS_GetObjectFunction, PropertyDescriptor as JSPropertyDescriptor,
+	ToCompletePropertyDescriptor,
+};
 
 use crate::flags::PropertyFlags;
 use crate::{Context, Function, Local, Object, Value};

@@ -8,8 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::mem::discriminant;
 use std::ops::{Deref, DerefMut};
 
-use mozjs::jsapi::PropertyKey as JSPropertyKey;
-use mozjs::jsapi::{JSProtoKey, JS_IdToProtoKey, JS_ValueToId, ProtoKeyToId};
+use mozjs::jsapi::{JSProtoKey, JS_IdToProtoKey, JS_ValueToId, PropertyKey as JSPropertyKey, ProtoKeyToId};
 use mozjs::jsid::{IntId, VoidId};
 
 use crate::conversions::ToPropertyKey;

@@ -8,10 +8,15 @@ max_width = 120
 merge_derives = true
 newline_style = "Unix"
 remove_nested_parens = true
-reorder_imports = false
+reorder_imports = true
 reorder_modules = true
 struct_lit_width = 40
 struct_variant_width = 60
 use_field_init_shorthand = true
 use_small_heuristics = "Default"
 use_try_shorthand = true
+
+# Nightly Options
+group_imports = "StdExternalCrate"
+imports_granularity = "Module"
+overflow_delimited_expr = true

@@ -8,14 +8,6 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use bytes::{Buf, Bytes};
-use mozjs::gc::HandleObject;
-use mozjs::jsapi::{CloneDataPolicy, Heap, JSFunction, JSObject, StructuredCloneScope};
-use mozjs::jsval::{JSVal, UndefinedValue};
-
-use crate::globals::clone::{StructuredCloneDataHolder, STRUCTURED_CLONE_CALLBACKS};
-use crate::globals::streams::readable::controller::ControllerInternals;
-use crate::globals::streams::readable::reader::{ReaderKind, Request};
-use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};
 use ion::class::NativeObject;
 use ion::clone::StructuredCloneBuffer;
 use ion::conversions::{FromValue, ToValue};
@@ -25,6 +17,14 @@ use ion::{
 	ClassDefinition, Context, Exception, Function, JSIterator, Local, Object, Promise, Result, ResultExc, TracedHeap,
 	Value,
 };
+use mozjs::gc::HandleObject;
+use mozjs::jsapi::{CloneDataPolicy, Heap, JSFunction, JSObject, StructuredCloneScope};
+use mozjs::jsval::{JSVal, UndefinedValue};
+
+use crate::globals::clone::{StructuredCloneDataHolder, STRUCTURED_CLONE_CALLBACKS};
+use crate::globals::streams::readable::controller::ControllerInternals;
+use crate::globals::streams::readable::reader::{ReaderKind, Request};
+use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};
 
 #[derive(Traceable)]
 pub enum StreamSource {

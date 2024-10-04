@@ -4,10 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::jsapi::JSFunctionSpec;
-
 use ion::flags::PropertyFlags;
 use ion::{Context, Error, Function, Object, Result};
+use mozjs::jsapi::JSFunctionSpec;
 
 use crate::event_loop::microtasks::Microtask;
 use crate::ContextExt;

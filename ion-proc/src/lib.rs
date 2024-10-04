@@ -10,7 +10,6 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
-
 use quote::ToTokens;
 
 use crate::class::impl_js_class;

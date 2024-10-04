@@ -17,11 +17,11 @@ use mozjs::jsapi::{
 	JS_SetContextPrivate, Rooted,
 };
 use mozjs::rust::Runtime;
+use private::RootedArena;
 
 use crate::class::ClassInfo;
 use crate::module::ModuleLoader;
 use crate::Local;
-use private::RootedArena;
 
 /// Represents Types that can be Rooted in SpiderMonkey
 #[derive(Clone, Copy, Debug)]
@@ -156,11 +156,14 @@ pub trait Rootable: private::Sealed {}
 impl<T: private::Sealed> Rootable for T {}
 
 mod private {
-	use super::GCType;
 	use mozjs::gc::{GCMethods, RootKind};
-	use mozjs::jsapi::{BigInt, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol};
+	use mozjs::jsapi::{
+		BigInt, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol,
+	};
 	use mozjs::jsval::JSVal;
 	use typed_arena::Arena;
+
+	use super::GCType;
 
 	/// Holds Rooted Values
 	#[derive(Default)]

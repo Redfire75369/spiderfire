@@ -5,7 +5,6 @@
  */
 
 use encoding_rs::{Encoder, UTF_8};
-
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;

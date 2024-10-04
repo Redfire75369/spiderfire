@@ -4,14 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use mozjs::error::throw_type_error;
 use std::any::TypeId;
 use std::collections::hash_map::Entry;
 use std::ffi::CStr;
 use std::ptr;
 
-use mozjs::gc::HandleObject;
-use mozjs::gc::Traceable;
+use mozjs::error::throw_type_error;
+use mozjs::gc::{HandleObject, Traceable};
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
 	GCContext, Handle, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,

@@ -6,10 +6,9 @@
 
 pub use mozjs::conversions::ConversionBehavior;
 use mozjs::conversions::{ConversionResult, FromJSValConvertible};
-use mozjs::jsapi::Symbol as JSSymbol;
 use mozjs::jsapi::{
 	AssertSameCompartment, AssertSameCompartment1, ForOfIterator, ForOfIterator_NonIterableBehavior, JSFunction,
-	JSObject, JSString, RootedObject, RootedValue,
+	JSObject, JSString, RootedObject, RootedValue, Symbol as JSSymbol,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{ToBoolean, ToNumber, ToString};

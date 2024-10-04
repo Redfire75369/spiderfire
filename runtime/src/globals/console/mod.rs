@@ -9,22 +9,21 @@ mod format;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
 
-use chrono::{offset::Utc, DateTime};
+use chrono::offset::Utc;
+use chrono::DateTime;
 use indent::indent_all_by;
 use indexmap::IndexSet;
-use mozjs::jsapi::JSFunctionSpec;
-use term_table::row::Row;
-use term_table::table_cell::{Alignment, TableCell};
-use term_table::{Table, TableStyle};
-
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
-use ion::format::Config as FormatConfig;
-use ion::format::{format_value, indent_str};
+use ion::format::{format_value, indent_str, Config as FormatConfig};
 use ion::function::{Opt, Rest};
 use ion::{Context, Object, OwnedKey, Result, Stack, Value};
+use mozjs::jsapi::JSFunctionSpec;
+use term_table::row::Row;
+use term_table::table_cell::{Alignment, TableCell};
+use term_table::{Table, TableStyle};
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};

@@ -8,10 +8,9 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use mozjs::jsapi::mozilla::{Range, RangedPtr};
-use mozjs::jsapi::BigInt as JSBigInt;
 use mozjs::jsapi::{
-	BigIntFitsNumber, BigIntFromBool, BigIntFromInt64, BigIntFromUint64, BigIntIsInt64, BigIntIsNegative,
-	BigIntIsUint64, BigIntToNumber, BigIntToString, NumberToBigInt, StringToBigInt1,
+	BigInt as JSBigInt, BigIntFitsNumber, BigIntFromBool, BigIntFromInt64, BigIntFromUint64, BigIntIsInt64,
+	BigIntIsNegative, BigIntIsUint64, BigIntToNumber, BigIntToString, NumberToBigInt, StringToBigInt1,
 };
 
 use crate::{Context, Exception, Local, String};

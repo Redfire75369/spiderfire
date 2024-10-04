@@ -5,9 +5,8 @@
  */
 
 use clap::{Parser, Subcommand};
-use tokio::task::LocalSet;
-
 use commands::handle_command;
+use tokio::task::LocalSet;
 
 mod commands;
 mod evaluate;

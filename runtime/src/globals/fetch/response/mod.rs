@@ -7,14 +7,13 @@
 use bytes::Bytes;
 use http::{HeaderMap, StatusCode};
 use hyper::ext::ReasonPhrase;
-use mozjs::jsapi::{Heap, JSObject};
-use url::Url;
-
 use ion::class::{NativeObject, Reflector};
 use ion::function::Opt;
 use ion::typedarray::ArrayBufferWrapper;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Object, Promise, Result, TracedHeap};
+use mozjs::jsapi::{Heap, JSObject};
 pub use options::*;
+use url::Url;
 
 use crate::globals::fetch::body::{Body, FetchBody};
 use crate::globals::fetch::header::HeadersKind;

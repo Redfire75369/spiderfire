@@ -7,13 +7,12 @@
 use std::str::FromStr;
 
 use http::{HeaderMap, Method};
-use mozjs::jsapi::{Heap, JSObject};
-use url::Url;
-
 use ion::class::Reflector;
 use ion::function::Opt;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Result};
+use mozjs::jsapi::{Heap, JSObject};
 pub use options::*;
+use url::Url;
 
 use crate::globals::abort::AbortSignal;
 use crate::globals::fetch::body::FetchBody;

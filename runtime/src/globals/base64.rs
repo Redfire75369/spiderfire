@@ -7,10 +7,9 @@
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use data_url::forgiving_base64::decode_to_vec;
-use mozjs::jsapi::JSFunctionSpec;
-
 use ion::string::byte::ByteString;
 use ion::{Context, Error, ErrorKind, Object, Result};
+use mozjs::jsapi::JSFunctionSpec;
 
 const INVALID_CHARACTER_EXCEPTION: &str = "String contains an invalid character.";
 

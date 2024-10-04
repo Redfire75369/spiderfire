@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::ffi::CString;
+use std::ops::Deref;
+
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
 	HandleValueArray, JSContext, JSFunction, JSFunctionSpec, JSObject, JS_CallFunction, JS_DecompileFunction,
@@ -12,8 +15,6 @@ use mozjs::jsapi::{
 	JS_ObjectIsFunction, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
-use std::ffi::CString;
-use std::ops::Deref;
 
 use crate::flags::PropertyFlags;
 use crate::function::closure::{
