@@ -6,7 +6,7 @@
 
 use std::cell::RefCell;
 use std::fs::File;
-use std::future::Future;
+use std::future::{poll_fn, Future};
 use std::io::{Read, Write};
 use std::iter::Iterator;
 #[cfg(windows)]
@@ -14,6 +14,7 @@ use std::os::windows::fs::MetadataExt;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::task::Poll;
 use std::{fs, io, os, result};
 
 use futures::stream::StreamExt;
@@ -155,16 +156,24 @@ impl FileHandle {
 	{
 		let handle_cell = Rc::clone(&self.handle);
 
-		let mut taken = false;
-		let mut handle = {
-			let mut handle = handle_cell.borrow_mut();
-			handle.as_mut().unwrap().try_clone().ok().unwrap_or_else(|| {
-				taken = true;
-				handle.take().unwrap()
-			})
-		};
-
 		async move {
+			let mut taken = false;
+			let mut handle = poll_fn(|wcx| {
+				if let Ok(mut handle) = handle_cell.try_borrow_mut() {
+					if let Some(file) = handle.as_mut() {
+						let file = file.try_clone().ok().unwrap_or_else(|| {
+							taken = true;
+							handle.take().unwrap()
+						});
+						return Poll::Ready(file);
+					}
+				}
+
+				wcx.waker().wake_by_ref();
+				Poll::Pending
+			})
+			.await;
+
 			let (handle, result) = spawn_blocking(move || {
 				let result = callback(&mut handle);
 				(handle, result)
