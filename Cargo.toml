@@ -93,10 +93,14 @@ version = "0.58.0"
 unsafe_op_in_unsafe_fn = "deny" # Expansion of thread_local has a #[deny]
 
 [workspace.lints.clippy]
+as_underscore = "forbid"
 cast_lossless = "forbid"
+cast_ptr_alignment = "forbid"
 clone_on_ref_ptr = "forbid"
 ptr_as_ptr = "forbid"
 ptr_cast_constness = "forbid"
+ref_as_ptr = "forbid"
+transmute_ptr_to_ptr = "deny"
 
 [profile.release]
 lto = "fat"

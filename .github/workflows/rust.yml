@@ -104,15 +104,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Stable Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
       - name: Install Nightly Rust Toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
+
+      - name: Install Stable Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Setup Dependencies
         uses: ./.github/actions/setup
