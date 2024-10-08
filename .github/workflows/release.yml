@@ -74,12 +74,12 @@ jobs:
       - name: Build MacOS
         if: matrix.os == 'macos'
         env:
-            MOZ_LTO: full
+            MOZ_LTO: full,cross
             CFLAGS: -flto
             CPPFLAGS: -flto
             CXXFLAGS: -flto
             LDFLAGS: -flto
-            RUSTFLAGS: -Clinker-plugin-lto
+            RUSTFLAGS: -Clinker-plugin-lto -Clink-arg=-flto
         run: |
           just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
