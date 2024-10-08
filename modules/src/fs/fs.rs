@@ -4,33 +4,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::cell::RefCell;
-use std::fs::File;
-use std::future::{poll_fn, Future};
-use std::io::{Read, Write};
 use std::iter::Iterator;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
 use std::path::Path;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::task::Poll;
-use std::{fs, io, os, result};
+use std::{fs, os};
 
 use futures::stream::StreamExt;
-use ion::class::{ClassObjectWrapper, Reflector};
+use ion::class::ClassObjectWrapper;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
-use ion::typedarray::Uint8ArrayWrapper;
-use ion::{ClassDefinition, Context, Error, Object, Promise, Result};
-use mozjs::jsapi::JSFunctionSpec;
-use runtime::globals::file::BufferSource;
+use ion::{ClassDefinition, Context, Object, Promise, Result};
+use mozjs::jsapi::{JSFunctionSpec, JSObject};
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
-use tokio::task::spawn_blocking;
 use tokio_stream::wrappers::ReadDirStream;
 #[cfg(windows)]
 use windows::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_DIRECTORY, FILE_FLAGS_AND_ATTRIBUTES};
+
+use crate::fs::{dir_error, file_error, remove_error, translate_error, FileHandle};
 
 #[derive(Copy, Clone, Debug, FromValue)]
 struct OpenOptions {
@@ -82,10 +74,6 @@ impl Default for OpenOptions {
 	}
 }
 
-fn open_error(path: &str, err: io::Error) -> String {
-	format!("Could not open file: {}\n{}", path, err)
-}
-
 #[js_fn]
 fn open(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> Option<Promise> {
 	future_to_promise(cx, async move {
@@ -97,203 +85,49 @@ fn open(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> Optio
 				&path_str,
 				file.into_std().await,
 			)))),
-			Err(err) => Err(open_error(&path_str, err)),
+			Err(err) => Err(file_error("open", &path_str, err)),
 		}
 	})
 }
 
 #[js_fn]
-fn open_sync(path_str: String, Opt(options): Opt<OpenOptions>) -> Result<ClassObjectWrapper<FileHandle>> {
+fn open_sync(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> Result<*mut JSObject> {
 	let path = Path::new(&path_str);
 	let options = options.unwrap_or_default().into_std();
 
 	match options.open(path) {
-		Ok(file) => Ok(ClassObjectWrapper(Box::new(FileHandle::new(&path_str, file)))),
-		Err(err) => Err(Error::new(open_error(&path_str, err), None)),
+		Ok(file) => Ok(FileHandle::new_object(cx, Box::new(FileHandle::new(&path_str, file)))),
+		Err(err) => Err(file_error("open", &path_str, err)),
 	}
 }
 
-fn read_file_error(path: &str, err: io::Error) -> String {
-	format!("Could not read file: {}\n{}", path, err)
-}
+#[js_fn]
+fn create(cx: &Context, path_str: String) -> Option<Promise> {
+	future_to_promise(cx, async move {
+		let path = Path::new(&path_str);
+		let mut options = tokio::fs::OpenOptions::new();
+		options.read(true).write(true).truncate(true).create(true);
 
-fn write_file_error(path: &str, err: io::Error) -> String {
-	format!("Could not write to file: {}\n{}", path, err)
-}
-
-#[js_class]
-pub struct FileHandle {
-	reflector: Reflector,
-	#[trace(no_trace)]
-	path: Arc<str>,
-	#[trace(no_trace)]
-	handle: Rc<RefCell<Option<File>>>,
-}
-
-impl FileHandle {
-	fn new(path: &str, file: File) -> FileHandle {
-		FileHandle {
-			reflector: Reflector::new(),
-			path: Arc::from(path),
-			handle: Rc::new(RefCell::new(Some(file))),
+		match options.open(path).await {
+			Ok(file) => Ok(ClassObjectWrapper(Box::new(FileHandle::new(
+				&path_str,
+				file.into_std().await,
+			)))),
+			Err(err) => Err(file_error("create", &path_str, err)),
 		}
-	}
-
-	fn with_sync<F, T>(&self, callback: F) -> Result<T>
-	where
-		F: FnOnce(&mut File) -> Result<T>,
-	{
-		match &mut *self.handle.borrow_mut() {
-			Some(handle) => callback(handle),
-			None => Err(Error::new("File is busy due to async operation.", None)),
-		}
-	}
-
-	fn with_blocking_task<F, T>(&self, callback: F) -> impl Future<Output = Result<T>>
-	where
-		F: FnOnce(&mut File) -> result::Result<T, String> + Send + 'static,
-		T: Send + 'static,
-	{
-		let handle_cell = Rc::clone(&self.handle);
-
-		async move {
-			let mut taken = false;
-			let mut handle = poll_fn(|wcx| {
-				if let Ok(mut handle) = handle_cell.try_borrow_mut() {
-					if let Some(file) = handle.as_mut() {
-						let file = file.try_clone().ok().unwrap_or_else(|| {
-							taken = true;
-							handle.take().unwrap()
-						});
-						return Poll::Ready(file);
-					}
-				}
-
-				wcx.waker().wake_by_ref();
-				Poll::Pending
-			})
-			.await;
-
-			let (handle, result) = spawn_blocking(move || {
-				let result = callback(&mut handle);
-				(handle, result)
-			})
-			.await
-			.unwrap();
-
-			if taken {
-				handle_cell.borrow_mut().replace(handle);
-			}
-
-			result.map_err(|err| Error::new(err, None))
-		}
-	}
+	})
 }
 
-#[js_class]
-impl FileHandle {
-	pub fn read<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let path = Arc::clone(&self.path);
-		future_to_promise(
-			cx,
-			self.with_blocking_task(move |file| {
-				let mut bytes = Vec::new();
-				match file.read_to_end(&mut bytes) {
-					Ok(_) => Ok(Uint8ArrayWrapper::from(bytes)),
-					Err(err) => Err(read_file_error(&path, err)),
-				}
-			}),
-		)
+#[js_fn]
+fn create_sync(cx: &Context, path_str: String) -> Result<*mut JSObject> {
+	let path = Path::new(&path_str);
+	let mut options = fs::OpenOptions::new();
+	options.read(true).write(true).truncate(true).create(true);
+
+	match options.open(path) {
+		Ok(file) => Ok(FileHandle::new_object(cx, Box::new(FileHandle::new(&path_str, file)))),
+		Err(err) => Err(file_error("create", &path_str, err)),
 	}
-
-	#[ion(name = "readSync")]
-	pub fn read_sync(&self) -> Result<Uint8ArrayWrapper> {
-		self.with_sync(|file| {
-			let mut bytes = Vec::new();
-			match file.read_to_end(&mut bytes) {
-				Ok(_) => Ok(Uint8ArrayWrapper::from(bytes)),
-				Err(err) => Err(Error::new(read_file_error(&self.path, err), None)),
-			}
-		})
-	}
-
-	pub fn read_string<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let path = Arc::clone(&self.path);
-		future_to_promise(
-			cx,
-			self.with_blocking_task(move |file| {
-				let mut string = String::new();
-				match file.read_to_string(&mut string) {
-					Ok(_) => Ok(string),
-					Err(err) => Err(read_file_error(&path, err)),
-				}
-			}),
-		)
-	}
-
-	#[ion(name = "readStringSync")]
-	pub fn read_string_sync(&self) -> Result<String> {
-		self.with_sync(|file| {
-			let mut string = String::new();
-			match file.read_to_string(&mut string) {
-				Ok(_) => Ok(string),
-				Err(err) => Err(Error::new(read_file_error(&self.path, err), None)),
-			}
-		})
-	}
-
-	pub fn write<'cx>(
-		&self, cx: &'cx Context, #[ion(convert = false)] contents: BufferSource<'cx>,
-	) -> Option<Promise<'cx>> {
-		let path = Arc::clone(&self.path);
-		let contents = contents.to_vec();
-		future_to_promise(
-			cx,
-			self.with_blocking_task(move |file| match file.write_all(&contents) {
-				Ok(_) => Ok(()),
-				Err(err) => Err(write_file_error(&path, err)),
-			}),
-		)
-	}
-
-	#[ion(name = "writeSync")]
-	pub fn write_sync(&self, #[ion(convert = false)] contents: BufferSource) -> Result<()> {
-		self.with_sync(|file| {
-			let contents = unsafe { contents.as_slice() };
-			match file.write_all(contents) {
-				Ok(_) => Ok(()),
-				Err(err) => Err(Error::new(write_file_error(&self.path, err), None)),
-			}
-		})
-	}
-}
-
-fn read_dir_error(path: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not read directory: {}\n{}", path, err), None)
-}
-
-fn create_dir_error(path: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not create directory: {}\n{}", path, err), None)
-}
-
-fn remove_error(path: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not remove: {}\n{}", path, err), None)
-}
-
-fn copy_error(from: &str, to: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not copy from {} to {}\n{}", from, to, err), None)
-}
-
-fn rename_error(from: &str, to: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not rename from {} to {}\n{}", from, to, err), None)
-}
-
-fn symlink_error(original: &str, link: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not symlink {} to {}\n{}", original, link, err), None)
-}
-
-fn link_error(original: &str, link: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not link {} to {}\n{}", original, link, err), None)
 }
 
 #[js_fn]
@@ -312,7 +146,7 @@ fn read_dir(cx: &Context, path_str: String) -> Option<Promise> {
 
 				Ok(entries)
 			}
-			Err(err) => Err(read_dir_error(&path_str, err)),
+			Err(err) => Err(dir_error("read", &path_str, err)),
 		}
 	})
 }
@@ -331,7 +165,7 @@ fn read_dir_sync(path_str: String) -> Result<Vec<String>> {
 
 			Ok(entries)
 		}
-		Err(err) => Err(read_dir_error(&path_str, err)),
+		Err(err) => Err(dir_error("read", &path_str, err)),
 	}
 }
 
@@ -348,7 +182,7 @@ fn create_dir(cx: &Context, path_str: String, Opt(recursive): Opt<bool>) -> Opti
 		};
 		match result {
 			Ok(_) => Ok(()),
-			Err(err) => Err(create_dir_error(&path_str, err)),
+			Err(err) => Err(dir_error("create", &path_str, err)),
 		}
 	})
 }
@@ -365,7 +199,7 @@ fn create_dir_sync(path_str: String, Opt(recursive): Opt<bool>) -> Result<()> {
 	};
 	match result {
 		Ok(_) => Ok(()),
-		Err(err) => Err(create_dir_error(&path_str, err)),
+		Err(err) => Err(dir_error("create", &path_str, err)),
 	}
 }
 
@@ -443,7 +277,9 @@ fn copy(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
 
-		tokio::fs::copy(from, to).await.map_err(|err| copy_error(&from_str, &to_str, err))
+		tokio::fs::copy(from, to)
+			.await
+			.map_err(|err| translate_error("copy from", &from_str, &to_str, err))
 	})
 }
 
@@ -452,7 +288,7 @@ fn copy_sync(from_str: String, to_str: String) -> Result<u64> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	fs::copy(from, to).map_err(|err| copy_error(&from_str, &to_str, err))
+	fs::copy(from, to).map_err(|err| translate_error("copy from", &from_str, &to_str, err))
 }
 
 #[js_fn]
@@ -461,7 +297,9 @@ fn rename(cx: &Context, from_str: String, to_str: String) -> Option<Promise> {
 		let from = Path::new(&from_str);
 		let to = Path::new(&to_str);
 
-		tokio::fs::rename(from, to).await.map_err(|err| rename_error(&from_str, &to_str, err))
+		tokio::fs::rename(from, to)
+			.await
+			.map_err(|err| translate_error("rename from", &from_str, &to_str, err))
 	})
 }
 
@@ -470,7 +308,7 @@ fn rename_sync(from_str: String, to_str: String) -> Result<()> {
 	let from = Path::new(&from_str);
 	let to = Path::new(&to_str);
 
-	fs::rename(from, to).map_err(|err| rename_error(&from_str, &to_str, err))
+	fs::rename(from, to).map_err(|err| translate_error("rename from", &from_str, &to_str, err))
 }
 
 #[js_fn]
@@ -492,7 +330,7 @@ fn symlink(cx: &Context, original_str: String, link_str: String) -> Option<Promi
 				tokio::fs::symlink_file(original, link).await
 			};
 		}
-		result.map_err(|err| symlink_error(&original_str, &link_str, err))
+		result.map_err(|err| translate_error("symlink", &original_str, &link_str, err))
 	})
 }
 
@@ -514,7 +352,7 @@ fn symlink_sync(original_str: String, link_str: String) -> Result<()> {
 			os::windows::fs::symlink_file(original, link)
 		};
 	}
-	result.map_err(|err| symlink_error(&original_str, &link_str, err))
+	result.map_err(|err| translate_error("symlink", &original_str, &link_str, err))
 }
 
 #[js_fn]
@@ -525,7 +363,7 @@ fn link(cx: &Context, original_str: String, link_str: String) -> Option<Promise>
 
 		tokio::fs::hard_link(original, link)
 			.await
-			.map_err(|err| link_error(&original_str, &link_str, err))
+			.map_err(|err| translate_error("link", &original_str, &link_str, err))
 	})
 }
 
@@ -534,11 +372,12 @@ fn link_sync(original_str: String, link_str: String) -> Result<()> {
 	let original = Path::new(&original_str);
 	let link = Path::new(&link_str);
 
-	fs::hard_link(original, link).map_err(|err| link_error(&original_str, &link_str, err))
+	fs::hard_link(original, link).map_err(|err| translate_error("link", &original_str, &link_str, err))
 }
 
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(open_sync, "open", 1),
+	function_spec!(create_sync, "create", 1),
 	function_spec!(read_dir_sync, "readDir", 1),
 	function_spec!(create_dir_sync, "createDir", 1),
 	function_spec!(remove_sync, "remove", 1),
@@ -551,6 +390,7 @@ const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 
 const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(open, 1),
+	function_spec!(create, 1),
 	function_spec!(read_dir, "readDir", 1),
 	function_spec!(create_dir, "createDir", 1),
 	function_spec!(remove, "remove", 1),

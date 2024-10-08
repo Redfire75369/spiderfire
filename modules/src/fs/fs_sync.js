@@ -18,5 +18,4 @@ export const rename = ______fsSyncInternal______.rename;
 export const softLink = ______fsSyncInternal______.softLink;
 export const hardLink = ______fsSyncInternal______.hardLink;
 
-
 export default Object.freeze(______fsSyncInternal______);
