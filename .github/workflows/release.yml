@@ -63,7 +63,7 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows'
         env:
-          MOZ_LTO: full
+          MOZ_LTO: full,cross
           CFLAGS: /clang:-flto
           CPPFLAGS: /clang:-flto
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
@@ -80,7 +80,7 @@ jobs:
       - name: Build Linux
         if: matrix.os == 'linux'
         env:
-          MOZ_LTO: full
+          MOZ_LTO: full,cross
           CFLAGS: -flto
           CPPFLAGS: -flto
           CXXFLAGS: -flto
