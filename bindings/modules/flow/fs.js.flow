@@ -1,63 +1,93 @@
 // @flow
 
 declare module "fs" {
-	declare export function readBinary(path: string): Promise<Uint8Array>;
+	declare export class FileHandle {
+		read(): Promise<Uint8Array>;
+		readSync(): Uint8Array;
 
-	declare export function readString(path: string): Promise<string>;
+		readString(): Promise<string>;
+		readStringSync(): string;
+
+		write(source: BufferSource): Promise<void>;
+		writeSync(source: BufferSource): void;
+	}
+
+	declare export interface OpenOptions {
+		read?: boolean,
+		write?: boolean,
+		append?: boolean,
+		create?: boolean,
+		createNew?: boolean,
+	}
+
+	declare export function open(path: string, options?: OpenOptions): Promise<FileHandle>;
+
+	declare export function create(path: string): Promise<FileHandle>;
 
 	declare export function readDir(path: string): Promise<string[]>;
 
-	declare export function write(path: string, contents: string): Promise<boolean>;
+	declare export function createDir(path: string, recursive?: boolean): Promise<void>;
 
-	declare export function createDir(path: string): Promise<boolean>;
+	declare export function remove(path: string, recursive?: boolean): Promise<void>;
 
-	declare export function createDirRecursive(path: string): Promise<boolean>;
+	declare export function copy(from: string, to: string): Promise<number>;
 
-	declare export function removeFile(path: string): Promise<boolean>;
+	declare export function rename(from: string, to: string): Promise<void>;
 
-	declare export function removeDir(path: string): Promise<boolean>;
+	declare export function symlink(original: string, link: string): Promise<void>;
 
-	declare export function removeDirRecursive(path: string): Promise<boolean>;
-
-	declare export function copy(from: string, to: string): Promise<boolean>;
-
-	declare export function rename(from: string, to: string): Promise<boolean>;
-
-	declare export function softLink(original: string, link: string): Promise<boolean>;
-
-	declare export function hardLink(original: string, link: string): Promise<boolean>;
+	declare export function link(original: string, link: string): Promise<void>;
 
 	declare export var sync: {
-		readBinary(path: string): Uint8Array,
-		readString(path: string): string,
+		open(path: string, options?: OpenOptions): FileHandle;
+		create(path: string): FileHandle;
+
 		readDir(path: string): string[],
-		write(path: string, contents: string): boolean,
-		createDir(path: string): boolean,
-		createDirRecursive(path: string): boolean,
-		removeFile(path: string): boolean,
-		removeDir(path: string): boolean,
-		removeDirRecursive(path: string): boolean,
-		copy(from: string, to: string): boolean,
-		rename(from: string, to: string): boolean,
-		softLink(original: string, link: string): boolean,
-		hardLink(original: string, link: string): boolean,
+		createDir(path: string, recursive?: boolean): void,
+		remove(path: string, recursive?: boolean): void,
+		copy(from: string, to: string): number,
+		rename(from: string, to: string): void,
+		symlink(original: string, link: string): void,
+		link(original: string, link: string): void,
 	};
 
 	declare export default {
-		readBinary: typeof readBinary,
-		readString: typeof readString,
+		FileHandle: typeof FileHandle,
+
+		OpenOptions: typeof OpenOptions,
+		open: typeof open,
+		create: typeof create,
+
 		readDir: typeof readDir,
-		write: typeof write,
 		createDir: typeof createDir,
-		createDirRecursive: typeof createDirRecursive,
-		removeFile: typeof removeFile,
-		removeDir: typeof removeDir,
-		removeDirRecursive: typeof removeDirRecursive,
+		remove: typeof remove,
 		copy: typeof copy,
 		rename: typeof rename,
-		softLink: typeof softLink,
-		hardLink: typeof hardLink,
+		symlink: typeof symlink,
+		link: typeof link,
 
 		sync: typeof sync,
 	}
+}
+
+declare module "fs/sync" {
+	import {FileHandle, OpenOptions} from "fs";
+
+	declare export function open(path: string, options?: OpenOptions): FileHandle;
+
+	declare export function create(path: string): FileHandle;
+
+	declare export function readDir(path: string): string[];
+
+	declare export function createDir(path: string, recursive?: boolean): void;
+
+	declare export function remove(path: string, recursive?: boolean): void;
+
+	declare export function copy(from: string, to: string): number;
+
+	declare export function rename(from: string, to: string): void;
+
+	declare export function symlink(original: string, link: string): void;
+
+	declare export function link(original: string, link: string): void;
 }
