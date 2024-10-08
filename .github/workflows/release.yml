@@ -78,8 +78,7 @@ jobs:
             CFLAGS: -flto
             CPPFLAGS: -flto
             CXXFLAGS: -flto
-            LDFLAGS: -flto
-            RUSTFLAGS: -Clinker-plugin-lto -Clink-arg=-flto
+            RUSTFLAGS: 
         run: |
           just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
