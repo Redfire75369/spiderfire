@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es2022",
+    "target": "es2023",
     "lib": [
-      "es2022"
+      "es2023"
     ],
     "module": "es2022",
     "strict": true,

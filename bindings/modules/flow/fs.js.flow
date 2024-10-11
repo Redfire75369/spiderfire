@@ -38,23 +38,49 @@ declare module "fs" {
 
 	declare export function link(original: string, link: string): Promise<void>;
 
-	declare export var sync: {
-		open(path: string, options?: OpenOptions): FileHandle;
-		create(path: string): FileHandle;
+	import {
+		open as openSync,
+		create as createSync,
 
-		readDir(path: string): string[],
-		createDir(path: string, recursive?: boolean): void,
-		remove(path: string, recursive?: boolean): void,
-		copy(from: string, to: string): number,
-		rename(from: string, to: string): void,
-		symlink(original: string, link: string): void,
-		link(original: string, link: string): void,
+		readDir as readDirSync,
+		createDir as createDirSync,
+		remove as removeSync,
+		copy as copySync,
+		rename as renameSync,
+		symlink as symlinkSync,
+		link as linkSync
+	} from "fs/sync";
+
+	declare export {
+		openSync,
+		createSync,
+
+		readDirSync,
+		createDirSync,
+		removeSync,
+		copySync,
+		renameSync,
+		symlinkSync,
+		linkSync,
+	};
+
+	declare export var sync: {
+		open: typeof openSync,
+		create: typeof createSync,
+
+		readDir: typeof readDirSync,
+		createDir: typeof createDirSync,
+		remove: typeof removeSync,
+		copy: typeof copySync,
+		rename: typeof renameSync,
+		symlink: typeof symlinkSync,
+		link: typeof linkSync,
 	};
 
 	declare export default {
 		FileHandle: typeof FileHandle,
 
-		OpenOptions: typeof OpenOptions,
+		OpenOptions: OpenOptions,
 		open: typeof open,
 		create: typeof create,
 
@@ -71,7 +97,7 @@ declare module "fs" {
 }
 
 declare module "fs/sync" {
-	import {FileHandle, OpenOptions} from "fs";
+	import {type FileHandle, type OpenOptions} from "fs";
 
 	declare export function open(path: string, options?: OpenOptions): FileHandle;
 

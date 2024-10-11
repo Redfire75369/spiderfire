@@ -39,24 +39,50 @@ declare module "fs" {
 
 	export function link(original: string, link: string): Promise<void>;
 
-	export const sync: {
-		open(path: string, options?: OpenOptions): FileHandle;
-		create(path: string): FileHandle;
+	import {
+		open as openSync,
+		create as createSync,
 
-		readDir(path: string): string[],
-		createDir(path: string, recursive?: boolean): void,
-		remove(path: string, recursive?: boolean): void,
-		copy(from: string, to: string): number,
-		rename(from: string, to: string): void,
-		symlink(original: string, link: string): void,
-		link(original: string, link: string): void,
+		readDir as readDirSync,
+		createDir as createDirSync,
+		remove as removeSync,
+		copy as copySync,
+		rename as renameSync,
+		symlink as symlinkSync,
+		link as linkSync
+	} from "fs/sync";
+
+	export {
+		openSync,
+		createSync,
+
+		readDirSync,
+		createDirSync,
+		removeSync,
+		copySync,
+		renameSync,
+		symlinkSync,
+		linkSync,
+	};
+
+	export const sync: {
+		open: typeof openSync,
+		create: typeof createSync,
+
+		readDir: typeof readDirSync,
+		createDir: typeof createDirSync,
+		remove: typeof removeSync,
+		copy: typeof copySync,
+		rename: typeof renameSync,
+		symlink: typeof symlinkSync,
+		link: typeof linkSync,
 	};
 
 	namespace FileSystem {
 		export {
 			FileHandle,
 
-			OpenOptions,
+			type OpenOptions,
 			open,
 			create,
 
