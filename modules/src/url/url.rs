@@ -33,15 +33,14 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-#[derive(Default)]
 pub struct UrlM;
 
-impl NativeModule for UrlM {
+impl<'cx> NativeModule<'cx> for UrlM {
 	const NAME: &'static str = "url";
 	const VARIABLE_NAME: &'static str = "url";
 	const SOURCE: &'static str = include_str!("url.js");
 
-	fn module(cx: &Context) -> Option<Object> {
+	fn module(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		let url = Object::new(cx);
 		let global = Object::global(cx);
 

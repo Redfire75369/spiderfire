@@ -57,15 +57,14 @@ const FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-#[derive(Default)]
 pub struct Assert;
 
-impl NativeModule for Assert {
+impl<'cx> NativeModule<'cx> for Assert {
 	const NAME: &'static str = "assert";
 	const VARIABLE_NAME: &'static str = "assert";
 	const SOURCE: &'static str = include_str!("assert.js");
 
-	fn module(cx: &Context) -> Option<Object> {
+	fn module(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		let assert = Object::new(cx);
 		unsafe { assert.define_methods(cx, FUNCTIONS).then_some(assert) }
 	}

@@ -15,7 +15,7 @@ use ion::class::ClassObjectWrapper;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
 use ion::{ClassDefinition, Context, Object, Promise, Result};
-use mozjs::jsapi::{JSFunctionSpec, JSObject};
+use mozjs::jsapi::{JSFunction, JSFunctionSpec, JSObject};
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
 use tokio_stream::wrappers::ReadDirStream;
@@ -342,7 +342,7 @@ fn symlink_sync(original_str: String, link_str: String) -> Result<()> {
 	let result;
 	#[cfg(target_family = "unix")]
 	{
-		result = os::unix::fs::symlink(original, link)
+		result = os::unix::fs::symlink(original, link);
 	}
 	#[cfg(target_family = "windows")]
 	{
@@ -401,15 +401,14 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	JSFunctionSpec::ZERO,
 ];
 
-#[derive(Default)]
 pub struct FileSystemSync;
 
-impl NativeModule for FileSystemSync {
+impl<'cx> NativeModule<'cx> for FileSystemSync {
 	const NAME: &'static str = "fs/sync";
 	const VARIABLE_NAME: &'static str = "fsSync";
 	const SOURCE: &'static str = include_str!("fs_sync.js");
 
-	fn module(cx: &Context) -> Option<Object> {
+	fn module(&self, cx: &'cx Context) -> Option<Object<'cx>> {
 		let fs = Object::new(cx);
 
 		if unsafe { fs.define_methods(cx, SYNC_FUNCTIONS) } {
@@ -420,26 +419,46 @@ impl NativeModule for FileSystemSync {
 	}
 }
 
-#[derive(Default)]
-pub struct FileSystem;
+pub struct FileSystem<'cx> {
+	pub sync: &'cx Object<'cx>,
+}
 
-impl NativeModule for FileSystem {
+impl<'cx> NativeModule<'cx> for FileSystem<'cx> {
 	const NAME: &'static str = "fs";
 	const VARIABLE_NAME: &'static str = "fs";
 	const SOURCE: &'static str = include_str!("fs.js");
 
-	fn module(cx: &Context) -> Option<Object> {
-		FileSystemSync::module(cx).and_then(|sync| {
-			let fs = Object::new(cx);
+	fn module(&self, cx: &'cx Context) -> Option<Object<'cx>> {
+		let fs = Object::new(cx);
 
-			if unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
-				&& fs.define_as(cx, "sync", &sync, PropertyFlags::CONSTANT_ENUMERATED)
-				&& FileHandle::init_class(cx, &fs).0
-			{
-				Some(fs)
-			} else {
-				None
-			}
-		})
+		let mut result = unsafe { fs.define_methods(cx, ASYNC_FUNCTIONS) }
+			&& fs.define_as(cx, "sync", &self.sync, PropertyFlags::CONSTANT_ENUMERATED)
+			&& FileHandle::init_class(cx, &fs).0;
+
+		macro_rules! key {
+			($key:literal) => {
+				($key, concat!($key, "Sync"))
+			};
+		}
+		const SYNC_KEYS: [(&str, &str); 9] = [
+			key!("open"),
+			key!("create"),
+			key!("readDir"),
+			key!("createDir"),
+			key!("remove"),
+			key!("copy"),
+			key!("rename"),
+			key!("symlink"),
+			key!("link"),
+		];
+
+		for (key, new_key) in SYNC_KEYS {
+			let function = self.sync.get_as::<_, *mut JSFunction>(cx, key, true, ()).ok().flatten();
+			result = result
+				&& function.is_some()
+				&& fs.define_as(cx, new_key, &function.unwrap(), PropertyFlags::CONSTANT_ENUMERATED);
+		}
+
+		result.then_some(fs)
 	}
 }

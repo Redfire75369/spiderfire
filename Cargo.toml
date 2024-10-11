@@ -64,6 +64,7 @@ uri-url = "0.3.0"
 url = "2.5.4"
 uuid = "1.12.0"
 utf16string = "0.2.0"
+windows = "0.58.0"
 
 [workspace.dependencies.chrono]
 version = "0.4.39"
@@ -85,9 +86,6 @@ default-features = false
 [workspace.dependencies.tokio-stream]
 version = "0.1.17"
 default-features = false
-
-[workspace.dependencies.windows]
-version = "0.58.0"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny" # Expansion of thread_local has a #[deny]
