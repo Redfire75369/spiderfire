@@ -153,7 +153,7 @@ static ITERATOR_CLASS: NativeClass = NativeClass {
 
 static ITERATOR_METHODS: &[JSFunctionSpec] = &[
 	create_function_spec(
-		"next\0",
+		c"next",
 		JSNativeWrapper {
 			op: Some(Iterator::next_raw),
 			info: ptr::null_mut(),

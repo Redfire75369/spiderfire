@@ -22,7 +22,7 @@ fn queue_microtask(cx: &Context, callback: Function) -> Result<()> {
 	}
 }
 
-const FUNCTION: JSFunctionSpec = function_spec!(queue_microtask, "queueMicrotask", 0);
+const FUNCTION: JSFunctionSpec = function_spec!(queue_microtask, c"queueMicrotask", 0);
 
 pub fn define(cx: &Context, global: &Object) -> bool {
 	global.define_as(

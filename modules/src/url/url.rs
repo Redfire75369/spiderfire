@@ -28,8 +28,8 @@ fn domain_to_unicode(domain: String) -> String {
 }
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(domain_to_ascii, "domainToASCII", 0),
-	function_spec!(domain_to_unicode, "domainToUnicode", 0),
+	function_spec!(domain_to_ascii, c"domainToASCII", 0),
+	function_spec!(domain_to_unicode, c"domainToUnicode", 0),
 	JSFunctionSpec::ZERO,
 ];
 

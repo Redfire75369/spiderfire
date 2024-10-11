@@ -104,18 +104,18 @@ fn ends_with(path: String, prefix: String) -> bool {
 
 const FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(join, 0),
-	function_spec!(strip_prefix, "stripPrefix", 2),
-	function_spec!(file_stem, "fileStem", 1),
+	function_spec!(strip_prefix, c"stripPrefix", 2),
+	function_spec!(file_stem, c"fileStem", 1),
 	function_spec!(parent, 1),
-	function_spec!(file_name, "fileName", 1),
+	function_spec!(file_name, c"fileName", 1),
 	function_spec!(extension, 1),
-	function_spec!(with_file_name, "withFileName", 2),
-	function_spec!(with_externsion, "withExtension", 2),
-	function_spec!(is_absolute, "isAbsolute", 1),
-	function_spec!(is_relative, "isRelative", 1),
-	function_spec!(has_root, "hasRoot", 1),
-	function_spec!(starts_with, "startsWith", 2),
-	function_spec!(ends_with, "endsWith", 2),
+	function_spec!(with_file_name, c"withFileName", 2),
+	function_spec!(with_externsion, c"withExtension", 2),
+	function_spec!(is_absolute, c"isAbsolute", 1),
+	function_spec!(is_relative, c"isRelative", 1),
+	function_spec!(has_root, c"hasRoot", 1),
+	function_spec!(starts_with, c"startsWith", 2),
+	function_spec!(ends_with, c"endsWith", 2),
 	JSFunctionSpec::ZERO,
 ];
 

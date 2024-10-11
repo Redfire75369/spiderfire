@@ -78,4 +78,4 @@ fn on_rejected(cx: &Context, value: Value) {
 	Exception::clear(cx);
 }
 
-static ON_REJECTED: JSFunctionSpec = ion::function_spec!(on_rejected, "onRejected", 0);
+static ON_REJECTED: JSFunctionSpec = ion::function_spec!(on_rejected, c"onRejected", 0);

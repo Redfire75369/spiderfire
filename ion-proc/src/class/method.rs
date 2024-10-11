@@ -3,10 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+use std::ffi::CString;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
-use syn::{ItemFn, Result, Signature, Type};
+use syn::{ItemFn, LitCStr, Result, Signature, Type};
 
 use crate::attribute::name::Name;
 use crate::function::parameter::Parameters;
@@ -47,7 +48,8 @@ impl Method {
 					if name.is_case(Case::Snake) {
 						name = name.to_case(Case::Camel)
 					}
-					quote!(#ion::function_spec!(#class::#ident, #name, #nargs, #ion::flags::PropertyFlags::CONSTANT_ENUMERATED))
+					let literal = LitCStr::new(&CString::new(name).unwrap(), literal.span());
+					quote!(#ion::function_spec!(#class::#ident, #literal, #nargs, #ion::flags::PropertyFlags::CONSTANT_ENUMERATED))
 				}
 				Name::Symbol(symbol) => {
 					quote!(#ion::function_spec_symbol!(#class::#ident, #symbol, #nargs, #ion::flags::PropertyFlags::CONSTANT))

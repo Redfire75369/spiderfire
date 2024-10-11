@@ -376,28 +376,28 @@ fn link_sync(original_str: String, link_str: String) -> Result<()> {
 }
 
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
-	function_spec!(open_sync, "open", 1),
-	function_spec!(create_sync, "create", 1),
-	function_spec!(read_dir_sync, "readDir", 1),
-	function_spec!(create_dir_sync, "createDir", 1),
-	function_spec!(remove_sync, "remove", 1),
-	function_spec!(copy_sync, "copy", 2),
-	function_spec!(rename_sync, "rename", 2),
-	function_spec!(symlink_sync, "symlink", 2),
-	function_spec!(link_sync, "link", 2),
+	function_spec!(open_sync, c"open", 1),
+	function_spec!(create_sync, c"create", 1),
+	function_spec!(read_dir_sync, c"readDir", 1),
+	function_spec!(create_dir_sync, c"createDir", 1),
+	function_spec!(remove_sync, c"remove", 1),
+	function_spec!(copy_sync, c"copy", 2),
+	function_spec!(rename_sync, c"rename", 2),
+	function_spec!(symlink_sync, c"symlink", 2),
+	function_spec!(link_sync, c"link", 2),
 	JSFunctionSpec::ZERO,
 ];
 
 const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(open, 1),
 	function_spec!(create, 1),
-	function_spec!(read_dir, "readDir", 1),
-	function_spec!(create_dir, "createDir", 1),
-	function_spec!(remove, "remove", 1),
+	function_spec!(read_dir, c"readDir", 1),
+	function_spec!(create_dir, c"createDir", 1),
+	function_spec!(remove, c"remove", 1),
 	function_spec!(copy, 2),
 	function_spec!(rename, 2),
-	function_spec!(symlink, "symlink", 2),
-	function_spec!(link, "link", 2),
+	function_spec!(symlink, c"symlink", 2),
+	function_spec!(link, c"link", 2),
 	JSFunctionSpec::ZERO,
 ];
 
