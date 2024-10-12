@@ -85,9 +85,9 @@ pub(super) fn impl_accessor(
 ) -> Result<(Method, Parameters)> {
 	let expected_args = i32::from(is_setter);
 	let error_message = if is_setter {
-		format!("Expected Setter to have {} argument", expected_args)
+		format!("Expected Setter to have {expected_args} argument")
 	} else {
-		format!("Expected Getter to have {} arguments", expected_args)
+		format!("Expected Getter to have {expected_args} arguments")
 	};
 	let error = Error::new(method.sig.span(), error_message);
 

@@ -36,9 +36,7 @@ pub(crate) enum ArgumentError<'a> {
 impl ArgumentError<'_> {
 	fn error(self, meta: &ParseNestedMeta, key: &str) -> Result<()> {
 		match self {
-			ArgumentError::Kind(kind) => {
-				Err(meta.error(format!("{} cannot have multiple `{}` attributes.", kind, key)))
-			}
+			ArgumentError::Kind(kind) => Err(meta.error(format!("{kind} cannot have multiple `{key}` attributes."))),
 			ArgumentError::Full(error) => Err(meta.error(error)),
 			ArgumentError::None => Ok(()),
 		}

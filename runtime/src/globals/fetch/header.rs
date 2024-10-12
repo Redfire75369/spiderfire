@@ -356,7 +356,7 @@ fn validate_no_cors_safelisted_request_header(headers: &mut HeaderMap, name: &He
 	let temp = get_header(headers, name);
 	let str = value.to_str().unwrap();
 	let temp = match temp {
-		Some(temp) => format!("{}, {}", temp, str),
+		Some(temp) => format!("{temp}, {str}"),
 		None => String::from(str),
 	};
 	if temp.len() > 128 {

@@ -69,13 +69,13 @@ fn print_args<'cx>(args: impl Iterator<Item = FormatArg<'cx>>, log_level: LogLev
 				if to_space {
 					print!(" ");
 				}
-				print!("{}", arg);
+				print!("{arg}");
 			}
 			LogLevel::Warn | LogLevel::Error => {
 				if to_space {
 					eprint!(" ");
 				}
-				eprint!("{}", arg);
+				eprint!("{arg}");
 			}
 			LogLevel::None => unreachable!(),
 		};
@@ -177,8 +177,8 @@ fn assert(cx: &Context, Opt(assertion): Opt<bool>, Rest(values): Rest<Value>) {
 fn clear() {
 	INDENTS.set(0);
 
-	println!("{}", ANSI_CLEAR);
-	println!("{}", ANSI_CLEAR_SCREEN_DOWN);
+	println!("{ANSI_CLEAR}");
+	println!("{ANSI_CLEAR_SCREEN_DOWN}");
 }
 
 #[js_fn]
@@ -231,7 +231,7 @@ fn count(Opt(label): Opt<String>) {
 		};
 		if Config::global().log_level >= LogLevel::Info {
 			print_indent(LogLevel::Info);
-			println!("{}: {}", label, count);
+			println!("{label}: {count}");
 		}
 	});
 }
@@ -246,7 +246,7 @@ fn count_reset(Opt(label): Opt<String>) {
 		None => {
 			if Config::global().log_level >= LogLevel::Warn {
 				print_indent(LogLevel::Warn);
-				eprintln!("Count for {} does not exist", label);
+				eprintln!("Count for {label} does not exist");
 			}
 		}
 	});
@@ -262,7 +262,7 @@ fn time(Opt(label): Opt<String>) {
 		Entry::Occupied(_) => {
 			if Config::global().log_level >= LogLevel::Warn {
 				print_indent(LogLevel::Warn);
-				eprintln!("Timer {} already exists", label);
+				eprintln!("Timer {label} already exists");
 			}
 		}
 	});
@@ -276,7 +276,7 @@ fn time_log(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 			if Config::global().log_level >= LogLevel::Info {
 				let duration = Utc::now().timestamp_millis() - start.timestamp_millis();
 				print_indent(LogLevel::Info);
-				print!("{}: {}ms ", label, duration);
+				print!("{label}: {duration}ms ");
 				log_args(cx, &values, LogLevel::Info);
 				println!();
 			}
@@ -284,7 +284,7 @@ fn time_log(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 		None => {
 			if Config::global().log_level >= LogLevel::Warn {
 				print_indent(LogLevel::Warn);
-				eprintln!("Timer {} does not exist", label);
+				eprintln!("Timer {label} does not exist");
 			}
 		}
 	});
@@ -298,14 +298,14 @@ fn time_end(Opt(label): Opt<String>) {
 			if Config::global().log_level >= LogLevel::Info {
 				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
 				print_indent(LogLevel::Info);
-				print!("{}: {}ms - Timer Ended", label, duration);
+				print!("{label}: {duration}ms - Timer Ended");
 				println!();
 			}
 		}
 		None => {
 			if Config::global().log_level >= LogLevel::Warn {
 				print_indent(LogLevel::Warn);
-				eprintln!("Timer {} does not exist", label);
+				eprintln!("Timer {label} does not exist");
 			}
 		}
 	});

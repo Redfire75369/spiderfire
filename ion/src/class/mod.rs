@@ -246,7 +246,7 @@ fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
 }
 
 fn check_private<T: ClassDefinition>(cx: &Context, object: &Object) -> Result<()> {
-	if class_num_reserved_slots(unsafe { get_object_class(object.handle().get()) }) >= 1
+	if unsafe { class_num_reserved_slots(get_object_class(object.handle().get())) >= 1 }
 		&& (T::instance_of(cx, object) || T::has_instance(cx, object)?)
 	{
 		Ok(())

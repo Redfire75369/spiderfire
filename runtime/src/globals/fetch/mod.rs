@@ -553,7 +553,7 @@ async fn http_network_fetch(cx: &Context, request: &Request, client: Client, is_
 			.host_str()
 			.map(|host| {
 				if let Some(port) = request.url.port() {
-					format!("{}:{}", host, port)
+					format!("{host}:{port}")
 				} else {
 					String::from(host)
 				}

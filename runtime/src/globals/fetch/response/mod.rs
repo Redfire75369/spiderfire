@@ -201,7 +201,7 @@ impl Response {
 			let response = Object::from(this.to_local());
 			let response = Response::get_mut_private(&cx2, &response)?;
 			let bytes = response.read_to_bytes().await?;
-			String::from_utf8(bytes).map_err(|e| Error::new(format!("Invalid UTF-8 sequence: {}", e), None))
+			String::from_utf8(bytes).map_err(|e| Error::new(format!("Invalid UTF-8 sequence: {e}"), None))
 		})
 	}
 }

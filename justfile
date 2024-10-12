@@ -35,4 +35,4 @@ test-release *args:
 
 lint:
   cargo +nightly fmt --check --all
-  cargo clippy --all-targets --locked -- -D warnings
+  cargo clippy --all-targets --locked -F debugmozjs -- -D warnings

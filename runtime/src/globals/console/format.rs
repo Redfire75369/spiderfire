@@ -189,9 +189,9 @@ fn write_printf<D: Display>(
 	output: &mut String, width: Option<usize>, precision: Option<usize>, display: D,
 ) -> fmt::Result {
 	match (width, precision) {
-		(Some(width), Some(precision)) => write!(output, "{:1$.2$}", display, width, precision),
-		(Some(width), None) => write!(output, "{:1$}", display, width),
-		(None, Some(precision)) => write!(output, "{:.1$}", display, precision),
-		(None, None) => write!(output, "{}", display),
+		(Some(width), Some(precision)) => write!(output, "{display:width$.precision$}"),
+		(Some(width), None) => write!(output, "{display:width$}"),
+		(None, Some(precision)) => write!(output, "{display:.precision$}"),
+		(None, None) => write!(output, "{display}"),
 	}
 }

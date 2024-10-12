@@ -97,7 +97,7 @@ fn class_impls(
 	}))?;
 
 	let none = quote!(::std::option::Option::None);
-	let name = format!("{}\0", name);
+	let name = format!("{name}\0");
 
 	let mut class_impl: ItemImpl = parse2(quote_spanned!(span => impl #r#type {
 		pub const fn __ion_native_prototype_chain() -> #ion::class::PrototypeChain {

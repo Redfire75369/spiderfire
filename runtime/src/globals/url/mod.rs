@@ -177,7 +177,7 @@ impl URL {
 			.host_str()
 			.map(|host| {
 				if let Some(port) = self.url.port() {
-					format!("{}:{}", host, port)
+					format!("{host}:{port}")
 				} else {
 					String::from(host)
 				}
@@ -263,7 +263,7 @@ impl URL {
 
 	#[ion(get)]
 	pub fn get_search(&self) -> String {
-		self.url.query().map(|search| format!("?{}", search)).unwrap_or_default()
+		self.url.query().map(|search| format!("?{search}")).unwrap_or_default()
 	}
 
 	#[ion(set)]
@@ -279,7 +279,7 @@ impl URL {
 
 	#[ion(get)]
 	pub fn get_hash(&self) -> String {
-		self.url.fragment().map(|hash| format!("#{}", hash)).unwrap_or_default()
+		self.url.fragment().map(|hash| format!("#{hash}")).unwrap_or_default()
 	}
 
 	#[ion(set)]

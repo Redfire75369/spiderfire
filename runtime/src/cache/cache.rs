@@ -53,7 +53,7 @@ impl Cache {
 		let folder_name = folder.file_name().and_then(OsStr::to_str).ok_or(Error::Other)?;
 
 		let hash = hash(folder.as_os_str().to_str().unwrap().as_bytes(), Some(16));
-		let folder = self.dir.join(format!("{}-{}", folder_name, hash));
+		let folder = self.dir.join(format!("{folder_name}-{hash}"));
 		Ok(folder)
 	}
 
@@ -68,7 +68,7 @@ impl Cache {
 		let destination_file = folder.join(source_file).with_extension("js");
 		let map_file = folder.join(source_file).with_extension("js.map");
 
-		let source_hash_file = folder.join(format!("{}.{}.sha512", source_file, extension));
+		let source_hash_file = folder.join(format!("{source_file}.{extension}.sha512"));
 		let destination_hash_file = destination_file.with_extension("js.sha512");
 		let map_hash_file = map_file.with_extension("js.map.sha512");
 
@@ -111,7 +111,7 @@ impl Cache {
 			let destination_file = folder.join(source_file).with_extension("js");
 			let map_file = folder.join(source_file).with_extension("js.map");
 
-			let source_hash_file = folder.join(format!("{}.{}.sha512", source_file, extension));
+			let source_hash_file = folder.join(format!("{source_file}.{extension}.sha512"));
 			let destination_hash_file = destination_file.with_extension("js.sha512");
 			let map_hash_file = map_file.with_extension("map.sha512");
 

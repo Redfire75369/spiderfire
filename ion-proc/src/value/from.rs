@@ -214,7 +214,7 @@ fn impl_body(
 			let (variants, requires_object): (Vec<_>, Vec<_>) = variants.into_iter().unzip();
 			let requires_object = requires_object.into_iter().any(|b| b);
 
-			let error = format!("Value does not match any of the variants of enum {}", ident);
+			let error = format!("Value does not match any of the variants of enum {ident}");
 
 			let mut if_unit = None;
 
@@ -250,7 +250,7 @@ fn map_fields(
 	let requirement = match tag.0 {
 		Some(Tag::External) => {
 			if let Some(variant) = variant {
-				let error = format!("Expected Object at External Tag {}", variant);
+				let error = format!("Expected Object at External Tag {variant}");
 				quote!(
 					let __object: #ion::Object = __object.get_as(cx, #variant, true, ())?
 						.ok_or_else(|_| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
@@ -262,7 +262,7 @@ fn map_fields(
 		Some(Tag::Internal(key)) => {
 			if let Some(variant) = variant {
 				let missing_error = format!("Expected Internal Tag key {}", key.value());
-				let error = format!("Expected Internal Tag {} at key {}", variant, key.value());
+				let error = format!("Expected Internal Tag {variant} at key {}", key.value());
 				quote!(
 					let __key: ::std::string::String = __object.get_as(cx, #key, true, ())?
 						.ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
@@ -334,12 +334,12 @@ fn map_fields(
 				)
 			} else if let Some(parser) = &parser {
 				requires_object = true;
-				let error = format!("Expected Value at Key {}", key);
+				let error = format!("Expected Value at Key {key}");
 				quote_spanned!(field.span() => let #ident: #ty = __object.get(cx, #key)?.map(#parser).transpose()?
 					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
 			} else {
 				requires_object = true;
-				let error = format!("Expected Value at key {} of Type {}", key, format_type(ty));
+				let error = format!("Expected Value at key {key} of Type {}", format_type(ty));
 				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)?
 					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
 			};

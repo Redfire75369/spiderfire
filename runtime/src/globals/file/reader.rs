@@ -161,8 +161,8 @@ impl FileReader {
 			let reader = FileReader::get_private(&cx2, &reader)?;
 			let base64 = BASE64_STANDARD.encode(&bytes);
 			let data_url = match mime {
-				Some(mime) => format!("data:{};base64,{}", mime, base64),
-				None => format!("data:base64,{}", base64),
+				Some(mime) => format!("data:{mime};base64,{base64}"),
+				None => format!("data:base64,{base64}"),
 			};
 
 			reader.result.set(data_url.as_value(&cx2).get());
@@ -218,8 +218,8 @@ impl FileReaderSync {
 
 		let base64 = BASE64_STANDARD.encode(&blob.bytes);
 		match mime {
-			Some(mime) => format!("data:{};base64,{}", mime, base64),
-			None => format!("data:base64,{}", base64),
+			Some(mime) => format!("data:{mime};base64,{base64}"),
+			None => format!("data:base64,{base64}"),
 		}
 	}
 }

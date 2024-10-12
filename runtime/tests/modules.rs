@@ -26,7 +26,7 @@ fn modules() {
 	let cx = &mut Context::from_runtime(&rt);
 	let rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(cx);
 
-	let path = format!("./tests/scripts/{}", FILE_NAME);
+	let path = format!("./tests/scripts/{FILE_NAME}");
 	let result = Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }
