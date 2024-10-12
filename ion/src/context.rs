@@ -76,6 +76,9 @@ impl ContextInner {
 	extern "C" fn trace(trc: *mut JSTracer, data: *mut c_void) {
 		unsafe {
 			let inner = &mut *data.cast::<ContextInner>();
+			for (_, info) in &inner.class_infos {
+				info.trace(trc);
+			}
 			inner.private.trace(trc);
 		}
 	}

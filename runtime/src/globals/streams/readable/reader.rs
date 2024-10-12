@@ -126,7 +126,7 @@ impl<'r> Reader<'r> {
 }
 
 #[js_class]
-pub(crate) struct CommonReader {
+pub struct CommonReader {
 	reflector: Reflector,
 
 	stream: Option<Box<Heap<*mut JSObject>>>,

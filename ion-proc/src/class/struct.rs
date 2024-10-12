@@ -14,7 +14,7 @@ use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::ParseAttribute;
 use crate::utils::{new_token, path_ends_with};
 
-pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 6]> {
+pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 7]> {
 	let ion = &crate_from_attributes(&mut r#struct.attrs);
 
 	let repr_c = r#struct.attrs.iter().fold(Ok(false), |acc, attr| {
@@ -82,7 +82,7 @@ pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImp
 
 fn class_impls(
 	ion: &TokenStream, span: Span, name: &str, r#type: &Type, super_field: &Member, super_type: &Type,
-) -> Result<[ItemImpl; 6]> {
+) -> Result<[ItemImpl; 7]> {
 	let from_value = impl_from_value(ion, span, r#type, false)?;
 	let from_value_mut = impl_from_value(ion, span, r#type, true)?;
 
@@ -138,6 +138,24 @@ fn class_impls(
 	}))?;
 	class_impl.attrs.push(parse_quote!(#[doc(hidden)]));
 
+	let is_reflector = matches!(super_type, Type::Path(ty) if path_ends_with(&ty.path, "Reflector"));
+	let parent_proto = if is_reflector {
+		quote_spanned!(super_type.span() => ::std::option::Option::None)
+	} else {
+		quote_spanned!(super_type.span() =>
+			let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
+			let info = infos.get(&::core::any::TypeId::of::<#super_type>()).expect("Uninitialised Class");
+			::std::option::Option::Some(cx.root(info.prototype.get()))
+		)
+	};
+	let mut parent_impl: ItemImpl = parse2(quote_spanned!(super_type.span() => impl #r#type {
+		#[allow(unused_variables)]
+		pub fn __ion_parent_prototype(cx: &#ion::Context) -> ::std::option::Option<#ion::Local<*mut ::mozjs::jsapi::JSObject>> {
+			#parent_proto
+		}
+	}))?;
+	parent_impl.attrs.push(parse_quote!(#[doc(hidden)]));
+
 	Ok([
 		from_value,
 		from_value_mut,
@@ -145,6 +163,7 @@ fn class_impls(
 		castable,
 		native_object,
 		class_impl,
+		parent_impl,
 	])
 }
 

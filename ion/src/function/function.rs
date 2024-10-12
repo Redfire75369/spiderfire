@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ops::Deref;
 
 use mozjs::conversions::jsstr_to_string;
@@ -55,7 +55,7 @@ impl<'f> Function<'f> {
 	///
 	/// Throws a JS Exception if called more than once.
 	pub fn from_closure_once(
-		cx: &'f Context, name: &str, closure: Box<ClosureOnce>, nargs: u32, flags: PropertyFlags,
+		cx: &'f Context, name: &CStr, closure: Box<ClosureOnce>, nargs: u32, flags: PropertyFlags,
 	) -> Function<'f> {
 		let closure = create_closure_once_object(cx, closure);
 		Function::create_with_closure(cx, call_closure_once, name, closure, nargs, flags)
@@ -63,14 +63,14 @@ impl<'f> Function<'f> {
 
 	/// Creates a new [Function] with a [Closure].
 	pub fn from_closure(
-		cx: &'f Context, name: &str, closure: Box<Closure>, nargs: u32, flags: PropertyFlags,
+		cx: &'f Context, name: &CStr, closure: Box<Closure>, nargs: u32, flags: PropertyFlags,
 	) -> Function<'f> {
 		let closure = create_closure_object(cx, closure);
 		Function::create_with_closure(cx, call_closure, name, closure, nargs, flags)
 	}
 
 	fn create_with_closure(
-		cx: &'f Context, call: NativeFunction, name: &str, closure: Object, nargs: u32, flags: PropertyFlags,
+		cx: &'f Context, call: NativeFunction, name: &CStr, closure: Object, nargs: u32, flags: PropertyFlags,
 	) -> Function<'f> {
 		unsafe {
 			let function = Function {

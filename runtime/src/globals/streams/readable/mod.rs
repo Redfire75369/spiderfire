@@ -15,7 +15,7 @@ use ion::function::Opt;
 use ion::{ClassDefinition, Context, Error, ErrorKind, Function, Local, Object, Promise, Result, ResultExc, Value};
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
-pub use reader::{ByobReader, DefaultReader};
+pub use reader::{ByobReader, CommonReader, DefaultReader};
 use reader::{Reader, ReaderKind};
 pub use source::StreamSource;
 use source::{forward_reader_error, TeeBytesState, TeeDefaultState};

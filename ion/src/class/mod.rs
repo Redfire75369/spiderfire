@@ -13,16 +13,17 @@ use mozjs::error::throw_type_error;
 use mozjs::gc::{HandleObject, Traceable};
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Handle, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
+	GCContext, Heap, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
 	JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
 };
 use mozjs::jsval::{JSVal, NullValue, PrivateValue, UndefinedValue};
+use mozjs::rust::get_object_class;
 
 pub use crate::class::native::{NativeClass, PrototypeChain, TypeIdWrapper, MAX_PROTO_CHAIN_LENGTH};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::conversions::{IntoValue, ToValue};
 use crate::function::NativeFunction;
-use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value};
+use crate::{class_num_reserved_slots, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
 
 mod native;
 mod reflect;
@@ -32,8 +33,15 @@ mod reflect;
 #[derive(Debug)]
 pub struct ClassInfo {
 	class: &'static NativeClass,
-	constructor: *mut JSFunction,
-	prototype: *mut JSObject,
+	constructor: Box<Heap<*mut JSFunction>>,
+	pub prototype: Box<Heap<*mut JSObject>>,
+}
+
+unsafe impl Traceable for ClassInfo {
+	unsafe fn trace(&self, trc: *mut JSTracer) {
+		self.constructor.trace(trc);
+		self.prototype.trace(trc);
+	}
 }
 
 pub trait ClassDefinition: NativeObject {
@@ -109,8 +117,8 @@ pub trait ClassDefinition: NativeObject {
 
 				let class_info = ClassInfo {
 					class: Self::class(),
-					constructor: constructor.get(),
-					prototype: prototype.get(),
+					constructor: Heap::boxed(constructor.get()),
+					prototype: Heap::boxed(prototype.get()),
 				};
 
 				(true, entry.insert(class_info))
@@ -125,7 +133,7 @@ pub trait ClassDefinition: NativeObject {
 			JS_NewObjectWithGivenProto(
 				cx.as_ptr(),
 				&Self::class().base,
-				Handle::from_marked_location(&info.prototype),
+				Local::from_heap(&info.prototype).handle().into(),
 			)
 		}
 	}
@@ -147,11 +155,8 @@ pub trait ClassDefinition: NativeObject {
 	}
 
 	fn get_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a Self> {
-		if Self::instance_of(cx, object) || Self::has_instance(cx, object)? {
-			Ok(unsafe { Self::get_private_unchecked(object) })
-		} else {
-			Err(private_error(Self::class()))
-		}
+		check_private::<Self>(cx, object)?;
+		Ok(unsafe { Self::get_private_unchecked(object) })
 	}
 
 	unsafe fn get_mut_private_unchecked<'a>(object: &Object<'a>) -> &'a mut Self {
@@ -163,11 +168,8 @@ pub trait ClassDefinition: NativeObject {
 	}
 
 	fn get_mut_private<'a>(cx: &Context, object: &Object<'a>) -> Result<&'a mut Self> {
-		if Self::instance_of(cx, object) || Self::has_instance(cx, object)? {
-			Ok(unsafe { Self::get_mut_private_unchecked(object) })
-		} else {
-			Err(private_error(Self::class()))
-		}
+		check_private::<Self>(cx, object)?;
+		Ok(unsafe { Self::get_mut_private_unchecked(object) })
 	}
 
 	unsafe fn set_private(object: *mut JSObject, native: Box<Self>) {
@@ -191,7 +193,7 @@ pub trait ClassDefinition: NativeObject {
 	fn has_instance(cx: &Context, object: &Object) -> Result<bool> {
 		let infos = unsafe { &mut (*cx.get_inner_data().as_ptr()).class_infos };
 		let constructor =
-			Function::from(cx.root(infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class").constructor))
+			Function::from(cx.root(infos.get(&TypeId::of::<Self>()).expect("Uninitialised Class").constructor.get()))
 				.to_object(cx);
 		let object = object.as_value(cx);
 		let mut has_instance = false;
@@ -243,9 +245,18 @@ fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
 	specs.map_or_else(ptr::null, |specs| specs.as_ptr())
 }
 
-fn private_error(class: &'static NativeClass) -> Error {
-	let name = unsafe { CStr::from_ptr(class.base.name).to_str().unwrap() };
-	Error::new(format!("Object does not implement interface {}", name), ErrorKind::Type)
+fn check_private<T: ClassDefinition>(cx: &Context, object: &Object) -> Result<()> {
+	if class_num_reserved_slots(unsafe { get_object_class(object.handle().get()) }) >= 1
+		&& (T::instance_of(cx, object) || T::has_instance(cx, object)?)
+	{
+		Ok(())
+	} else {
+		let name = unsafe { CStr::from_ptr(T::class().base.name).to_str()? };
+		Err(Error::new(
+			format!("Object does not implement interface {}", name),
+			ErrorKind::Type,
+		))
+	}
 }
 
 #[doc(hidden)]

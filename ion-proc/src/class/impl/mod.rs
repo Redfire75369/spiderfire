@@ -190,6 +190,10 @@ fn class_definition(
 			__ION_NATIVE_CLASS
 		}
 
+		fn parent_prototype(cx: &#ion::Context) -> ::std::option::Option<#ion::Local<*mut ::mozjs::jsapi::JSObject>> {
+			#r#type::__ion_parent_prototype(cx)
+		}
+
 		fn constructor() -> (::std::option::Option<#ion::function::NativeFunction>, ::core::primitive::u32) {
 			(#constructor_function, #constructor_nargs)
 		}

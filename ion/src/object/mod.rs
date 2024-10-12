@@ -41,6 +41,10 @@ pub const fn class_reserved_slots(slots: u32) -> u32 {
 	(slots & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
 }
 
+pub const fn class_num_reserved_slots(class: *const JSClass) -> u32 {
+	unsafe { ((&*class).flags >> JSCLASS_RESERVED_SLOTS_SHIFT) & JSCLASS_RESERVED_SLOTS_MASK }
+}
+
 pub fn new_global<'cx>(
 	cx: &'cx Context, class: &JSClass, principals: Option<*mut JSPrincipals>, hook_option: OnNewGlobalHookOption,
 	realm_options: Option<RealmOptions>,

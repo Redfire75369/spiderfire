@@ -44,7 +44,7 @@ impl<'p> Promise<'p> {
 		unsafe {
 			let function = Function::from_closure_once(
 				cx,
-				"executor",
+				c"executor",
 				Box::new(move |args| {
 					let cx = args.cx();
 					let resolve_obj = args.value(0).unwrap().to_object(cx).into_local();
@@ -278,7 +278,7 @@ where
 {
 	Function::from_closure_once(
 		cx,
-		"",
+		c"",
 		Box::new(move |args| {
 			let value = args.value(0).unwrap();
 			reaction(args.cx(), &value)

@@ -5,15 +5,21 @@
  */
 
 use ion::{ClassDefinition, Context, Object};
-use readable::{ByobReader, ByobRequest, ByteStreamController, DefaultController, DefaultReader, ReadableStream};
+use readable::{
+	ByobReader, ByobRequest, ByteStreamController, CommonController, CommonReader, DefaultController, DefaultReader,
+	ReadableStream,
+};
 
 pub mod readable;
 
 pub fn define<'cx>(cx: &'cx Context, global: &'cx Object) -> bool {
+	let dummy = Object::new(cx);
 	ReadableStream::init_class(cx, global).0
+		&& CommonController::init_class(cx, &dummy).0
 		&& ByteStreamController::init_class(cx, global).0
 		&& DefaultController::init_class(cx, global).0
 		&& ByobRequest::init_class(cx, global).0
+		&& CommonReader::init_class(cx, &dummy).0
 		&& DefaultReader::init_class(cx, global).0
 		&& ByobReader::init_class(cx, global).0
 }
