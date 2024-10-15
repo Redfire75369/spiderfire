@@ -1,15 +1,11 @@
 name: Rust Release Build
 
-on: workflow_dispatch
+on: [push, workflow_dispatch]
 
 env:
   SHELL: /bin/bash
   CARGO_TERM_COLOR: never
   SCCACHE_GHA_ENABLED: "true"
-
-  CC: clang
-  CXX: clang++
-  CCACHE: sccache
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,12 +38,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install LLVM
-        if: matrix.os == 'macos' || matrix.os == 'linux'
-        uses: ZhongRuoyu/setup-llvm@v0
-        with:
-          llvm-version: 18
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@master

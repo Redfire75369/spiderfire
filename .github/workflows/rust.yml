@@ -1,15 +1,11 @@
 name: Rust
 
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 env:
   SHELL: /bin/bash
   CARGO_TERM_COLOR: never
   SCCACHE_GHA_ENABLED: "true"
-
-  CC: clang
-  CXX: clang++
-  CCACHE: sccache
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
