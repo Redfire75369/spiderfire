@@ -35,7 +35,7 @@ runs:
       shell: bash
       run: |
         brew list -1 | grep python | while read formula; do brew unlink $formula; brew link --overwrite $formula; done
-        brew install llvm yasm
+        brew install lld llvm yasm
         echo "RUSTC_WRAPPER=sccache" >> $GITHUB_PATH
 
     - name: Install Dependencies on Linux

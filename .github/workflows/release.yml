@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install LLVM
-        if: matrix.os == 'linux'
+        if: matrix.os == 'macos' || matrix.os == 'linux'
         uses: ZhongRuoyu/setup-llvm@v0
         with:
           llvm-version: 18
@@ -63,7 +63,7 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows'
         env:
-          MOZ_LTO: full
+          MOZ_LTO: full,cross
           CFLAGS: /clang:-flto
           CPPFLAGS: /clang:-flto
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=lld-link
@@ -73,6 +73,12 @@ jobs:
 
       - name: Build MacOS
         if: matrix.os == 'macos'
+        env:
+          MOZ_LTO: full,cross
+          CFLAGS: -flto
+          CPPFLAGS: -flto
+          CXXFLAGS: -flto
+          RUSTFLAGS: -Clinker-plugin-lto -Clinker=${{ github.workspace }}/.github/scripts/macos-linker.sh -Clink-arg=-fuse-ld=lld
         run: |
           just build-release -v --locked --target $TARGET
           mv ./target/$TARGET/release/cli ./target/$TARGET/release/spiderfire
@@ -80,11 +86,10 @@ jobs:
       - name: Build Linux
         if: matrix.os == 'linux'
         env:
-          MOZ_LTO: full
+          MOZ_LTO: full,cross
           CFLAGS: -flto
           CPPFLAGS: -flto
           CXXFLAGS: -flto
-          LDFLAGS: -fuse-ld=lld
           RUSTFLAGS: -Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld
         run: |
           just build-release -v --locked --target $TARGET
