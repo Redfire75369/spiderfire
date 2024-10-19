@@ -1,16 +1,25 @@
 declare module "fs" {
 	export class FileHandle {
 		read(): Promise<Uint8Array>;
+		read(array: Uint8Array): Promise<number>;
 
 		readSync(): Uint8Array;
+		readSync(array: Uint8Array): number;
 
-		readString(): Promise<string>;
+		write(source: BufferSource): Promise<number>;
+		writeSync(source: BufferSource): number;
 
-		readStringSync(): string;
+		writeAll(source: BufferSource): Promise<void>;
+		writeAllSync(source: BufferSource): void;
 
-		write(source: BufferSource): Promise<void>;
+		truncate(length?: number): Promise<void>;
+		truncateSync(length?: number): void;
 
-		writeSync(source: BufferSource): void;
+		sync(): Promise<void>;
+		syncSync(): void;
+
+		syncData(): Promise<void>;
+		syncDataSync(): void;
 	}
 
 	export interface OpenOptions {

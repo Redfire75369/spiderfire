@@ -7,21 +7,37 @@
 use std::cell::RefCell;
 use std::fs::File;
 use std::future::{poll_fn, Future};
+use std::io;
 use std::io::{Read, Write};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::task::Poll;
-use std::{io, result};
 
 use ion::class::Reflector;
-use ion::conversions::IntoValue;
-use ion::typedarray::Uint8ArrayWrapper;
-use ion::{Context, Error, Promise, Result};
+use ion::conversions::{ConversionBehavior, IntoValue, ToValue};
+use ion::function::Opt;
+use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
+use ion::{Context, Error, Promise, Result, TracedHeap, Value};
+use mozjs::jsval::DoubleValue;
 use runtime::globals::file::BufferSource;
 use runtime::promise::future_to_promise;
 use tokio::task::spawn_blocking;
 
 use crate::fs::file_error;
+
+pub enum ReadResult {
+	BytesWritten(usize),
+	Buffer(Vec<u8>),
+}
+
+impl IntoValue<'_> for ReadResult {
+	fn into_value(self: Box<Self>, cx: &Context, value: &mut Value) {
+		match *self {
+			ReadResult::BytesWritten(bytes) => value.handle_mut().set(DoubleValue(bytes as f64)),
+			ReadResult::Buffer(buffer) => Uint8ArrayWrapper::from(buffer).into_typed_array(cx).to_value(cx, value),
+		}
+	}
+}
 
 #[js_class]
 pub struct FileHandle {
@@ -95,7 +111,7 @@ impl FileHandle {
 		&self, cx: &'cx Context, action: &'static str, path: Arc<str>, callback: F,
 	) -> Option<Promise<'cx>>
 	where
-		F: FnOnce(&mut File) -> result::Result<T, io::Error> + Send + 'static,
+		F: FnOnce(&mut File) -> io::Result<T> + Send + 'static,
 		T: for<'cx2> IntoValue<'cx2> + Send + 'static,
 	{
 		let task = self.with_blocking_task(callback);
@@ -108,41 +124,22 @@ impl FileHandle {
 
 #[js_class]
 impl FileHandle {
-	pub fn read<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+	pub fn read<'cx>(&self, cx: &'cx Context, Opt(array): Opt<Uint8Array>) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
+		let array = array.map(|array| TracedHeap::new(array.handle().get()));
 		self.with_blocking_promise(cx, "read", path, move |file| {
-			let mut bytes = Vec::new();
-			file.read_to_end(&mut bytes).map(|_| Uint8ArrayWrapper::from(bytes))
+			let bytes = array
+				.as_ref()
+				.map(|array| unsafe { Uint8Array::from_unchecked(array.to_local()).as_mut_slice() });
+			read_inner(file, bytes)
 		})
 	}
 
 	#[ion(name = "readSync")]
-	pub fn read_sync(&self) -> Result<Uint8ArrayWrapper> {
+	pub fn read_sync(&self, Opt(array): Opt<Uint8Array>) -> Result<ReadResult> {
 		self.with_sync(|file| {
-			let mut bytes = Vec::new();
-			match file.read_to_end(&mut bytes) {
-				Ok(_) => Ok(Uint8ArrayWrapper::from(bytes)),
-				Err(err) => Err(file_error("read", &self.path, err)),
-			}
-		})
-	}
-
-	pub fn read_string<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
-		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "read", path, move |file| {
-			let mut string = String::new();
-			file.read_to_string(&mut string).map(|_| string)
-		})
-	}
-
-	#[ion(name = "readStringSync")]
-	pub fn read_string_sync(&self) -> Result<String> {
-		self.with_sync(|file| {
-			let mut string = String::new();
-			match file.read_to_string(&mut string) {
-				Ok(_) => Ok(string),
-				Err(err) => Err(file_error("read", &self.path, err)),
-			}
+			let bytes = array.as_ref().map(|array| unsafe { array.as_mut_slice() });
+			read_inner(file, bytes).map_err(|err| file_error("read", &self.path, err))
 		})
 	}
 
@@ -151,11 +148,33 @@ impl FileHandle {
 	) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
 		let contents = contents.to_vec();
-		self.with_blocking_promise(cx, "write", path, move |file| file.write_all(&contents).map(|_| ()))
+		self.with_blocking_promise(cx, "write", path, move |file| {
+			file.write(&contents).map(|bytes| bytes as u64)
+		})
 	}
 
 	#[ion(name = "writeSync")]
-	pub fn write_sync(&self, #[ion(convert = false)] contents: BufferSource) -> Result<()> {
+	pub fn write_sync(&self, #[ion(convert = false)] contents: BufferSource) -> Result<u64> {
+		self.with_sync(|file| {
+			let contents = unsafe { contents.as_slice() };
+			match file.write(contents) {
+				Ok(bytes) => Ok(bytes as u64),
+				Err(err) => Err(file_error("write", &self.path, err)),
+			}
+		})
+	}
+
+	#[ion(name = "writeAll")]
+	pub fn write_all<'cx>(
+		&self, cx: &'cx Context, #[ion(convert = false)] contents: BufferSource<'cx>,
+	) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		let contents = contents.to_vec();
+		self.with_blocking_promise(cx, "write", path, move |file| file.write_all(&contents).map(|_| ()))
+	}
+
+	#[ion(name = "writeAllSync")]
+	pub fn write_all_sync(&self, #[ion(convert = false)] contents: BufferSource) -> Result<()> {
 		self.with_sync(|file| {
 			let contents = unsafe { contents.as_slice() };
 			match file.write_all(contents) {
@@ -163,5 +182,51 @@ impl FileHandle {
 				Err(err) => Err(file_error("write", &self.path, err)),
 			}
 		})
+	}
+
+	pub fn truncate<'cx>(
+		&self, cx: &'cx Context, #[ion(convert = ConversionBehavior::EnforceRange)] Opt(length): Opt<u64>,
+	) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		self.with_blocking_promise(cx, "truncate", path, move |file| file.set_len(length.unwrap_or(0)))
+	}
+
+	#[ion(name = "truncateSync")]
+	pub fn truncate_sync(
+		&self, #[ion(convert = ConversionBehavior::EnforceRange)] Opt(length): Opt<u64>,
+	) -> Result<()> {
+		self.with_sync(|file| file.set_len(length.unwrap_or(0)).map_err(|err| file_error("truncate", &self.path, err)))
+	}
+
+	pub fn sync<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		self.with_blocking_promise(cx, "sync", path, move |file| file.sync_all())
+	}
+
+	#[ion(name = "syncSync")]
+	pub fn sync_sync(&self) -> Result<()> {
+		self.with_sync(|file| file.sync_all().map_err(|err| file_error("sync", &self.path, err)))
+	}
+
+	#[ion(name = "syncData")]
+	pub fn sync_data<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		self.with_blocking_promise(cx, "sync data for", path, move |file| file.sync_data())
+	}
+
+	#[ion(name = "syncDataSync")]
+	pub fn sync_data_sync(&self) -> Result<()> {
+		self.with_sync(|file| file.sync_data().map_err(|err| file_error("sync data for", &self.path, err)))
+	}
+}
+
+fn read_inner(file: &mut File, bytes: Option<&mut [u8]>) -> io::Result<ReadResult> {
+	if let Some(bytes) = bytes {
+		file.read(bytes).map(ReadResult::BytesWritten)
+	} else {
+		let size = file.metadata().map(|m| m.len() as usize).ok();
+		let mut bytes = Vec::new();
+		bytes.reserve_exact(size.unwrap_or(0));
+		file.read_to_end(&mut bytes).map(|_| ReadResult::Buffer(bytes))
 	}
 }

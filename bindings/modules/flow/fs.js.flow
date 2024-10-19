@@ -3,13 +3,25 @@
 declare module "fs" {
 	declare export class FileHandle {
 		read(): Promise<Uint8Array>;
+		read(array: Uint8Array): Promise<number>;
+
 		readSync(): Uint8Array;
+		readSync(array: Uint8Array): number;
 
-		readString(): Promise<string>;
-		readStringSync(): string;
+		write(source: BufferSource): Promise<number>;
+		writeSync(source: BufferSource): number;
 
-		write(source: BufferSource): Promise<void>;
-		writeSync(source: BufferSource): void;
+		writeAll(source: BufferSource): Promise<void>;
+		writeAllSync(source: BufferSource): void;
+
+		truncate(length?: number): Promise<void>;
+		truncateSync(length?: number): void;
+
+		sync(): Promise<void>;
+		syncSync(): void;
+
+		syncData(): Promise<void>;
+		syncDataSync(): void;
 	}
 
 	declare export interface OpenOptions {
@@ -51,7 +63,7 @@ declare module "fs" {
 		link as linkSync
 	} from "fs/sync";
 
-	declare export {
+		declare export {
 		openSync,
 		createSync,
 
