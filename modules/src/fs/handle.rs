@@ -23,7 +23,7 @@ use runtime::globals::file::BufferSource;
 use runtime::promise::future_to_promise;
 use tokio::task::spawn_blocking;
 
-use crate::fs::file_error;
+use crate::fs::{file_error, Metadata};
 
 pub enum ReadResult {
 	BytesWritten(usize),
@@ -217,6 +217,20 @@ impl FileHandle {
 	#[ion(name = "syncDataSync")]
 	pub fn sync_data_sync(&self) -> Result<()> {
 		self.with_sync(|file| file.sync_data().map_err(|err| file_error("sync data for", &self.path, err)))
+	}
+
+	pub fn metadata<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		self.with_blocking_promise(cx, "get metadata for", path, move |file| file.metadata().map(Metadata))
+	}
+
+	#[ion(name = "metadataSync")]
+	pub fn metadata_sync(&self) -> Result<Metadata> {
+		self.with_sync(|file| {
+			file.metadata()
+				.map(Metadata)
+				.map_err(|err| file_error("get metadata for", &self.path, err))
+		})
 	}
 }
 

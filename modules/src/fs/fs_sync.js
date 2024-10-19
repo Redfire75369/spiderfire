@@ -7,6 +7,9 @@
 export const open = ______fsSyncInternal______.open;
 export const create = ______fsSyncInternal______.create;
 
+export const metadata = ______fsSyncInternal______.metadata;
+export const linkMetadata = ______fsSyncInternal______.linkMetadata;
+
 export const readDir = ______fsSyncInternal______.readDir;
 export const createDir = ______fsSyncInternal______.createDir;
 export const remove = ______fsSyncInternal______.remove;

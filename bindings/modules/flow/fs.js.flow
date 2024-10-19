@@ -1,6 +1,20 @@
 // @flow
 
 declare module "fs" {
+	declare export interface Metadata {
+		size: number;
+
+		isFile: boolean;
+		isDirectory: boolean;
+		isSymlink: boolean;
+
+		created: Date | null;
+		accessed: Date | null;
+		modified: Date | null;
+
+		readonly: boolean;
+	}
+
 	declare export class FileHandle {
 		read(): Promise<Uint8Array>;
 		read(array: Uint8Array): Promise<number>;
@@ -22,6 +36,9 @@ declare module "fs" {
 
 		syncData(): Promise<void>;
 		syncDataSync(): void;
+
+		metadata(): Promise<Metadata>;
+		metadataSync(): Metadata;
 	}
 
 	declare export interface OpenOptions {
@@ -35,6 +52,10 @@ declare module "fs" {
 	declare export function open(path: string, options?: OpenOptions): Promise<FileHandle>;
 
 	declare export function create(path: string): Promise<FileHandle>;
+
+	declare export function metadata(path: string): Promise<Metadata>;
+
+	declare export function linkMetadata(path: string): Promise<Metadata>;
 
 	declare export function readDir(path: string): Promise<string[]>;
 
@@ -54,6 +75,9 @@ declare module "fs" {
 		open as openSync,
 		create as createSync,
 
+		metadata as metadataSync,
+		linkMetadata as linkMetadataSync,
+
 		readDir as readDirSync,
 		createDir as createDirSync,
 		remove as removeSync,
@@ -63,9 +87,12 @@ declare module "fs" {
 		link as linkSync
 	} from "fs/sync";
 
-		declare export {
+	declare export {
 		openSync,
 		createSync,
+
+		metadataSync,
+		linkMetadataSync,
 
 		readDirSync,
 		createDirSync,
@@ -80,6 +107,9 @@ declare module "fs" {
 		open: typeof openSync,
 		create: typeof createSync,
 
+		metadata: typeof metadataSync,
+		linkMetadata: typeof linkMetadataSync,
+
 		readDir: typeof readDirSync,
 		createDir: typeof createDirSync,
 		remove: typeof removeSync,
@@ -90,11 +120,15 @@ declare module "fs" {
 	};
 
 	declare export default {
+		Metadata: typeof Metadata,
 		FileHandle: typeof FileHandle,
 
 		OpenOptions: OpenOptions,
 		open: typeof open,
 		create: typeof create,
+
+		metadata: typeof metadata,
+		linkMetadata: typeof linkMetadata,
 
 		readDir: typeof readDir,
 		createDir: typeof createDir,
@@ -109,11 +143,21 @@ declare module "fs" {
 }
 
 declare module "fs/sync" {
-	import {type FileHandle, type OpenOptions} from "fs";
+	import {type FileHandle, type Metadata, type OpenOptions} from "fs";
+
+	declare export {
+		Metadata,
+		FileHandle,
+		OpenOptions
+	};
 
 	declare export function open(path: string, options?: OpenOptions): FileHandle;
 
 	declare export function create(path: string): FileHandle;
+
+	declare export function metadata(path: string): Metadata;
+
+	declare export function linkMetadata(path: string): Metadata;
 
 	declare export function readDir(path: string): string[];
 

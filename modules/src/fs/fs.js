@@ -9,6 +9,9 @@ export const FileHandle = ______fsInternal______.FileHandle;
 export const open = ______fsInternal______.open;
 export const create = ______fsInternal______.create;
 
+export const metadata = ______fsInternal______.metadata;
+export const linkMetadata = ______fsInternal______.linkMetadata;
+
 export const readDir = ______fsInternal______.readDir;
 export const createDir = ______fsInternal______.createDir;
 export const remove = ______fsInternal______.remove;
@@ -19,6 +22,9 @@ export const link = ______fsInternal______.link;
 
 export const openSync = ______fsInternal______.openSync;
 export const createSync = ______fsInternal______.createSync;
+
+export const metadataSync = ______fsInternal______.metadataSync;
+export const linkMetadataSync = ______fsInternal______.linkMetadataSync;
 
 export const readDirSync = ______fsInternal______.readDirSync;
 export const createDirSync = ______fsInternal______.createDirSync;

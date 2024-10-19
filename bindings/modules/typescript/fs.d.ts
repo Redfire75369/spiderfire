@@ -1,4 +1,18 @@
 declare module "fs" {
+	export interface Metadata {
+		size: number;
+
+		isFile: boolean;
+		isDirectory: boolean;
+		isSymlink: boolean;
+
+		created: Date | null;
+		accessed: Date | null;
+		modified: Date | null;
+
+		readonly: boolean;
+	}
+
 	export class FileHandle {
 		read(): Promise<Uint8Array>;
 		read(array: Uint8Array): Promise<number>;
@@ -20,6 +34,10 @@ declare module "fs" {
 
 		syncData(): Promise<void>;
 		syncDataSync(): void;
+
+		metadata(): Promise<Metadata>;
+
+		metadataSync(): Metadata;
 	}
 
 	export interface OpenOptions {
@@ -33,6 +51,10 @@ declare module "fs" {
 	export function open(path: string, options?: OpenOptions): Promise<FileHandle>;
 
 	export function create(path: string): Promise<FileHandle>;
+
+	export function metadata(path: string): Promise<Metadata>;
+
+	export function linkMetadata(path: string): Promise<Metadata>;
 
 	export function readDir(path: string): Promise<string[]>;
 
@@ -52,6 +74,9 @@ declare module "fs" {
 		open as openSync,
 		create as createSync,
 
+		metadata as metadataSync,
+		linkMetadata as linkMetadataSync,
+
 		readDir as readDirSync,
 		createDir as createDirSync,
 		remove as removeSync,
@@ -64,6 +89,9 @@ declare module "fs" {
 	export {
 		openSync,
 		createSync,
+
+		metadataSync,
+		linkMetadataSync,
 
 		readDirSync,
 		createDirSync,
@@ -78,6 +106,9 @@ declare module "fs" {
 		open: typeof openSync,
 		create: typeof createSync,
 
+		metadata: typeof metadataSync,
+		linkMetadata: typeof linkMetadataSync,
+
 		readDir: typeof readDirSync,
 		createDir: typeof createDirSync,
 		remove: typeof removeSync,
@@ -89,11 +120,15 @@ declare module "fs" {
 
 	namespace FileSystem {
 		export {
+			type Metadata,
 			FileHandle,
 
 			type OpenOptions,
 			open,
 			create,
+
+			metadata,
+			linkMetadata,
 
 			readDir,
 			createDir,
@@ -111,11 +146,15 @@ declare module "fs" {
 }
 
 declare module "fs/sync" {
-	import {FileHandle, OpenOptions} from "fs";
+	import {type FileHandle, type Metadata, type OpenOptions} from "fs";
 
 	export function open(path: string, options?: OpenOptions): FileHandle;
 
 	export function create(path: string): FileHandle;
+
+	export function metadata(path: string): Metadata;
+
+	export function linkMetadata(path: string): Metadata;
 
 	export function readDir(path: string): string[];
 

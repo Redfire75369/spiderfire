@@ -12,16 +12,16 @@ use ion::Error;
 mod fs;
 mod handle;
 
+pub(crate) fn base_error(base: &str, path: &str, err: io::Error) -> Error {
+	Error::new(format!("Could not {} {}: {}", base, path, err), None)
+}
+
 pub(crate) fn file_error(action: &str, path: &str, err: io::Error) -> Error {
 	Error::new(format!("Could not {} file {}: {}", action, path, err), None)
 }
 
 pub(crate) fn dir_error(action: &str, path: &str, err: io::Error) -> Error {
 	Error::new(format!("Could not {} directory {}: {}", action, path, err), None)
-}
-
-pub(crate) fn remove_error(path: &str, err: io::Error) -> Error {
-	Error::new(format!("Could not remove {}: {}", path, err), None)
 }
 
 pub(crate) fn translate_error(action: &str, from: &str, to: &str, err: io::Error) -> Error {
