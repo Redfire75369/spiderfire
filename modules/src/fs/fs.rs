@@ -4,28 +4,24 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::iter::Iterator;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
-use std::path::Path;
-use std::time::SystemTime;
-use std::{fs, io, os};
+use std::path::{Path, PathBuf};
+use std::{fs, os};
 
-use chrono::DateTime;
-use futures::stream::StreamExt;
 use ion::class::ClassObjectWrapper;
-use ion::conversions::ToValue;
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
-use ion::{ClassDefinition, Context, Date, Object, Promise, Result, Value};
+use ion::{ClassDefinition, Context, Iterator, Object, Promise, Result};
 use mozjs::jsapi::{JSFunction, JSFunctionSpec, JSObject};
 use runtime::module::NativeModule;
 use runtime::promise::future_to_promise;
-use tokio_stream::wrappers::ReadDirStream;
+use tokio::task::spawn_blocking;
 #[cfg(windows)]
 use windows::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_DIRECTORY, FILE_FLAGS_AND_ATTRIBUTES};
 
-use crate::fs::{base_error, dir_error, file_error, translate_error, FileHandle};
+use crate::fs::dir::DirIterator;
+use crate::fs::{base_error, dir_error, file_error, metadata_error, translate_error, FileHandle, Metadata};
 
 #[derive(Copy, Clone, Debug, FromValue)]
 struct OpenOptions {
@@ -133,49 +129,23 @@ fn create_sync(cx: &Context, path_str: String) -> Result<*mut JSObject> {
 	}
 }
 
-#[derive(Debug)]
-pub(crate) struct Metadata(fs::Metadata);
-
-impl ToValue<'_> for Metadata {
-	fn to_value(&self, cx: &Context, value: &mut Value) {
-		fn system_time_into_date(cx: &Context, time: io::Result<SystemTime>) -> Option<Date> {
-			time.ok().map(|time| Date::from_date(cx, DateTime::from(time)))
-		}
-
-		let obj = Object::new(cx);
-		obj.set_as(cx, "size", &self.0.len());
-
-		obj.set_as(cx, "isFile", &self.0.is_file());
-		obj.set_as(cx, "isDirectory", &self.0.is_dir());
-		obj.set_as(cx, "isSymlink", &self.0.is_symlink());
-
-		obj.set_as(cx, "created", &system_time_into_date(cx, self.0.created()));
-		obj.set_as(cx, "accessed", &system_time_into_date(cx, self.0.accessed()));
-		obj.set_as(cx, "modified", &system_time_into_date(cx, self.0.modified()));
-
-		obj.set_as(cx, "readonly", &self.0.permissions().readonly());
-
-		obj.to_value(cx, value);
-	}
-}
-
 #[js_fn]
 fn metadata(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
 		let path = Path::new(&path_str);
 		match tokio::fs::metadata(path).await {
 			Ok(meta) => Ok(Metadata(meta)),
-			Err(err) => Err(base_error("get metadata for", &path_str, err)),
+			Err(err) => Err(metadata_error(&path_str, err)),
 		}
 	})
 }
 
 #[js_fn]
-fn metadata_sync(cx: &Context, path_str: String) -> Result<Metadata> {
+fn metadata_sync(path_str: String) -> Result<Metadata> {
 	let path = Path::new(&path_str);
 	match fs::metadata(path) {
 		Ok(meta) => Ok(Metadata(meta)),
-		Err(err) => Err(base_error("get metadata for", &path_str, err)),
+		Err(err) => Err(metadata_error(&path_str, err)),
 	}
 }
 
@@ -185,55 +155,39 @@ fn link_metadata(cx: &Context, path_str: String) -> Option<Promise> {
 		let path = Path::new(&path_str);
 		match tokio::fs::symlink_metadata(path).await {
 			Ok(meta) => Ok(Metadata(meta)),
-			Err(err) => Err(base_error("get metadata for", &path_str, err)),
+			Err(err) => Err(metadata_error(&path_str, err)),
 		}
 	})
 }
 
 #[js_fn]
-fn link_metadata_sync(cx: &Context, path_str: String) -> Result<Metadata> {
+fn link_metadata_sync(path_str: String) -> Result<Metadata> {
 	let path = Path::new(&path_str);
 	match fs::symlink_metadata(path) {
 		Ok(meta) => Ok(Metadata(meta)),
-		Err(err) => Err(base_error("get metadata for", &path_str, err)),
+		Err(err) => Err(metadata_error(&path_str, err)),
 	}
 }
 
 #[js_fn]
 fn read_dir(cx: &Context, path_str: String) -> Option<Promise> {
 	future_to_promise(cx, async move {
-		let path = Path::new(&path_str);
+		let path = PathBuf::from(&path_str);
 
-		match tokio::fs::read_dir(path).await {
-			Ok(dir) => {
-				let mut entries: Vec<_> = ReadDirStream::new(dir)
-					.filter_map(|entry| async move { entry.ok() })
-					.map(|entry| entry.file_name().into_string().unwrap())
-					.collect()
-					.await;
-				entries.sort();
-
-				Ok(entries)
-			}
-			Err(err) => Err(dir_error("read", &path_str, err)),
-		}
+		spawn_blocking(move || fs::read_dir(path))
+			.await
+			.unwrap()
+			.map(DirIterator::new_iterator)
+			.map_err(|err| dir_error("read", &path_str, err))
 	})
 }
 
 #[js_fn]
-fn read_dir_sync(path_str: String) -> Result<Vec<String>> {
+fn read_dir_sync(path_str: String) -> Result<Iterator> {
 	let path = Path::new(&path_str);
 
 	match fs::read_dir(path) {
-		Ok(dir) => {
-			let mut entries: Vec<_> = dir
-				.filter_map(|entry| entry.ok())
-				.map(|entry| entry.file_name().into_string().unwrap())
-				.collect();
-			entries.sort();
-
-			Ok(entries)
-		}
+		Ok(dir) => Ok(DirIterator::new_iterator(dir)),
 		Err(err) => Err(dir_error("read", &path_str, err)),
 	}
 }

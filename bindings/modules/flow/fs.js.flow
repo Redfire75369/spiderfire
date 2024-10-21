@@ -15,6 +15,12 @@ declare module "fs" {
 		readonly: boolean;
 	}
 
+	declare export class DirEntry {
+		name(): string;
+		path(): string;
+		metadata(): Metadata;
+	}
+
 	declare export class FileHandle {
 		read(): Promise<Uint8Array>;
 		read(array: Uint8Array): Promise<number>;
@@ -57,7 +63,7 @@ declare module "fs" {
 
 	declare export function linkMetadata(path: string): Promise<Metadata>;
 
-	declare export function readDir(path: string): Promise<string[]>;
+	declare export function readDir(path: string): Promise<Iterable<DirEntry>>;
 
 	declare export function createDir(path: string, recursive?: boolean): Promise<void>;
 
@@ -143,9 +149,10 @@ declare module "fs" {
 }
 
 declare module "fs/sync" {
-	import {type FileHandle, type Metadata, type OpenOptions} from "fs";
+	import {DirEntry, FileHandle, type Metadata, type OpenOptions} from "fs";
 
 	declare export {
+		DirEntry,
 		Metadata,
 		FileHandle,
 		OpenOptions
@@ -159,7 +166,7 @@ declare module "fs/sync" {
 
 	declare export function linkMetadata(path: string): Metadata;
 
-	declare export function readDir(path: string): string[];
+	declare export function readDir(path: string): Iterable<DirEntry>;
 
 	declare export function createDir(path: string, recursive?: boolean): void;
 

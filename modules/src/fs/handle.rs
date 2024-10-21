@@ -7,11 +7,11 @@
 use std::cell::RefCell;
 use std::fs::File;
 use std::future::{poll_fn, Future};
-use std::io;
 use std::io::{Read, Write};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::task::Poll;
+use std::{io, slice};
 
 use ion::class::Reflector;
 use ion::conversions::{ConversionBehavior, IntoValue, ToValue};
@@ -107,18 +107,20 @@ impl FileHandle {
 		}
 	}
 
-	pub(crate) fn with_blocking_promise<'cx, F, T>(
-		&self, cx: &'cx Context, action: &'static str, path: Arc<str>, callback: F,
+	pub(crate) fn with_blocking_promise<'cx, F, T, A>(
+		&self, cx: &'cx Context, action: &'static str, path: Arc<str>, callback: F, callback_after: A,
 	) -> Option<Promise<'cx>>
 	where
 		F: FnOnce(&mut File) -> io::Result<T> + Send + 'static,
 		T: for<'cx2> IntoValue<'cx2> + Send + 'static,
+		A: FnOnce() + 'static,
 	{
 		let task = self.with_blocking_task(callback);
-		future_to_promise(
-			cx,
-			async move { task.await.map_err(|err| file_error(action, &path, err)) },
-		)
+		future_to_promise(cx, async move {
+			let result = task.await.map_err(|err| file_error(action, &path, err));
+			callback_after();
+			result
+		})
 	}
 }
 
@@ -126,13 +128,13 @@ impl FileHandle {
 impl FileHandle {
 	pub fn read<'cx>(&self, cx: &'cx Context, Opt(array): Opt<Uint8Array>) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		let array = array.map(|array| TracedHeap::new(array.handle().get()));
-		self.with_blocking_promise(cx, "read", path, move |file| {
-			let bytes = array
-				.as_ref()
-				.map(|array| unsafe { Uint8Array::from_unchecked(array.to_local()).as_mut_slice() });
-			read_inner(file, bytes)
-		})
+		let bytes = array.as_ref().map(|array| unsafe {
+			let (ptr, len) = array.data();
+			slice::from_raw_parts_mut(ptr, len)
+		});
+		let array = array.as_ref().map(|array| TracedHeap::new(array.handle().get()));
+
+		self.with_blocking_promise(cx, "read", path, move |file| read_inner(file, bytes), || drop(array))
 	}
 
 	#[ion(name = "readSync")]
@@ -148,9 +150,13 @@ impl FileHandle {
 	) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
 		let contents = contents.to_vec();
-		self.with_blocking_promise(cx, "write", path, move |file| {
-			file.write(&contents).map(|bytes| bytes as u64)
-		})
+		self.with_blocking_promise(
+			cx,
+			"write",
+			path,
+			move |file| file.write(&contents).map(|bytes| bytes as u64),
+			|| {},
+		)
 	}
 
 	#[ion(name = "writeSync")]
@@ -170,7 +176,13 @@ impl FileHandle {
 	) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
 		let contents = contents.to_vec();
-		self.with_blocking_promise(cx, "write", path, move |file| file.write_all(&contents).map(|_| ()))
+		self.with_blocking_promise(
+			cx,
+			"write",
+			path,
+			move |file| file.write_all(&contents).map(|_| ()),
+			|| {},
+		)
 	}
 
 	#[ion(name = "writeAllSync")]
@@ -188,7 +200,13 @@ impl FileHandle {
 		&self, cx: &'cx Context, #[ion(convert = ConversionBehavior::EnforceRange)] Opt(length): Opt<u64>,
 	) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "truncate", path, move |file| file.set_len(length.unwrap_or(0)))
+		self.with_blocking_promise(
+			cx,
+			"truncate",
+			path,
+			move |file| file.set_len(length.unwrap_or(0)),
+			|| {},
+		)
 	}
 
 	#[ion(name = "truncateSync")]
@@ -200,7 +218,7 @@ impl FileHandle {
 
 	pub fn sync<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "sync", path, move |file| file.sync_all())
+		self.with_blocking_promise(cx, "sync", path, move |file| file.sync_all(), || {})
 	}
 
 	#[ion(name = "syncSync")]
@@ -211,7 +229,7 @@ impl FileHandle {
 	#[ion(name = "syncData")]
 	pub fn sync_data<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "sync data for", path, move |file| file.sync_data())
+		self.with_blocking_promise(cx, "sync data for", path, move |file| file.sync_data(), || {})
 	}
 
 	#[ion(name = "syncDataSync")]
@@ -221,7 +239,13 @@ impl FileHandle {
 
 	pub fn metadata<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "get metadata for", path, move |file| file.metadata().map(Metadata))
+		self.with_blocking_promise(
+			cx,
+			"get metadata for",
+			path,
+			move |file| file.metadata().map(Metadata),
+			|| {},
+		)
 	}
 
 	#[ion(name = "metadataSync")]
