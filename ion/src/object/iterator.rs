@@ -141,7 +141,7 @@ static ITERATOR_CLASS_OPS: JSClassOps = JSClassOps {
 
 static ITERATOR_CLASS: NativeClass = NativeClass {
 	base: JSClass {
-		name: "NativeIterator\0".as_ptr().cast(),
+		name: c"NativeIterator".as_ptr(),
 		flags: JSCLASS_BACKGROUND_FINALIZE | class_reserved_slots(1),
 		cOps: &ITERATOR_CLASS_OPS,
 		spec: ptr::null_mut(),

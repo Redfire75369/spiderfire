@@ -99,7 +99,7 @@ where
 	cfg: Config,
 }
 
-impl<'cx, T: TypedArrayElement> Display for TypedArrayDisplay<'cx, T>
+impl<T: TypedArrayElement> Display for TypedArrayDisplay<'_, T>
 where
 	T::Element: Display + Copy,
 {

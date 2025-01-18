@@ -8,6 +8,7 @@ use std::ffi::{CStr, CString};
 use std::ops::Deref;
 
 use mozjs::conversions::jsstr_to_string;
+use mozjs::gc::{RootableVec, RootedVec};
 use mozjs::jsapi::{
 	HandleValueArray, JSContext, JSFunction, JSFunctionSpec, JSObject, JS_CallFunction, JS_DecompileFunction,
 	JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength, JS_GetFunctionObject,
@@ -155,10 +156,9 @@ impl<'f> Function<'f> {
 	pub fn call<'cx>(
 		&self, cx: &'cx Context, this: &Object, args: &[Value],
 	) -> Result<Value<'cx>, Option<ErrorReport>> {
-		let args: Vec<_> = args.iter().map(|a| a.get()).collect();
-		self.call_with_handle(cx, this, unsafe {
-			HandleValueArray::from_rooted_slice(args.as_slice())
-		})
+		let mut root = RootableVec::new_unrooted();
+		let args = RootedVec::from_iter(&mut root, args.iter().map(|a| a.get()));
+		self.call_with_handle(cx, this, HandleValueArray::from(&args))
 	}
 
 	/// Calls the [Function] with the given `this` [Object] and arguments as a [HandleValueArray].

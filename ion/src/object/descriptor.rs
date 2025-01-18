@@ -121,7 +121,7 @@ impl<'pd> Deref for PropertyDescriptor<'pd> {
 	}
 }
 
-impl<'pd> DerefMut for PropertyDescriptor<'pd> {
+impl DerefMut for PropertyDescriptor<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.desc
 	}

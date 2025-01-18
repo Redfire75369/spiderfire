@@ -83,7 +83,7 @@ impl<'k> Deref for PropertyKey<'k> {
 	}
 }
 
-impl<'k> DerefMut for PropertyKey<'k> {
+impl DerefMut for PropertyKey<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.key
 	}

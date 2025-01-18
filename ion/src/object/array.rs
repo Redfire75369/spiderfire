@@ -7,6 +7,7 @@
 use std::iter::FusedIterator;
 use std::ops::{Deref, DerefMut};
 
+use mozjs::gc::RootedVec;
 use mozjs::jsapi::{GetArrayLength, HandleValueArray, IsArray, JSObject, NewArrayObject, NewArrayObject1};
 use mozjs::jsval::{JSVal, ObjectValue};
 
@@ -36,8 +37,8 @@ impl<'a> Array<'a> {
 	}
 
 	/// Creates an [Array] from a slice of values.
-	pub fn from_slice(cx: &'a Context, slice: &[JSVal]) -> Array<'a> {
-		Array::from_handle(cx, unsafe { HandleValueArray::from_rooted_slice(slice) })
+	pub fn from_rooted_vec(cx: &'a Context, vec: &RootedVec<'_, JSVal>) -> Array<'a> {
+		Array::from_handle(cx, HandleValueArray::from(vec))
 	}
 
 	/// Creates an [Array] from a [HandleValueArray].
@@ -190,7 +191,7 @@ impl<'a> Deref for Array<'a> {
 	}
 }
 
-impl<'a> DerefMut for Array<'a> {
+impl DerefMut for Array<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.arr
 	}

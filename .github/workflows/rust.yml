@@ -1,6 +1,6 @@
 name: Rust
 
-on: [pull_request, workflow_dispatch]
+on: [push, pull_request, workflow_dispatch]
 
 env:
   SHELL: /bin/bash

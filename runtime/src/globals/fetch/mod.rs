@@ -101,9 +101,7 @@ fn fetch<'cx>(cx: &'cx Context, resource: RequestInfo, init: Opt<RequestInit>) -
 	})
 }
 
-async fn fetch_internal<'o>(
-	cx: &Context, request: &Object<'o>, client: Client,
-) -> ResultExc<ClassObjectWrapper<Response>> {
+async fn fetch_internal(cx: &Context, request: &Object<'_>, client: Client) -> ResultExc<ClassObjectWrapper<Response>> {
 	let request = Request::get_mut_private(cx, request)?;
 	let signal = Object::from(unsafe { Local::from_heap(&request.signal_object) });
 	let signal = AbortSignal::get_private(cx, &signal)?.signal.clone().poll();

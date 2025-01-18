@@ -89,7 +89,7 @@ impl<'d> Deref for Date<'d> {
 	}
 }
 
-impl<'d> DerefMut for Date<'d> {
+impl DerefMut for Date<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.date
 	}

@@ -333,7 +333,7 @@ impl<'o> Deref for Object<'o> {
 	}
 }
 
-impl<'o> DerefMut for Object<'o> {
+impl DerefMut for Object<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.obj
 	}
@@ -384,7 +384,7 @@ impl<'cx> Iterator for ObjectKeysIter<'cx> {
 	}
 }
 
-impl<'cx> DoubleEndedIterator for ObjectKeysIter<'cx> {
+impl DoubleEndedIterator for ObjectKeysIter<'_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		if self.index < self.count {
 			self.count -= 1;
@@ -420,7 +420,7 @@ impl<'cx> Iterator for ObjectOwnedKeysIter<'cx> {
 	}
 }
 
-impl<'cx> DoubleEndedIterator for ObjectOwnedKeysIter<'cx> {
+impl DoubleEndedIterator for ObjectOwnedKeysIter<'_> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.iter.next_back().map(|key| key.to_owned_key(self.iter.cx))
 	}

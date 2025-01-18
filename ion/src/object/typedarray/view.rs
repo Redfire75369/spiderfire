@@ -259,7 +259,7 @@ impl<'bv, T: TypedArrayElement> Deref for TypedArray<'bv, T> {
 	}
 }
 
-impl<'bv, T: TypedArrayElement> DerefMut for TypedArray<'bv, T> {
+impl<T: TypedArrayElement> DerefMut for TypedArray<'_, T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.view
 	}

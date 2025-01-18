@@ -117,7 +117,7 @@ static CLOSURE_ONCE_OPS: JSClassOps = JSClassOps {
 };
 
 static CLOSURE_ONCE_CLASS: JSClass = JSClass {
-	name: "ClosureOnce\0".as_ptr().cast(),
+	name: c"ClosureOnce".as_ptr(),
 	flags: JSCLASS_BACKGROUND_FINALIZE | class_reserved_slots(1),
 	cOps: &CLOSURE_ONCE_OPS,
 	spec: ptr::null_mut(),
@@ -139,7 +139,7 @@ static CLOSURE_OPS: JSClassOps = JSClassOps {
 };
 
 static CLOSURE_CLASS: JSClass = JSClass {
-	name: "Closure\0".as_ptr().cast(),
+	name: c"Closure".as_ptr(),
 	flags: JSCLASS_BACKGROUND_FINALIZE | class_reserved_slots(1),
 	cOps: &CLOSURE_OPS,
 	spec: ptr::null_mut(),

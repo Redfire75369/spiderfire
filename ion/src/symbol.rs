@@ -128,7 +128,7 @@ pub struct Symbol<'s> {
 	sym: Local<'s, *mut JSSymbol>,
 }
 
-impl<'s> Symbol<'s> {
+impl Symbol<'_> {
 	/// Creates a new unique symbol with a given description.
 	pub fn new<'cx>(cx: &'cx Context, description: &str) -> Symbol<'cx> {
 		let description = description.as_value(cx);
@@ -185,7 +185,7 @@ impl<'s> Deref for Symbol<'s> {
 	}
 }
 
-impl<'s> DerefMut for Symbol<'s> {
+impl DerefMut for Symbol<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.sym
 	}

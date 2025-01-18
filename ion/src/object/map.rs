@@ -151,7 +151,7 @@ impl<'m> Deref for Map<'m> {
 	}
 }
 
-impl<'m> DerefMut for Map<'m> {
+impl DerefMut for Map<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.map
 	}

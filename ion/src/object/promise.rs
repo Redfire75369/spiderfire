@@ -266,7 +266,7 @@ impl<'p> Deref for Promise<'p> {
 	}
 }
 
-impl<'p> DerefMut for Promise<'p> {
+impl DerefMut for Promise<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.promise
 	}

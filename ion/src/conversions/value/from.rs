@@ -500,6 +500,7 @@ mod tests {
 
 	use chrono::{TimeZone, Utc};
 	use mozjs::conversions::ConversionBehavior;
+	use mozjs::gc::{RootableVec, RootedVec};
 	use mozjs::jsval::Int32Value;
 
 	use crate::conversions::{FromValue, ToValue};
@@ -737,8 +738,9 @@ mod tests {
 		let cx = &rt.cx;
 
 		let int_vec = vec![1, 256, -65536, 2147483647];
-		let vec: Vec<_> = int_vec.iter().map(|i| Int32Value(*i)).collect();
-		let array = Array::from_slice(cx, vec.as_slice());
+		let mut root = RootableVec::new_unrooted();
+		let vec = RootedVec::from_iter(&mut root, int_vec.iter().map(|i| Int32Value(*i)));
+		let array = Array::from_rooted_vec(cx, &vec);
 		let value = array.as_value(cx);
 
 		let result = <Vec<i32>>::from_value(cx, &value, true, ConversionBehavior::EnforceRange);

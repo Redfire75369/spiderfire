@@ -15,7 +15,7 @@ use swc_core::common::errors::{ColorConfig, Handler};
 use swc_core::common::input::StringInput;
 use swc_core::common::sync::Lrc;
 use swc_core::common::{BytePos, FileName, Globals, LineCol, Mark, SourceMap as SwcSourceMap, GLOBALS};
-use swc_core::ecma::ast::{EsVersion, Program};
+use swc_core::ecma::ast::{EsVersion, Pass, Program};
 use swc_core::ecma::codegen::text_writer::JsWriter;
 use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};
 use swc_core::ecma::parser::lexer::Lexer;
@@ -68,7 +68,7 @@ pub fn handle_program(
 		let top_level_mark = Mark::new();
 
 		resolver(unresolved_mark, top_level_mark, true).visit_mut_program(program);
-		strip(unresolved_mark, top_level_mark).visit_mut_program(program);
+		strip(unresolved_mark, top_level_mark).process(program);
 		hygiene().visit_mut_program(program);
 		fixer(emitter.comments).visit_mut_program(program);
 	});
@@ -101,7 +101,7 @@ fn initialise_emitter<'a>(
 	mappings: &'a mut Vec<(BytePos, LineCol)>,
 ) -> Emitter<'a, JsWriter<'a, &'a mut Vec<u8>>, SwcSourceMap> {
 	Emitter {
-		cfg: CodegenConfig::default().with_target(EsVersion::Es2022),
+		cfg: CodegenConfig::default().with_target(EsVersion::Es2024),
 		cm: Lrc::clone(&source_map),
 		comments: Some(comments),
 		wr: JsWriter::new(source_map, "\n", buffer, Some(mappings)),

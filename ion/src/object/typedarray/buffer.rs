@@ -184,7 +184,7 @@ impl<'ab> Deref for ArrayBuffer<'ab> {
 	}
 }
 
-impl<'ab> DerefMut for ArrayBuffer<'ab> {
+impl DerefMut for ArrayBuffer<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.buffer
 	}

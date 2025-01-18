@@ -123,7 +123,7 @@ impl<'s> Deref for Set<'s> {
 	}
 }
 
-impl<'s> DerefMut for Set<'s> {
+impl DerefMut for Set<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.set
 	}

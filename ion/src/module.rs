@@ -9,7 +9,7 @@ use std::ptr;
 
 use mozjs::jsapi::{
 	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JSContext, JSObject, JS_GetRuntime,
-	ModuleEvaluate, ModuleLink, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	ModuleEvaluate, ModuleIsLinked, ModuleLink, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{transform_u16_to_source_text, CompileOptionsWrapper};
@@ -140,7 +140,7 @@ impl<'cx> Module<'cx> {
 	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
 		let module = Module::compile(cx, filename, path, script)?;
 
-		if let Err(error) = module.instantiate(cx) {
+		if let Err(error) = module.link(cx) {
 			return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));
 		}
 
@@ -153,8 +153,8 @@ impl<'cx> Module<'cx> {
 		}
 	}
 
-	/// Instantiates a [Module]. Generally called by [Module::compile].
-	pub fn instantiate(&self, cx: &Context) -> Result<(), ErrorReport> {
+	/// Links a [Module]. Generally called by [Module::compile_and_evaluate].
+	pub fn link(&self, cx: &Context) -> Result<(), ErrorReport> {
 		if unsafe { ModuleLink(cx.as_ptr(), self.0.handle().into()) } {
 			Ok(())
 		} else {
@@ -170,6 +170,11 @@ impl<'cx> Module<'cx> {
 		} else {
 			Err(ErrorReport::new_with_exception_stack(cx)?.unwrap())
 		}
+	}
+
+	/// Returns `true` if the module has been linked.
+	pub fn is_linked(&self) -> bool {
+		unsafe { ModuleIsLinked(self.0.handle().get()) }
 	}
 }
 

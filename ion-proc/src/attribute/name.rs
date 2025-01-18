@@ -31,7 +31,7 @@ impl Name {
 		match self {
 			Name::String(literal) => {
 				let mut name = literal.value();
-				if name.is_case(Case::ScreamingSnake) {
+				if name.is_case(Case::UpperSnake) {
 					name = name.to_case(Case::Camel)
 				}
 				(

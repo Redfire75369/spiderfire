@@ -29,7 +29,7 @@ runs:
       run: |
         curl -fsSL "$env:MOZTOOLS_LINK/moztools-$env:MOZTOOLS_VERSION.zip" --create-dirs -o target/dependencies/moztools.zip
         cd target/dependencies && unzip -qo moztools.zip -d .
-        Write-Output  "MOZTOOLS_PATH=$env:MOZTOOLS_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Output "MOZTOOLS_PATH=$env:MOZTOOLS_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
         scoop install "llvm@$env:LLVM_VERSION" --global
@@ -39,11 +39,11 @@ runs:
         ) | Set-Content -Path "$env:GITHUB_PATH" -Encoding utf8
 
         Write-Output "CC=clang-cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        Write-Output  "CXX=clang-cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        Write-Output  "AR=llvm-lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        Write-Output  "LINKER=lld-link" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Output "CXX=clang-cl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Output "AR=llvm-lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Output "LINKER=lld-link" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-        Write-Output  "CCACHE=sccache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Output "CCACHE=sccache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Install Dependencies on MacOS
       if: inputs.os == 'macos'
@@ -84,7 +84,7 @@ runs:
       uses: taiki-e/install-action@nextest
 
     - name: Setup sccache
-      uses: mozilla-actions/sccache-action@v0.0.6
+      uses: mozilla-actions/sccache-action@v0.0.7
 
     - name: Cache Cargo Cache and Git Database
       uses: actions/cache@v4

@@ -121,7 +121,7 @@ impl<'v> Deref for Value<'v> {
 	}
 }
 
-impl<'v> DerefMut for Value<'v> {
+impl DerefMut for Value<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.val
 	}

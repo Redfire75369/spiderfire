@@ -22,68 +22,68 @@ cli = { path = "./cli" }
 arrayvec = "0.7.6"
 async-recursion = "1.1.1"
 base64 = "0.21.7"
-bitflags = "2.6.0"
-bytes = "1.7.2"
+bitflags = "2.8.0"
+bytes = "1.9.0"
 byteorder = "1.5.0"
-bytemuck = "1.18.0"
-clap = "4.5.19"
-colored = "2.1.0"
-const_format = "0.2.33"
-convert_case = "0.6.0"
+bytemuck = "1.21.0"
+clap = "4.5.26"
+colored = "2.2.0"
+const_format = "0.2.34"
+convert_case = "0.7.1"
 data-url = "0.3.1"
-dirs = "5.0.1"
+dirs = "6.0.0"
 dunce = "1.0.5"
-encoding_rs = "0.8.34"
+encoding_rs = "0.8.35"
 form_urlencoded = "1.2.1"
-futures = "0.3.30"
+futures = "0.3.31"
 headers = "0.4.0"
-http = "1.1.0"
+http = "1.2.0"
 http-body-util = "0.1.2"
 humansize = "2.1.3"
-hyper = "1.4.1"
-hyper-util = "0.1.9"
-idna = "0.5.0"
+hyper = "1.5.2"
+hyper-util = "0.1.10"
+idna = "1.0.3"
 indent = "0.1.1"
-indexmap = "2.6.0"
-itoa = "1.0.11"
+indexmap = "2.7.0"
+itoa = "1.0.14"
 mime = "0.3.17"
 mozjs = { package = "mozjs", git = "https://github.com/servo/mozjs" }
-pin-project = "1.1.5"
-prettyplease = "0.2.22"
-proc-macro2 = "1.0.86"
-quote = "1.0.37"
-rustyline-derive = "0.10.0"
+pin-project = "1.1.8"
+prettyplease = "0.2.29"
+proc-macro2 = "1.0.93"
+quote = "1.0.38"
+rustyline-derive = "0.11.0"
 sha3 = "0.10.8"
-sourcemap = "9.0.0"
-swc_core = "0.106.4"
-syn = "2.0.79"
-sys-locale = "0.3.1"
+sourcemap = "9.1.2"
+swc_core = "10.3.0"
+syn = "2.0.96"
+sys-locale = "0.3.2"
 term-table = "1.4.0"
 typed-arena = "2.0.2"
 uri-url = "0.3.0"
-url = "2.5.2"
-uuid = "1.10.0"
+url = "2.5.4"
+uuid = "1.12.0"
 utf16string = "0.2.0"
 
 [workspace.dependencies.chrono]
-version = "0.4.38"
+version = "0.4.39"
 default-features = false
 features = ["clock", "std"]
 
 [workspace.dependencies.hyper-rustls]
-version = "0.27.3"
+version = "0.27.5"
 default-features = false
 
 [workspace.dependencies.rustyline]
-version = "14.0.0"
+version = "15.0.0"
 default-features = false
 
 [workspace.dependencies.tokio]
-version = "1.40.0"
+version = "1.43.0"
 default-features = false
 
 [workspace.dependencies.tokio-stream]
-version = "0.1.16"
+version = "0.1.17"
 default-features = false
 
 [workspace.dependencies.windows]

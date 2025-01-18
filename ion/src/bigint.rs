@@ -132,7 +132,7 @@ impl<'o> Deref for BigInt<'o> {
 	}
 }
 
-impl<'o> DerefMut for BigInt<'o> {
+impl DerefMut for BigInt<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.bi
 	}

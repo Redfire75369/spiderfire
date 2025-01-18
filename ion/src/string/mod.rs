@@ -231,7 +231,7 @@ impl<'s> Deref for String<'s> {
 	}
 }
 
-impl<'s> DerefMut for String<'s> {
+impl DerefMut for String<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.str
 	}

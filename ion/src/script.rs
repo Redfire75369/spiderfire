@@ -16,7 +16,7 @@ pub struct Script<'cx> {
 	script: Local<'cx, *mut JSScript>,
 }
 
-impl<'s> Script<'s> {
+impl Script<'_> {
 	/// Compiles a script with a given filename and returns the compiled script.
 	/// Returns [Err] when script compilation fails.
 	pub fn compile<'cx>(cx: &'cx Context, path: &Path, script: &str) -> Result<Script<'cx>, ErrorReport> {

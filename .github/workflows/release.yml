@@ -1,6 +1,6 @@
 name: Rust Release Build
 
-on: [push, workflow_dispatch]
+on: [workflow_dispatch]
 
 env:
   SHELL: /bin/bash
