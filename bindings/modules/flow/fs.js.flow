@@ -15,6 +15,16 @@ declare module "fs" {
 		readonly: boolean;
 	}
 
+	declare export interface OpenOptions {
+		read?: boolean,
+		write?: boolean,
+		append?: boolean,
+		create?: boolean,
+		createNew?: boolean,
+	}
+
+	declare export type SeekMode = "current" | "start" | "end";
+
 	declare export class DirEntry {
 		name(): string;
 		path(): string;
@@ -37,6 +47,9 @@ declare module "fs" {
 		truncate(length?: number): Promise<void>;
 		truncateSync(length?: number): void;
 
+		seek(offset: number, mode?: SeekMode): Promise<number>;
+		seekSync(offset: number, mode?: SeekMode): number;
+
 		sync(): Promise<void>;
 		syncSync(): void;
 
@@ -45,14 +58,6 @@ declare module "fs" {
 
 		metadata(): Promise<Metadata>;
 		metadataSync(): Metadata;
-	}
-
-	declare export interface OpenOptions {
-		read?: boolean,
-		write?: boolean,
-		append?: boolean,
-		create?: boolean,
-		createNew?: boolean,
 	}
 
 	declare export function open(path: string, options?: OpenOptions): Promise<FileHandle>;
@@ -77,6 +82,10 @@ declare module "fs" {
 
 	declare export function link(original: string, link: string): Promise<void>;
 
+	declare export function readLink(path: string): Promise<string>;
+
+	declare export function canonical(path: string): Promise<string>;
+
 	import {
 		open as openSync,
 		create as createSync,
@@ -90,7 +99,10 @@ declare module "fs" {
 		copy as copySync,
 		rename as renameSync,
 		symlink as symlinkSync,
-		link as linkSync
+		link as linkSync,
+
+		readLink as readLinkSync,
+		canonical as canonicalSync,
 	} from "fs/sync";
 
 	declare export {
@@ -107,6 +119,9 @@ declare module "fs" {
 		renameSync,
 		symlinkSync,
 		linkSync,
+
+		readLinkSync,
+		canonicalSync,
 	};
 
 	declare export var sync: {
@@ -123,13 +138,18 @@ declare module "fs" {
 		rename: typeof renameSync,
 		symlink: typeof symlinkSync,
 		link: typeof linkSync,
+
+		readLink: typeof readLinkSync,
+		canonical: typeof canonicalSync,
 	};
 
 	declare export default {
-		Metadata: typeof Metadata,
-		FileHandle: typeof FileHandle,
-
+		Metadata: Metadata,
 		OpenOptions: OpenOptions,
+		SeekMode: SeekMode,
+		DirEntry: typeof DirEntry,
+
+		FileHandle: typeof FileHandle,
 		open: typeof open,
 		create: typeof create,
 
@@ -144,19 +164,23 @@ declare module "fs" {
 		symlink: typeof symlink,
 		link: typeof link,
 
+		readLink: typeof readLink,
+		canonical: typeof canonical,
+
 		sync: typeof sync,
-	}
+	};
 }
 
 declare module "fs/sync" {
-	import {DirEntry, FileHandle, type Metadata, type OpenOptions} from "fs";
+	import {DirEntry, FileHandle, type Metadata, type OpenOptions, type SeekMode} from "fs";
 
 	declare export {
 		DirEntry,
-		Metadata,
 		FileHandle,
-		OpenOptions
-	};
+		Metadata,
+		OpenOptions,
+		SeekMode,
+	}
 
 	declare export function open(path: string, options?: OpenOptions): FileHandle;
 
@@ -179,4 +203,8 @@ declare module "fs/sync" {
 	declare export function symlink(original: string, link: string): void;
 
 	declare export function link(original: string, link: string): void;
+
+	declare export function readLink(path: string): string;
+
+	declare export function canonical(path: string): string;
 }

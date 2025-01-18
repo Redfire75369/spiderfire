@@ -5,25 +5,69 @@
  */
 
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::future::{poll_fn, Future};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::Poll;
 use std::{io, slice};
 
 use ion::class::Reflector;
-use ion::conversions::{ConversionBehavior, IntoValue, ToValue};
+use ion::conversions::{ConversionBehavior, FromValue, IntoValue, ToValue};
 use ion::function::Opt;
 use ion::typedarray::{Uint8Array, Uint8ArrayWrapper};
-use ion::{Context, Error, Promise, Result, TracedHeap, Value};
+use ion::{Context, Error, ErrorKind, Promise, Result, TracedHeap, Value};
 use mozjs::jsval::DoubleValue;
 use runtime::globals::file::BufferSource;
 use runtime::promise::future_to_promise;
 use tokio::task::spawn_blocking;
 
-use crate::fs::{file_error, Metadata};
+use crate::fs::{file_error, seek_error, Metadata};
+
+#[derive(Copy, Clone, Debug, Default)]
+pub enum SeekMode {
+	#[default]
+	Current,
+	Start,
+	End,
+}
+
+impl FromStr for SeekMode {
+	type Err = Error;
+
+	fn from_str(redirect: &str) -> Result<SeekMode> {
+		use SeekMode as SM;
+		match redirect {
+			"current" => Ok(SM::Current),
+			"start" => Ok(SM::Start),
+			"end" => Ok(SM::End),
+			_ => Err(Error::new("Invalid value for Enumeration SeekMode", ErrorKind::Type)),
+		}
+	}
+}
+
+impl Display for SeekMode {
+	fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+		use SeekMode as SM;
+		match self {
+			SM::Current => write!(f, "current"),
+			SM::Start => write!(f, "start"),
+			SM::End => write!(f, "end"),
+		}
+	}
+}
+
+impl<'cx> FromValue<'cx> for SeekMode {
+	type Config = ();
+
+	fn from_value(cx: &'cx Context, value: &Value, _: bool, _: ()) -> Result<SeekMode> {
+		let redirect = String::from_value(cx, value, true, ())?;
+		SeekMode::from_str(&redirect)
+	}
+}
 
 pub enum ReadResult {
 	BytesWritten(usize),
@@ -107,17 +151,21 @@ impl FileHandle {
 		}
 	}
 
-	pub(crate) fn with_blocking_promise<'cx, F, T, A>(
+	#[allow(clippy::too_many_arguments)]
+	pub(crate) fn with_blocking_promise<'cx, F, T, A, E, D>(
 		&self, cx: &'cx Context, action: &'static str, path: Arc<str>, callback: F, callback_after: A,
+		error_callback: E, error_data: D,
 	) -> Option<Promise<'cx>>
 	where
 		F: FnOnce(&mut File) -> io::Result<T> + Send + 'static,
 		T: for<'cx2> IntoValue<'cx2> + Send + 'static,
 		A: FnOnce() + 'static,
+		E: for<'p> FnOnce(&'static str, &'p str, io::Error, D) -> Error + 'static,
+		D: 'static,
 	{
 		let task = self.with_blocking_task(callback);
 		future_to_promise(cx, async move {
-			let result = task.await.map_err(|err| file_error(action, &path, err));
+			let result = task.await.map_err(|err| error_callback(action, &path, err, error_data));
 			callback_after();
 			result
 		})
@@ -134,14 +182,22 @@ impl FileHandle {
 		});
 		let array = array.as_ref().map(|array| TracedHeap::new(array.handle().get()));
 
-		self.with_blocking_promise(cx, "read", path, move |file| read_inner(file, bytes), || drop(array))
+		self.with_blocking_promise(
+			cx,
+			"read",
+			path,
+			move |file| read_inner(file, bytes),
+			|| drop(array),
+			file_error,
+			(),
+		)
 	}
 
 	#[ion(name = "readSync")]
 	pub fn read_sync(&self, Opt(array): Opt<Uint8Array>) -> Result<ReadResult> {
 		self.with_sync(|file| {
 			let bytes = array.as_ref().map(|array| unsafe { array.as_mut_slice() });
-			read_inner(file, bytes).map_err(|err| file_error("read", &self.path, err))
+			read_inner(file, bytes).map_err(|err| file_error("read", &self.path, err, ()))
 		})
 	}
 
@@ -156,6 +212,8 @@ impl FileHandle {
 			path,
 			move |file| file.write(&contents).map(|bytes| bytes as u64),
 			|| {},
+			file_error,
+			(),
 		)
 	}
 
@@ -165,7 +223,7 @@ impl FileHandle {
 			let contents = unsafe { contents.as_slice() };
 			match file.write(contents) {
 				Ok(bytes) => Ok(bytes as u64),
-				Err(err) => Err(file_error("write", &self.path, err)),
+				Err(err) => Err(file_error("write", &self.path, err, ())),
 			}
 		})
 	}
@@ -182,6 +240,8 @@ impl FileHandle {
 			path,
 			move |file| file.write_all(&contents).map(|_| ()),
 			|| {},
+			file_error,
+			(),
 		)
 	}
 
@@ -191,7 +251,7 @@ impl FileHandle {
 			let contents = unsafe { contents.as_slice() };
 			match file.write_all(contents) {
 				Ok(_) => Ok(()),
-				Err(err) => Err(file_error("write", &self.path, err)),
+				Err(err) => Err(file_error("write", &self.path, err, ())),
 			}
 		})
 	}
@@ -206,6 +266,8 @@ impl FileHandle {
 			path,
 			move |file| file.set_len(length.unwrap_or(0)),
 			|| {},
+			file_error,
+			(),
 		)
 	}
 
@@ -213,28 +275,70 @@ impl FileHandle {
 	pub fn truncate_sync(
 		&self, #[ion(convert = ConversionBehavior::EnforceRange)] Opt(length): Opt<u64>,
 	) -> Result<()> {
-		self.with_sync(|file| file.set_len(length.unwrap_or(0)).map_err(|err| file_error("truncate", &self.path, err)))
+		self.with_sync(|file| {
+			file.set_len(length.unwrap_or(0))
+				.map_err(|err| file_error("truncate", &self.path, err, ()))
+		})
+	}
+
+	pub fn seek<'cx>(
+		&self, cx: &'cx Context, #[ion(convert = ConversionBehavior::EnforceRange)] offset: i64,
+		Opt(mode): Opt<SeekMode>,
+	) -> Option<Promise<'cx>> {
+		let path = Arc::clone(&self.path);
+		let mode = mode.unwrap_or_default();
+		self.with_blocking_promise(
+			cx,
+			"seek",
+			path,
+			move |file| {
+				let seek = seek_from_mode(offset, mode);
+				file.seek(seek)
+			},
+			|| {},
+			seek_error,
+			(mode, offset),
+		)
+	}
+
+	#[ion(name = "seekSync")]
+	pub fn seek_sync(
+		&self, #[ion(convert = ConversionBehavior::EnforceRange)] offset: i64, Opt(mode): Opt<SeekMode>,
+	) -> Result<u64> {
+		self.with_sync(|file| {
+			let mode = mode.unwrap_or_default();
+			let seek = seek_from_mode(offset, mode);
+			file.seek(seek).map_err(|err| seek_error("", &self.path, err, (mode, offset)))
+		})
 	}
 
 	pub fn sync<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "sync", path, move |file| file.sync_all(), || {})
+		self.with_blocking_promise(cx, "sync", path, move |file| file.sync_all(), || {}, file_error, ())
 	}
 
 	#[ion(name = "syncSync")]
 	pub fn sync_sync(&self) -> Result<()> {
-		self.with_sync(|file| file.sync_all().map_err(|err| file_error("sync", &self.path, err)))
+		self.with_sync(|file| file.sync_all().map_err(|err| file_error("sync", &self.path, err, ())))
 	}
 
 	#[ion(name = "syncData")]
 	pub fn sync_data<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
-		self.with_blocking_promise(cx, "sync data for", path, move |file| file.sync_data(), || {})
+		self.with_blocking_promise(
+			cx,
+			"sync data for",
+			path,
+			move |file| file.sync_data(),
+			|| {},
+			file_error,
+			(),
+		)
 	}
 
 	#[ion(name = "syncDataSync")]
 	pub fn sync_data_sync(&self) -> Result<()> {
-		self.with_sync(|file| file.sync_data().map_err(|err| file_error("sync data for", &self.path, err)))
+		self.with_sync(|file| file.sync_data().map_err(|err| file_error("sync data for", &self.path, err, ())))
 	}
 
 	pub fn metadata<'cx>(&self, cx: &'cx Context) -> Option<Promise<'cx>> {
@@ -245,6 +349,8 @@ impl FileHandle {
 			path,
 			move |file| file.metadata().map(Metadata),
 			|| {},
+			file_error,
+			(),
 		)
 	}
 
@@ -253,7 +359,7 @@ impl FileHandle {
 		self.with_sync(|file| {
 			file.metadata()
 				.map(Metadata)
-				.map_err(|err| file_error("get metadata for", &self.path, err))
+				.map_err(|err| file_error("get metadata for", &self.path, err, ()))
 		})
 	}
 }
@@ -266,5 +372,14 @@ fn read_inner(file: &mut File, bytes: Option<&mut [u8]>) -> io::Result<ReadResul
 		let mut bytes = Vec::new();
 		bytes.reserve_exact(size.unwrap_or(0));
 		file.read_to_end(&mut bytes).map(|_| ReadResult::Buffer(bytes))
+	}
+}
+
+fn seek_from_mode(offset: i64, mode: SeekMode) -> SeekFrom {
+	use SeekMode as SM;
+	match mode {
+		SM::Current => SeekFrom::Current(offset),
+		SM::Start => SeekFrom::Start(offset.max(0) as u64),
+		SM::End => SeekFrom::End(offset),
 	}
 }

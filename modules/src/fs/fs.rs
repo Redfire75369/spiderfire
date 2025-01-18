@@ -84,7 +84,7 @@ fn open(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> Optio
 				&path_str,
 				file.into_std().await,
 			)))),
-			Err(err) => Err(file_error("open", &path_str, err)),
+			Err(err) => Err(file_error("open", &path_str, err, ())),
 		}
 	})
 }
@@ -96,7 +96,7 @@ fn open_sync(cx: &Context, path_str: String, Opt(options): Opt<OpenOptions>) -> 
 
 	match options.open(path) {
 		Ok(file) => Ok(FileHandle::new_object(cx, Box::new(FileHandle::new(&path_str, file)))),
-		Err(err) => Err(file_error("open", &path_str, err)),
+		Err(err) => Err(file_error("open", &path_str, err, ())),
 	}
 }
 
@@ -112,7 +112,7 @@ fn create(cx: &Context, path_str: String) -> Option<Promise> {
 				&path_str,
 				file.into_std().await,
 			)))),
-			Err(err) => Err(file_error("create", &path_str, err)),
+			Err(err) => Err(file_error("create", &path_str, err, ())),
 		}
 	})
 }
@@ -125,7 +125,7 @@ fn create_sync(cx: &Context, path_str: String) -> Result<*mut JSObject> {
 
 	match options.open(path) {
 		Ok(file) => Ok(FileHandle::new_object(cx, Box::new(FileHandle::new(&path_str, file)))),
-		Err(err) => Err(file_error("create", &path_str, err)),
+		Err(err) => Err(file_error("create", &path_str, err, ())),
 	}
 }
 
@@ -398,11 +398,55 @@ fn link_sync(original_str: String, link_str: String) -> Result<()> {
 	fs::hard_link(original, link).map_err(|err| translate_error("link", &original_str, &link_str, err))
 }
 
+#[js_fn]
+fn read_link(cx: &Context, path_str: String) -> Option<Promise> {
+	future_to_promise(cx, async move {
+		let path = Path::new(&path_str);
+
+		match tokio::fs::read_link(&path).await {
+			Ok(path) => Ok(path.to_string_lossy().into_owned()),
+			Err(err) => Err(base_error("read link", &path_str, err)),
+		}
+	})
+}
+
+#[js_fn]
+fn read_link_sync(path_str: String) -> Result<String> {
+	let path = Path::new(&path_str);
+
+	match fs::read_link(path) {
+		Ok(path) => Ok(path.to_string_lossy().into_owned()),
+		Err(err) => Err(base_error("read link", &path_str, err)),
+	}
+}
+
+#[js_fn]
+fn canonical(cx: &Context, path_str: String) -> Option<Promise> {
+	future_to_promise(cx, async move {
+		let path = Path::new(&path_str);
+
+		match tokio::fs::canonicalize(&path).await {
+			Ok(path) => Ok(path.to_string_lossy().into_owned()),
+			Err(err) => Err(base_error("read link", &path_str, err)),
+		}
+	})
+}
+
+#[js_fn]
+fn canonical_sync(path_str: String) -> Result<String> {
+	let path = Path::new(&path_str);
+
+	match fs::canonicalize(path) {
+		Ok(path) => Ok(path.to_string_lossy().into_owned()),
+		Err(err) => Err(base_error("read link", &path_str, err)),
+	}
+}
+
 const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(open_sync, c"open", 1),
 	function_spec!(create_sync, c"create", 1),
-	function_spec!(metadata, c"metadataSync", 1),
-	function_spec!(link_metadata, c"linkMetadataSync", 1),
+	function_spec!(metadata, c"metadata", 1),
+	function_spec!(link_metadata, c"linkMetadata", 1),
 	function_spec!(read_dir_sync, c"readDir", 1),
 	function_spec!(create_dir_sync, c"createDir", 1),
 	function_spec!(remove_sync, c"remove", 1),
@@ -410,6 +454,8 @@ const SYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(rename_sync, c"rename", 2),
 	function_spec!(symlink_sync, c"symlink", 2),
 	function_spec!(link_sync, c"link", 2),
+	function_spec!(read_link_sync, c"readLink", 1),
+	function_spec!(canonical_sync, c"canonical", 1),
 	JSFunctionSpec::ZERO,
 ];
 
@@ -425,6 +471,8 @@ const ASYNC_FUNCTIONS: &[JSFunctionSpec] = &[
 	function_spec!(rename, 2),
 	function_spec!(symlink, c"symlink", 2),
 	function_spec!(link, c"link", 2),
+	function_spec!(read_link, c"readLink", 1),
+	function_spec!(canonical, c"canonical", 1),
 	JSFunctionSpec::ZERO,
 ];
 
@@ -467,7 +515,7 @@ impl<'cx> NativeModule<'cx> for FileSystem<'cx> {
 				($key, concat!($key, "Sync"))
 			};
 		}
-		const SYNC_KEYS: [(&str, &str); 9] = [
+		const SYNC_KEYS: [(&str, &str); 11] = [
 			key!("open"),
 			key!("create"),
 			key!("readDir"),
@@ -477,6 +525,8 @@ impl<'cx> NativeModule<'cx> for FileSystem<'cx> {
 			key!("rename"),
 			key!("symlink"),
 			key!("link"),
+			key!("readLink"),
+			key!("canonical"),
 		];
 
 		for (key, new_key) in SYNC_KEYS {

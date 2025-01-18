@@ -18,4 +18,7 @@ export const rename = ______fsSyncInternal______.rename;
 export const symlink = ______fsSyncInternal______.symlink;
 export const link = ______fsSyncInternal______.link;
 
+export const readLink = ______fsSyncInternal______.readLink;
+export const canonical = ______fsSyncInternal______.canonical;
+
 export default Object.freeze(______fsSyncInternal______);

@@ -46,11 +46,7 @@ impl DirIterator {
 
 impl JSIterator for DirIterator {
 	fn next_value<'cx>(&mut self, cx: &'cx Context, _: &Value<'cx>) -> Option<Value<'cx>> {
-		let entry = loop {
-			if let Ok(entry) = self.0.next()? {
-				break entry;
-			}
-		};
+		let entry = self.0.find(|e| e.is_ok()).transpose().unwrap()?;
 		let entry = Box::new(DirEntry { reflector: Reflector::new(), entry });
 		Some(DirEntry::new_object(cx, entry).as_value(cx))
 	}

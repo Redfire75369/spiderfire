@@ -20,6 +20,9 @@ export const rename = ______fsInternal______.rename;
 export const symlink = ______fsInternal______.symlink;
 export const link = ______fsInternal______.link;
 
+export const readLink = ______fsInternal______.readLink;
+export const canonical = ______fsInternal______.canonical;
+
 export const openSync = ______fsInternal______.openSync;
 export const createSync = ______fsInternal______.createSync;
 
@@ -33,6 +36,9 @@ export const copySync = ______fsInternal______.copySync;
 export const renameSync = ______fsInternal______.renameSync;
 export const symlinkSync = ______fsInternal______.symlinkSync;
 export const linkSync = ______fsInternal______.linkSync;
+
+export const readLinkSync = ______fsInternal______.readLinkSync;
+export const canonicalSync = ______fsInternal______.canonicalSync;
 
 export const sync = ______fsInternal______.sync;
 
