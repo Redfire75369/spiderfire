@@ -22,10 +22,6 @@ features = ["macros"]
 workspace = true
 features = ["fs"]
 
-[dependencies.tokio-stream]
-workspace = true
-features = ["fs"]
-
 [target.'cfg(windows)'.dependencies.windows]
 workspace = true
 features = ["Win32_Storage_FileSystem"]
