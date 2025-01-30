@@ -202,9 +202,9 @@ impl ErrorReport {
 				};
 
 				if GetPendingExceptionStack(cx.as_ptr(), &mut exception_stack) {
-					let exception = Value::from(cx.root(exception_stack.exception_.ptr));
+					let exception = Value::from(cx.root(exception_stack.exception_.ptr.assume_init()));
 					let exception = Exception::from_value(cx, &exception)?;
-					let stack = Stack::from_object(cx, exception_stack.stack_.ptr);
+					let stack = Stack::from_object(cx, exception_stack.stack_.ptr.assume_init());
 					Exception::clear(cx);
 					Ok(Some(ErrorReport { exception, stack }))
 				} else {
