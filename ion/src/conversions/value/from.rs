@@ -432,7 +432,7 @@ struct ForOfIteratorGuard<'a> {
 
 impl<'a> ForOfIteratorGuard<'a> {
 	fn new(cx: &Context, root: &'a mut ForOfIterator) -> Self {
-		cx.root(root.iterator.ptr);
+		cx.root(unsafe { root.iterator.ptr.assume_init() });
 		ForOfIteratorGuard { root }
 	}
 }
@@ -472,7 +472,7 @@ where
 			return Err(Error::new("Failed to Initialise Iterator", ErrorKind::Type));
 		}
 
-		if iterator.iterator.ptr.is_null() {
+		if unsafe { iterator.iterator.ptr.assume_init() }.is_null() {
 			return Err(Error::new("Expected Iterable", ErrorKind::Type));
 		}
 

@@ -11,7 +11,7 @@ use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
-use mozjs::gc::{GCMethods, Traceable};
+use mozjs::gc::Traceable;
 use mozjs::jsapi::{
 	JSContext, JSTracer, JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer,
 	JS_SetContextPrivate, Rooted,
@@ -159,7 +159,7 @@ pub trait Rootable: private::Sealed {}
 impl<T: private::Sealed> Rootable for T {}
 
 mod private {
-	use mozjs::gc::{GCMethods, RootKind};
+	use mozjs::gc::RootKind;
 	use mozjs::jsapi::{
 		BigInt, JSFunction, JSObject, JSScript, JSString, PropertyDescriptor, PropertyKey, Rooted, Symbol,
 	};
@@ -183,7 +183,7 @@ mod private {
 	}
 
 	#[expect(clippy::mut_from_ref)]
-	pub trait Sealed: RootKind + GCMethods + Copy + Sized {
+	pub trait Sealed: RootKind + Copy + Sized {
 		const GC_TYPE: GCType;
 
 		fn alloc(arena: &RootedArena, root: Rooted<Self>) -> &mut Rooted<Self>;
@@ -218,6 +218,8 @@ mod private {
 
 macro_rules! impl_drop {
 	([$self:expr], $(($key:ident, $gc_type:ident)$(,)?)*) => {
+		use std::mem::MaybeUninit;
+
 		$(let $key: Vec<_> = $self.rooted.$key.iter_mut().collect();)*
 		$(let mut $key = $key.into_iter().rev();)*
 
@@ -226,7 +228,10 @@ macro_rules! impl_drop {
 				$(
 					GCType::$gc_type => {
 						let root = $key.next().unwrap();
-						root.ptr = unsafe { GCMethods::initial() };
+						unsafe {
+							root.ptr.assume_init_drop();
+							root.ptr = MaybeUninit::zeroed();
+						}
 						unsafe {
 							root.remove_from_root_stack();
 						}

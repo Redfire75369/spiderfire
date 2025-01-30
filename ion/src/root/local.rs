@@ -16,18 +16,18 @@ use crate::Context;
 /// Prevents a local value that is currently being used from being garbage collected and causing undefined behaviour.
 pub enum Local<'local, T: 'local>
 where
-	T: GCMethods + RootKind,
+	T: RootKind,
 {
 	Rooted(&'local mut Rooted<T>),
 	Mutable(MutableHandle<'local, T>),
 	Handle(Handle<'local, T>),
 }
 
-impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
+impl<'local, T: Copy + RootKind> Local<'local, T> {
 	/// Forms a [Handle] to the [Local] which can be passed to SpiderMonkey APIs.
 	pub fn handle(&self) -> Handle<'local, T> {
 		match self {
-			Self::Rooted(root) => unsafe { Handle::from_marked_location(&root.ptr) },
+			Self::Rooted(root) => unsafe { Handle::from_marked_location(root.ptr.as_ptr()) },
 			Self::Mutable(handle) => unsafe { Handle::from_marked_location(&handle.get()) },
 			Self::Handle(handle) => *handle,
 		}
@@ -39,7 +39,7 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	/// Panics when a [`Local::Handle`] is passed.
 	pub fn handle_mut(&mut self) -> MutableHandle<'local, T> {
 		match self {
-			Local::Rooted(root) => unsafe { MutableHandle::from_marked_location(&mut root.ptr) },
+			Local::Rooted(root) => unsafe { MutableHandle::from_marked_location(root.ptr.as_mut_ptr()) },
 			Local::Mutable(handle) => *handle,
 			Local::Handle(_) => panic!("&mut Local::Handle should never be constructed"),
 		}
@@ -47,18 +47,18 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 
 	pub fn get(&self) -> T {
 		match self {
-			Self::Rooted(root) => root.ptr,
+			Self::Rooted(root) => unsafe { root.ptr.assume_init() },
 			Self::Mutable(handle) => handle.get(),
 			Self::Handle(handle) => handle.get(),
 		}
 	}
 }
 
-impl<'local, T: GCMethods + RootKind> Local<'local, T> {
+impl<'local, T: RootKind> Local<'local, T> {
 	/// Creates a new [Local].
 	/// `Context::root` should be used instead.
 	pub(crate) fn new(cx: &Context, root: &'local mut Rooted<T>, initial: T) -> Local<'local, T> {
-		root.ptr = initial;
+		root.ptr.write(initial);
 		unsafe {
 			root.add_to_root_stack(cx.as_ptr());
 		}
@@ -114,7 +114,7 @@ impl<'local, T: Copy + GCMethods + RootKind> Local<'local, T> {
 	}
 }
 
-impl<T: Copy + Debug + GCMethods + RootKind> Debug for Local<'_, T> {
+impl<T: Copy + Debug + RootKind> Debug for Local<'_, T> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		self.handle().fmt(f)
 	}
