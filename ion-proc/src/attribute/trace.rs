@@ -9,7 +9,7 @@ use syn::parse::Result;
 
 use crate::attribute::{ParseArgument, ParseAttribute};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct TraceAttribute {
 	pub(crate) no_trace: bool,
 }

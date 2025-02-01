@@ -10,7 +10,7 @@ use syn::{parse2, Arm, Block, Data, DeriveInput, Error, Fields, Generics, ItemIm
 
 use crate::attribute::trace::TraceAttribute;
 use crate::attribute::ParseAttribute;
-use crate::utils::add_trait_bounds;
+use crate::utils::{add_trait_bounds, wrap_in_fields_group};
 
 pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 	add_trait_bounds(&mut input.generics, &parse_quote!(::mozjs::gc::Traceable));
@@ -34,13 +34,14 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 	match data {
 		Data::Struct(r#struct) => {
-			let (idents, skip) = field_idents(&r#struct.fields)?;
-			let traced = idents
-				.iter()
-				.enumerate()
-				.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
+			let (idents, traced) = field_idents(&r#struct.fields)?;
+			let wrapped = if matches!(r#struct.fields, Fields::Named(_) | Fields::Unnamed(_)) {
+				wrap_in_fields_group(idents, &r#struct.fields)
+			} else {
+				quote!()
+			};
 			parse2(quote_spanned!(span => {
-				let Self { #(#idents,)* } = self;
+				let Self #wrapped = self;
 				#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
 			}))
 		}
@@ -50,20 +51,18 @@ fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 				.iter()
 				.map(|variant| {
 					let ident = &variant.ident;
-					let (idents, skip) = field_idents(&variant.fields)?;
-					let traced = idents
-						.iter()
-						.enumerate()
-						.filter_map(|(index, ident)| (!skip.contains(&index)).then_some(ident));
-					match &variant.fields {
-						Fields::Named(_) => parse2(quote_spanned!(variant.span() => Self::#ident { #(#idents,)* } => {
+					let (idents, traced) = field_idents(&variant.fields)?;
+					let wrapped = if matches!(variant.fields, Fields::Named(_) | Fields::Unnamed(_)) {
+						wrap_in_fields_group(idents, &variant.fields)
+					} else {
+						quote!()
+					};
+
+					parse2(quote_spanned!(variant.span() =>
+						Self::#ident #wrapped => {
 							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
-						})),
-						Fields::Unnamed(_) => parse2(quote_spanned!(variant.span() => Self::#ident(#(#idents,)* ) => {
-							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
-						})),
-						Fields::Unit => parse2(quote_spanned!(variant.span() => Self::#ident => {})),
-					}
+						}
+					))
 				})
 				.collect::<Result<_>>()?;
 			parse2(quote_spanned!(span => {
@@ -79,26 +78,19 @@ fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
 	}
 }
 
-fn field_idents(fields: &Fields) -> Result<(Vec<Ident>, Vec<usize>)> {
-	let fields = match fields {
-		Fields::Named(fields) => &fields.named,
-		Fields::Unnamed(fields) => &fields.unnamed,
-		Fields::Unit => return Ok((Vec::new(), Vec::new())),
-	};
-	let mut skip = Vec::new();
-	let idents = fields
-		.iter()
-		.enumerate()
-		.map(|(index, field)| {
-			let attribute = TraceAttribute::from_attributes("trace", &field.attrs)?;
-			if attribute.no_trace {
-				skip.push(index);
-			}
-			match &field.ident {
-				Some(ident) => Ok(ident.clone()),
-				None => Ok(format_ident!("var{}", index)),
-			}
-		})
-		.collect::<Result<_>>()?;
-	Ok((idents, skip))
+fn field_idents(fields: &Fields) -> Result<(Vec<Ident>, Vec<Ident>)> {
+	let mut idents = Vec::with_capacity(fields.len());
+	let mut traced = Vec::with_capacity(fields.len());
+	for (index, field) in fields.iter().enumerate() {
+		let attribute = TraceAttribute::from_attributes("trace", &field.attrs)?;
+		let ident = match &field.ident {
+			Some(ident) => ident.clone(),
+			None => format_ident!("_self_{}", index),
+		};
+		idents.push(ident.clone());
+		if !attribute.no_trace {
+			traced.push(ident);
+		}
+	}
+	Ok((idents, traced))
 }

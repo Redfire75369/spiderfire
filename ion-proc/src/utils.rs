@@ -5,8 +5,13 @@
  */
 
 use prettyplease::unparse;
-use proc_macro2::Ident;
-use syn::{parse2, GenericParam, Generics, Pat, Path, Type, TypeParamBound};
+use proc_macro2::{Ident, TokenStream};
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::{
+	parse2, Attribute, Error, Fields, GenericParam, Generics, Lifetime, LifetimeParam, Meta, Pat, Path, Result, Type,
+	TypeParamBound,
+};
 
 pub(crate) fn path_ends_with<I: ?Sized>(path: &Path, ident: &I) -> bool
 where
@@ -35,6 +40,74 @@ pub(crate) fn add_trait_bounds(generics: &mut Generics, bound: &TypeParamBound) 
 		if let GenericParam::Type(type_param) = param {
 			type_param.bounds.push(bound.clone());
 		}
+	}
+}
+
+pub(crate) fn add_lifetime_generic(impl_generics: &mut Generics, lifetime: Lifetime) {
+	let has_cx = impl_generics.params.iter().any(|param| {
+		if let GenericParam::Lifetime(lt) = param {
+			lt.lifetime == lifetime
+		} else {
+			false
+		}
+	});
+
+	if !has_cx {
+		let param = GenericParam::Lifetime(LifetimeParam {
+			attrs: Vec::new(),
+			lifetime,
+			colon_token: None,
+			bounds: Punctuated::new(),
+		});
+
+		impl_generics.params.push(param);
+	}
+}
+
+pub(crate) fn find_repr(attrs: &[Attribute]) -> Result<Option<Ident>> {
+	let mut repr = None;
+	for attr in attrs {
+		if attr.path().is_ident("repr") {
+			let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+			let allowed_reprs: [Ident; 8] = [
+				parse_quote!(i8),
+				parse_quote!(i16),
+				parse_quote!(i32),
+				parse_quote!(i64),
+				parse_quote!(u8),
+				parse_quote!(u16),
+				parse_quote!(u32),
+				parse_quote!(u64),
+			];
+
+			for meta in nested {
+				if let Meta::Path(path) = &meta {
+					for allowed_repr in &allowed_reprs {
+						if path.is_ident(allowed_repr) {
+							if repr.is_none() {
+								repr = Some(path.get_ident().unwrap().clone());
+							} else {
+								return Err(Error::new(meta.span(), "Only One Representation Allowed in #[repr]"));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	Ok(repr)
+}
+
+pub(crate) fn wrap_in_fields_group<I>(idents: I, fields: &Fields) -> TokenStream
+where
+	I: IntoIterator<Item = Ident>,
+{
+	let idents = idents.into_iter();
+	match fields {
+		Fields::Named(_) => quote!({ #(#idents,)* }),
+		Fields::Unnamed(_) => quote!((#(#idents,)*)),
+		Fields::Unit => unimplemented!("Not implemented for Unit fields"),
 	}
 }
 
