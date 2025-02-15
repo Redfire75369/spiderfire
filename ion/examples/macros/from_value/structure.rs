@@ -19,7 +19,7 @@ pub struct Complex<'cx> {
 	pub other: bool,
 	#[ion(default, convert = ConversionBehavior::Clamp)]
 	pub optional: Option<i32>,
-	#[ion(default = Arc::new(AtomicU64::new(16)), parser = |v| parse_as_atomic_arc(cx, v))]
+	#[ion(default = Arc::new(AtomicU64::new(16)), parser = |v| parse_as_atomic_arc(__ion_cx, v))]
 	pub parsed: Arc<AtomicU64>,
 }
 

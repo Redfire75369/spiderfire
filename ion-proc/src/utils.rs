@@ -107,7 +107,7 @@ where
 	match fields {
 		Fields::Named(_) => quote!({ #(#idents,)* }),
 		Fields::Unnamed(_) => quote!((#(#idents,)*)),
-		Fields::Unit => unimplemented!("Not implemented for Unit fields"),
+		Fields::Unit => quote!(),
 	}
 }
 

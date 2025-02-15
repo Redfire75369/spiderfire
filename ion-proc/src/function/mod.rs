@@ -59,6 +59,7 @@ pub(crate) fn impl_fn_body(ion: &TokenStream, wrapper: &ItemFn) -> Result<Box<Bl
 		let args = &mut #ion::Arguments::new(cx, argc, vp);
 
 		#wrapper
+
 		let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| wrapper(cx, args)));
 		#ion::function::__handle_native_function_result(cx, result)
 	}))

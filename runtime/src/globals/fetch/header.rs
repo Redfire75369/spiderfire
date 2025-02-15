@@ -26,17 +26,22 @@ use ion::{Array, ClassDefinition, Context, Error, ErrorKind, JSIterator, Object,
 use mime::{Mime, APPLICATION, FORM_DATA, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
 
 #[derive(FromValue)]
+#[ion(inherit)]
 pub enum Header {
-	#[ion(inherit)]
 	Multiple(Vec<String>),
-	#[ion(inherit)]
 	Single(String),
 }
 
 impl Display for Header {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Header::Multiple(vec) => f.write_str(&vec.join(", ")),
+			Header::Multiple(vec) => {
+				for str in vec {
+					f.write_str(str)?;
+					f.write_str(", ")?;
+				}
+				Ok(())
+			}
 			Header::Single(str) => f.write_str(str),
 		}
 	}
@@ -87,15 +92,13 @@ impl<'cx> FromValue<'cx> for HeadersObject {
 }
 
 #[derive(Default, FromValue)]
+#[ion(inherit)]
 pub enum HeadersInit<'cx> {
-	#[ion(inherit)]
 	Existing(&'cx Headers),
-	#[ion(inherit)]
 	Array(Vec<HeaderEntry>),
-	#[ion(inherit)]
 	Object(HeadersObject),
-	#[default]
 	#[ion(skip)]
+	#[default]
 	Empty,
 }
 

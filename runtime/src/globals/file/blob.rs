@@ -77,12 +77,10 @@ impl<'cx> FromValue<'cx> for BufferSource<'cx> {
 }
 
 #[derive(Debug, FromValue)]
+#[ion(inherit)]
 pub enum BlobPart<'cx> {
-	#[ion(inherit)]
 	String(String),
-	#[ion(inherit)]
 	BufferSource(#[ion(convert = false)] BufferSource<'cx>),
-	#[ion(inherit)]
 	Blob(&'cx Blob),
 }
 

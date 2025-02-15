@@ -71,6 +71,14 @@ pub(crate) struct VariantAttribute {
 	pub(crate) skip: bool,
 }
 
+impl VariantAttribute {
+	pub(crate) fn merge(&mut self, old_tag: Option<&Tag>, old_inherit: bool) {
+		let tag = self.tag.0.take();
+		self.tag = Optional(tag.or(old_tag.cloned()));
+		self.inherit = self.inherit || old_inherit;
+	}
+}
+
 impl ParseAttribute for VariantAttribute {
 	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
 		const TAG_ERROR: &str = "Variant cannot have multiple `untagged`, or `tag` attributes.";
@@ -90,10 +98,12 @@ pub(crate) struct FieldAttribute {
 	pub(crate) name: Option<LitStr>,
 	pub(crate) inherit: bool,
 	pub(crate) skip: bool,
-	pub(crate) convert: Option<Box<Expr>>,
-	pub(crate) strict: bool,
-	pub(crate) default: Optional<DefaultValue>,
-	pub(crate) parser: Option<Box<Expr>>,
+}
+
+impl FieldAttribute {
+	pub(crate) fn merge(&mut self, old_inherit: bool) {
+		self.inherit = self.inherit || old_inherit;
+	}
 }
 
 impl ParseAttribute for FieldAttribute {
@@ -101,6 +111,23 @@ impl ParseAttribute for FieldAttribute {
 		self.name.parse_argument(meta, "name", "Field")?;
 		self.inherit.parse_argument(meta, "inherit", "Field")?;
 		self.skip.parse_argument(meta, "skip", "Field")?;
+
+		Ok(())
+	}
+}
+
+#[derive(Default)]
+pub(crate) struct FieldFromAttribute {
+	pub(crate) base: FieldAttribute,
+	pub(crate) convert: Option<Box<Expr>>,
+	pub(crate) strict: bool,
+	pub(crate) default: Optional<DefaultValue>,
+	pub(crate) parser: Option<Box<Expr>>,
+}
+
+impl ParseAttribute for FieldFromAttribute {
+	fn parse(&mut self, meta: &ParseNestedMeta) -> Result<()> {
+		self.base.parse(meta)?;
 		self.default.parse_argument(meta, "default", "Field")?;
 		self.convert.parse_argument(meta, "convert", "Field")?;
 		self.strict.parse_argument(meta, "strict", "Field")?;

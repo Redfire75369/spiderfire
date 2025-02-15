@@ -22,10 +22,9 @@ use crate::globals::fetch::Headers;
 mod options;
 
 #[derive(FromValue)]
+#[ion(inherit)]
 pub enum RequestInfo<'cx> {
-	#[ion(inherit)]
 	Request(&'cx Request),
-	#[ion(inherit)]
 	String(String),
 }
 

@@ -4,17 +4,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::spanned::Spanned;
-use syn::{parse2, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result, Type};
+use syn::{parse2, Block, Data, DeriveInput, Error, Expr, Field, Fields, Generics, ItemImpl, Result, Type};
 
 use crate::attribute::krate::crate_from_attributes;
-use crate::attribute::value::{DataAttribute, DefaultValue, FieldAttribute, Tag, VariantAttribute};
+use crate::attribute::value::{DataAttribute, DefaultValue, FieldFromAttribute, Tag, VariantAttribute};
 use crate::attribute::{Optional, ParseAttribute};
 use crate::utils::{
 	add_lifetime_generic, add_trait_bounds, find_repr, format_type, path_ends_with, wrap_in_fields_group,
 };
+use crate::value::field_to_ident_key;
 
 pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	let ion = &crate_from_attributes(&mut input.attrs);
@@ -25,16 +25,23 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 	add_lifetime_generic(&mut impl_generics, parse_quote!('cx));
 
 	let attribute = DataAttribute::from_attributes("ion", &input.attrs)?;
-	let DataAttribute { tag, inherit } = attribute;
 
 	let repr = find_repr(&input.attrs)?;
 	let name = &input.ident;
 
-	let (body, requires_object) = impl_body(ion, input.span(), &input.data, name, tag, inherit, repr)?;
+	let (body, requires_object) = impl_body(
+		ion,
+		input.span(),
+		&input.data,
+		name,
+		attribute.tag,
+		attribute.inherit,
+		repr,
+	)?;
 
 	let object = requires_object.then(|| {
 		quote_spanned!(input.span() =>
-			let __object = #ion::Object::from_value(cx, value, true, ())?;
+			let __ion_object = #ion::Object::from_value(__ion_cx, __ion_value, true, ())?;
 		)
 	});
 
@@ -43,7 +50,7 @@ pub(crate) fn impl_from_value(mut input: DeriveInput) -> Result<ItemImpl> {
 		impl #impl_generics #ion::conversions::FromValue<'cx> for #name #ty_generics #where_clause {
 			type Config = ();
 
-			fn from_value(cx: &'cx #ion::Context, value: &#ion::Value, strict: bool, _: ()) -> #ion::Result<Self> {
+			fn from_value(__ion_cx: &'cx #ion::Context, __ion_value: &#ion::Value, strict: bool, _: ()) -> #ion::Result<Self> {
 				#object
 				#body
 			}
@@ -55,11 +62,12 @@ fn impl_body(
 	ion: &TokenStream, span: Span, data: &Data, ident: &Ident, tag: Optional<Tag>, inherit: bool, repr: Option<Ident>,
 ) -> Result<(Box<Block>, bool)> {
 	match data {
-		Data::Struct(data) => match &data.fields {
+		Data::Struct(r#struct) => match &r#struct.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => {
-				let (requirement, idents, declarations, requires_object) =
-					map_fields(ion, &data.fields, None, tag, inherit)?;
-				let wrapped = wrap_in_fields_group(idents, &data.fields);
+				let requirement = tag_requirement(ion, tag.0.as_ref(), None)?;
+				let (idents, declarations, requires_object) =
+					map_fields(ion, &r#struct.fields, tag.0.as_ref(), inherit)?;
+				let wrapped = wrap_in_fields_group(idents, &r#struct.fields);
 
 				let block = parse2(quote_spanned!(span => {
 					#requirement
@@ -70,71 +78,63 @@ fn impl_body(
 			}
 			Fields::Unit => Ok((parse_quote_spanned!(span => { ::std::result::Result::Ok(Self) }), false)),
 		},
-		Data::Enum(data) => {
+		Data::Enum(r#enum) => {
 			let mut requires_object = false;
 			let mut requires_discriminant = false;
 
-			let variants: Vec<Block> = data
-				.variants
-				.iter()
-				.filter_map(|variant| {
-					let variant_ident = &variant.ident;
-					let variant_string = variant_ident.to_string();
+			let mut variants = Vec::with_capacity(r#enum.variants.len());
 
-					let attribute = match VariantAttribute::from_attributes("ion", &variant.attrs) {
-						Ok(attribute) => attribute,
-						Err(e) => return Some(Err(e)),
-					};
-					let VariantAttribute { tag: new_tag, inherit: new_inherit, skip } = attribute;
-					let tag = Optional(tag.0.clone().or(new_tag.0));
-					let inherit = inherit || new_inherit;
-					if skip {
-						return None;
+			for variant in &r#enum.variants {
+				let variant_ident = &variant.ident;
+				let variant_string = variant_ident.to_string();
+
+				let mut attribute = VariantAttribute::from_attributes("ion", &variant.attrs)?;
+				attribute.merge(tag.0.as_ref(), inherit);
+				if attribute.skip {
+					continue;
+				}
+
+				let handle_result = quote!(if let ::std::result::Result::Ok(success) = variant {
+					return ::std::result::Result::Ok(success);
+				});
+				let variant: Block = match &variant.fields {
+					Fields::Named(_) | Fields::Unnamed(_) => {
+						let requirement = tag_requirement(ion, tag.0.as_ref(), Some(variant_string))?;
+						let (idents, declarations, req_object) =
+							map_fields(ion, &variant.fields, attribute.tag.0.as_ref(), attribute.inherit)?;
+						let wrapped = wrap_in_fields_group(idents, &variant.fields);
+						requires_object = requires_object || req_object;
+
+						parse2(quote_spanned!(variant.span() => {
+							let variant: #ion::Result<Self> = (|| {
+								#requirement
+								#(#declarations)*
+								::std::result::Result::Ok(Self::#variant_ident #wrapped)
+							})();
+							#handle_result
+						}))?
 					}
-
-					let handle_result = quote!(if let ::std::result::Result::Ok(success) = variant {
-						return ::std::result::Result::Ok(success);
-					});
-					match &variant.fields {
-						Fields::Named(_) | Fields::Unnamed(_) => {
-							let (requirement, idents, declarations, req_object) =
-								match map_fields(ion, &variant.fields, Some(variant_string), tag, inherit) {
-									Ok(mapped) => mapped,
-									Err(e) => return Some(Err(e)),
-								};
-							let wrapped = wrap_in_fields_group(idents, &variant.fields);
-
-							if req_object {
-								requires_object = true;
+					Fields::Unit => match &variant.discriminant {
+						Some((_, discriminant)) => {
+							if repr.is_none() {
+								continue;
 							}
 
-							Some(parse2(quote_spanned!(variant.span() => {
-								let variant: #ion::Result<Self> = (|| {
-									#requirement
-									#(#declarations)*
-									::std::result::Result::Ok(Self::#variant_ident #wrapped)
-								})();
-								#handle_result
-							})))
-						}
-						Fields::Unit => match &variant.discriminant {
-							Some((_, discriminant)) => repr.is_some().then(|| {
-								requires_discriminant = true;
-								parse2(quote_spanned!(
-									variant.fields.span() => {
-										if discriminant == #discriminant {
-											return ::std::result::Result::Ok(Self::#variant_ident);
-										}
+							requires_discriminant = true;
+							parse2(quote_spanned!(
+								variant.fields.span() => {
+									if discriminant == #discriminant {
+										return ::std::result::Result::Ok(Self::#variant_ident);
 									}
-								))
-							}),
-							None => Some(Ok(
-								parse_quote!({return ::std::result::Result::Ok(Self::#variant_ident);}),
-							)),
-						},
-					}
-				})
-				.collect::<Result<_>>()?;
+								}
+							))?
+						}
+						None => parse_quote!({return ::std::result::Result::Ok(Self::#variant_ident);}),
+					},
+				};
+
+				variants.push(variant);
+			}
 
 			let error = format!("Value does not match any of the variants of enum {ident}");
 
@@ -143,7 +143,7 @@ fn impl_body(
 			if requires_discriminant {
 				if let Some(repr) = repr {
 					if_unit = Some(quote_spanned!(repr.span() =>
-						let discriminant: #repr = #ion::conversions::FromValue::from_value(cx, value, true, #ion::conversions::ConversionBehavior::EnforceRange)?;
+						let discriminant: #repr = #ion::conversions::FromValue::from_value(__ion_cx, __ion_value, true, #ion::conversions::ConversionBehavior::EnforceRange)?;
 					));
 				}
 			}
@@ -163,133 +163,142 @@ fn impl_body(
 	}
 }
 
-fn map_fields(
-	ion: &TokenStream, fields: &Fields, variant: Option<String>, tag: Optional<Tag>, inherit: bool,
-) -> Result<(TokenStream, Vec<Ident>, Vec<TokenStream>, bool)> {
-	let mut requires_object = matches!(tag.0, Some(Tag::External | Tag::Internal(_)));
+fn tag_requirement(ion: &TokenStream, tag: Option<&Tag>, variant: Option<String>) -> Result<Option<TokenStream>> {
+	if variant.is_none() {
+		return if matches!(tag, Some(Tag::External | Tag::Internal(_))) {
+			Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"))
+		} else {
+			Ok(None)
+		};
+	}
+	let variant = variant.unwrap();
 
-	let requirement = match tag.0 {
+	match tag {
 		Some(Tag::External) => {
-			if let Some(variant) = variant {
-				let error = format!("Expected Object at External Tag {variant}");
-				quote!(
-					let __object: #ion::Object = __object.get_as(cx, #variant, true, ())?
-						.ok_or_else(|_| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
-				)
-			} else {
-				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
-			}
+			let error = format!("Expected Object at External Tag {variant}");
+			Ok(Some(quote!(
+				let __ion_object: #ion::Object = __ion_object.get_as(__ion_cx, #variant, true, ())?
+					.ok_or_else(|_| #ion::Error::new(#error, #ion::ErrorKind::Type))?;
+			)))
 		}
 		Some(Tag::Internal(key)) => {
-			if let Some(variant) = variant {
-				let missing_error = format!("Expected Internal Tag key {}", key.value());
-				let error = format!("Expected Internal Tag {variant} at key {}", key.value());
-				quote!(
-					let __ion_key: ::std::string::String = __object.get_as(cx, #key, true, ())?
-						.ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
-					if __ion_key != #variant {
-						return Err(#ion::Error::new(#error, #ion::ErrorKind::Type));
-					}
-				)
-			} else {
-				return Err(Error::new(Span::call_site(), "Cannot have Tag for Struct"));
+			let missing_error = format!("Expected Internal Tag key {}", key.value());
+			let error = format!("Expected Internal Tag {variant} at key {}", key.value());
+
+			Ok(Some(quote!(
+				let __ion_key: ::std::string::String = __ion_object.get_as(__ion_cx, #key, true, ())?
+					.ok_or_else(|| #ion::Error::new(#missing_error, #ion::ErrorKind::Type))?;
+				if __ion_key != #variant {
+					return Err(#ion::Error::new(#error, #ion::ErrorKind::Type));
+				}
+			)))
+		}
+		_ => Ok(None),
+	}
+}
+
+fn map_fields(
+	ion: &TokenStream, fields: &Fields, tag: Option<&Tag>, inherit: bool,
+) -> Result<(Vec<Ident>, Vec<TokenStream>, bool)> {
+	let mut requires_object = matches!(tag, Some(Tag::External | Tag::Internal(_)));
+	let mut idents = Vec::with_capacity(fields.len());
+	let mut declarations = Vec::with_capacity(fields.len());
+
+	for (index, field) in fields.iter().enumerate() {
+		let (ident, mut key) = field_to_ident_key(field, index);
+		let ty = &field.ty;
+
+		let mut optional = false;
+		if let Type::Path(ty) = ty {
+			if path_ends_with(&ty.path, "Option") {
+				optional = true;
 			}
 		}
-		_ => quote!(),
-	};
 
-	let vec: Vec<_> = fields
-		.iter()
-		.enumerate()
-		.filter_map(|(index, field)| {
-			let (ident, mut key) = if let Some(ident) = &field.ident {
-				(ident.clone(), ident.to_string().to_case(Case::Camel))
-			} else {
-				let ident = format_ident!("_self_{}", index);
-				(ident, index.to_string())
-			};
+		let mut attribute = FieldFromAttribute::from_attributes("ion", &field.attrs)?;
+		attribute.base.merge(inherit);
+		if let Some(name) = attribute.base.name {
+			key = name.value();
+		}
+		if attribute.base.skip {
+			continue;
+		}
 
-			let ty = &field.ty;
+		let strict = attribute.strict;
+		let convert = attribute.convert;
 
-			let mut optional = false;
-			if let Type::Path(ty) = ty {
-				if path_ends_with(&ty.path, "Option") {
-					optional = true;
-				}
-			}
+		let convert = convert.unwrap_or_else(|| parse_quote!(()));
+		let base = field_base(
+			ion,
+			field,
+			&ident,
+			ty,
+			&key,
+			attribute.base.inherit,
+			&mut requires_object,
+			strict,
+			&convert,
+			attribute.parser.as_deref(),
+		)?;
 
-			let attribute = match FieldAttribute::from_attributes("ion", &field.attrs) {
-				Ok(attribute) => attribute,
-				Err(e) => return Some(Err(e)),
-			};
-			let FieldAttribute {
-				name,
-				inherit: new_inherit,
-				skip,
-				convert,
-				strict,
-				default,
-				parser,
-			} = attribute;
-			if let Some(name) = name {
-				key = name.value();
-			}
-			let inherit = inherit || new_inherit;
-			if skip {
-				return None;
-			}
-
-			let convert = convert.unwrap_or_else(|| parse_quote!(()));
-
-			let base = if inherit {
-				if requires_object {
-					return Some(Err(Error::new(
-						field.span(),
-						"Inherited Field cannot be parsed from a Tagged Enum",
-					)));
-				}
-				quote_spanned!(field.span() =>
-					let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(cx, value, #strict || strict, #convert)
-				)
-			} else if let Some(parser) = &parser {
-				requires_object = true;
-				let error = format!("Expected Value at Key {key}");
-				quote_spanned!(field.span() => let #ident: #ty = __object.get(cx, #key)?.map(#parser).transpose()?
-					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
-			} else {
-				requires_object = true;
-				let error = format!("Expected Value at key {key} of Type {}", format_type(ty));
-				quote_spanned!(field.span() => let #ident: #ty = __object.get_as(cx, #key, #strict || strict, #convert)?
-					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type)))
-			};
-
-			let stmt = if optional {
-				quote_spanned!(field.span() => #base.ok();)
-			} else {
-				match default.0 {
-					Some(DefaultValue::Expr(expr)) => {
-						if inherit {
-							return Some(Err(Error::new(
-								field.span(),
-								"Cannot have Default Expression with Inherited Field. Use a Closure with One Argument Instead",
-							)));
-						} else {
-							quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
-						}
+		let stmt = if optional {
+			quote_spanned!(field.span() => #base.ok();)
+		} else {
+			match attribute.default.0 {
+				Some(DefaultValue::Expr(expr)) => {
+					if attribute.base.inherit {
+						return Err(Error::new(
+							field.span(),
+							"Cannot have Default Expression with Inherited Field. Use a Closure with One Argument Instead",
+						));
+					} else {
+						quote_spanned!(field.span() => #base.unwrap_or_else(|_| #expr);)
 					}
-					Some(DefaultValue::Closure(closure)) => {
-						quote_spanned!(field.span() => #base.unwrap_or_else(#closure);)
-					}
-					Some(DefaultValue::Literal(lit)) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
-					Some(DefaultValue::Default) => quote_spanned!(field.span() => #base.unwrap_or_default();),
-					None => quote_spanned!(field.span() => #base?;),
 				}
-			};
+				Some(DefaultValue::Closure(closure)) => {
+					quote_spanned!(field.span() => #base.unwrap_or_else(#closure);)
+				}
+				Some(DefaultValue::Literal(lit)) => quote_spanned!(field.span() => #base.unwrap_or(#lit);),
+				Some(DefaultValue::Default) => quote_spanned!(field.span() => #base.unwrap_or_default();),
+				None => quote_spanned!(field.span() => #base?;),
+			}
+		};
 
-			Some(Ok((ident, stmt)))
-		})
-		.collect::<Result<_>>()?;
+		idents.push(ident);
+		declarations.push(stmt);
+	}
 
-	let (idents, declarations) = vec.into_iter().unzip();
-	Ok((requirement, idents, declarations, requires_object))
+	Ok((idents, declarations, requires_object))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn field_base(
+	ion: &TokenStream, field: &Field, ident: &Ident, ty: &Type, key: &str, inherit: bool, requires_object: &mut bool,
+	strict: bool, convert: &Expr, parser: Option<&Expr>,
+) -> Result<TokenStream> {
+	if inherit {
+		if *requires_object {
+			return Err(Error::new(
+				field.span(),
+				"Inherited Field cannot be parsed from a Tagged Enum",
+			));
+		}
+		Ok(quote_spanned!(field.span() =>
+			let #ident: #ty = <#ty as #ion::conversions::FromValue>::from_value(__ion_cx, __ion_value, #strict || strict, #convert)
+		))
+	} else if let Some(parser) = parser {
+		*requires_object = true;
+		let error = format!("Expected Value at Key {key}");
+		Ok(quote_spanned!(field.span() =>
+			let #ident: #ty = __ion_object.get(__ion_cx, #key)?.map(#parser).transpose()?
+					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type))
+		))
+	} else {
+		*requires_object = true;
+		let error = format!("Expected Value at key {key} of Type {}", format_type(ty));
+		Ok(quote_spanned!(field.span() =>
+			let #ident: #ty = __ion_object.get_as(__ion_cx, #key, #strict || strict, #convert)?
+					.ok_or_else(|| #ion::Error::new(#error, #ion::ErrorKind::Type))
+		))
+	}
 }

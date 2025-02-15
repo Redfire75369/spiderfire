@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, Span};
 use syn::spanned::Spanned;
-use syn::{parse2, Arm, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result};
+use syn::{parse2, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result};
 
 use crate::attribute::trace::TraceAttribute;
 use crate::attribute::ParseAttribute;
@@ -32,50 +32,52 @@ pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {
 }
 
 fn impl_body(span: Span, data: &Data) -> Result<Box<Block>> {
+	let mut variants = Vec::new();
+	let mut variant_idents = Vec::new();
+	let mut variant_traced = Vec::new();
+	let mut fields = Vec::new();
+
 	match data {
 		Data::Struct(r#struct) => {
 			let (idents, traced) = field_idents(&r#struct.fields)?;
-			let wrapped = if matches!(r#struct.fields, Fields::Named(_) | Fields::Unnamed(_)) {
-				wrap_in_fields_group(idents, &r#struct.fields)
-			} else {
-				quote!()
-			};
-			parse2(quote_spanned!(span => {
-				let Self #wrapped = self;
-				#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
-			}))
+			variants.push(quote!(Self));
+			variant_idents.push(idents);
+			variant_traced.push(traced);
+			fields.push(r#struct.fields.clone());
 		}
 		Data::Enum(r#enum) => {
-			let matches: Vec<Arm> = r#enum
-				.variants
-				.iter()
-				.map(|variant| {
-					let ident = &variant.ident;
-					let (idents, traced) = field_idents(&variant.fields)?;
-					let wrapped = if matches!(variant.fields, Fields::Named(_) | Fields::Unnamed(_)) {
-						wrap_in_fields_group(idents, &variant.fields)
-					} else {
-						quote!()
-					};
-
-					parse2(quote_spanned!(variant.span() =>
-						Self::#ident #wrapped => {
-							#(::mozjs::gc::Traceable::trace(#traced, __ion_tracer));*
-						}
-					))
-				})
-				.collect::<Result<_>>()?;
-			parse2(quote_spanned!(span => {
-				match self {
-					#(#matches)*
-				}
-			}))
+			for variant in &r#enum.variants {
+				let ident = &variant.ident;
+				let (idents, traced) = field_idents(&variant.fields)?;
+				variants.push(quote!(Self::#ident));
+				variant_idents.push(idents);
+				variant_traced.push(traced);
+				fields.push(variant.fields.clone());
+			}
 		}
-		Data::Union(_) => Err(Error::new(
-			span,
-			"#[derive(Traceable)] is not implemented for union types.",
-		)),
-	}
+		Data::Union(_) => {
+			return Err(Error::new(
+				span,
+				"#[derive(Traceable)] is not implemented for union types.",
+			));
+		}
+	};
+
+	let wrapped = variant_idents.into_iter().enumerate().map(|(index, idents)| {
+		if matches!(&fields[index], Fields::Named(_) | Fields::Unnamed(_)) {
+			wrap_in_fields_group(idents, &fields[index])
+		} else {
+			quote!()
+		}
+	});
+
+	parse2(quote_spanned!(span => {
+		match self {
+			#(#variants #wrapped => {
+				#(::mozjs::gc::Traceable::trace(#variant_traced, __ion_tracer));*
+			},)*
+		}
+	}))
 }
 
 fn field_idents(fields: &Fields) -> Result<(Vec<Ident>, Vec<Ident>)> {

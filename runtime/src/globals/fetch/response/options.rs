@@ -19,7 +19,7 @@ pub struct ResponseInit<'cx> {
 	#[ion(default)]
 	pub(crate) headers: HeadersInit<'cx>,
 
-	#[ion(default, parser = |s| parse_status(cx, s))]
+	#[ion(default, parser = |s| parse_status(__ion_cx, s))]
 	pub(crate) status: StatusCode,
 	#[ion(default)]
 	pub(crate) status_text: Option<String>,
