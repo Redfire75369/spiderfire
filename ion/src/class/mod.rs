@@ -229,7 +229,7 @@ impl SpecZero for JSPropertySpec {
 }
 
 fn has_zero_spec<T: SpecZero>(specs: Option<&[T]>) -> bool {
-	specs.and_then(|s| s.last()).map_or(true, |specs| specs.is_zeroed())
+	specs.and_then(|s| s.last()).is_none_or(|specs| specs.is_zeroed())
 }
 
 fn unwrap_specs<T>(specs: Option<&[T]>) -> *const T {
@@ -244,7 +244,7 @@ fn check_private<T: ClassDefinition>(cx: &Context, object: &Object) -> Result<()
 	} else {
 		let name = unsafe { CStr::from_ptr(T::class().base.name).to_str()? };
 		Err(Error::new(
-			format!("Object does not implement interface {}", name),
+			format!("Object does not implement interface {name}"),
 			ErrorKind::Type,
 		))
 	}

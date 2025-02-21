@@ -16,7 +16,7 @@ pub(crate) fn cache_statistics() {
 		println!("Location: {}", cache.dir().display());
 		match cache_size(cache.dir()) {
 			Ok(size) => println!("Size: {}", SizeFormatter::new(size, BINARY)),
-			Err(err) => eprintln!("Error while Calculating Size: {}", err),
+			Err(err) => eprintln!("Error while Calculating Size: {err}"),
 		}
 	} else {
 		println!("No Cache Found");

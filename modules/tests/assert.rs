@@ -44,12 +44,12 @@ async fn assert() {
 
 pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 	let (test, script) = test;
-	let filename = format!("{}.js", test);
-	let path = format!("./tests/scripts/assert/{}.js", test);
-	let error = format!("Assertion Failed: assert.{}", test);
+	let filename = format!("{test}.js");
+	let path = format!("./tests/scripts/assert/{test}.js");
+	let error = format!("Assertion Failed: assert.{test}");
 
 	let result = Module::compile_and_evaluate(cx, &filename, Some(Path::new(&path)), script);
-	assert!(result.is_ok(), "Exception was thrown in: {}", filename);
+	assert!(result.is_ok(), "Exception was thrown in: {filename}");
 
 	let (_, promise) = result.unwrap();
 	assert!(promise.is_some());
@@ -63,7 +63,7 @@ pub async fn eval_module(rt: &Runtime<'_>, cx: &Context, test: (&str, &str)) {
 	let exception = Exception::from_value(cx, &exception).unwrap();
 	match &exception {
 		Exception::Error(Error { message, .. }) => {
-			assert_eq!(message, &error, "{}: {:#?}", filename, exception);
+			assert_eq!(message, &error, "{filename}: {exception:#?}");
 		}
 		_ => {
 			panic!("Exception was not an Error");

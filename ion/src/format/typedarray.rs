@@ -53,7 +53,7 @@ impl Display for ArrayBufferDisplay<'_> {
 		f.write_char('<')?;
 
 		for (i, byte) in bytes.iter().enumerate() {
-			write!(f, "{:02x}", byte)?;
+			write!(f, "{byte:02x}")?;
 
 			if i != bytes.len() - 1 {
 				f.write_char(' ')?;

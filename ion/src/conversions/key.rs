@@ -25,7 +25,7 @@ macro_rules! impl_to_key_for_integer {
 	($ty:ty) => {
 		impl<'cx> ToPropertyKey<'cx> for $ty {
 			fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
-				Some(PropertyKey::with_int(cx, *self as i32))
+				Some(PropertyKey::with_int(cx, i32::from(*self)))
 			}
 		}
 	};
@@ -37,7 +37,12 @@ impl_to_key_for_integer!(i32);
 
 impl_to_key_for_integer!(u8);
 impl_to_key_for_integer!(u16);
-impl_to_key_for_integer!(u32);
+
+impl<'cx> ToPropertyKey<'cx> for u32 {
+	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {
+		Some(PropertyKey::with_int(cx, *self as i32))
+	}
+}
 
 impl<'cx> ToPropertyKey<'cx> for *mut JSString {
 	fn to_key(&self, cx: &'cx Context) -> Option<PropertyKey<'cx>> {

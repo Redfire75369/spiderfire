@@ -53,14 +53,14 @@ macro_rules! impl_to_value_for_integer {
 	($ty:ty, signed) => {
 		impl ToValue<'_> for $ty {
 			fn to_value(&self, _: &Context, value: &mut Value) {
-				value.handle_mut().set(Int32Value(*self as i32));
+				value.handle_mut().set(Int32Value(i32::from(*self)));
 			}
 		}
 	};
 	($ty:ty, unsigned) => {
 		impl ToValue<'_> for $ty {
 			fn to_value(&self, _: &Context, value: &mut Value) {
-				value.handle_mut().set(UInt32Value(*self as u32));
+				value.handle_mut().set(UInt32Value(u32::from(*self)));
 			}
 		}
 	};
@@ -75,19 +75,26 @@ impl_to_value_for_integer!(u16, unsigned);
 impl_to_value_for_integer!(u32, unsigned);
 
 macro_rules! impl_to_value_as_double {
-	($ty:ty) => {
+	($ty:ty, int) => {
 		impl ToValue<'_> for $ty {
 			fn to_value(&self, _: &Context, value: &mut Value) {
 				value.handle_mut().set(DoubleValue(*self as f64));
 			}
 		}
 	};
+	($ty:ty, float) => {
+		impl ToValue<'_> for $ty {
+			fn to_value(&self, _: &Context, value: &mut Value) {
+				value.handle_mut().set(DoubleValue(f64::from(*self)));
+			}
+		}
+	};
 }
 
-impl_to_value_as_double!(i64);
-impl_to_value_as_double!(u64);
-impl_to_value_as_double!(f32);
-impl_to_value_as_double!(f64);
+impl_to_value_as_double!(i64, int);
+impl_to_value_as_double!(u64, int);
+impl_to_value_as_double!(f32, float);
+impl_to_value_as_double!(f64, float);
 
 impl ToValue<'_> for *mut JSString {
 	fn to_value(&self, cx: &Context, value: &mut Value) {

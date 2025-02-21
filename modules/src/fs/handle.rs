@@ -151,7 +151,7 @@ impl FileHandle {
 		}
 	}
 
-	#[allow(clippy::too_many_arguments)]
+	#[expect(clippy::too_many_arguments)]
 	pub(crate) fn with_blocking_promise<'cx, F, T, A, E, D>(
 		&self, cx: &'cx Context, action: &'static str, path: Arc<str>, callback: F, callback_after: A,
 		error_callback: E, error_data: D,

@@ -43,6 +43,9 @@ debugmozjs = ["mozjs/debugmozjs"]
 macros = ["dep:ion-proc"]
 sourcemap = ["dep:sourcemap"]
 
+[lints]
+workspace = true
+
 [lib]
 doctest = false
 

@@ -11,9 +11,9 @@ use std::{ptr, slice};
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
 use mozjs::jsapi::{
-	JSString, JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
-	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
-	JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear,
+	JSString, JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars,
+	JS_GetEmptyString, JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength,
+	JS_NewDependentString, JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear,
 };
 use utf16string::{WStr, WString};
 
@@ -107,6 +107,7 @@ impl<'s> String<'s> {
 
 		unsafe {
 			let callbacks = create_callbacks(len);
+			#[expect(clippy::cast_ptr_alignment)]
 			let jsstr = JS_NewExternalUCString(cx.as_ptr(), chars.cast::<u16>(), len / 2, callbacks);
 
 			if jsstr.is_null() {

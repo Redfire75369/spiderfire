@@ -28,7 +28,7 @@ pub(crate) async fn start_repl() {
 	let mut repl = match Editor::with_config(rustyline_config()) {
 		Ok(repl) => repl,
 		Err(err) => {
-			eprintln!("{}", err);
+			eprintln!("{err}");
 			return;
 		}
 	};

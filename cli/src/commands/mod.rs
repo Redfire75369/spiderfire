@@ -21,7 +21,7 @@ pub(crate) async fn handle_command(cli: Cli) {
 				cache::cache_statistics();
 			} else if let Some(cache) = Cache::new() {
 				if let Err(err) = cache.clear() {
-					eprintln!("{}", err);
+					eprintln!("{err}");
 				}
 			}
 		}

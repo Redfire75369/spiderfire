@@ -23,7 +23,7 @@ fn test() {
 	let _ = Value::string(cx, "New String");
 }
 
-unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool {
+unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bool { unsafe {
 	let cx = &Context::new_unchecked(cx);
 	let mut args = Arguments::new(cx, argc, vp);
 
@@ -46,4 +46,4 @@ unsafe extern "C" fn native(cx: *mut JSContext, argc: u32, vp: *mut JSVal) -> bo
 	let rval = Value::i32(cx, correct_args);
 	args.rval().handle_mut().set(rval.get());
 	true
-}
+}}

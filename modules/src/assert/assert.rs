@@ -11,7 +11,7 @@ use runtime::module::NativeModule;
 
 fn assert_internal(message: Option<String>) -> Result<()> {
 	let error = match message {
-		Some(msg) => format!("Assertion Failed: {}", msg),
+		Some(msg) => format!("Assertion Failed: {msg}"),
 		None => String::from("Assertion Failed"),
 	};
 	Err(Error::new(error, None))

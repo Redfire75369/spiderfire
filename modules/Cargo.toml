@@ -33,6 +33,9 @@ features = ["macros", "rt"]
 [features]
 debugmozjs = ["ion/debugmozjs"]
 
+[lints]
+workspace = true
+
 [lib]
 doctest = false
 test = false

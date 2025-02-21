@@ -99,7 +99,7 @@ fn read_script(path: &Path) -> Option<(String, String)> {
 			match error.kind() {
 				ErrorKind::NotFound => eprintln!("(File was not found)"),
 				ErrorKind::PermissionDenied => eprintln!("Current User lacks permissions to read the file)"),
-				_ => eprintln!("{:?}", error),
+				_ => eprintln!("{error:?}"),
 			}
 			None
 		}

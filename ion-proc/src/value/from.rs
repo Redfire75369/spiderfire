@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::spanned::Spanned;
-use syn::{parse2, Block, Data, DeriveInput, Error, Expr, Field, Fields, Generics, ItemImpl, Result, Type};
+use syn::{Block, Data, DeriveInput, Error, Expr, Field, Fields, Generics, ItemImpl, Result, Type, parse2};
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::value::{DataAttribute, DefaultValue, FieldFromAttribute, Tag, VariantAttribute};
@@ -271,7 +271,7 @@ fn map_fields(
 	Ok((idents, declarations, requires_object))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn field_base(
 	ion: &TokenStream, field: &Field, ident: &Ident, ty: &Type, key: &str, inherit: bool, requires_object: &mut bool,
 	strict: bool, convert: &Expr, parser: Option<&Expr>,
