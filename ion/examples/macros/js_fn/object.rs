@@ -1,4 +1,4 @@
-use ion::{js_fn, Object};
+use ion::{Object, js_fn};
 
 #[js_fn]
 pub fn object(_object: Object) {}

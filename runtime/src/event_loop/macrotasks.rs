@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::{DateTime, Duration, Utc};
 use ion::{Context, ErrorReport, Function, Object, Value};

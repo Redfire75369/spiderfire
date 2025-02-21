@@ -12,7 +12,7 @@ use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::{ClassDefinition, Context, Iterator, JSIterator, Result, Value};
 
-use crate::fs::{metadata_error, Metadata};
+use crate::fs::{Metadata, metadata_error};
 
 #[js_class]
 pub struct DirEntry {

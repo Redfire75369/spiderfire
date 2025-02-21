@@ -6,7 +6,7 @@
 
 use proc_macro2::TokenStream;
 use syn::punctuated::Punctuated;
-use syn::{parse2, Abi, Block, Error, FnArg, Generics, ItemFn, Result};
+use syn::{Abi, Block, Error, FnArg, Generics, ItemFn, Result, parse2};
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::function::wrapper::impl_wrapper_fn;

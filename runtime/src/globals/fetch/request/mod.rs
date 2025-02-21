@@ -15,9 +15,9 @@ pub use options::*;
 use url::Url;
 
 use crate::globals::abort::AbortSignal;
+use crate::globals::fetch::Headers;
 use crate::globals::fetch::body::FetchBody;
 use crate::globals::fetch::header::HeadersKind;
-use crate::globals::fetch::Headers;
 
 mod options;
 

@@ -7,7 +7,7 @@
 use std::rc::Rc;
 use std::string::String as RustString;
 
-use mozjs::jsapi::{JSString, JS_StringToId, JS_ValueToId, PropertyKey as JSPropertyKey, Symbol as JSSymbol};
+use mozjs::jsapi::{JS_StringToId, JS_ValueToId, JSString, PropertyKey as JSPropertyKey, Symbol as JSSymbol};
 use mozjs::jsid::{SymbolId, VoidId};
 use mozjs::jsval::JSVal;
 

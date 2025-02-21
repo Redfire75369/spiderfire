@@ -1,4 +1,4 @@
-use ion::{js_fn, Arguments, Context};
+use ion::{Arguments, Context, js_fn};
 
 #[js_fn]
 pub fn context(_cx: &Context) {}

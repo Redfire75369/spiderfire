@@ -8,10 +8,10 @@ use proc_macro2::{Span, TokenStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::visit_type_mut;
-use syn::{parse2, Error, Expr, FnArg, Ident, Pat, PatType, Receiver, Result, Stmt, Type};
+use syn::{Error, Expr, FnArg, Ident, Pat, PatType, Receiver, Result, Stmt, Type, parse2};
 
-use crate::attribute::function::ParameterAttribute;
 use crate::attribute::ParseAttribute;
+use crate::attribute::function::ParameterAttribute;
 use crate::utils::{pat_is_ident, path_ends_with};
 use crate::visitors::{LifetimeRemover, SelfRenamer};
 

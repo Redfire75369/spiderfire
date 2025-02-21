@@ -8,14 +8,14 @@ use std::{iter, ptr};
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{
-	GetRealmIteratorPrototype, Heap, JSClass, JSClassOps, JSContext, JSFunctionSpec, JSNativeWrapper, JSObject,
-	JSTracer, JSCLASS_BACKGROUND_FINALIZE,
+	GetRealmIteratorPrototype, Heap, JSCLASS_BACKGROUND_FINALIZE, JSClass, JSClassOps, JSContext, JSFunctionSpec,
+	JSNativeWrapper, JSObject, JSTracer,
 };
 use mozjs::jsval::JSVal;
 
 use crate::class::{
-	finalise_native_object_operation, trace_native_object_operation, NativeClass, NativeObject, PrototypeChain,
-	Reflector, TypeIdWrapper,
+	NativeClass, NativeObject, PrototypeChain, Reflector, TypeIdWrapper, finalise_native_object_operation,
+	trace_native_object_operation,
 };
 use crate::conversions::{IntoValue, ToValue};
 use crate::flags::PropertyFlags;

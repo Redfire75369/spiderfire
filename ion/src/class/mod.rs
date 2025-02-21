@@ -14,17 +14,17 @@ use mozjs::error::throw_type_error;
 use mozjs::gc::{HandleObject, Traceable};
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Heap, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec,
-	JSTracer, JS_GetConstructor, JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
+	GCContext, Heap, JS_GetConstructor, JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto,
+	JS_SetReservedSlot, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer,
 };
 use mozjs::jsval::{JSVal, NullValue, PrivateValue, UndefinedValue};
 use mozjs::rust::get_object_class;
 
-pub use crate::class::native::{NativeClass, PrototypeChain, TypeIdWrapper, MAX_PROTO_CHAIN_LENGTH};
+pub use crate::class::native::{MAX_PROTO_CHAIN_LENGTH, NativeClass, PrototypeChain, TypeIdWrapper};
 pub use crate::class::reflect::{Castable, DerivedFrom, NativeObject, Reflector};
 use crate::conversions::{IntoValue, ToValue};
 use crate::function::NativeFunction;
-use crate::{class_num_reserved_slots, Context, Error, ErrorKind, Function, Local, Object, Result, Value};
+use crate::{Context, Error, ErrorKind, Function, Local, Object, Result, Value, class_num_reserved_slots};
 
 mod native;
 mod reflect;

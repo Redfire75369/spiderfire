@@ -9,8 +9,8 @@ use proc_macro2::{Ident, TokenStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-	parse2, Attribute, Error, Fields, GenericParam, Generics, Lifetime, LifetimeParam, Meta, Pat, Path, Result, Type,
-	TypeParamBound,
+	Attribute, Error, Fields, GenericParam, Generics, Lifetime, LifetimeParam, Meta, Pat, Path, Result, Type,
+	TypeParamBound, parse2,
 };
 
 pub(crate) fn path_ends_with<I: ?Sized>(path: &Path, ident: &I) -> bool

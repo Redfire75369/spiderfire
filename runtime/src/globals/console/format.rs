@@ -8,7 +8,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 
 use ion::conversions::FromValue;
-use ion::format::{format_value, Config as FormatConfig, ValueDisplay};
+use ion::format::{Config as FormatConfig, ValueDisplay, format_value};
 use ion::{BigInt, Context, Local, Result, Value};
 use mozjs::conversions::ConversionBehavior;
 

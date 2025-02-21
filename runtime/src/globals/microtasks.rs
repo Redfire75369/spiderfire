@@ -8,8 +8,8 @@ use ion::flags::PropertyFlags;
 use ion::{Context, Error, Function, Object, Result};
 use mozjs::jsapi::JSFunctionSpec;
 
-use crate::event_loop::microtasks::Microtask;
 use crate::ContextExt;
+use crate::event_loop::microtasks::Microtask;
 
 #[js_fn]
 fn queue_microtask(cx: &Context, callback: Function) -> Result<()> {

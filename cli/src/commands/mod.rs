@@ -5,7 +5,7 @@
  */
 
 use runtime::cache::Cache;
-use runtime::config::{Config, LogLevel, CONFIG};
+use runtime::config::{CONFIG, Config, LogLevel};
 
 use crate::{Cli, Command};
 

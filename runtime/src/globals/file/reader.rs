@@ -7,8 +7,8 @@
 use std::cell::UnsafeCell;
 use std::str::FromStr;
 
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use encoding_rs::{Encoding, UTF_8};
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::ToValue;

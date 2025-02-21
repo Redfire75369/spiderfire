@@ -11,11 +11,10 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use mozjs::jsapi::{
-	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JSFunctionSpec, JSFunctionSpecWithHelp, JSObject,
-	JSPropertySpec, JS_DefineFunctionById, JS_DefineFunctions, JS_DefineFunctionsWithHelp, JS_DefineProperties,
-	JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById, JS_GetPropertyDescriptorById,
-	JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById, PropertyKey as JSPropertyKey,
-	Unbox,
+	CurrentGlobalOrNull, ESClass, GetBuiltinClass, GetPropertyKeys, JS_DefineFunctionById, JS_DefineFunctions,
+	JS_DefineFunctionsWithHelp, JS_DefineProperties, JS_DefinePropertyById2, JS_DeletePropertyById, JS_GetPropertyById,
+	JS_GetPropertyDescriptorById, JS_HasOwnPropertyById, JS_HasPropertyById, JS_NewPlainObject, JS_SetPropertyById,
+	JSFunctionSpec, JSFunctionSpecWithHelp, JSObject, JSPropertySpec, PropertyKey as JSPropertyKey, Unbox,
 };
 use mozjs::jsval::NullValue;
 use mozjs::rust::IdVector;
@@ -93,11 +92,7 @@ impl<'o> Object<'o> {
 				)
 			};
 
-			if res {
-				Ok(Some(rval))
-			} else {
-				Err(Error::none())
-			}
+			if res { Ok(Some(rval)) } else { Err(Error::none()) }
 		} else {
 			Ok(None)
 		}

@@ -27,9 +27,7 @@ pub(crate) fn file_error(action: &str, path: &str, err: io::Error, _: ()) -> Err
 
 pub(crate) fn seek_error(_: &str, path: &str, err: io::Error, (mode, offset): (SeekMode, i64)) -> Error {
 	Error::new(
-		format!(
-			"Could not seek file {path} to mode '{mode}' with {offset}: {err}"
-		),
+		format!("Could not seek file {path} to mode '{mode}' with {offset}: {err}"),
 		None,
 	)
 }

@@ -9,10 +9,10 @@ use std::fs::read_to_string;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use ion::format::{format_value, Config as FormatConfig};
+use ion::Context;
+use ion::format::{Config as FormatConfig, format_value};
 use ion::module::Module;
 use ion::script::Script;
-use ion::Context;
 use modules::Modules;
 use mozjs::rust::{JSEngine, Runtime as RustRuntime};
 use runtime::cache::locate_in_cache;

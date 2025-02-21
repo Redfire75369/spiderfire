@@ -7,7 +7,7 @@
 use mozjs::jsapi::{
 	JSNativeWrapper, JSPropertySpec, JSPropertySpec_Accessor, JSPropertySpec_AccessorsOrValue,
 	JSPropertySpec_AccessorsOrValue_Accessors, JSPropertySpec_Kind, JSPropertySpec_Name, JSPropertySpec_ValueWrapper,
-	JSPropertySpec_ValueWrapper_Type, JSPropertySpec_ValueWrapper__bindgen_ty_1,
+	JSPropertySpec_ValueWrapper__bindgen_ty_1, JSPropertySpec_ValueWrapper_Type,
 };
 
 use crate::flags::PropertyFlags;

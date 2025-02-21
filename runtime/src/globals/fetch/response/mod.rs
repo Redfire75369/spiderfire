@@ -15,10 +15,10 @@ use mozjs::jsapi::{Heap, JSObject};
 pub use options::*;
 use url::Url;
 
+use crate::globals::fetch::Headers;
 use crate::globals::fetch::body::{Body, FetchBody};
 use crate::globals::fetch::header::HeadersKind;
 use crate::globals::fetch::response::body::ResponseBody;
-use crate::globals::fetch::Headers;
 use crate::promise::future_to_promise;
 
 mod body;

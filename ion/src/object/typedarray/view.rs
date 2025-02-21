@@ -12,16 +12,16 @@ use std::ops::{Deref, DerefMut};
 use std::{fmt, ptr, slice};
 
 use mozjs::jsapi::{
-	GetArrayBufferViewLengthAndData, HandleObject, IsArrayBufferViewShared, IsLargeArrayBufferView, JSContext,
-	JSObject, JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset,
+	GetArrayBufferViewLengthAndData, HandleObject, IsArrayBufferViewShared, IsLargeArrayBufferView,
+	JS_GetArrayBufferViewBuffer, JS_GetArrayBufferViewByteLength, JS_GetArrayBufferViewByteOffset,
 	JS_GetArrayBufferViewType, JS_IsArrayBufferViewObject, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer,
-	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer,
-	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, NewExternalArrayBuffer,
-	Type,
+	JS_NewInt8ArrayWithBuffer, JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer,
+	JS_NewUint8ClampedArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer, JSContext, JSObject,
+	NewExternalArrayBuffer, Type,
 };
 use mozjs::typedarray as jsta;
 use mozjs::typedarray::{
-	ArrayBufferViewU8, ClampedU8, CreateWith, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8,
+	ArrayBufferViewU8, ClampedU8, CreateWith, Float32, Float64, Int8, Int16, Int32, Uint8, Uint16, Uint32,
 };
 
 use crate::typedarray::buffer::ArrayBuffer;
@@ -34,7 +34,7 @@ pub trait TypedArrayElement: jsta::TypedArrayElement {
 
 pub trait TypedArrayElementCreator: jsta::TypedArrayElementCreator + TypedArrayElement {
 	unsafe fn create_with_buffer(cx: *mut JSContext, object: HandleObject, offset: usize, length: i64)
-		-> *mut JSObject;
+	-> *mut JSObject;
 }
 
 macro_rules! typed_array_elements {

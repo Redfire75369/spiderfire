@@ -7,17 +7,17 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{parse2, Error, FnArg, ImplItem, ImplItemFn, ItemFn, ItemImpl, Result, Type, Visibility};
+use syn::{Error, FnArg, ImplItem, ImplItemFn, ItemFn, ItemImpl, Result, Type, Visibility, parse2};
 
+use crate::attribute::ParseAttribute;
 use crate::attribute::class::MethodAttribute;
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::name::Name;
-use crate::attribute::ParseAttribute;
 use crate::class::accessor::{get_accessor_name, impl_accessor, insert_accessor};
 use crate::class::constructor::impl_constructor;
-use crate::class::method::{impl_method, Method, MethodKind, MethodReceiver};
-use crate::class::property::{Property, PropertyType};
 use crate::class::r#impl::spec::PrototypeSpecs;
+use crate::class::method::{Method, MethodKind, MethodReceiver, impl_method};
+use crate::class::property::{Property, PropertyType};
 
 mod spec;
 

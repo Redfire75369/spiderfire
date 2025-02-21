@@ -14,7 +14,7 @@ use swc_core::common::comments::{Comments, SingleThreadedComments};
 use swc_core::common::errors::{ColorConfig, Handler};
 use swc_core::common::input::StringInput;
 use swc_core::common::sync::Lrc;
-use swc_core::common::{BytePos, FileName, Globals, LineCol, Mark, SourceMap as SwcSourceMap, GLOBALS};
+use swc_core::common::{BytePos, FileName, GLOBALS, Globals, LineCol, Mark, SourceMap as SwcSourceMap};
 use swc_core::ecma::ast::{EsVersion, Pass, Program};
 use swc_core::ecma::codegen::text_writer::JsWriter;
 use swc_core::ecma::codegen::{Config as CodegenConfig, Emitter};

@@ -99,8 +99,8 @@ impl DerefMut for Date<'_> {
 mod tests {
 	use chrono::{TimeZone, Utc};
 
-	use crate::utils::test::TestRuntime;
 	use crate::Date;
+	use crate::utils::test::TestRuntime;
 
 	const EPOCH: i64 = 0; // 01 January 1970
 	const POST_EPOCH: i64 = 1615766400; // 15 March 2021

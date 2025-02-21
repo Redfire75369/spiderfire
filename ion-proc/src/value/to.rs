@@ -6,7 +6,7 @@
 
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::spanned::Spanned;
-use syn::{parse2, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result};
+use syn::{Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result, parse2};
 
 use crate::attribute::krate::crate_from_attributes;
 use crate::attribute::value::{DataAttribute, FieldAttribute, Tag, VariantAttribute};
@@ -95,7 +95,7 @@ fn impl_body(
 			return Err(Error::new(
 				span,
 				"#[derive(ToValue)] is not implemented for union types",
-			))
+			));
 		}
 	};
 

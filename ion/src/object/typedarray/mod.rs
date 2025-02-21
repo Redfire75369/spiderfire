@@ -9,12 +9,13 @@ use std::ops::Deref;
 
 pub use buffer::*;
 use mozjs::jsapi::{
-	Handle, JSContext, JSObject, JS_NewDataView, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer,
-	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewInt8ArrayWithBuffer, JS_NewUint16ArrayWithBuffer,
-	JS_NewUint32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer, JS_NewUint8ClampedArrayWithBuffer, Type,
+	Handle, JS_NewDataView, JS_NewFloat32ArrayWithBuffer, JS_NewFloat64ArrayWithBuffer, JS_NewInt8ArrayWithBuffer,
+	JS_NewInt16ArrayWithBuffer, JS_NewInt32ArrayWithBuffer, JS_NewUint8ArrayWithBuffer,
+	JS_NewUint8ClampedArrayWithBuffer, JS_NewUint16ArrayWithBuffer, JS_NewUint32ArrayWithBuffer, JSContext, JSObject,
+	Type,
 };
 use mozjs::typedarray as jsta;
-use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
+use mozjs::typedarray::{ArrayBufferU8, ClampedU8, Float32, Float64, Int8, Int16, Int32, Uint8, Uint16, Uint32};
 pub use view::*;
 
 use crate::conversions::{IntoValue, ToValue};

@@ -6,12 +6,12 @@
 
 use std::path::Path;
 
-use ion::module::Module;
 use ion::Context;
+use ion::module::Module;
 use mozjs::rust::{JSEngine, Runtime};
-use runtime::config::{Config, LogLevel, CONFIG};
-use runtime::module::Loader;
 use runtime::RuntimeBuilder;
+use runtime::config::{CONFIG, Config, LogLevel};
+use runtime::module::Loader;
 
 const FILE_NAME: &str = "module-import.js";
 const SCRIPT: &str = include_str!("scripts/module-import.js");

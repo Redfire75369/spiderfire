@@ -13,15 +13,15 @@ use std::ptr::NonNull;
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{
-	JSContext, JSTracer, JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer,
-	JS_SetContextPrivate, Rooted,
+	JS_AddExtraGCRootsTracer, JS_GetContextPrivate, JS_RemoveExtraGCRootsTracer, JS_SetContextPrivate, JSContext,
+	JSTracer, Rooted,
 };
 use mozjs::rust::Runtime;
 use private::RootedArena;
 
+use crate::Local;
 use crate::class::ClassInfo;
 use crate::module::ModuleLoader;
-use crate::Local;
 
 /// Represents Types that can be Rooted in SpiderMonkey
 #[derive(Clone, Copy, Debug)]

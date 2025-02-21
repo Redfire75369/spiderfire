@@ -1,4 +1,4 @@
-use ion::{js_fn, Array, Context, Object, Result, ResultExc};
+use ion::{Array, Context, Object, Result, ResultExc, js_fn};
 
 #[js_fn]
 fn output_empty() {}

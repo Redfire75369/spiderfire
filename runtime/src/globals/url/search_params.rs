@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use form_urlencoded::{parse, Serializer};
+use form_urlencoded::{Serializer, parse};
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::Opt;

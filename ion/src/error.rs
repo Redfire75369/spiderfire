@@ -9,7 +9,7 @@ use std::fmt::{Display, Formatter};
 use std::{error, fmt, ptr};
 
 use mozjs::error::{throw_internal_error, throw_range_error, throw_type_error};
-use mozjs::jsapi::{CreateError, JSExnType, JSObject, JSProtoKey, JS_ReportErrorUTF8, UndefinedHandleValue};
+use mozjs::jsapi::{CreateError, JS_ReportErrorUTF8, JSExnType, JSObject, JSProtoKey, UndefinedHandleValue};
 
 use crate::conversions::ToValue;
 use crate::exception::ThrowException;

@@ -12,10 +12,10 @@ use std::str::FromStr;
 use std::{fmt, str, vec};
 
 use http::header::{
-	Entry, HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE,
-	ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS, CONNECTION, CONTENT_LANGUAGE, CONTENT_LENGTH,
-	CONTENT_TYPE, COOKIE, DATE, DNT, EXPECT, HOST, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER, TRANSFER_ENCODING,
-	UPGRADE, VIA,
+	ACCEPT, ACCEPT_CHARSET, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS,
+	ACCESS_CONTROL_ALLOW_METHODS, CONNECTION, CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, DATE, DNT,
+	EXPECT, Entry, HOST, HeaderMap, HeaderName, HeaderValue, ORIGIN, RANGE, REFERER, SET_COOKIE, TE, TRAILER,
+	TRANSFER_ENCODING, UPGRADE, VIA,
 };
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
@@ -23,7 +23,7 @@ use ion::function::Opt;
 use ion::string::byte::{ByteString, VisibleAscii};
 use ion::symbol::WellKnownSymbolCode;
 use ion::{Array, ClassDefinition, Context, Error, ErrorKind, JSIterator, Object, OwnedKey, Result, Value};
-use mime::{Mime, APPLICATION, FORM_DATA, MULTIPART, PLAIN, TEXT, WWW_FORM_URLENCODED};
+use mime::{APPLICATION, FORM_DATA, MULTIPART, Mime, PLAIN, TEXT, WWW_FORM_URLENCODED};
 
 #[derive(FromValue)]
 #[ion(inherit)]

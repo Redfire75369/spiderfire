@@ -18,7 +18,7 @@ use mozjs::jsval::JSVal;
 pub use reader::{ByobReader, CommonReader, DefaultReader};
 use reader::{Reader, ReaderKind};
 pub use source::StreamSource;
-use source::{forward_reader_error, TeeBytesState, TeeDefaultState};
+use source::{TeeBytesState, TeeDefaultState, forward_reader_error};
 
 mod controller;
 mod reader;

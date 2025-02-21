@@ -10,7 +10,7 @@ use std::{fmt, ptr};
 
 use mozjs::conversions::jsstr_to_string;
 use mozjs::jsapi::{
-	BuildStackString, CaptureCurrentStack, JSObject, JSString, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames,
+	BuildStackString, CaptureCurrentStack, JS_StackCapture_AllFrames, JS_StackCapture_MaxFrames, JSObject, JSString,
 	StackFormat,
 };
 #[cfg(feature = "sourcemap")]

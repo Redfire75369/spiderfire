@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use data_url::forgiving_base64::decode_to_vec;
 use ion::string::byte::ByteString;
 use ion::{Context, Error, ErrorKind, Object, Result};

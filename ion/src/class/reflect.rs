@@ -9,7 +9,7 @@ use std::ptr;
 
 use mozjs::gc::Traceable;
 use mozjs::jsapi::{Heap, JSObject, JSTracer};
-use mozjs::rust::{get_object_class, Handle};
+use mozjs::rust::{Handle, get_object_class};
 
 use crate::class::{NativeClass, PrototypeChain};
 

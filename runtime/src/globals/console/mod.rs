@@ -9,15 +9,15 @@ mod format;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
 
-use chrono::offset::Utc;
 use chrono::DateTime;
+use chrono::offset::Utc;
 use indent::indent_all_by;
 use indexmap::IndexSet;
 use ion::conversions::FromValue;
 use ion::flags::PropertyFlags;
 use ion::format::key::format_key;
 use ion::format::primitive::format_primitive;
-use ion::format::{format_value, indent_str, Config as FormatConfig};
+use ion::format::{Config as FormatConfig, format_value, indent_str};
 use ion::function::{Opt, Rest};
 use ion::{Context, Object, OwnedKey, Result, Stack, Value};
 use mozjs::jsapi::JSFunctionSpec;
@@ -27,7 +27,7 @@ use term_table::{Table, TableStyle};
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
-use crate::globals::console::format::{format_args, format_value_args, FormatArg};
+use crate::globals::console::format::{FormatArg, format_args, format_value_args};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";

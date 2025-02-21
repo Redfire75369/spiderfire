@@ -10,8 +10,8 @@ use std::fmt::{Display, Formatter};
 use colored::Colorize;
 use itoa::Buffer;
 
-use crate::format::symbol::format_symbol;
 use crate::format::Config;
+use crate::format::symbol::format_symbol;
 use crate::{Context, OwnedKey};
 
 /// Formats the [key of an object](OwnedKey) with the given [configuration](Config).

@@ -11,9 +11,9 @@ use std::fmt::{Display, Formatter, Write};
 use colored::{Color, Colorize};
 use itoa::Buffer;
 use mozjs::jsapi::{
-	ESClass, IdentifyStandardPrototype, JSProtoKey, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, Type,
+	ESClass, IdentifyStandardPrototype, JS_GetConstructor, JS_GetPrototype, JS_HasInstance, JSProtoKey, Type,
 };
-use mozjs::typedarray::{ClampedU8, Float32, Float64, Int16, Int32, Int8, Uint16, Uint32, Uint8};
+use mozjs::typedarray::{ClampedU8, Float32, Float64, Int8, Int16, Int32, Uint8, Uint16, Uint32};
 
 use crate::conversions::ToValue;
 use crate::format::array::format_array;
@@ -26,7 +26,7 @@ use crate::format::promise::format_promise;
 use crate::format::regexp::format_regexp;
 use crate::format::string::format_string;
 use crate::format::typedarray::{format_array_buffer, format_typed_array};
-use crate::format::{indent_str, Config, NEWLINE};
+use crate::format::{Config, NEWLINE, indent_str};
 use crate::symbol::WellKnownSymbolCode;
 use crate::typedarray::{ArrayBuffer, ArrayBufferView, TypedArray, TypedArrayElement};
 use crate::{

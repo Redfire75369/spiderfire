@@ -6,8 +6,8 @@
 
 use std::path::Path;
 
-use mozjs::jsapi::{Compile, JSScript, JS_ExecuteScript};
-use mozjs::rust::{transform_u16_to_source_text, CompileOptionsWrapper};
+use mozjs::jsapi::{Compile, JS_ExecuteScript, JSScript};
+use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
 
 use crate::{Context, ErrorReport, Local, Value};
 

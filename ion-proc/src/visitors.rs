@@ -5,7 +5,7 @@
  */
 
 use syn::punctuated::Punctuated;
-use syn::visit_mut::{visit_type_mut, visit_type_path_mut, visit_type_reference_mut, VisitMut};
+use syn::visit_mut::{VisitMut, visit_type_mut, visit_type_path_mut, visit_type_reference_mut};
 use syn::{GenericArgument, PathArguments, Type, TypePath, TypeReference};
 
 use crate::utils::path_ends_with;

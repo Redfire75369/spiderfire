@@ -11,7 +11,7 @@ use colored::Colorize;
 
 use crate::format::object::format_object;
 use crate::format::primitive::format_primitive;
-use crate::format::{format_value, Config};
+use crate::format::{Config, format_value};
 use crate::{Context, Function, Object, PropertyDescriptor};
 
 /// Formats a [descriptor](PropertyDescriptor) with the given [configuration](Config).

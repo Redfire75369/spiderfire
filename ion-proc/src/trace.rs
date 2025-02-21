@@ -6,10 +6,10 @@
 
 use proc_macro2::{Ident, Span};
 use syn::spanned::Spanned;
-use syn::{parse2, Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result};
+use syn::{Block, Data, DeriveInput, Error, Fields, Generics, ItemImpl, Result, parse2};
 
-use crate::attribute::trace::TraceAttribute;
 use crate::attribute::ParseAttribute;
+use crate::attribute::trace::TraceAttribute;
 use crate::utils::{add_trait_bounds, wrap_in_fields_group};
 
 pub(super) fn impl_trace(mut input: DeriveInput) -> Result<ItemImpl> {

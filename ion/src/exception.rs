@@ -15,7 +15,7 @@ use mozjs::jsval::{JSVal, ObjectValue};
 use sourcemap::SourceMap;
 
 use crate::conversions::{FromValue, ToValue};
-use crate::format::{format_value, Config, NEWLINE};
+use crate::format::{Config, NEWLINE, format_value};
 use crate::stack::Location;
 use crate::{Context, Error, ErrorKind, Object, Result, Stack, Value};
 

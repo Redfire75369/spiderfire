@@ -7,8 +7,8 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use crate::format::primitive::format_primitive;
 use crate::format::Config;
+use crate::format::primitive::format_primitive;
 use crate::{Context, Object};
 
 /// Formats a boxed primitive ([Object]) using the given [configuration](Config).

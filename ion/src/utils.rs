@@ -126,7 +126,7 @@ pub mod test {
 	use mozjs::jsapi::{JSAutoRealm, JSObject};
 	use mozjs::rust::{JSEngine, Runtime};
 
-	use crate::{default_new_global, Context};
+	use crate::{Context, default_new_global};
 
 	pub struct TestRuntime {
 		pub realm: JSAutoRealm,

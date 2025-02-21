@@ -10,7 +10,7 @@
 extern crate ion;
 
 use ion::{Context, Object};
-use runtime::module::{init_global_module, init_module, StandardModules};
+use runtime::module::{StandardModules, init_global_module, init_module};
 
 pub use crate::assert::Assert;
 pub use crate::fs::{FileSystem, FileSystemSync};

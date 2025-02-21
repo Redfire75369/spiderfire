@@ -21,7 +21,7 @@ use tokio::task::spawn_blocking;
 use windows::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_DIRECTORY, FILE_FLAGS_AND_ATTRIBUTES};
 
 use crate::fs::dir::DirIterator;
-use crate::fs::{base_error, dir_error, file_error, metadata_error, translate_error, FileHandle, Metadata};
+use crate::fs::{FileHandle, Metadata, base_error, dir_error, file_error, metadata_error, translate_error};
 
 #[derive(Copy, Clone, Debug, FromValue)]
 struct OpenOptions {

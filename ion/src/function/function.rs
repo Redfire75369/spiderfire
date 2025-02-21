@@ -10,16 +10,16 @@ use std::ops::Deref;
 use mozjs::conversions::jsstr_to_string;
 use mozjs::gc::{RootableVec, RootedVec};
 use mozjs::jsapi::{
-	HandleValueArray, JSContext, JSFunction, JSFunctionSpec, JSObject, JS_CallFunction, JS_DecompileFunction,
-	JS_GetFunctionArity, JS_GetFunctionDisplayId, JS_GetFunctionId, JS_GetFunctionLength, JS_GetFunctionObject,
-	JS_GetObjectFunction, JS_IsBuiltinEvalFunction, JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction,
-	JS_ObjectIsFunction, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
+	HandleValueArray, JS_CallFunction, JS_DecompileFunction, JS_GetFunctionArity, JS_GetFunctionDisplayId,
+	JS_GetFunctionId, JS_GetFunctionLength, JS_GetFunctionObject, JS_GetObjectFunction, JS_IsBuiltinEvalFunction,
+	JS_IsBuiltinFunctionConstructor, JS_IsConstructor, JS_NewFunction, JS_ObjectIsFunction, JSContext, JSFunction,
+	JSFunctionSpec, JSObject, NewFunctionFromSpec1, NewFunctionWithReserved, SetFunctionNativeReserved,
 };
 use mozjs::jsval::{JSVal, ObjectValue};
 
 use crate::flags::PropertyFlags;
 use crate::function::closure::{
-	call_closure, call_closure_once, create_closure_object, create_closure_once_object, Closure, ClosureOnce,
+	Closure, ClosureOnce, call_closure, call_closure_once, create_closure_object, create_closure_once_object,
 };
 use crate::{Context, Error, ErrorReport, Local, Object, Value};
 

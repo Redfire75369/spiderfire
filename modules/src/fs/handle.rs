@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::future::{poll_fn, Future};
+use std::future::{Future, poll_fn};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::rc::Rc;
 use std::str::FromStr;
@@ -25,7 +25,7 @@ use runtime::globals::file::BufferSource;
 use runtime::promise::future_to_promise;
 use tokio::task::spawn_blocking;
 
-use crate::fs::{file_error, seek_error, Metadata};
+use crate::fs::{Metadata, file_error, seek_error};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub enum SeekMode {
@@ -257,7 +257,9 @@ impl FileHandle {
 	}
 
 	pub fn truncate<'cx>(
-		&self, cx: &'cx Context, #[ion(convert = ConversionBehavior::EnforceRange)] Opt(length): Opt<u64>,
+		&self, cx: &'cx Context, #[ion(convert = ConversionBehavior::EnforceRange
+		)]
+		Opt(length): Opt<u64>,
 	) -> Option<Promise<'cx>> {
 		let path = Arc::clone(&self.path);
 		self.with_blocking_promise(
@@ -303,7 +305,9 @@ impl FileHandle {
 
 	#[ion(name = "seekSync")]
 	pub fn seek_sync(
-		&self, #[ion(convert = ConversionBehavior::EnforceRange)] offset: i64, Opt(mode): Opt<SeekMode>,
+		&self, #[ion(convert = ConversionBehavior::EnforceRange
+		)]
+		offset: i64, Opt(mode): Opt<SeekMode>,
 	) -> Result<u64> {
 		self.with_sync(|file| {
 			let mode = mode.unwrap_or_default();

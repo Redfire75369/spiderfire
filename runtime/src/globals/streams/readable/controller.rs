@@ -9,7 +9,7 @@ use std::{ptr, slice};
 
 use ion::class::{NativeObject, Reflector};
 use ion::conversions::{FromValue, ToValue};
-use ion::typedarray::{type_to_constructor, ArrayBuffer, ArrayBufferView, Uint8Array};
+use ion::typedarray::{ArrayBuffer, ArrayBufferView, Uint8Array, type_to_constructor};
 use ion::{
 	ClassDefinition, Context, Error, ErrorKind, Exception, Function, Local, Object, Promise, Result, ResultExc,
 	TracedHeap, Value,
@@ -965,7 +965,11 @@ impl ByobRequest {
 		self.view.as_ref().map(|view| view.get()).unwrap_or_else(ptr::null_mut)
 	}
 
-	pub fn respond(&mut self, cx: &Context, #[ion(convert = ConversionBehavior::Clamp)] written: u64) -> ResultExc<()> {
+	pub fn respond(
+		&mut self, cx: &Context, #[ion(convert = ConversionBehavior::Clamp
+	)]
+		written: u64,
+	) -> ResultExc<()> {
 		if let Some(controller) = self.controller.take() {
 			let view = unsafe { Local::from_heap(self.view.as_ref().unwrap()) };
 			let view = ArrayBufferView::from(view).unwrap();

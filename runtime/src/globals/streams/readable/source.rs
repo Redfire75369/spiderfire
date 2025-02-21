@@ -21,7 +21,7 @@ use mozjs::gc::HandleObject;
 use mozjs::jsapi::{CloneDataPolicy, Heap, JSFunction, JSObject, StructuredCloneScope};
 use mozjs::jsval::{JSVal, UndefinedValue};
 
-use crate::globals::clone::{StructuredCloneDataHolder, STRUCTURED_CLONE_CALLBACKS};
+use crate::globals::clone::{STRUCTURED_CLONE_CALLBACKS, StructuredCloneDataHolder};
 use crate::globals::streams::readable::controller::ControllerInternals;
 use crate::globals::streams::readable::reader::{ReaderKind, Request};
 use crate::globals::streams::readable::{ByobRequest, ByteStreamController, ReadableStream, ReaderOptions};

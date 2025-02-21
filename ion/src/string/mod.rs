@@ -11,9 +11,9 @@ use std::{ptr, slice};
 use bytemuck::cast_slice;
 use byteorder::NativeEndian;
 use mozjs::jsapi::{
-	JSString, JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars,
-	JS_GetEmptyString, JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength,
-	JS_NewDependentString, JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear,
+	JS_CompareStrings, JS_ConcatStrings, JS_DeprecatedStringHasLatin1Chars, JS_GetEmptyString,
+	JS_GetLatin1StringCharsAndLength, JS_GetStringCharAt, JS_GetTwoByteStringCharsAndLength, JS_NewDependentString,
+	JS_NewExternalStringLatin1, JS_NewExternalUCString, JS_NewUCStringCopyN, JS_StringIsLinear, JSString,
 };
 use utf16string::{WStr, WString};
 

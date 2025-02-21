@@ -10,7 +10,7 @@ use std::fmt::{Display, Formatter, Write};
 use colored::Colorize;
 use mozjs::jsapi::PromiseState;
 
-use crate::format::{format_value, indent_str, Config};
+use crate::format::{Config, format_value, indent_str};
 use crate::{Context, Promise};
 
 /// Formats a [Promise] with the given [configuration](Config).

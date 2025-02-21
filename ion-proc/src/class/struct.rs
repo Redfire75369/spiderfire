@@ -7,11 +7,11 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse2, Error, ItemImpl, ItemStruct, Member, Path, Result, Type};
+use syn::{Error, ItemImpl, ItemStruct, Member, Path, Result, Type, parse2};
 
+use crate::attribute::ParseAttribute;
 use crate::attribute::class::ClassAttribute;
 use crate::attribute::krate::crate_from_attributes;
-use crate::attribute::ParseAttribute;
 use crate::utils::{new_token, path_ends_with};
 
 pub(super) fn impl_js_class_struct(r#struct: &mut ItemStruct) -> Result<[ItemImpl; 7]> {

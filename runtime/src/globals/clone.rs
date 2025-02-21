@@ -9,14 +9,13 @@ use std::ptr;
 
 use bytes::{Bytes, BytesMut};
 use ion::class::Reflector;
-use ion::clone::{read_uint64, write_uint64, StructuredCloneBuffer};
+use ion::clone::{StructuredCloneBuffer, read_uint64, write_uint64};
 use ion::flags::PropertyFlags;
 use ion::function::Opt;
 use ion::{ClassDefinition, Context, Local, Object, ResultExc, Value};
 use mozjs::jsapi::{
-	CloneDataPolicy, Handle, JSContext, JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader,
-	JSStructuredCloneWriter, JS_ReadBytes, JS_ReadString, JS_WriteBytes, JS_WriteString, JS_WriteUint32Pair,
-	StructuredCloneScope,
+	CloneDataPolicy, Handle, JS_ReadBytes, JS_ReadString, JS_WriteBytes, JS_WriteString, JS_WriteUint32Pair, JSContext,
+	JSObject, JSStructuredCloneCallbacks, JSStructuredCloneReader, JSStructuredCloneWriter, StructuredCloneScope,
 };
 
 use crate::globals::file::Blob;

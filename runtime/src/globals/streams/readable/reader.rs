@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 use ion::class::Reflector;
 use ion::conversions::ToValue;
 use ion::function::Opt;
-use ion::typedarray::{type_to_constructor, type_to_element_size, ArrayBufferView};
+use ion::typedarray::{ArrayBufferView, type_to_constructor, type_to_element_size};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Local, Object, Promise, Result, ResultExc, Value};
 use mozjs::conversions::ConversionBehavior;
 use mozjs::jsapi::{Heap, JSObject};

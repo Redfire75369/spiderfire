@@ -5,9 +5,9 @@
  */
 
 use std::future::Future;
-use std::pin::{pin, Pin};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::pin::{Pin, pin};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::{ptr, task};
 
@@ -18,10 +18,10 @@ use ion::function::{Enforce, Opt};
 use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Object, Result, ResultExc, Value};
 use mozjs::jsapi::{Heap, JSObject};
 use mozjs::jsval::JSVal;
-use tokio::sync::watch::{channel, Receiver, Sender};
+use tokio::sync::watch::{Receiver, Sender, channel};
 
-use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 use crate::ContextExt;
+use crate::event_loop::macrotasks::{Macrotask, SignalMacrotask};
 
 #[derive(Clone, Debug, Default)]
 pub enum Signal {

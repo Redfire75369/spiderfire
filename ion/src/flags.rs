@@ -8,12 +8,12 @@ use std::fmt::{Display, Formatter};
 use std::{fmt, str};
 
 use arrayvec::ArrayVec;
-use bitflags::{bitflags, Flags};
+use bitflags::{Flags, bitflags};
 use mozjs::jsapi::{
-	RegExpFlag_DotAll, RegExpFlag_Global, RegExpFlag_HasIndices, RegExpFlag_IgnoreCase, RegExpFlag_Multiline,
-	RegExpFlag_Sticky, RegExpFlag_Unicode, RegExpFlags as REFlags, JSITER_FORAWAITOF, JSITER_HIDDEN, JSITER_OWNONLY,
-	JSITER_PRIVATE, JSITER_SYMBOLS, JSITER_SYMBOLSONLY, JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY,
-	JSPROP_RESOLVING,
+	JSITER_FORAWAITOF, JSITER_HIDDEN, JSITER_OWNONLY, JSITER_PRIVATE, JSITER_SYMBOLS, JSITER_SYMBOLSONLY,
+	JSPROP_ENUMERATE, JSPROP_PERMANENT, JSPROP_READONLY, JSPROP_RESOLVING, RegExpFlag_DotAll, RegExpFlag_Global,
+	RegExpFlag_HasIndices, RegExpFlag_IgnoreCase, RegExpFlag_Multiline, RegExpFlag_Sticky, RegExpFlag_Unicode,
+	RegExpFlags as REFlags,
 };
 
 bitflags! {

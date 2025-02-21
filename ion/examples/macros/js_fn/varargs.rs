@@ -1,5 +1,5 @@
 use ion::function::{Enforce, Rest};
-use ion::{js_fn, Object};
+use ion::{Object, js_fn};
 
 #[js_fn]
 pub fn varargs(Rest(_strings): Rest<String>) {}

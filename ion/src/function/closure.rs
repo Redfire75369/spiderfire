@@ -4,13 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, GetFunctionNativeReserved, JSClass, JSClassOps, JSContext, JSObject, JS_NewObject, JS_SetReservedSlot,
-	JSCLASS_BACKGROUND_FINALIZE,
+	GCContext, GetFunctionNativeReserved, JS_NewObject, JS_SetReservedSlot, JSCLASS_BACKGROUND_FINALIZE, JSClass,
+	JSClassOps, JSContext, JSObject,
 };
 use mozjs::jsval::{JSVal, PrivateValue, UndefinedValue};
 

@@ -8,11 +8,11 @@ use ion::Context;
 use modules::Modules;
 use mozjs::rust::{JSEngine, Runtime};
 use runtime::RuntimeBuilder;
-use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use rustyline::error::ReadlineError;
 
 use crate::evaluate::eval_inline;
-use crate::repl::{rustyline_config, ReplHelper};
+use crate::repl::{ReplHelper, rustyline_config};
 
 pub(crate) async fn start_repl() {
 	let engine = JSEngine::init().unwrap();

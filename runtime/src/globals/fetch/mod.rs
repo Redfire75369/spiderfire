@@ -14,12 +14,12 @@ use async_recursion::async_recursion;
 use body::FetchBody;
 use bytes::Bytes;
 use client::Client;
-pub use client::{default_client, GLOBAL_CLIENT};
+pub use client::{GLOBAL_CLIENT, default_client};
 use const_format::concatcp;
 use data_url::DataUrl;
-use futures::future::{select, Either};
+use futures::future::{Either, select};
 pub use header::Headers;
-use header::{remove_all_header_entries, HeadersKind, FORBIDDEN_RESPONSE_HEADERS};
+use header::{FORBIDDEN_RESPONSE_HEADERS, HeadersKind, remove_all_header_entries};
 use headers::{HeaderMapExt, Range};
 use http::header::{
 	ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, ACCESS_CONTROL_ALLOW_HEADERS, CACHE_CONTROL, CONTENT_ENCODING,
@@ -35,7 +35,7 @@ use ion::{ClassDefinition, Context, Error, ErrorKind, Exception, Local, Object, 
 use request::{Referrer, ReferrerPolicy, RequestCache, RequestCredentials, RequestMode, RequestRedirect};
 pub use request::{Request, RequestInfo, RequestInit};
 pub use response::Response;
-use response::{network_error, ResponseKind, ResponseTaint};
+use response::{ResponseKind, ResponseTaint, network_error};
 use sys_locale::get_locales;
 use tokio::fs::read;
 use uri_url::url_to_uri;

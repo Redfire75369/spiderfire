@@ -11,7 +11,7 @@ use ion::{Context, Error, Exception, Function, Object, Value};
 use modules::Assert;
 use mozjs::jsapi::JSFunctionSpec;
 use mozjs::rust::{JSEngine, Runtime as RustRuntime};
-use runtime::config::{Config, LogLevel, CONFIG};
+use runtime::config::{CONFIG, Config, LogLevel};
 use runtime::module::Loader;
 use runtime::{Runtime, RuntimeBuilder};
 
