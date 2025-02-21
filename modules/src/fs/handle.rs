@@ -111,7 +111,7 @@ impl FileHandle {
 		}
 	}
 
-	pub(crate) fn with_blocking_task<F, T>(&self, callback: F) -> impl Future<Output = io::Result<T>>
+	pub(crate) fn with_blocking_task<F, T>(&self, callback: F) -> impl Future<Output = io::Result<T>> + 'static
 	where
 		F: FnOnce(&mut File) -> io::Result<T> + Send + 'static,
 		T: Send + 'static,

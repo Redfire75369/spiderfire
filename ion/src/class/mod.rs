@@ -9,12 +9,13 @@ use std::collections::hash_map::Entry;
 use std::ffi::CStr;
 use std::ptr;
 
+use ion_proc::Traceable;
 use mozjs::error::throw_type_error;
 use mozjs::gc::{HandleObject, Traceable};
 use mozjs::glue::JS_GetReservedSlot;
 use mozjs::jsapi::{
-	GCContext, Heap, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec, JSTracer, JS_GetConstructor,
-	JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
+	GCContext, Heap, JSContext, JSFunction, JSFunctionSpec, JSObject, JSPropertySpec,
+	JSTracer, JS_GetConstructor, JS_HasInstance, JS_InitClass, JS_InstanceOf, JS_NewObjectWithGivenProto, JS_SetReservedSlot,
 };
 use mozjs::jsval::{JSVal, NullValue, PrivateValue, UndefinedValue};
 use mozjs::rust::get_object_class;
@@ -29,19 +30,13 @@ mod native;
 mod reflect;
 
 /// Stores information about a native class created for JS.
-#[expect(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Traceable)]
+#[trace(crate = crate)]
 pub struct ClassInfo {
+	#[trace(no_trace)]
 	class: &'static NativeClass,
 	constructor: Box<Heap<*mut JSFunction>>,
 	pub prototype: Box<Heap<*mut JSObject>>,
-}
-
-unsafe impl Traceable for ClassInfo {
-	unsafe fn trace(&self, trc: *mut JSTracer) {
-		self.constructor.trace(trc);
-		self.prototype.trace(trc);
-	}
 }
 
 pub trait ClassDefinition: NativeObject {
@@ -205,11 +200,7 @@ pub trait ClassDefinition: NativeObject {
 				&mut has_instance,
 			)
 		};
-		if result {
-			Ok(has_instance)
-		} else {
-			Err(Error::none())
-		}
+		if result { Ok(has_instance) } else { Err(Error::none()) }
 	}
 }
 
@@ -286,6 +277,8 @@ pub unsafe extern "C" fn trace_native_object_operation<T: Traceable>(trc: *mut J
 }
 
 unsafe extern "C" fn illegal_constructor(cx: *mut JSContext, _: u32, _: *mut JSVal) -> bool {
-	throw_type_error(cx, "Illegal constructor.");
+	unsafe {
+		throw_type_error(cx, "Illegal constructor.");
+	}
 	false
 }

@@ -13,9 +13,9 @@ use mozjs::glue::{
 	NewJSAutoStructuredCloneBuffer, WriteBytesToJSStructuredCloneData,
 };
 use mozjs::jsapi::{
-	CloneDataPolicy, JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, JSStructuredCloneReader,
-	JSStructuredCloneWriter, JS_ReadStructuredClone, JS_ReadUint32Pair, JS_WriteStructuredClone, JS_WriteUint32Pair,
-	StructuredCloneScope, JS_STRUCTURED_CLONE_VERSION,
+	CloneDataPolicy, JS_ReadStructuredClone, JS_ReadUint32Pair, JS_STRUCTURED_CLONE_VERSION, JS_WriteStructuredClone,
+	JS_WriteUint32Pair, JSAutoStructuredCloneBuffer, JSStructuredCloneCallbacks, JSStructuredCloneReader,
+	JSStructuredCloneWriter, StructuredCloneScope,
 };
 
 use crate::conversions::ToValue;
@@ -59,11 +59,7 @@ impl StructuredCloneBuffer {
 				transfer.handle().into(),
 			);
 
-			if res {
-				Ok(())
-			} else {
-				Err(Exception::new(cx)?.unwrap())
-			}
+			if res { Ok(()) } else { Err(Exception::new(cx)?.unwrap()) }
 		}
 	}
 
@@ -110,8 +106,8 @@ impl StructuredCloneBuffer {
 	/// Reads the data into the buffer.
 	/// The data must not contain pointers (see [StructuredCloneBuffer::to_vec]).
 	pub unsafe fn write_from_bytes(&self, data: &[u8]) {
-		let scdata = &mut (*self.buf).data_;
 		unsafe {
+			let scdata = &mut (*self.buf).data_;
 			WriteBytesToJSStructuredCloneData(data.as_ptr(), data.len(), scdata);
 		}
 	}
@@ -137,5 +133,5 @@ pub unsafe fn read_uint64(r: *mut JSStructuredCloneReader) -> Option<u64> {
 }
 
 pub unsafe fn write_uint64(w: *mut JSStructuredCloneWriter, data: u64) -> bool {
-	JS_WriteUint32Pair(w, (data >> 32) as u32, (data & 0xFFFFFFFF) as u32)
+	unsafe { JS_WriteUint32Pair(w, (data >> 32) as u32, (data & 0xFFFFFFFF) as u32) }
 }

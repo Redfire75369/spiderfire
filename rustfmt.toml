@@ -1,5 +1,5 @@
 chain_width = 90
-edition = "2021"
+edition = "2024"
 force_explicit_abi = true
 fn_params_layout = "Compressed"
 hard_tabs = true
