@@ -5,7 +5,7 @@
  */
 
 use ion::flags::PropertyFlags;
-use ion::module::{Module, ModuleRequest};
+use ion::module::{Module, ModuleRequest, ModuleType};
 use ion::{Context, Object};
 
 pub trait StandardModules {
@@ -53,7 +53,7 @@ pub fn init_module<'cx, M: NativeModule<'cx>>(cx: &'cx Context, global: &Object,
 			return loader
 				.as_mut()
 				.is_some_and(|loader| {
-					let module = Module::compile(cx, M::NAME, None, M::SOURCE).unwrap();
+					let module = Module::compile(cx, M::NAME, None, M::SOURCE, ModuleType::JavaScript).unwrap();
 					let request = ModuleRequest::new(cx, M::NAME);
 					loader.register(cx, module.0.handle().get(), &request).is_ok()
 				})

@@ -8,8 +8,9 @@ use std::path::Path;
 use std::ptr;
 
 use mozjs::jsapi::{
-	CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext, JSObject,
-	ModuleEvaluate, ModuleIsLinked, ModuleLink, SetModuleMetadataHook, SetModulePrivate, SetModuleResolveHook,
+	CompileJsonModule, CompileModule, CreateModuleRequest, GetModuleRequestSpecifier, Handle, JS_GetRuntime, JSContext,
+	JSObject, ModuleEvaluate, ModuleIsLinked, ModuleLink, SetModuleMetadataHook, SetModulePrivate,
+	SetModuleResolveHook,
 };
 use mozjs::jsval::JSVal;
 use mozjs::rust::{CompileOptionsWrapper, transform_u16_to_source_text};
@@ -41,6 +42,13 @@ impl ModuleData {
 	}
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq)]
+pub enum ModuleType {
+	#[default]
+	JavaScript,
+	Json,
+}
+
 /// Represents a request by the runtime for a module.
 #[derive(Debug)]
 pub struct ModuleRequest<'r>(Object<'r>);
@@ -63,6 +71,11 @@ impl<'r> ModuleRequest<'r> {
 	/// Returns the specifier of the request.
 	pub fn specifier<'cx>(&self, cx: &'cx Context) -> crate::String<'cx> {
 		cx.root(unsafe { GetModuleRequestSpecifier(cx.as_ptr(), self.0.handle().into()) }).into()
+	}
+
+	pub fn kind(&self, _cx: &Context) -> ModuleType {
+		// TODO: Use `GetModuleRequestType`
+		ModuleType::JavaScript
 	}
 }
 
@@ -101,14 +114,20 @@ impl<'cx> Module<'cx> {
 	/// Compiles a [Module] with the given source and filename.
 	#[expect(clippy::result_large_err)]
 	pub fn compile(
-		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
+		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str, kind: ModuleType,
 	) -> Result<Module<'cx>, ModuleError> {
-		let script: Vec<u16> = script.encode_utf16().collect();
+		let script: Vec<_> = script.encode_utf16().collect();
 		let mut source = transform_u16_to_source_text(script.as_slice());
 		let filename = path.and_then(Path::to_str).unwrap_or(filename);
 		let options = unsafe { CompileOptionsWrapper::new(cx.as_ptr(), filename, 1) };
+		unsafe {
+			(*options.ptr)._base.prefableOptions_.set_importAttributes_(true);
+		}
 
-		let module = unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const(), &mut source) };
+		let module = match kind {
+			ModuleType::JavaScript => unsafe { CompileModule(cx.as_ptr(), options.ptr.cast_const(), &mut source) },
+			ModuleType::Json => unsafe { CompileJsonModule(cx.as_ptr(), options.ptr.cast_const(), &mut source) },
+		};
 
 		if !module.is_null() {
 			let module = Module(Object::from(cx.root(module)));
@@ -138,7 +157,7 @@ impl<'cx> Module<'cx> {
 	pub fn compile_and_evaluate(
 		cx: &'cx Context, filename: &str, path: Option<&Path>, script: &str,
 	) -> Result<(Module<'cx>, Option<Promise<'cx>>), ModuleError> {
-		let module = Module::compile(cx, filename, path, script)?;
+		let module = Module::compile(cx, filename, path, script, ModuleType::JavaScript)?;
 
 		if let Err(error) = module.link(cx) {
 			return Err(ModuleError::new(error, ModuleErrorKind::Instantiation));

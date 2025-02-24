@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use ion::Context;
-use ion::module::Module;
+use ion::module::{Module, ModuleType};
 use mozjs::rust::{JSEngine, Runtime};
 use runtime::RuntimeBuilder;
 use runtime::config::{CONFIG, Config, LogLevel};
@@ -27,6 +27,12 @@ fn modules() {
 	let rt = RuntimeBuilder::<_, ()>::new().modules(Loader::default()).build(cx);
 
 	let path = format!("./tests/scripts/{FILE_NAME}");
-	let result = Module::compile(rt.cx(), FILE_NAME, Some(Path::new(&path)), SCRIPT);
+	let result = Module::compile(
+		rt.cx(),
+		FILE_NAME,
+		Some(Path::new(&path)),
+		SCRIPT,
+		ModuleType::JavaScript,
+	);
 	assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
 }
