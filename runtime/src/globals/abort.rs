@@ -9,9 +9,9 @@ use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
+use std::time::Duration;
 use std::{ptr, task};
 
-use chrono::Duration;
 use ion::class::Reflector;
 use ion::conversions::{FromValue, ToValue};
 use ion::function::{Enforce, Opt};
@@ -168,7 +168,7 @@ impl AbortSignal {
 			sender.send_replace(Some(error));
 		});
 
-		let duration = Duration::milliseconds(time as i64);
+		let duration = Duration::from_millis(time);
 		let event_loop = unsafe { &mut cx.get_private().event_loop };
 		if let Some(queue) = &mut event_loop.macrotasks {
 			queue.enqueue(

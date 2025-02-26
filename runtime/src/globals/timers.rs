@@ -4,7 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use chrono::Duration;
+use std::time::Duration;
+
 use ion::function::{Clamp, Enforce, Opt, Rest};
 use ion::{Context, Error, Function, Object, Result};
 use mozjs::jsapi::JSFunctionSpec;
@@ -28,7 +29,7 @@ fn set_timer(
 		};
 
 		let duration = duration.map(|t| t.0.max(minimum)).unwrap_or(minimum);
-		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::milliseconds(duration.into()));
+		let timer = TimerMacrotask::new(callback, arguments, repeat, Duration::from_millis(duration as u64));
 		Ok(queue.enqueue(Macrotask::Timer(timer), None))
 	} else {
 		Err(Error::new("Macrotask Queue has not been initialised.", None))

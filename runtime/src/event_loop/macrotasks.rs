@@ -9,8 +9,8 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Duration, Utc};
 use ion::{Context, ErrorReport, Function, Object, Value};
 use mozjs::jsapi::JSFunction;
 use mozjs::jsval::JSVal;
@@ -18,7 +18,7 @@ use mozjs::jsval::JSVal;
 pub struct SignalMacrotask {
 	callback: Option<Box<dyn FnOnce()>>,
 	terminate: Arc<AtomicBool>,
-	scheduled: DateTime<Utc>,
+	scheduled: Instant,
 }
 
 impl SignalMacrotask {
@@ -26,7 +26,7 @@ impl SignalMacrotask {
 		SignalMacrotask {
 			callback: Some(callback),
 			terminate,
-			scheduled: Utc::now() + duration,
+			scheduled: Instant::now() + duration,
 		}
 	}
 }
@@ -45,7 +45,7 @@ pub struct TimerMacrotask {
 	callback: *mut JSFunction,
 	arguments: Box<[JSVal]>,
 	repeat: bool,
-	scheduled: DateTime<Utc>,
+	scheduled: Instant,
 	duration: Duration,
 	nesting: u8,
 }
@@ -57,14 +57,14 @@ impl TimerMacrotask {
 			arguments,
 			repeat,
 			duration,
-			scheduled: Utc::now(),
+			scheduled: Instant::now(),
 			nesting: 0,
 		}
 	}
 
 	pub fn reset(&mut self) -> bool {
 		if self.repeat {
-			self.scheduled = Utc::now();
+			self.scheduled = Instant::now();
 		}
 		self.repeat
 	}
@@ -73,14 +73,14 @@ impl TimerMacrotask {
 #[derive(Debug)]
 pub struct UserMacrotask {
 	callback: *mut JSFunction,
-	scheduled: DateTime<Utc>,
+	scheduled: Instant,
 }
 
 impl UserMacrotask {
 	pub fn new(callback: Function) -> UserMacrotask {
 		UserMacrotask {
 			callback: callback.get(),
-			scheduled: Utc::now(),
+			scheduled: Instant::now(),
 		}
 	}
 }
@@ -138,9 +138,9 @@ impl Macrotask {
 
 	fn remaining(&self) -> Duration {
 		match self {
-			Macrotask::Signal(signal) => signal.scheduled - Utc::now(),
-			Macrotask::Timer(timer) => timer.scheduled + timer.duration - Utc::now(),
-			Macrotask::User(user) => user.scheduled - Utc::now(),
+			Macrotask::Signal(signal) => signal.scheduled - Instant::now(),
+			Macrotask::Timer(timer) => timer.scheduled + timer.duration - Instant::now(),
+			Macrotask::User(user) => user.scheduled - Instant::now(),
 		}
 	}
 }
@@ -202,30 +202,30 @@ impl MacrotaskQueue {
 	}
 
 	pub fn find_next(&mut self) {
-		let mut next: Option<(u32, &Macrotask)> = None;
-		let mut to_remove = Vec::new();
-		for (id, macrotask) in &self.map {
+		let mut next: Option<(u32, Duration)> = None;
+
+		self.map.retain(|id, macrotask| {
 			if macrotask.terminate() {
-				to_remove.push(*id);
-				continue;
+				return false;
 			}
-			if let Some((_, next_macrotask)) = next {
-				if macrotask.remaining() < next_macrotask.remaining() {
-					next = Some((*id, macrotask));
+
+			let duration = macrotask.remaining();
+			if let Some((_, next_duration)) = next {
+				if duration < next_duration {
+					next = Some((*id, duration));
 				}
-			} else if macrotask.remaining() <= Duration::zero() {
-				next = Some((*id, macrotask));
+			} else if duration <= Duration::ZERO {
+				next = Some((*id, duration));
 			}
-		}
-		let next = next.map(|(id, _)| id);
-		for id in to_remove.iter_mut() {
-			self.map.remove(id);
-		}
-		self.next = next;
+
+			true
+		});
+
+		self.next = next.map(|(id, _)| id);
 	}
 
 	pub fn set_next(&mut self, index: u32, macrotask: &Macrotask) {
-		if macrotask.remaining() < Duration::zero() {
+		if macrotask.remaining() <= Duration::ZERO {
 			self.next = Some(index);
 		}
 	}

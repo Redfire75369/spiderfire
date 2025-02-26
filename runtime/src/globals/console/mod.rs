@@ -8,9 +8,8 @@ mod format;
 
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
+use std::time::Instant;
 
-use chrono::DateTime;
-use chrono::offset::Utc;
 use indent::indent_all_by;
 use indexmap::IndexSet;
 use ion::conversions::FromValue;
@@ -36,7 +35,7 @@ const DEFAULT_LABEL: &str = "default";
 
 thread_local! {
 	static COUNT_MAP: RefCell<HashMap<String, u32>> = RefCell::new(HashMap::new());
-	static TIMER_MAP: RefCell<HashMap<String, DateTime<Utc>>> = RefCell::new(HashMap::new());
+	static TIMER_MAP: RefCell<HashMap<String, Instant>> = RefCell::new(HashMap::new());
 
 	static INDENTS: Cell<u16> = const { Cell::new(0) };
 }
@@ -257,7 +256,7 @@ fn time(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow_mut(|timers| match timers.entry(label.clone()) {
 		Entry::Vacant(v) => {
-			v.insert(Utc::now());
+			v.insert(Instant::now());
 		}
 		Entry::Occupied(_) => {
 			if Config::global().log_level >= LogLevel::Warn {
@@ -274,7 +273,7 @@ fn time_log(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 	TIMER_MAP.with_borrow(|timers| match timers.get(&label) {
 		Some(start) => {
 			if Config::global().log_level >= LogLevel::Info {
-				let duration = Utc::now().timestamp_millis() - start.timestamp_millis();
+				let duration = start.elapsed().as_millis();
 				print_indent(LogLevel::Info);
 				print!("{label}: {duration}ms ");
 				log_args(cx, &values, LogLevel::Info);
@@ -294,9 +293,9 @@ fn time_log(cx: &Context, Opt(label): Opt<String>, Rest(values): Rest<Value>) {
 fn time_end(Opt(label): Opt<String>) {
 	let label = get_label(label);
 	TIMER_MAP.with_borrow_mut(|timers| match timers.remove(&label) {
-		Some(start_time) => {
+		Some(start) => {
 			if Config::global().log_level >= LogLevel::Info {
-				let duration = Utc::now().timestamp_millis() - start_time.timestamp_millis();
+				let duration = start.elapsed().as_millis();
 				print_indent(LogLevel::Info);
 				print!("{label}: {duration}ms - Timer Ended");
 				println!();
