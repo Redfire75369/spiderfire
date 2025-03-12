@@ -5,11 +5,13 @@
  */
 
 mod format;
+mod table;
 
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::{Entry, HashMap};
 use std::time::Instant;
 
+use ascii_table::{Align, AsciiTable};
 use indent::indent_all_by;
 use indexmap::IndexSet;
 use ion::conversions::FromValue;
@@ -20,13 +22,11 @@ use ion::format::{Config as FormatConfig, format_value, indent_str};
 use ion::function::{Opt, Rest};
 use ion::{Context, Object, OwnedKey, Result, Stack, Value};
 use mozjs::jsapi::JSFunctionSpec;
-use term_table::row::Row;
-use term_table::table_cell::{Alignment, TableCell};
-use term_table::{Table, TableStyle};
 
 use crate::cache::map::find_sourcemap;
 use crate::config::{Config, LogLevel};
 use crate::globals::console::format::{FormatArg, format_args, format_value_args};
+use crate::globals::console::table::{get_cells, sort_keys};
 
 const ANSI_CLEAR: &str = "\x1b[1;1H";
 const ANSI_CLEAR_SCREEN_DOWN: &str = "\x1b[0J";
@@ -312,33 +312,6 @@ fn time_end(Opt(label): Opt<String>) {
 
 #[js_fn]
 fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()> {
-	fn sort_keys<'cx, I: IntoIterator<Item = Result<OwnedKey<'cx>>>>(
-		cx: &'cx Context, unsorted: I,
-	) -> Result<IndexSet<OwnedKey<'cx>>> {
-		let mut indexes = IndexSet::<i32>::new();
-		let mut headers = IndexSet::<String>::new();
-
-		for key in unsorted {
-			match key {
-				Ok(OwnedKey::Int(index)) => indexes.insert(index),
-				Ok(OwnedKey::String(header)) => headers.insert(header),
-				Err(e) => return Err(e),
-				_ => false,
-			};
-		}
-
-		Ok(combine_keys(cx, indexes, headers))
-	}
-
-	fn combine_keys(_: &Context, indexes: IndexSet<i32>, headers: IndexSet<String>) -> IndexSet<OwnedKey> {
-		let mut indexes: Vec<i32> = indexes.into_iter().collect();
-		indexes.sort_unstable();
-
-		let mut keys: IndexSet<OwnedKey> = indexes.into_iter().map(OwnedKey::Int).collect();
-		keys.extend(headers.into_iter().map(OwnedKey::String));
-		keys
-	}
-
 	let indents = INDENTS.get();
 	if let Ok(object) = Object::from_value(cx, &data, true, ()) {
 		let rows = object.keys(cx, None).map(|key| key.to_owned_key(cx));
@@ -376,49 +349,20 @@ fn table(cx: &Context, data: Value, Opt(columns): Opt<Vec<String>>) -> Result<()
 			(sort_keys(cx, rows)?, sort_keys(cx, keys.into_iter().map(Ok))?)
 		};
 
-		let mut headers = Vec::with_capacity(1 + columns.len() + 1);
-		headers.push(TableCell::builder("Indices").alignment(Alignment::Center).build());
-		for column in &columns {
+		let mut table = AsciiTable::default();
+
+		table.column(0).set_header("Indices").set_align(Align::Center);
+		for (i, column) in columns.iter().enumerate() {
 			let key = format_key(cx, FormatConfig::default(), column);
-			headers.push(TableCell::builder(key).alignment(Alignment::Center).build());
+			table.column(i + 1).set_header(key.to_string()).set_align(Align::Center);
 		}
 		if has_values {
-			headers.push(TableCell::builder("Values").alignment(Alignment::Center).build());
+			table.column(columns.len() + 1).set_header("Values").set_align(Align::Center);
 		}
 
-		let mut table = Table::builder().style(TableStyle::thin()).rows(vec![Row::new(headers)]).build();
+		let cells = get_cells(cx, &object, &rows, &columns, has_values);
 
-		for row in &rows {
-			let value = object.get(cx, row)?.unwrap();
-			let key = format_key(cx, FormatConfig::default(), row);
-
-			let mut cells = Vec::with_capacity(1 + columns.len() + 1);
-			cells.push(TableCell::builder(key).alignment(Alignment::Center).build());
-
-			if let Ok(object) = Object::from_value(cx, &value, true, ()) {
-				for column in &columns {
-					if let Some(value) = object.get(cx, column)? {
-						let value = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
-						cells.push(TableCell::builder(value).alignment(Alignment::Center).build());
-					} else {
-						cells.push(TableCell::new(""));
-					}
-				}
-				if has_values {
-					cells.push(TableCell::new(""));
-				}
-			} else {
-				cells.extend((0..columns.len()).map(|_| TableCell::new("")));
-				if has_values {
-					let value = format_value(cx, FormatConfig::default().multiline(false).quoted(true), &value);
-					cells.push(TableCell::builder(value).alignment(Alignment::Center).build());
-				}
-			}
-
-			table.add_row(Row::new(cells));
-		}
-
-		println!("{}", indent_all_by((indents * 2) as usize, table.render()))
+		println!("{}", indent_all_by((indents * 2) as usize, table.format(cells)))
 	} else if Config::global().log_level >= LogLevel::Info {
 		print_indent(LogLevel::Info);
 		println!(
